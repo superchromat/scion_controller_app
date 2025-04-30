@@ -89,8 +89,10 @@ class _VideoFormatSelectionSectionState
       children: List.generate(3, (row) {
         return TableRow(
           children: List.generate(3, (col) {
+            final top = row == 0 ? 0.0 : 4.0;
+            final bottom = row == 2 ? 0.0 : 4.0;
             return Padding(
-              padding: const EdgeInsets.all(4),
+              padding: EdgeInsets.fromLTRB(4, top, 4, bottom),
               child: SizedBox(
                 width: 45,
                 height: 20,
@@ -185,52 +187,55 @@ class _VideoFormatSelectionSectionState
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 48, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[800],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: SizedBox(
-                        width: 180,
-                        child: DropdownButtonFormField<String>(
-                          decoration:
-                              const InputDecoration(labelText: 'Colourspace'),
-                          value: selectedColourspace,
-                          items: colourspaces
-                              .map((space) => DropdownMenuItem(
-                                    value: space,
-                                    child: Text(space),
-                                  ))
-                              .toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                selectedColourspace = value;
-                                _updatingFromPreset = true;
-                                matrixModel = ColorSpaceMatrix(
-                                    getMatrixForColourspace(value));
-                              });
-                        
-                              final matrix = getMatrixForColourspace(value);
-                              final futures = <Future<void>>[];
-                        
-                              for (int i = 0; i < 3; i++) {
-                                for (int j = 0; j < 3; j++) {
-                                  final future = sliderKeys[i][j]
-                                      .currentState
-                                      ?.setValue(matrix[i][j]);
-                                  if (future != null) futures.add(future);
-                                }
-                              }
-                        
-                              Future.wait(futures).then((_) {
+                    Transform.translate(
+                      offset: const Offset(-8, 0),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 48, 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[800],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: SizedBox(
+                          width: 180,
+                          child: DropdownButtonFormField<String>(
+                            decoration:
+                                const InputDecoration(labelText: 'Colourspace'),
+                            value: selectedColourspace,
+                            items: colourspaces
+                                .map((space) => DropdownMenuItem(
+                                      value: space,
+                                      child: Text(space),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
                                 setState(() {
-                                  _updatingFromPreset = false;
+                                  selectedColourspace = value;
+                                  _updatingFromPreset = true;
+                                  matrixModel = ColorSpaceMatrix(
+                                      getMatrixForColourspace(value));
                                 });
-                              });
-                            }
-                          },
+
+                                final matrix = getMatrixForColourspace(value);
+                                final futures = <Future<void>>[];
+
+                                for (int i = 0; i < 3; i++) {
+                                  for (int j = 0; j < 3; j++) {
+                                    final future = sliderKeys[i][j]
+                                        .currentState
+                                        ?.setValue(matrix[i][j]);
+                                    if (future != null) futures.add(future);
+                                  }
+                                }
+
+                                Future.wait(futures).then((_) {
+                                  setState(() {
+                                    _updatingFromPreset = false;
+                                  });
+                                });
+                              }
+                            },
+                          ),
                         ),
                       ),
                     ),

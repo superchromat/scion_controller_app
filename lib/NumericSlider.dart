@@ -151,7 +151,6 @@ class NumericSliderState extends State<NumericSlider>
 
     double snappedValue = rawValue;
 
-// Snap ONLY for display, without altering drag math
     for (final detent in _detents) {
       if ((rawValue - detent).abs() <= _detentThreshold) {
         snappedValue = detent;
@@ -350,7 +349,7 @@ class _NumericSliderPainter extends CustomPainter {
         ? Colors.yellow[700]!
         : interacting
             ? Colors.yellow
-            : Colors.grey;
+            : Colors.white;
 
     final bgPaint = Paint()..color = Colors.transparent;
     final linePaint = Paint()
@@ -366,9 +365,9 @@ class _NumericSliderPainter extends CustomPainter {
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = Colors.white
+        ..color = Colors.grey
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+        ..strokeWidth = 1,
     );
 
     final clipPath = Path()..addRRect(rrect);
@@ -377,7 +376,7 @@ class _NumericSliderPainter extends CustomPainter {
 
     if (!editing) {
       final fraction = (value / 2.0);
-      final shadePaint = Paint()..color = baseColor.withOpacity(0.2);
+      final shadePaint = Paint()..color = baseColor.withOpacity(0.6);
       final shadeWidth = size.width * fraction.abs() / 2.0;
       final rect = Rect.fromLTWH(
         fraction > 0 ? centerX : centerX - shadeWidth,
