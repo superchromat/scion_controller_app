@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:namer_app/NumericSlider.dart';
 import 'package:provider/provider.dart';
-
 import 'LUTEditor.dart';
+import 'SetupPage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -72,14 +73,14 @@ class StatusBarRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+      color: const Color.fromARGB(255, 20, 20, 20),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: DefaultTextStyle(
         style: const TextStyle(
           fontFamily: 'courier',
           fontSize: 12,
           letterSpacing: 1.0,
-          color: Colors.white, 
+          color: Colors.white,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -101,9 +102,9 @@ class _MyHomePageState extends State<MyHomePage> {
     Widget page;
     switch (selectedIndex) {
       case 0:
-        page = const DemoPage();
+        page = const SetupPage();
       default:
-        page = const DemoPage();
+        page = const KnobPage();
     }
 
     return LayoutBuilder(builder: (context, constraints) {
@@ -119,6 +120,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   SafeArea(
                     child: NavigationRail(
                       backgroundColor: const Color.fromARGB(255, 88, 88, 92),
+                      minWidth: 72, // <---- add this
+                      minExtendedWidth: 180, // <-
                       extended: constraints.maxWidth >= 100,
                       destinations: [
                         const NavigationRailDestination(
@@ -154,7 +157,6 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Container(
               color: Theme.of(context).colorScheme.onTertiaryContainer,
-              padding: const EdgeInsets.all(8),
               child: const StatusBarRow(
                 leftText: "Status Left",
                 rightText: "Status Right",
@@ -183,7 +185,40 @@ class DemoPage extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+class KnobPage extends StatelessWidget {
+  const KnobPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Scaffold(
+                  backgroundColor: Colors.black,
+                  body: Center(
+                    child: SizedBox(
+                      width: 55,
+                      height: 20,
+                      child: NumericSlider(
+                        value: 0.0,
+                        onChanged: (val) => print('New value: $val'),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
