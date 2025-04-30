@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'ColorSpaceMatrix.dart';
-import 'ColorSpaceSelection.dart';
+import 'NumericSlider.dart';
 
 class VideoFormatSelectionSection extends StatefulWidget {
   const VideoFormatSelectionSection({super.key});
@@ -40,10 +40,15 @@ class _VideoFormatSelectionSectionState
   ];
 
   String selectedResolution = '1920x1080';
-  double selectedFramerate = 60.0;
-  String selectedColourspace = 'RGB';
+  double selectedFramerate = 30.0;
+  String selectedColourspace = 'YUV';
 
-  List<List<TextEditingController>> matrixControllers = [];
+  final List<List<GlobalKey<NumericSliderState>>> sliderKeys = List.generate(
+    3,
+    (_) => List.generate(3, (_) => GlobalKey<NumericSliderState>()),
+  );
+
+  bool _updatingFromPreset = false;
 
   @override
   void initState() {
@@ -54,25 +59,6 @@ class _VideoFormatSelectionSectionState
       [0.0, 1.0, 0.0],
       [0.0, 0.0, 1.0],
     ]);
-    _initializeMatrixControllers();
-  }
-
-  void _initializeMatrixControllers() {
-    final matrix = getMatrixForColourspace(selectedColourspace);
-    matrixControllers = List.generate(3, (i) {
-      return List.generate(3, (j) {
-        return TextEditingController(text: formatCell(matrix[i][j]));
-      });
-    });
-  }
-
-  void _updateMatrixControllers() {
-    final matrix = getMatrixForColourspace(selectedColourspace);
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        matrixControllers[i][j].text = formatCell(matrix[i][j]);
-      }
-    }
   }
 
   List<List<double>> getMatrixForColourspace(String space) {
@@ -97,34 +83,41 @@ class _VideoFormatSelectionSectionState
     }
   }
 
-  String formatCell(double value) {
-    return "${value >= 0 ? '+' : ''}${value.toStringAsFixed(4)}";
+  Widget _matrixWidget() {
+    return Table(
+      defaultColumnWidth: const FixedColumnWidth(80),
+      children: List.generate(3, (row) {
+        return TableRow(
+          children: List.generate(3, (col) {
+            return Padding(
+              padding: const EdgeInsets.all(4),
+              child: SizedBox(
+                width: 45,
+                height: 20,
+                child: NumericSlider(
+                  key: sliderKeys[row][col],
+                  value: matrixModel.getCell(row, col),
+                  onChanged: (newValue) {
+                    if (_updatingFromPreset) return;
+                    setState(() {
+                      matrixModel.updateCell(row, col, newValue);
+                      matrixModel.correctMatrix(row, col);
+                      if (selectedColourspace != 'Custom') {
+                        selectedColourspace = 'Custom';
+                      }
+                    });
+                  },
+                ),
+              ),
+            );
+          }),
+        );
+      }),
+    );
   }
-
-  @override
-  void dispose() {
-    for (var row in matrixControllers) {
-      for (var controller in row) {
-        controller.dispose();
-      }
-    }
-    super.dispose();
-  }
-
-  void _syncControllersToMatrix() {
-  final corrected = matrixModel.matrix;
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-      matrixControllers[i][j].text = formatCell(corrected[i][j]);
-    }
-  }
-}
 
   @override
   Widget build(BuildContext context) {
-    if (matrixControllers.isEmpty) {
-      return const SizedBox.shrink(); // or a spinner if you want
-    }
     return Card(
       color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -139,11 +132,12 @@ class _VideoFormatSelectionSectionState
             ),
             const SizedBox(height: 16),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // Dropdowns first
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     SizedBox(
                       width: 180,
@@ -191,69 +185,68 @@ class _VideoFormatSelectionSectionState
                       ),
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: 180,
-                      child: DropdownButtonFormField<String>(
-                        decoration:
-                            const InputDecoration(labelText: 'Colourspace'),
-                        value: selectedColourspace,
-                        items: colourspaces
-                            .map((space) => DropdownMenuItem(
-                                  value: space,
-                                  child: Text(space),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              selectedColourspace = value;
-                              _updateMatrixControllers();
-                            });
-                          }
-                        },
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 48, 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: SizedBox(
+                        width: 180,
+                        child: DropdownButtonFormField<String>(
+                          decoration:
+                              const InputDecoration(labelText: 'Colourspace'),
+                          value: selectedColourspace,
+                          items: colourspaces
+                              .map((space) => DropdownMenuItem(
+                                    value: space,
+                                    child: Text(space),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                selectedColourspace = value;
+                                _updatingFromPreset = true;
+                                matrixModel = ColorSpaceMatrix(
+                                    getMatrixForColourspace(value));
+                              });
+                        
+                              final matrix = getMatrixForColourspace(value);
+                              final futures = <Future<void>>[];
+                        
+                              for (int i = 0; i < 3; i++) {
+                                for (int j = 0; j < 3; j++) {
+                                  final future = sliderKeys[i][j]
+                                      .currentState
+                                      ?.setValue(matrix[i][j]);
+                                  if (future != null) futures.add(future);
+                                }
+                              }
+                        
+                              Future.wait(futures).then((_) {
+                                setState(() {
+                                  _updatingFromPreset = false;
+                                });
+                              });
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(width: 32),
                 // Matrix second
-                Table(
-                  border: TableBorder.all(color: Colors.grey, width: 0.5),
-                  defaultColumnWidth: const FixedColumnWidth(80),
-                  children: List.generate(3, (row) {
-                    return TableRow(
-                      children: List.generate(3, (col) {
-                        return Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: TextFormField(
-                            controller: matrixControllers[row][col],
-                            style: const TextStyle(
-                                fontFamily: 'monospace', fontSize: 14),
-                            textAlign: TextAlign.center,
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            ),
-                            readOnly: false,
-                            onChanged: (value) {
-                              final parsed = double.tryParse(value);
-                              if (parsed != null) {
-                                setState(() {
-                                  matrixModel.updateCell(row, col, parsed);
-
-                                  // Now correct the matrix based on the edited cell
-                                  matrixModel.correctMatrix(row, col);
-
-                                  // Update all TextEditingControllers to match corrected matrix
-                                  _syncControllersToMatrix();
-                                });
-                              }
-                            },
-                          ),
-                        );
-                      }),
-                    );
-                  }),
+                Transform.translate(
+                  offset: const Offset(-40, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _matrixWidget(),
+                  ),
                 ),
               ],
             ),

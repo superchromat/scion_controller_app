@@ -3,7 +3,6 @@ import 'package:namer_app/NumericSlider.dart';
 import 'package:provider/provider.dart';
 import 'LUTEditor.dart';
 import 'SetupPage.dart';
-
 void main() {
   runApp(const MyApp());
 }

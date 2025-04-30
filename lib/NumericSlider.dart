@@ -13,10 +13,10 @@ class NumericSlider extends StatefulWidget {
   });
 
   @override
-  State<NumericSlider> createState() => _NumericSliderState();
+  State<NumericSlider> createState() => NumericSliderState();
 }
 
-class _NumericSliderState extends State<NumericSlider>
+class NumericSliderState extends State<NumericSlider>
     with SingleTickerProviderStateMixin {
   late double _value;
   double _displayValue = 0;
@@ -30,7 +30,7 @@ class _NumericSliderState extends State<NumericSlider>
   bool _showCursor = true;
   Timer? _cursorTimer;
 
-  final _focusNode = FocusNode();
+  final focusNode = FocusNode();
   final RangeValues _range = const RangeValues(-2.0, 2.0);
   final List<double> _detents = const [-1.0, 0.0, 1.0];
   final double _detentThreshold = 0.1;
@@ -68,11 +68,11 @@ class _NumericSliderState extends State<NumericSlider>
   void dispose() {
     _animController.dispose();
     _cursorTimer?.cancel();
-    _focusNode.dispose();
+    focusNode.dispose();
     super.dispose();
   }
 
-  void setValue(double newValue) {
+  Future<void> setValue(double newValue) {
     final clamped = newValue.clamp(_range.start, _range.end);
     if ((clamped - _value).abs() >= 0.0001) {
       _animStart = _displayValue;
@@ -85,12 +85,13 @@ class _NumericSliderState extends State<NumericSlider>
           });
         });
       _externallySet = true;
-      _animController.forward(from: 0).whenComplete(() {
+      return _animController.forward(from: 0).whenComplete(() {
         _externallySet = false;
         _value = _animTarget;
         widget.onChanged(_value);
       });
     }
+    return Future.value();
   }
 
   void _startEditing() {
@@ -265,7 +266,7 @@ class _NumericSliderState extends State<NumericSlider>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (_, constraints) => Focus(
-        focusNode: _focusNode,
+        focusNode: focusNode,
         autofocus: true,
         onFocusChange: (hasFocus) {
           if (!hasFocus && _editing) {
@@ -284,7 +285,7 @@ class _NumericSliderState extends State<NumericSlider>
         child: GestureDetector(
           onTap: () {
             if (!_editing) {
-              _focusNode
+              focusNode
                   .requestFocus(); // triggers autofocus AND lets onFocusChange trigger on blur
               _startEditing();
             }
@@ -297,17 +298,21 @@ class _NumericSliderState extends State<NumericSlider>
           }),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(3),
-            child: CustomPaint(
-              size: Size(constraints.maxWidth, constraints.maxHeight),
-              painter: _NumericSliderPainter(
-                value: _editing ? _value : _displayValue,
-                interacting: _isInteracting,
-                externallySet: _externallySet,
-                textStyle: _textStyle,
-                text: _displayText,
-                showCursor: _editing && _showCursor,
-                cursorPosition: _cursorPosition,
-                editing: _editing,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: _NumericSliderPainter(
+                  value: _editing ? _value : _displayValue,
+                  interacting: _isInteracting,
+                  externallySet: _externallySet,
+                  textStyle: _textStyle,
+                  text: _displayText,
+                  showCursor: _editing && _showCursor,
+                  cursorPosition: _cursorPosition,
+                  editing: _editing,
+                ),
               ),
             ),
           ),

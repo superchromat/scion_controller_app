@@ -17,6 +17,10 @@ class ColorSpaceMatrix {
     _matrix[row][col] = newValue;
   }
 
+  double getCell(int row, int col) {
+    return _matrix[row][col];
+  }
+
   double determinant() {
     // 3x3 determinant manually
     double det = _matrix[0][0] *
