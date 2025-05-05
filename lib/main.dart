@@ -98,17 +98,26 @@ class StatusBarRow extends StatelessWidget {
 class _MyHomePageState extends State<MyHomePage> {
   var selectedIndex = 0;
 
+  final pages = [
+    const SetupPage(),
+    for (var i = 1; i < 5; i++) SendPage(key: ValueKey(i), pageNumber: i),
+    const KnobPage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     Widget page;
     switch (selectedIndex) {
       case 0:
         page = const SetupPage();
+        break;
       case 1:
       case 2:
       case 3:
       case 4:
-        page = SendPage(selectedIndex);
+        page =
+            SendPage(key: ValueKey(selectedIndex), pageNumber: selectedIndex);
+        break;
       default:
         page = const KnobPage();
     }
@@ -126,8 +135,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   SafeArea(
                     child: NavigationRail(
                       backgroundColor: const Color.fromARGB(255, 88, 88, 92),
-                      minWidth: 72, 
-                      minExtendedWidth: 180, 
+                      minWidth: 72,
+                      minExtendedWidth: 180,
                       extended: constraints.maxWidth >= 100,
                       destinations: [
                         const NavigationRailDestination(
@@ -155,7 +164,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   Expanded(
                     child: Container(
                       color: Theme.of(context).colorScheme.surface,
-                      child: page,
+                      child: IndexedStack(
+                        index: selectedIndex,
+                        children: pages,
+                      ),
                     ),
                   ),
                 ],

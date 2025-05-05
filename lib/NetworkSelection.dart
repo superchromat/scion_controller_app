@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'LabeledCard.dart';
 
 class NetworkConnectionSection extends StatefulWidget {
   const NetworkConnectionSection({super.key});
@@ -38,88 +39,81 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Network Connection',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextField(
-              controller: addressController,
-              decoration: const InputDecoration(labelText: 'Network Address'),
-              style: const TextStyle(fontFamily: 'monospace'),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: txPortController,
-                    decoration: const InputDecoration(labelText: 'Transmit Port'),
-                    style: const TextStyle(fontFamily: 'monospace'),
-                    keyboardType: TextInputType.number,
-                  ),
+    return LabeledCard(
+      title: 'Network Connection',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: addressController,
+            decoration: const InputDecoration(labelText: 'Network Address'),
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: txPortController,
+                  decoration: const InputDecoration(labelText: 'Transmit Port'),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                  keyboardType: TextInputType.number,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: rxPortController,
-                    decoration: const InputDecoration(labelText: 'Receive Port'),
-                    style: const TextStyle(fontFamily: 'monospace'),
-                    keyboardType: TextInputType.number,
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: rxPortController,
+                  decoration: const InputDecoration(labelText: 'Receive Port'),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                  keyboardType: TextInputType.number,
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.network_ping),
-                  label: const Text('Connect'),
-                  onPressed: () {},
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  icon: discovering
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search),
-                  label: const Text('Zeroconf'),
-                  onPressed: discovering ? null : startDiscovery,
-                ),
-              ],
-            ),
-            if (discoveredAddresses.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              DropdownButton<String>(
-                isExpanded: true,
-                value: discoveredAddresses.first,
-                items: discoveredAddresses
-                    .map((address) => DropdownMenuItem(
-                          value: address,
-                          child: Text(address),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      addressController.text = value;
-                    });
-                  }
-                },
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.network_ping),
+                label: const Text('Connect'),
+                onPressed: () {},
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                icon: discovering
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.search),
+                label: const Text('Zeroconf'),
+                onPressed: discovering ? null : startDiscovery,
+              ),
+            ],
+          ),
+          if (discoveredAddresses.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            DropdownButton<String>(
+              isExpanded: true,
+              value: discoveredAddresses.first,
+              items: discoveredAddresses
+                  .map((address) => DropdownMenuItem(
+                        value: address,
+                        child: Text(address),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    addressController.text = value;
+                  });
+                }
+              },
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -27,24 +27,25 @@ class _SetupPageState extends State<SetupPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(child: NetworkConnectionSection()),
-                    const SizedBox(width: 24),
                     Expanded(child: FileManagementSection()),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
               IntrinsicHeight(
                   child: SizedBox(
                       height: 200,
                       // System status overview diagram TODO
                       child: Placeholder())),
-              const SizedBox(height: 24),
               IntrinsicHeight(
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment
+                      .start, // or stretch, depending on your intent
                   children: [
-                    VideoFormatSelectionSection(),
-                    const SizedBox(width: 24),
-                    SyncSettingsSection(),
+                    Expanded(child: VideoFormatSelectionSection()),
+                    SizedBox(
+                      width: 400,
+                      child: SyncSettingsSection(),
+                    ),
                   ],
                 ),
               ),
