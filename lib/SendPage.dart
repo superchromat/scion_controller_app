@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'LabeledCard.dart';
+import 'Shape.dart';
 
 class SendPage extends StatefulWidget {
   final int pageNumber;
@@ -55,7 +56,7 @@ Widget build(BuildContext context) {
           ),
         ),
         LabeledCard(
-            title: 'Shape', child: const Placeholder(fallbackHeight: 100)),
+            title: 'Shape', child: Shape()),
         LabeledCard(
             title: 'Color', child: const Placeholder(fallbackHeight: 100)),
         LabeledCard(

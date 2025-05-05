@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+// TODO: enabled / disabled based on network connection status
+
 class LabeledCard extends StatelessWidget {
   final String title;
   final Widget child;

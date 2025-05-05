@@ -5,11 +5,15 @@ import 'package:flutter/services.dart';
 class NumericSlider extends StatefulWidget {
   final double value;
   final ValueChanged<double> onChanged;
+  final RangeValues? range;
+  final List<double>? detents;
 
   const NumericSlider({
     super.key,
     required this.value,
     required this.onChanged,
+    this.range,
+    this.detents,
   });
 
   @override
@@ -24,15 +28,14 @@ class NumericSliderState extends State<NumericSlider>
   double _startDragValue = 0;
   bool _editing = false;
   bool _externallySet = false;
-  String _inputBuffer =
-      "\${_value >= 0 ? '+' : ''}\${_value.toStringAsFixed(4)}";
+  late String _inputBuffer;
   int _cursorPosition = 0;
   bool _showCursor = true;
   Timer? _cursorTimer;
 
   final focusNode = FocusNode();
-  final RangeValues _range = const RangeValues(-2.0, 2.0);
-  final List<double> _detents = const [-1.0, 0.0, 1.0];
+  late final RangeValues _range;
+  late final List<double> _detents;
   final double _detentThreshold = 0.1;
   double? _activeDetent;
 
@@ -56,8 +59,11 @@ class NumericSliderState extends State<NumericSlider>
   @override
   void initState() {
     super.initState();
+    _range = widget.range ?? const RangeValues(-2.0, 2.0);
+    _detents = widget.detents ?? const [-1.0, 0.0, 1.0];
     _value = widget.value.clamp(_range.start, _range.end);
     _displayValue = _value;
+    _inputBuffer = (_value >= 0 ? '+' : '') + _value.toStringAsFixed(4);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -311,6 +317,7 @@ class NumericSliderState extends State<NumericSlider>
                   showCursor: _editing && _showCursor,
                   cursorPosition: _cursorPosition,
                   editing: _editing,
+                  range: _range,
                 ),
               ),
             ),
@@ -330,17 +337,18 @@ class _NumericSliderPainter extends CustomPainter {
   bool showCursor = false;
   final int cursorPosition;
   final bool editing;
+  final RangeValues range;
 
-  _NumericSliderPainter({
-    required this.value,
-    required this.interacting,
-    required this.externallySet,
-    required this.textStyle,
-    required this.text,
-    required this.showCursor,
-    required this.cursorPosition,
-    required this.editing,
-  });
+  _NumericSliderPainter(
+      {required this.value,
+      required this.interacting,
+      required this.externallySet,
+      required this.textStyle,
+      required this.text,
+      required this.showCursor,
+      required this.cursorPosition,
+      required this.editing,
+      required this.range});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -375,23 +383,24 @@ class _NumericSliderPainter extends CustomPainter {
     canvas.clipPath(clipPath);
 
     if (!editing) {
-      final fraction = (value / 2.0);
+      final normalized =
+          ((value - range.start) / (range.end - range.start)).clamp(0.0, 1.0);
+      final posX = size.width * normalized;
+      final centerX = size.width / 2;
+
       final shadePaint = Paint()..color = baseColor.withOpacity(0.6);
-      final shadeWidth = size.width * fraction.abs() / 2.0;
+      final shadeWidth = (posX - centerX).abs();
       final rect = Rect.fromLTWH(
-        fraction > 0 ? centerX : centerX - shadeWidth,
+        posX >= centerX ? centerX : posX,
         0,
         shadeWidth,
         size.height,
       );
       canvas.drawRect(rect, shadePaint);
-    }
 
-    if (!editing) {
-      final lineX = centerX + (centerX * value / 2.0);
       canvas.drawLine(
-        Offset(lineX, 0),
-        Offset(lineX, size.height),
+        Offset(posX, 0),
+        Offset(posX, size.height),
         linePaint,
       );
     }
@@ -452,5 +461,6 @@ class _NumericSliderPainter extends CustomPainter {
       old.text != text ||
       old.showCursor != showCursor ||
       old.cursorPosition != cursorPosition ||
-      old.editing != editing;
+      old.editing != editing ||
+      old.range != range;
 }
