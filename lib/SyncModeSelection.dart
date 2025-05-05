@@ -36,7 +36,9 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection> {
             Text('Return Sync', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             ..._syncOptions.map((option) => RadioListTile<String>(
-                  title: Text(option),
+                  title: Text(option,
+                    style: Theme.of(context).textTheme.bodyMedium
+                  ),
                   value: option,
                   groupValue: _selectedSync,
                   onChanged: (value) {
@@ -45,7 +47,7 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection> {
                 )),
             const SizedBox(height: 16),
             Text('Pixel clock offset',
-                style: Theme.of(context).textTheme.bodySmall),
+                style: Theme.of(context).textTheme.titleMedium),
             Slider(
               value: _pixelOffset.toDouble(),
               min: -16,

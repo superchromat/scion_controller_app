@@ -33,16 +33,20 @@ class _SetupPageState extends State<SetupPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(
-                    width: 600, // Adjust width to fit your VideoFormat widget
-                    child: VideoFormatSelectionSection(),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(child: SyncSettingsSection()),
-                ],
+              IntrinsicHeight(
+                  child: SizedBox(
+                      height: 200,
+                      // System status overview diagram TODO
+                      child: Placeholder())),
+              const SizedBox(height: 24),
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    VideoFormatSelectionSection(),
+                    const SizedBox(width: 24),
+                    SyncSettingsSection(),
+                  ],
+                ),
               ),
             ],
           ),

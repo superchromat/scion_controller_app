@@ -3,6 +3,8 @@ import 'package:namer_app/NumericSlider.dart';
 import 'package:provider/provider.dart';
 import 'LUTEditor.dart';
 import 'SetupPage.dart';
+import 'SendPage.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -102,6 +104,11 @@ class _MyHomePageState extends State<MyHomePage> {
     switch (selectedIndex) {
       case 0:
         page = const SetupPage();
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+        page = SendPage(selectedIndex);
       default:
         page = const KnobPage();
     }
@@ -119,8 +126,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   SafeArea(
                     child: NavigationRail(
                       backgroundColor: const Color.fromARGB(255, 88, 88, 92),
-                      minWidth: 72, // <---- add this
-                      minExtendedWidth: 180, // <-
+                      minWidth: 72, 
+                      minExtendedWidth: 180, 
                       extended: constraints.maxWidth >= 100,
                       destinations: [
                         const NavigationRailDestination(
