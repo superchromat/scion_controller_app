@@ -7,6 +7,7 @@ class NumericSlider extends StatefulWidget {
   final ValueChanged<double> onChanged;
   final RangeValues? range;
   final List<double>? detents;
+  final int? precision;
 
   const NumericSlider({
     super.key,
@@ -14,6 +15,7 @@ class NumericSlider extends StatefulWidget {
     required this.onChanged,
     this.range,
     this.detents,
+    this.precision
   });
 
   @override
@@ -39,6 +41,8 @@ class NumericSliderState extends State<NumericSlider>
   final double _detentThreshold = 0.1;
   double? _activeDetent;
 
+  late final int _precision;
+
   late AnimationController _animController;
   late Animation<double> _anim;
   double _animStart = 0;
@@ -63,7 +67,8 @@ class NumericSliderState extends State<NumericSlider>
     _detents = widget.detents ?? const [-1.0, 0.0, 1.0];
     _value = widget.value.clamp(_range.start, _range.end);
     _displayValue = _value;
-    _inputBuffer = (_value >= 0 ? '+' : '') + _value.toStringAsFixed(4);
+    _precision = widget.precision ?? 4;
+    _inputBuffer = (_value >= 0 ? '+' : '') + _value.toStringAsFixed(_precision);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -78,9 +83,20 @@ class NumericSliderState extends State<NumericSlider>
     super.dispose();
   }
 
-  Future<void> setValue(double newValue) {
+  double get value => _value;
+
+  Future<void> setValue(double newValue, {bool immediate = false}) {
     final clamped = newValue.clamp(_range.start, _range.end);
     if ((clamped - _value).abs() >= 0.0001) {
+      if (immediate) {
+        _value = clamped;
+        _displayValue = clamped;
+        _externallySet = false;
+        setState(() {}); // Trigger rebuild with new displayValue
+        widget.onChanged(_value);
+        return Future.value();
+      }
+
       _animStart = _displayValue;
       _animTarget = clamped;
       _anim = Tween(begin: _animStart, end: _animTarget).animate(
@@ -90,6 +106,7 @@ class NumericSliderState extends State<NumericSlider>
             _displayValue = _anim.value;
           });
         });
+
       _externallySet = true;
       return _animController.forward(from: 0).whenComplete(() {
         _externallySet = false;
@@ -178,7 +195,7 @@ class NumericSliderState extends State<NumericSlider>
   String get _displayText {
     if (_editing) return _inputBuffer;
     final sign = _displayValue >= 0 ? '+' : '';
-    return sign + _displayValue.toStringAsFixed(4);
+    return sign + _displayValue.toStringAsFixed(_precision);
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
@@ -318,6 +335,8 @@ class NumericSliderState extends State<NumericSlider>
                   cursorPosition: _cursorPosition,
                   editing: _editing,
                   range: _range,
+                  detents: _detents,
+                  precision: _precision,
                 ),
               ),
             ),
@@ -338,6 +357,8 @@ class _NumericSliderPainter extends CustomPainter {
   final int cursorPosition;
   final bool editing;
   final RangeValues range;
+  final List<double> detents;
+  final int precision;
 
   _NumericSliderPainter(
       {required this.value,
@@ -348,7 +369,9 @@ class _NumericSliderPainter extends CustomPainter {
       required this.showCursor,
       required this.cursorPosition,
       required this.editing,
-      required this.range});
+      required this.range,
+      required this.detents,
+      required this.precision});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -381,6 +404,11 @@ class _NumericSliderPainter extends CustomPainter {
     final clipPath = Path()..addRRect(rrect);
     canvas.save();
     canvas.clipPath(clipPath);
+
+    for (var d in detents) {
+      final X = (d - range.start) / (range.end - range.start).clamp(0, 1) * size.width;
+      canvas.drawLine(Offset(X,0), Offset(X,size.height), linePaint);
+    }
 
     if (!editing) {
       final normalized =
@@ -462,5 +490,6 @@ class _NumericSliderPainter extends CustomPainter {
       old.showCursor != showCursor ||
       old.cursorPosition != cursorPosition ||
       old.editing != editing ||
-      old.range != range;
+      old.range != range ||
+      old.detents != detents;
 }
