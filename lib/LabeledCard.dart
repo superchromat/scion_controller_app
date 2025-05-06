@@ -17,7 +17,7 @@ class LabeledCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Card(
-        color: const Color.fromARGB(255, 76, 78, 80), //Theme.of(context).colorScheme.surface,
+        color: Colors.grey[800],
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         child: Padding(

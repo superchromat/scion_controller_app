@@ -113,11 +113,17 @@ class SendColor extends StatelessWidget {
             ),
             SizedBox(width: 48),
             Expanded(
-              child: Container(
+              child: Card(
                 color: Colors.grey[900],
-                child: LUTEditor(),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: LUTEditor()
+                ),
               ),
-            ),
+            )
           ],
         ),
       ),

@@ -8,7 +8,7 @@ class FileManagementSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LabeledCard(
-      title: 'File Management',
+      title: 'Configuration',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
