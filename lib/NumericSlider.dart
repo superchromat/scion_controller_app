@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'OscPathSegment.dart';
+
 class NumericSlider extends StatefulWidget {
   final double value;
   final ValueChanged<double> onChanged;
@@ -23,7 +25,7 @@ class NumericSlider extends StatefulWidget {
 }
 
 class NumericSliderState extends State<NumericSlider>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, OscAddressMixin {
   late double _value;
   double _displayValue = 0;
   Offset? _startDragPos;
@@ -83,6 +85,11 @@ class NumericSliderState extends State<NumericSlider>
     super.dispose();
   }
 
+  void _onChanged(double value) {
+    widget.onChanged(value);
+    sendOsc(value);
+  }
+
   double get value => _value;
 
   Future<void> setValue(double newValue, {bool immediate = false}) {
@@ -93,7 +100,7 @@ class NumericSliderState extends State<NumericSlider>
         _displayValue = clamped;
         _externallySet = false;
         setState(() {}); // Trigger rebuild with new displayValue
-        widget.onChanged(_value);
+        _onChanged(_value);
         return Future.value();
       }
 
@@ -111,7 +118,7 @@ class NumericSliderState extends State<NumericSlider>
       return _animController.forward(from: 0).whenComplete(() {
         _externallySet = false;
         _value = _animTarget;
-        widget.onChanged(_value);
+        _onChanged(_value);
       });
     }
     return Future.value();
@@ -150,7 +157,7 @@ class NumericSliderState extends State<NumericSlider>
         _value = newValue;
         _displayValue = newValue;
         _editing = false;
-        widget.onChanged(_value);
+        _onChanged(_value);
       });
     } else {
       _cancelEditing();
@@ -187,7 +194,7 @@ class NumericSliderState extends State<NumericSlider>
       _value = snappedValue;
       _displayValue = snappedValue;
     });
-    widget.onChanged(snappedValue);
+    _onChanged(snappedValue);
   }
 
   bool get _isInteracting => _editing || _startDragPos != null;
@@ -219,7 +226,7 @@ class NumericSliderState extends State<NumericSlider>
           _value = clamped;
           _displayValue = clamped;
           _editing = false;
-          widget.onChanged(_value);
+          _onChanged(_value);
         });
       } else {
         _cancelEditing();

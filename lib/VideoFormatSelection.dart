@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:namer_app/OscPathSegment.dart';
 
 import 'ColorSpaceMatrix.dart';
 import 'NumericSlider.dart';
@@ -13,7 +14,8 @@ class VideoFormatSelectionSection extends StatefulWidget {
 }
 
 class _VideoFormatSelectionSectionState
-    extends State<VideoFormatSelectionSection> {
+    extends State<VideoFormatSelectionSection>
+    with OscAddressMixin {
   late ColorSpaceMatrix matrixModel;
 
   final List<String> resolutions = [
@@ -85,171 +87,184 @@ class _VideoFormatSelectionSectionState
   }
 
   Widget _matrixWidget() {
-    return Table(
-      defaultColumnWidth: const FixedColumnWidth(80),
-      children: List.generate(3, (row) {
-        return TableRow(
-          children: List.generate(3, (col) {
-            final top = row == 0 ? 0.0 : 4.0;
-            final bottom = row == 2 ? 0.0 : 4.0;
-            return Padding(
-              padding: EdgeInsets.fromLTRB(4, top, 4, bottom),
-              child: SizedBox(
-                width: 45,
-                height: 20,
-                child: NumericSlider(
-                  key: sliderKeys[row][col],
-                  value: matrixModel.getCell(row, col),
-                  onChanged: (newValue) {
-                    if (_updatingFromPreset) return;
-                    setState(() {
-                      matrixModel.updateCell(row, col, newValue);
-                      matrixModel.correctMatrix(row, col);
-                      if (selectedColourspace != 'Custom') {
-                        selectedColourspace = 'Custom';
-                      }
-                    });
-                  },
+    return OscPathSegment(
+      segment: 'color_matrix',
+      child: Table(
+        defaultColumnWidth: const FixedColumnWidth(80),
+        children: List.generate(3, (row) {
+          return TableRow(
+            children: List.generate(3, (col) {
+              final top = row == 0 ? 0.0 : 4.0;
+              final bottom = row == 2 ? 0.0 : 4.0;
+              return Padding(
+                padding: EdgeInsets.fromLTRB(4, top, 4, bottom),
+                child: SizedBox(
+                  width: 45,
+                  height: 20,
+                  child: OscPathSegment(
+                    segment: '${row},${col}',
+                    child: NumericSlider(
+                      key: sliderKeys[row][col],
+                      value: matrixModel.getCell(row, col),
+                      onChanged: (newValue) {
+                        if (_updatingFromPreset) return;
+                        setState(() {
+                          matrixModel.updateCell(row, col, newValue);
+                          matrixModel.correctMatrix(row, col);
+                          if (selectedColourspace != 'Custom') {
+                            selectedColourspace = 'Custom';
+                          }
+                        });
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            );
-          }),
-        );
-      }),
+              );
+            }),
+          );
+        }),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return LabeledCard(
-      title: 'Video Format Selection',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Dropdowns first
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: DropdownButtonFormField<String>(
-                      decoration:
-                          const InputDecoration(labelText: 'Resolution'),
-                      value: selectedResolution,
-                      style: const TextStyle(fontFamily: 'monospace'),
-                      items: resolutions
-                          .map((res) => DropdownMenuItem(
-                                value: res,
-                                child: Text(res),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            selectedResolution = value;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: 180,
-                    child: DropdownButtonFormField<double>(
-                      decoration:
-                          const InputDecoration(labelText: 'Framerate (fps)'),
-                      value: selectedFramerate,
-                      style: const TextStyle(fontFamily: 'monospace'),
-                      items: framerates
-                          .map((rate) => DropdownMenuItem(
-                                value: rate,
-                                child: Text(rate.toStringAsFixed(0)),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            selectedFramerate = value;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Transform.translate(
-                    offset: const Offset(-8, 0),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 48, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[800],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+    return OscPathSegment(
+      segment: 'analog_format',
+      child: LabeledCard(
+        title: 'Analog Send/Return Format',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Dropdowns first
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OscPathSegment(
+                      segment: 'resolution',
                       child: SizedBox(
                         width: 180,
                         child: DropdownButtonFormField<String>(
                           decoration:
-                              const InputDecoration(labelText: 'Colourspace'),
-                          value: selectedColourspace,
-                          items: colourspaces
-                              .map((space) => DropdownMenuItem(
-                                    value: space,
-                                    child: Text(space),
+                              const InputDecoration(labelText: 'Resolution'),
+                          value: selectedResolution,
+                          style: const TextStyle(fontFamily: 'monospace'),
+                          items: resolutions
+                              .map((res) => DropdownMenuItem(
+                                    value: res,
+                                    child: Text(res),
                                   ))
                               .toList(),
                           onChanged: (value) {
                             if (value != null) {
                               setState(() {
-                                selectedColourspace = value;
-                                _updatingFromPreset = true;
-                                matrixModel = ColorSpaceMatrix(
-                                    getMatrixForColourspace(value));
-                              });
-
-                              final matrix = getMatrixForColourspace(value);
-                              final futures = <Future<void>>[];
-
-                              for (int i = 0; i < 3; i++) {
-                                for (int j = 0; j < 3; j++) {
-                                  final future = sliderKeys[i][j]
-                                      .currentState
-                                      ?.setValue(matrix[i][j]);
-                                  if (future != null) futures.add(future);
-                                }
-                              }
-
-                              Future.wait(futures).then((_) {
-                                setState(() {
-                                  _updatingFromPreset = false;
-                                });
+                                selectedResolution = value;
+                                sendOscFromContext(context, value);
                               });
                             }
                           },
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              // Matrix second
-              Transform.translate(
-                offset: const Offset(-40, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: _matrixWidget(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 180,
+                      child: DropdownButtonFormField<double>(
+                        decoration:
+                            const InputDecoration(labelText: 'Framerate (fps)'),
+                        value: selectedFramerate,
+                        style: const TextStyle(fontFamily: 'monospace'),
+                        items: framerates
+                            .map((rate) => DropdownMenuItem(
+                                  value: rate,
+                                  child: Text(rate.toStringAsFixed(0)),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              selectedFramerate = value;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Transform.translate(
+                      offset: const Offset(-8, 0),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 48, 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[700],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: SizedBox(
+                          width: 180,
+                          child: DropdownButtonFormField<String>(
+                            decoration:
+                                const InputDecoration(labelText: 'Colourspace'),
+                            value: selectedColourspace,
+                            items: colourspaces
+                                .map((space) => DropdownMenuItem(
+                                      value: space,
+                                      child: Text(space),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  selectedColourspace = value;
+                                  _updatingFromPreset = true;
+                                  matrixModel = ColorSpaceMatrix(
+                                      getMatrixForColourspace(value));
+                                });
+      
+                                final matrix = getMatrixForColourspace(value);
+                                final futures = <Future<void>>[];
+      
+                                for (int i = 0; i < 3; i++) {
+                                  for (int j = 0; j < 3; j++) {
+                                    final future = sliderKeys[i][j]
+                                        .currentState
+                                        ?.setValue(matrix[i][j]);
+                                    if (future != null) futures.add(future);
+                                  }
+                                }
+      
+                                Future.wait(futures).then((_) {
+                                  setState(() {
+                                    _updatingFromPreset = false;
+                                  });
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-        ],
+                // Matrix second
+                Transform.translate(
+                  offset: const Offset(-40, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _matrixWidget(),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
