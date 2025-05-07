@@ -33,11 +33,11 @@ class OscPathSegment extends InheritedWidget {
 mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   late final String oscAddress;
 
+
   @override
-  void initState() {
-    super.initState();
-    final pathSegments = OscPathSegment.resolvePath(context);
-    oscAddress = '/' + pathSegments.join('/');
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    oscAddress = '/' + OscPathSegment.resolvePath(context).join('/');
   }
 
   void sendOscOrig(double value) {
@@ -67,7 +67,7 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     }
 
     print(
-        'Sending $args to ${oscAddress ?? "(unknown address)"} (types: ${typeTags.join()})');
+        'Sending $args to ${address ?? "(unknown address)"} (types: ${typeTags.join()})');
   }
 
   void sendOscFromContext(BuildContext context, dynamic arg) {

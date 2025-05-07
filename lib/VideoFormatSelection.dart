@@ -14,8 +14,7 @@ class VideoFormatSelectionSection extends StatefulWidget {
 }
 
 class _VideoFormatSelectionSectionState
-    extends State<VideoFormatSelectionSection>
-    with OscAddressMixin {
+    extends State<VideoFormatSelectionSection> with OscAddressMixin {
   late ColorSpaceMatrix matrixModel;
 
   final List<String> resolutions = [
@@ -127,6 +126,35 @@ class _VideoFormatSelectionSectionState
     );
   }
 
+  Widget oscDropdown<T>(String label, List<T> items) {
+    return OscPathSegment(
+      segment: label.toLowerCase(),
+      child: Builder(
+        builder: (dropdownContext) => SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<T>(
+            decoration: InputDecoration(labelText: label),
+            style: const TextStyle(fontFamily: 'monospace'),
+            value: items[0],
+            items: items
+                .map((res) => DropdownMenuItem<T>(
+                      value: res,
+                      child: Text(res.toString()),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  sendOscFromContext(dropdownContext, value);
+                });
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
@@ -145,55 +173,9 @@ class _VideoFormatSelectionSectionState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    OscPathSegment(
-                      segment: 'resolution',
-                      child: SizedBox(
-                        width: 180,
-                        child: DropdownButtonFormField<String>(
-                          decoration:
-                              const InputDecoration(labelText: 'Resolution'),
-                          value: selectedResolution,
-                          style: const TextStyle(fontFamily: 'monospace'),
-                          items: resolutions
-                              .map((res) => DropdownMenuItem(
-                                    value: res,
-                                    child: Text(res),
-                                  ))
-                              .toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                selectedResolution = value;
-                                sendOscFromContext(context, value);
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
+                    oscDropdown('Resolution', resolutions),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: 180,
-                      child: DropdownButtonFormField<double>(
-                        decoration:
-                            const InputDecoration(labelText: 'Framerate (fps)'),
-                        value: selectedFramerate,
-                        style: const TextStyle(fontFamily: 'monospace'),
-                        items: framerates
-                            .map((rate) => DropdownMenuItem(
-                                  value: rate,
-                                  child: Text(rate.toStringAsFixed(0)),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              selectedFramerate = value;
-                            });
-                          }
-                        },
-                      ),
-                    ),
+                    oscDropdown('Framerate', framerates),
                     const SizedBox(height: 16),
                     Transform.translate(
                       offset: const Offset(-8, 0),
@@ -223,10 +205,10 @@ class _VideoFormatSelectionSectionState
                                   matrixModel = ColorSpaceMatrix(
                                       getMatrixForColourspace(value));
                                 });
-      
+
                                 final matrix = getMatrixForColourspace(value);
                                 final futures = <Future<void>>[];
-      
+
                                 for (int i = 0; i < 3; i++) {
                                   for (int j = 0; j < 3; j++) {
                                     final future = sliderKeys[i][j]
@@ -235,7 +217,7 @@ class _VideoFormatSelectionSectionState
                                     if (future != null) futures.add(future);
                                   }
                                 }
-      
+
                                 Future.wait(futures).then((_) {
                                   setState(() {
                                     _updatingFromPreset = false;
