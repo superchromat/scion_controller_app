@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:namer_app/OscPathSegment.dart';
 
 import 'LabeledCard.dart';
 import 'Shape.dart';
@@ -31,38 +32,41 @@ class _SendPageState extends State<SendPage> {
 
 @override
 Widget build(BuildContext context) {
-  return SingleChildScrollView(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LabeledCard(
-          title: 'Input',
-          child: DropdownButton<String>(
-            value: _selectedInput,
-            isExpanded: true,
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedInput = value;
-                });
-              }
-            },
-            items: _inputOptions.map((option) {
-              return DropdownMenuItem(
-                value: option,
-                child: Text(option),
-              );
-            }).toList(),
+  return OscPathSegment(
+    segment: 'send/${widget.pageNumber}',
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LabeledCard(
+            title: 'Input',
+            child: DropdownButton<String>(
+              value: _selectedInput,
+              isExpanded: true,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedInput = value;
+                  });
+                }
+              },
+              items: _inputOptions.map((option) {
+                return DropdownMenuItem(
+                  value: option,
+                  child: Text(option),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        LabeledCard(
-            title: 'Shape', child: Shape()),
-        LabeledCard(
-            title: 'Color', child: SendColor()),
-        LabeledCard(
-            title: 'Texture', child: const Placeholder(fallbackHeight: 100)),
-      ],
+          LabeledCard(
+              title: 'Shape', child: Shape()),
+          LabeledCard(
+              title: 'Color', child: SendColor()),
+          LabeledCard(
+              title: 'Texture', child: const Placeholder(fallbackHeight: 100)),
+        ],
+      ),
     ),
   );
 }

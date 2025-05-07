@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-/// Shared key so other classes can invoke logging
 final GlobalKey<OscLogTableState> oscLogKey = GlobalKey<OscLogTableState>();
 
 enum Status { fail, error, ok }
@@ -29,8 +28,6 @@ class OscLogEntry {
 
 class OscLogTable extends StatefulWidget {
   final ValueChanged<Uint8List> onDownload;
-
-  /// whether this table is the currently visible page
   final bool isActive;
 
   const OscLogTable({
@@ -68,7 +65,6 @@ class OscLogTableState extends State<OscLogTable> {
     }
   }
 
-  /// Call this to append a new OSC message to the log.
   void logOscMessage({
     required String address,
     required dynamic arg,
@@ -76,8 +72,9 @@ class OscLogTableState extends State<OscLogTable> {
     required Direction direction,
     required Uint8List binary,
   }) {
-    final argsList =
-        (arg is List ? arg.map((e) => e.toString()) : [arg.toString()]);
+    final argsList = (arg is List
+        ? arg.map((e) => e.toString())
+        : [arg.toString()]);
     final entry = OscLogEntry(
       status: status,
       direction: direction,
@@ -90,7 +87,7 @@ class OscLogTableState extends State<OscLogTable> {
     setState(() {
       _entries.add(entry);
 
-      // if not visible, always scroll; otherwise only if already at bottom
+      // if hidden, always scroll; if visible only when already at bottom
       if (!widget.isActive || _isAtBottom) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
       } else {
@@ -107,32 +104,51 @@ class OscLogTableState extends State<OscLogTable> {
     );
   }
 
-  Widget _buildCell(Widget child, int flex,
-      {String? tooltip, bool isHeader = false}) {
+  Widget _buildCell(
+    Widget child,
+    int flex, {
+    String? tooltip,
+    bool isHeader = false,
+    String? copyText,
+  }) {
     final side = BorderSide(color: Colors.grey[600]!, width: 1);
     final bottom = isHeader
         ? BorderSide(color: Colors.yellow, width: 1)
         : side;
 
-    return Flexible(
-      flex: flex,
-      child: Container(
-        height: 12,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          border: Border(right: side, bottom: bottom),
-        ),
-        child: DefaultTextStyle.merge(
-          style: isHeader
-              ? const TextStyle(fontWeight: FontWeight.bold)
-              : const TextStyle(),
-          child: tooltip != null
-              ? Tooltip(message: tooltip, child: child)
-              : child,
-        ),
+    Widget content = Container(
+      height: 12,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(border: Border(right: side, bottom: bottom)),
+      child: DefaultTextStyle.merge(
+        style: isHeader
+            ? const TextStyle(fontWeight: FontWeight.bold)
+            : const TextStyle(),
+        child: tooltip != null ? Tooltip(message: tooltip, child: child) : child,
       ),
     );
+
+    // wrap in copy-on-tap if requested
+    if (copyText != null) {
+      content = MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: copyText));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Copied to clipboard'),
+                duration: Duration(milliseconds: 800),
+              ),
+            );
+          },
+          child: content,
+        ),
+      );
+    }
+
+    return Flexible(flex: flex, child: content);
   }
 
   Widget _buildHeader() {
@@ -173,95 +189,71 @@ class OscLogTableState extends State<OscLogTable> {
           itemBuilder: (context) => statusItems(),
           onSelected: (s) {
             setState(() {
-              if (_filterStatuses.contains(s)) _filterStatuses.remove(s);
-              else _filterStatuses.add(s);
+              if (_filterStatuses.contains(s)) {
+                _filterStatuses.remove(s);
+              } else {
+                _filterStatuses.add(s);
+              }
             });
           },
         ),
         1,
         isHeader: true,
       ),
-      _buildCell(
-        const Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 10)),
-        1,
-        isHeader: true,
-      ),
-      _buildCell(
-        const Text('Time', style: TextStyle(fontFamily: 'Courier', fontSize: 10)),
-        2,
-        isHeader: true,
-      ),
-      _buildCell(
-        const Text('Address', style: TextStyle(fontFamily: 'Courier', fontSize: 10)),
-        4,
-        isHeader: true,
-      ),
-      _buildCell(
-        const Text('Args', style: TextStyle(fontFamily: 'Courier', fontSize: 10)),
-        6,
-        isHeader: true,
-      ),
+      _buildCell(const Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 1, isHeader: true),
+      _buildCell(const Text('Time', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 2, isHeader: true),
+      _buildCell(const Text('Address', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 4, isHeader: true),
+      _buildCell(const Text('Args', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 6, isHeader: true),
       _buildCell(const SizedBox(), 1, isHeader: true),
     ]);
   }
 
   Widget _rowForEntry(OscLogEntry e) {
+    // choose a string for each cell we’ll copy
+    final statusText = e.status.toString().split('.').last.toUpperCase();
+    final dirText    = e.direction == Direction.received ? 'RECEIVED' : 'SENT';
+    final timeTextStr = DateFormat('HH:mm:ss.SSS').format(e.timestamp);
+
     Color statusColor;
     switch (e.status) {
-      case Status.ok:    statusColor = Colors.green; break;
+      case Status.ok:    statusColor = Colors.green;  break;
       case Status.error: statusColor = Colors.yellow; break;
-      case Status.fail:  statusColor = Colors.red; break;
+      case Status.fail:  statusColor = Colors.red;    break;
     }
 
-    final statusDot = Container(
-      width: 8, height: 8,
-      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
-    );
-    final dirIcon = Icon(
-      e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back,
-      size: 10,
-    );
-
-    final timeText = Text(
-      DateFormat('HH:mm:ss.SSS a').format(e.timestamp),
-      style: const TextStyle(fontFamily: 'Courier', fontSize: 10),
-    );
-
-    final addrText = Text(
-      e.address,
-      style: const TextStyle(fontFamily: 'Courier', fontSize: 10),
-      overflow: TextOverflow.ellipsis,
-    );
-
-    final argsText = Text(
-      e.args,
-      style: const TextStyle(fontFamily: 'Courier', fontSize: 10),
-      overflow: TextOverflow.ellipsis,
-    );
-
-    final downloadBtn = GestureDetector(
-      onTap: () => widget.onDownload(e.binary),
-      child: const Icon(Icons.download, size: 12),
-    );
-
-    return GestureDetector(
-      onLongPress: () {
-        final line =
-            '${e.status} | ${e.direction} | ${DateFormat('HH:mm:ss.SSS a').format(e.timestamp)} | ${e.address} | ${e.args}';
-        Clipboard.setData(ClipboardData(text: line));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
-        );
-      },
-      child: Row(children: [
-        _buildCell(statusDot, 1),
-        _buildCell(dirIcon, 1),
-        _buildCell(timeText, 2),
-        _buildCell(addrText, 4, tooltip: e.address),
-        _buildCell(argsText, 6, tooltip: e.args),
-        _buildCell(downloadBtn, 1),
-      ]),
-    );
+    return Row(children: [
+      _buildCell(
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+        1,
+        copyText: statusText,
+      ),
+      _buildCell(
+        Icon(e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back, size: 10),
+        1,
+        copyText: dirText,
+      ),
+      _buildCell(
+        Text(timeTextStr, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+        2,
+        copyText: timeTextStr,
+      ),
+      _buildCell(
+        Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
+        4,
+        tooltip: e.address,
+        copyText: e.address,
+      ),
+      _buildCell(
+        Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
+        6,
+        tooltip: e.args,
+        copyText: e.args,
+      ),
+      _buildCell(
+        GestureDetector(onTap: () => widget.onDownload(e.binary), child: const Icon(Icons.download, size: 12)),
+        1,
+      ),
+    ]);
   }
 
   @override
@@ -279,18 +271,14 @@ class OscLogTableState extends State<OscLogTable> {
           ),
           if (!_isAtBottom && _pendingCount > 0)
             Positioned(
-              bottom: 0,
-              left: 0, right: 0,
+              bottom: 0, left: 0, right: 0,
               child: InkWell(
                 onTap: _scrollToBottom,
                 child: Container(
                   color: Colors.grey[600],
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   alignment: Alignment.center,
-                  child: Text(
-                    '$_pendingCount more messages below',
-                    style: const TextStyle(fontSize: 10),
-                  ),
+                  child: Text('$_pendingCount more messages below', style: const TextStyle(fontSize: 10)),
                 ),
               ),
             ),

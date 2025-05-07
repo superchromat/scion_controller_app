@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:namer_app/LUTEditor.dart';
+import 'package:namer_app/OscPathSegment.dart';
 
 import 'NumericSlider.dart';
 
@@ -30,13 +31,16 @@ class SendColor extends StatelessWidget {
         SizedBox(
           height: 24,
           width: 60,
-          child: NumericSlider(
-            key: sliderKey,
-            value: value,
-            range: range,
-            detents: detents,
-            precision: precision,
-            onChanged: (v) => onParamChanged(key, v),
+          child: OscPathSegment(
+            segment: label.toLowerCase(),
+            child: NumericSlider(
+              key: sliderKey,
+              value: value,
+              range: range,
+              detents: detents,
+              precision: precision,
+              onChanged: (v) => onParamChanged(key, v),
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -120,7 +124,7 @@ class SendColor extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: LUTEditor()
+                  child: OscPathSegment(segment: "lut", child: LUTEditor())
                 ),
               ),
             )

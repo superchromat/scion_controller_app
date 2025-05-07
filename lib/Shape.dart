@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:namer_app/OscPathSegment.dart';
 
 import 'NumericSlider.dart';
+import 'OscPathSegment.dart';
 
-import 'package:flutter/material.dart';
 
 import 'package:flutter/material.dart';
 
@@ -97,17 +98,20 @@ class _LinkableSliderPairState extends State<LinkableSliderPair> {
         SizedBox(
           height: 24,
           width: 60,
-          child: NumericSlider(
-            key: _xSliderKey,
-            value: widget.xValue,
-            range: widget.range,
-            detents: widget.detents,
-            precision: widget.precision,
-            onChanged: (v) => _onSliderChanged(
-              changedKey: widget.xKey,
-              value: v,
-              otherKey: widget.yKey,
-              otherSliderKey: _ySliderKey,
+          child: OscPathSegment(
+            segment: widget.xKey,
+            child: NumericSlider(
+              key: _xSliderKey,
+              value: widget.xValue,
+              range: widget.range,
+              detents: widget.detents,
+              precision: widget.precision,
+              onChanged: (v) => _onSliderChanged(
+                changedKey: widget.xKey,
+                value: v,
+                otherKey: widget.yKey,
+                otherSliderKey: _ySliderKey,
+              ),
             ),
           ),
         ),
@@ -125,17 +129,20 @@ class _LinkableSliderPairState extends State<LinkableSliderPair> {
         SizedBox(
           height: 24,
           width: 60,
-          child: NumericSlider(
-            key: _ySliderKey,
-            value: widget.yValue,
-            range: widget.range,
-            detents: widget.detents,
-            precision: widget.precision,
-            onChanged: (v) => _onSliderChanged(
-              changedKey: widget.yKey,
-              value: v,
-              otherKey: widget.xKey,
-              otherSliderKey: _xSliderKey,
+          child: OscPathSegment(
+            segment: widget.yKey,
+            child: NumericSlider(
+              key: _ySliderKey,
+              value: widget.yValue,
+              range: widget.range,
+              detents: widget.detents,
+              precision: widget.precision,
+              onChanged: (v) => _onSliderChanged(
+                changedKey: widget.yKey,
+                value: v,
+                otherKey: widget.xKey,
+                otherSliderKey: _xSliderKey,
+              ),
             ),
           ),
         ),
@@ -176,13 +183,16 @@ class Shape extends StatelessWidget {
         SizedBox(
           height: 24,
           width: 60,
-          child: NumericSlider(
-            key: sliderKey,
-            value: value,
-            range: range,
-            detents: detents,
-            precision: precision,
-            onChanged: (v) => onParamChanged(key, v),
+          child: OscPathSegment(
+            segment: label.toLowerCase(),
+            child: NumericSlider(
+              key: sliderKey,
+              value: value,
+              range: range,
+              detents: detents,
+              precision: precision,
+              onChanged: (v) => onParamChanged(key, v),
+            ),
           ),
         ),
         const SizedBox(width: 8),
