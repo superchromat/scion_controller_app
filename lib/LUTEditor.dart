@@ -24,7 +24,7 @@ class LUTEditor extends StatefulWidget {
   State<LUTEditor> createState() => _LUTEditorState();
 }
 
-class _LUTEditorState extends State<LUTEditor> {
+class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   final ValueNotifier<bool> flashLockNotifier = ValueNotifier(false);
 
   static const List<String> channels = ['Y', 'R', 'G', 'B'];
@@ -51,10 +51,21 @@ class _LUTEditorState extends State<LUTEditor> {
   static const double insetPadding =
       20.0; // True padding to avoid clipping control points
 
+  bool _didInit = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies(); // runs OscAddressMixin’s logic first
+
+    if (!_didInit) {
+      _didInit = true;
+      updateSplines(); // now oscAddress is valid
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    updateSplines();
   }
 
   void updateSplines() {
@@ -63,6 +74,17 @@ class _LUTEditorState extends State<LUTEditor> {
         splines[c] = MonotonicSpline(controlPoints[c]!);
       }
     });
+
+    // After updating, send OSC with flattened control points for selected channel
+    final addr = '$oscAddress/$selectedChannel';
+
+    final points = controlPoints[selectedChannel]!;
+    final flat = <double>[];
+    for (var pt in points) {
+      flat.add(pt.dx);
+      flat.add(pt.dy);
+    }
+    sendOsc(flat, address: addr);
   }
 
   void resetControlPoints() {
