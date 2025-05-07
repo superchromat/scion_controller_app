@@ -14,60 +14,65 @@ class SendPage extends StatefulWidget {
   State<SendPage> createState() => _SendPageState();
 }
 
-class _SendPageState extends State<SendPage> {
-  late String _selectedInput;
-
-  final List<String> _inputOptions = List.generate(
-    4,
-    (i) => 'HDMI Input ${i + 1}',
-  );
+class _SendPageState extends State<SendPage> with OscAddressMixin {
+  late int _selectedInput;
 
   @override
   void initState() {
     super.initState();
-    final clampedIndex =
-        (widget.pageNumber-1).clamp(0, _inputOptions.length - 1).toInt();
-    _selectedInput = _inputOptions[clampedIndex];
+    _selectedInput = widget.pageNumber;
   }
 
-@override
-Widget build(BuildContext context) {
-  return OscPathSegment(
-    segment: 'send/${widget.pageNumber}',
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LabeledCard(
-            title: 'Input',
-            child: DropdownButton<String>(
-              value: _selectedInput,
-              isExpanded: true,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedInput = value;
-                  });
-                }
-              },
-              items: _inputOptions.map((option) {
-                return DropdownMenuItem(
-                  value: option,
-                  child: Text(option),
-                );
-              }).toList(),
-            ),
+  Widget oscDropdown(String label, List<int> items, int defaultValue) {
+    return OscPathSegment(
+      segment: label.toLowerCase(),
+      child: Builder(
+        builder: (dropdownContext) => SizedBox(
+          width: 180,
+          child: DropdownButtonFormField(
+            decoration: InputDecoration(labelText: label),
+            style: const TextStyle(fontFamily: 'monospace'),
+            value: defaultValue,
+            items: items
+                .map((res) => DropdownMenuItem(
+                      value: res,
+                      child: Text('HDMI Input ' + res.toString()),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  sendOscFromContext(dropdownContext, value);
+                });
+              }
+            },
           ),
-          LabeledCard(
-              title: 'Shape', child: Shape()),
-          LabeledCard(
-              title: 'Color', child: SendColor()),
-          LabeledCard(
-              title: 'Texture', child: const Placeholder(fallbackHeight: 100)),
-        ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OscPathSegment(
+      segment: 'send/${widget.pageNumber}',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LabeledCard(
+                title: 'Send Source',
+                child: oscDropdown('Input', [1,2,3,4],
+                    widget.pageNumber)),
+            LabeledCard(title: 'Shape', child: Shape()),
+            LabeledCard(title: 'Color', child: SendColor()),
+            LabeledCard(
+                title: 'Texture',
+                child: const Placeholder(fallbackHeight: 100)),
+          ],
+        ),
+      ),
+    );
+  }
 }
