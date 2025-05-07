@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'OSCLogPage.dart';
 
 class OscPathSegment extends InheritedWidget {
   // Used for attaching segments of an OSC address path
@@ -33,7 +35,6 @@ class OscPathSegment extends InheritedWidget {
 mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   late final String oscAddress;
 
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -65,6 +66,14 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
         typeTags.add('?');
       }
     }
+
+    final logState = oscLogKey.currentState;
+    logState?.logOscMessage(
+        address: address,
+        arg: arg,
+        status: Status.error,
+        direction: Direction.sent,
+        binary: Uint8List.fromList([0]));
 
     print(
         'Sending $args to ${address ?? "(unknown address)"} (types: ${typeTags.join()})');
