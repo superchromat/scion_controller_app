@@ -39,11 +39,20 @@ class OscLogTable extends StatefulWidget {
 }
 
 class OscLogTableState extends State<OscLogTable> {
+  static const double _toggleAreaWidth = 24.0;
+
   final List<OscLogEntry> _entries = [];
-  final Set<OscStatus> _filterStatuses = { OscStatus.ok, OscStatus.error, OscStatus.fail };
+  final Set<OscStatus> _filterStatuses = {
+    OscStatus.ok,
+    OscStatus.error,
+    OscStatus.fail,
+  };
   final ScrollController _scrollController = ScrollController();
   bool _isAtBottom = true;
   int _pendingCount = 0;
+
+  // track which address-groups are expanded
+  final Set<int> _expandedGroups = {};
 
   @override
   void initState() {
@@ -84,8 +93,6 @@ class OscLogTableState extends State<OscLogTable> {
 
     setState(() {
       _entries.add(entry);
-
-      // if hidden, always scroll; if visible only when already at bottom
       if (!widget.isActive || _isAtBottom) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
       } else {
@@ -127,7 +134,6 @@ class OscLogTableState extends State<OscLogTable> {
       ),
     );
 
-    // wrap in copy-on-tap if requested
     if (copyText != null) {
       content = MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -168,9 +174,9 @@ class OscLogTableState extends State<OscLogTable> {
       }
 
       return [
-        item(OscStatus.ok,    'OK'),
+        item(OscStatus.ok, 'OK'),
         item(OscStatus.error, 'ERROR'),
-        item(OscStatus.fail,  'FAIL'),
+        item(OscStatus.fail, 'FAIL'),
       ];
     }
 
@@ -207,16 +213,21 @@ class OscLogTableState extends State<OscLogTable> {
   }
 
   Widget _rowForEntry(OscLogEntry e) {
-    // choose a string for each cell we’ll copy
     final statusText = e.status.toString().split('.').last.toUpperCase();
-    final dirText    = e.direction == Direction.received ? 'RECEIVED' : 'SENT';
+    final dirText = e.direction == Direction.received ? 'RECEIVED' : 'SENT';
     final timeTextStr = DateFormat('HH:mm:ss.SSS').format(e.timestamp);
 
     Color statusColor;
     switch (e.status) {
-      case OscStatus.ok:    statusColor = Colors.green;  break;
-      case OscStatus.error: statusColor = Colors.yellow; break;
-      case OscStatus.fail:  statusColor = Colors.red;    break;
+      case OscStatus.ok:
+        statusColor = Colors.green;
+        break;
+      case OscStatus.error:
+        statusColor = Colors.yellow;
+        break;
+      case OscStatus.fail:
+        statusColor = Colors.red;
+        break;
     }
 
     return Row(children: [
@@ -254,22 +265,170 @@ class OscLogTableState extends State<OscLogTable> {
     ]);
   }
 
+  /// Builds the summary row when collapsed.
+  Widget _buildSummaryRow(List<OscLogEntry> group, int groupIndex) {
+    final e = group.last;
+    final count = group.length;
+    final statusText = e.status.toString().split('.').last.toUpperCase();
+    final dirText = e.direction == Direction.received ? 'RECEIVED' : 'SENT';
+    final timeText = DateFormat('HH:mm:ss.SSS').format(e.timestamp);
+
+    Color statusColor;
+    switch (e.status) {
+      case OscStatus.ok:
+        statusColor = Colors.green;
+        break;
+      case OscStatus.error:
+        statusColor = Colors.yellow;
+        break;
+      case OscStatus.fail:
+        statusColor = Colors.red;
+        break;
+    }
+
+    return Row(children: [
+      _buildCell(
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+        1,
+        copyText: statusText,
+      ),
+      _buildCell(
+        Icon(e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back, size: 10),
+        1,
+        copyText: dirText,
+      ),
+      _buildCell(
+        Text(timeText, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+        2,
+        copyText: timeText,
+      ),
+      _buildCell(
+        Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
+        4,
+        tooltip: e.address,
+        copyText: e.address,
+      ),
+      _buildCell(
+        Row(children: [
+          Expanded(
+            child: Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
+          ),
+          Text(' ($count)', style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+        ]),
+        6,
+        tooltip: e.args,
+        copyText: e.args,
+      ),
+      _buildCell(
+        Icon(Icons.add, size: 12), // TODO: Clear
+        1,
+      ),
+    ]);
+  }
+
+  /// Toggle area for grouping UX
+  Widget _buildGroupToggleArea({
+    required bool isSummary,
+    required int groupIndex,
+    int? entryIndex,
+  }) {
+    final isExpanded = _expandedGroups.contains(groupIndex);
+
+    if (isSummary) {
+      // collapsed group: show '+'
+      return GestureDetector(
+        onTap: () => setState(() => _expandedGroups.add(groupIndex)),
+        child: Container(
+          width: _toggleAreaWidth,
+          height: 12,
+          alignment: Alignment.center,
+          child: const Icon(Icons.expand, size: 12, color: Colors.yellow),
+        ),
+      );
+    }
+
+    // expanded group entries: show '-' on first, vertical line all
+    final first = entryIndex == 0;
+    return GestureDetector(
+      onTap: () => setState(() => _expandedGroups.remove(groupIndex)),
+      child: Container(
+        width: _toggleAreaWidth,
+        height: 12,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          border: Border(
+            right: BorderSide(color: Colors.yellow, width: 1),
+          ),
+        ),
+        child: first ? const Icon(Icons.compress, size: 12, color: Colors.yellow,) : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _entries.where((e) => _filterStatuses.contains(e.status)).toList();
+    final List<List<OscLogEntry>> groups = [];
+    for (var i = 0; i < visible.length; ) {
+      var j = i + 1;
+      while (j < visible.length && visible[j].address == visible[i].address) {
+        j++;
+      }
+      groups.add(visible.sublist(i, j));
+      i = j;
+    }
 
     return Column(children: [
-      _buildHeader(),
+      // header with placeholder for toggle column
+      Row(children: [
+        const SizedBox(width: _toggleAreaWidth),
+        Expanded(child: _buildHeader()),
+      ]),
       Expanded(
         child: Stack(children: [
           ListView.builder(
             controller: _scrollController,
-            itemCount: visible.length,
-            itemBuilder: (_, i) => _rowForEntry(visible[i]),
+            itemCount: groups.length,
+            itemBuilder: (_, gi) {
+              final group = groups[gi];
+              // collapsed multi-entry group
+              if (group.length > 1 && !_expandedGroups.contains(gi)) {
+                return Row(children: [
+                  _buildGroupToggleArea(isSummary: true, groupIndex: gi),
+                  Expanded(child: _buildSummaryRow(group, gi)),
+                ]);
+              }
+
+              // expanded group
+              if (group.length > 1 && _expandedGroups.contains(gi)) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var ei = 0; ei < group.length; ei++)
+                      Row(children: [
+                        _buildGroupToggleArea(
+                          isSummary: false,
+                          groupIndex: gi,
+                          entryIndex: ei,
+                        ),
+                        Expanded(child: _rowForEntry(group[ei])),
+                      ]),
+                  ],
+                );
+              }
+
+              // single entry (no grouping)
+              return Row(children: [
+                const SizedBox(width: _toggleAreaWidth),
+                Expanded(child: _rowForEntry(group.first)),
+              ]);
+            },
           ),
           if (!_isAtBottom && _pendingCount > 0)
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
               child: InkWell(
                 onTap: _scrollToBottom,
                 child: Container(
