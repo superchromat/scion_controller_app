@@ -1,5 +1,7 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
-import 'package:namer_app/OscPathSegment.dart';
+import 'package:namer_app/OscWidgetBinding.dart';
 
 import 'ColorSpaceMatrix.dart';
 import 'NumericSlider.dart';
@@ -101,7 +103,7 @@ class _VideoFormatSelectionSectionState
                   width: 45,
                   height: 20,
                   child: OscPathSegment(
-                    segment: '${row},${col}',
+                    segment: '$row,$col',
                     child: NumericSlider(
                       key: sliderKeys[row][col],
                       value: matrixModel.getCell(row, col),

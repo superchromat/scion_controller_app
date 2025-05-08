@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'OscPathSegment.dart';
+import 'OscWidgetBinding.dart';
 
 class NumericSlider extends StatefulWidget {
   final double value;
@@ -11,14 +11,13 @@ class NumericSlider extends StatefulWidget {
   final List<double>? detents;
   final int? precision;
 
-  const NumericSlider({
-    super.key,
-    required this.value,
-    required this.onChanged,
-    this.range,
-    this.detents,
-    this.precision
-  });
+  const NumericSlider(
+      {super.key,
+      required this.value,
+      required this.onChanged,
+      this.range,
+      this.detents,
+      this.precision});
 
   @override
   State<NumericSlider> createState() => NumericSliderState();
@@ -70,7 +69,8 @@ class NumericSliderState extends State<NumericSlider>
     _value = widget.value.clamp(_range.start, _range.end);
     _displayValue = _value;
     _precision = widget.precision ?? 4;
-    _inputBuffer = (_value >= 0 ? '+' : '') + _value.toStringAsFixed(_precision);
+    _inputBuffer =
+        (_value >= 0 ? '+' : '') + _value.toStringAsFixed(_precision);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -122,6 +122,17 @@ class NumericSliderState extends State<NumericSlider>
       });
     }
     return Future.value();
+  }
+
+  @override
+  OscStatus onOscMessage(List<Object?> args) {
+    OscStatus status = OscStatus.ok;
+    if (args.isNotEmpty && args.first is num) {
+      setValue((args.first as num).toDouble(), immediate: true);
+    } else {
+      status = OscStatus.error; 
+    }
+    return (status);
   }
 
   void _startEditing() {
@@ -413,8 +424,10 @@ class _NumericSliderPainter extends CustomPainter {
     canvas.clipPath(clipPath);
 
     for (var d in detents) {
-      final X = (d - range.start) / (range.end - range.start).clamp(0, 1) * size.width;
-      canvas.drawLine(Offset(X,0), Offset(X,size.height), linePaint);
+      final X = (d - range.start) /
+          (range.end - range.start).clamp(0, 1) *
+          size.width;
+      canvas.drawLine(Offset(X, 0), Offset(X, size.height), linePaint);
     }
 
     if (!editing) {

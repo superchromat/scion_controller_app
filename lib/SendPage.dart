@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:namer_app/OscPathSegment.dart';
+import 'package:namer_app/OscWidgetBinding.dart';
 
 import 'LabeledCard.dart';
 import 'Shape.dart';

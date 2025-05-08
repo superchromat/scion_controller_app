@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:namer_app/LUTEditor.dart';
-import 'package:namer_app/OscPathSegment.dart';
+import 'package:namer_app/OscWidgetBinding.dart';
 
 import 'NumericSlider.dart';
 

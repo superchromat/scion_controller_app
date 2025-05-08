@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 
 import 'MonotonicSpline.dart';
-import 'OscPathSegment.dart';
+import 'OscWidgetBinding.dart';
 
 Color getChannelColor(String channel) {
   switch (channel) {

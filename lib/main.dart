@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'SetupPage.dart';
 import 'SendPage.dart';
-import 'OSCLogPage.dart'; // ← provides `final GlobalKey<OscLogTableState> oscLogKey`
+import 'OscLog.dart'; // ← provides `final GlobalKey<OscLogTableState> oscLogKey`
 
 void main() {
   runApp(const MyApp());
