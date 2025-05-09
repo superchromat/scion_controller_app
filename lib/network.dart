@@ -68,7 +68,8 @@ class Network extends ChangeNotifier {
       if (_lastAckReceived != null &&
           DateTime.now().difference(_lastAckReceived!).inSeconds > 5) {
         // no ack in 5 seconds → disconnect
-        disconnect();
+        print ("DISABLED DISCONNECT FOR DEBUGGING");
+       // disconnect();
       }
     });
 
