@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'network.dart';
+import 'status_bar.dart';
 import 'SetupPage.dart';
 import 'SendPage.dart';
-import 'OscLog.dart'; // ← provides `final GlobalKey<OscLogTableState> oscLogKey`
+import 'OscLog.dart'; 
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider<Network>.value(
+      value: network,
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -61,9 +68,6 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int selectedIndex = 0;
 
-  // Remove your own key; use the shared one from OSCLogPage.dart
-  // final _logKey = GlobalKey<OscLogTableState>();
-
   List<Widget> get pages {
     final list = <Widget>[];
 
@@ -73,12 +77,11 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     list.add(const ReturnPage());
 
-    // `list.length` is now the index of the OSC-Log tab
     list.add(
       OscLogTable(
-        key: oscLogKey,                 // use shared key here
+        key: oscLogKey,     
         onDownload: (bytes) {
-          // your desktop file-save dialog here
+          // TODO: desktop file-save dialog here
         },
         isActive: selectedIndex == list.length,
       ),
@@ -142,7 +145,6 @@ class _MyHomePageState extends State<MyHomePage> {
             Container(
               color: Theme.of(context).colorScheme.onTertiaryContainer,
               child: const StatusBarRow(
-                leftText: "Status Left",
                 rightText: "Status Right",
               ),
             ),
@@ -153,34 +155,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-class StatusBarRow extends StatelessWidget {
-  final String leftText;
-  final String rightText;
-  const StatusBarRow({
-    super.key,
-    required this.leftText,
-    required this.rightText,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color.fromARGB(255, 20, 20, 20),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: DefaultTextStyle(
-        style: const TextStyle(
-          fontFamily: 'courier',
-          fontSize: 12,
-          letterSpacing: 1.0,
-          color: Colors.white,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Text(leftText), Text(rightText)],
-        ),
-      ),
-    );
-  }
-}
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});

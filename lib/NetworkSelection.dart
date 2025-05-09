@@ -1,6 +1,6 @@
-// NetworkSelection.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'network.dart';
 import 'LabeledCard.dart';
 
@@ -44,12 +44,9 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     final host = addressController.text;
     final txPort = int.tryParse(txPortController.text);
     final rxPort = int.tryParse(rxPortController.text);
-
-    if (txPort == null) return;
-    if (rxPort == null) return;
+    if (txPort == null || rxPort == null) return;
 
     setState(() => connecting = true);
-
     try {
       await network.connect(host, txPort, rxPort: rxPort);
       network.sendOscMessage('/ack', []);
@@ -64,7 +61,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
 
   void _disconnect() {
     network.disconnect();
-    setState(() {});
+    // context.watch will rebuild
   }
 
   Future<void> _showError(String msg) {
@@ -85,10 +82,11 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
 
   @override
   Widget build(BuildContext context) {
-    final isConnected = network.isConnected;
+    final isConnected = context.watch<Network>().isConnected;
 
     return LabeledCard(
       title: 'Network Connection',
+      networkIndependent: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,8 +129,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
                       )
                     : Icon(isConnected ? Icons.link_off : Icons.network_ping),
                 label: Text(isConnected ? 'Disconnect' : 'Connect'),
-                onPressed:
-                    connecting ? null : (isConnected ? _disconnect : _connect),
+                onPressed: connecting ? null : (isConnected ? _disconnect : _connect),
               ),
               const SizedBox(width: 16),
               ElevatedButton.icon(
@@ -173,4 +170,3 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     );
   }
 }
-

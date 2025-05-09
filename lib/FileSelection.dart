@@ -9,6 +9,7 @@ class FileManagementSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return LabeledCard(
       title: 'Configuration',
+      networkIndependent: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
