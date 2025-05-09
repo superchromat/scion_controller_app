@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:osc/osc.dart';
 import 'OscLog.dart';
+import 'network.dart';
 
 typedef OscCallback = void Function(List<Object?> args);
 
 
 enum OscStatus { fail, error, ok }
 enum Direction { received, sent }
-
 
 class OscRegistry {
   static final OscRegistry _instance = OscRegistry._internal();
@@ -81,39 +82,48 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     super.dispose();
   }
 
-  void sendOsc(dynamic arg, {String? address}) {
-    final args = arg is List ? arg : [arg];
-    final typeTags = <String>[];
-    OscStatus status = OscStatus.ok;
+void sendOsc(dynamic arg, {String? address}) {
+  // Build a proper List<Object> from whatever was passed in:
+  final List<Object> argsList = arg is List
+      ? List<Object>.from(arg)       // cast each element to Object
+      : <Object>[arg as Object];     // wrap single arg in a List<Object>
 
-    address = address ?? oscAddress;
+  address = address ?? oscAddress;
+  final typeTags = <String>[];
+  OscStatus status = OscStatus.ok;
 
-    for (final value in args) {
-      if (value is double) {
-        typeTags.add('f');
-      } else if (value is int) {
-        typeTags.add('i');
-      } else if (value is bool) {
-        typeTags.add(value ? 'T' : 'F');
-      } else if (value is String) {
-        typeTags.add('s');
-      } else {
-        status = OscStatus.error;
-        typeTags.add('?');
-      }
+  for (final value in argsList) {
+    if (value is double) {
+      typeTags.add('f');
+    } else if (value is int) {
+      typeTags.add('i');
+    } else if (value is bool) {
+      typeTags.add(value ? 'T' : 'F');
+    } else if (value is String) {
+      typeTags.add('s');
+    } else {
+      status = OscStatus.error;
+      typeTags.add('?');
     }
-
-    final logState = oscLogKey.currentState;
-    logState?.logOscMessage(
-        address: address,
-        arg: arg,
-        status: status,
-        direction: Direction.sent,
-        binary: Uint8List.fromList([0]));
-
-    print(
-        'Sending $args to ${address ?? "(unknown address)"} (types: ${typeTags.join()})');
   }
+
+  final logState = oscLogKey.currentState;
+  logState?.logOscMessage(
+    address: address,
+    arg: arg,
+    status: status,
+    direction: Direction.sent,
+    binary: Uint8List.fromList([0]),
+  );
+
+  print(
+    'Sending $argsList to ${address ?? "(unknown address)"} '
+    '(types: ${typeTags.join()})'
+  );
+
+  // now this lines up with network.sendOscMessage’s List<Object> signature
+  network.sendOscMessage(address!, argsList);
+}
 
   void sendOscFromContext(BuildContext context, dynamic arg) {
     final address = '/' + OscPathSegment.resolvePath(context).join('/');
@@ -137,3 +147,5 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     return (OscStatus.error);
   }
 }
+
+

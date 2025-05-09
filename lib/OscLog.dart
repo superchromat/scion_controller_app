@@ -313,7 +313,7 @@ class OscLogTableState extends State<OscLogTable> {
           Expanded(
             child: Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
           ),
-          Text(' ($count)', style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+          Text(' (${count-1} more)', style: const TextStyle(fontFamily: 'Courier', fontSize: 10, color: Colors.yellow)),
         ]),
         6,
         tooltip: e.args,

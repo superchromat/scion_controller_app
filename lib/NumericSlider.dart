@@ -10,6 +10,7 @@ class NumericSlider extends StatefulWidget {
   final RangeValues? range;
   final List<double>? detents;
   final int? precision;
+  final bool hardDetents;
 
   const NumericSlider(
       {super.key,
@@ -17,7 +18,8 @@ class NumericSlider extends StatefulWidget {
       required this.onChanged,
       this.range,
       this.detents,
-      this.precision});
+      this.precision,
+      this.hardDetents = false});
 
   @override
   State<NumericSlider> createState() => NumericSliderState();
@@ -35,6 +37,7 @@ class NumericSliderState extends State<NumericSlider>
   int _cursorPosition = 0;
   bool _showCursor = true;
   Timer? _cursorTimer;
+  num? prev_sent_value;
 
   final focusNode = FocusNode();
   late final RangeValues _range;
@@ -87,10 +90,23 @@ class NumericSliderState extends State<NumericSlider>
 
   void _onChanged(double value) {
     widget.onChanged(value);
-    sendOsc(value);
+    // Assume hard detents + integer values means its only integers, could be something set by constructor
+    if (widget.hardDetents && (value == value.toInt())) {
+      if (value.toInt() != prev_sent_value) {
+        sendOsc(value.toInt());
+        prev_sent_value = value.toInt();
+      }
+    } else {
+      sendOsc(value);
+    }
   }
 
   double get value => _value;
+
+  double _nearestDetent(double rawValue) {
+    return _detents
+        .reduce((a, b) => (rawValue - a).abs() < (rawValue - b).abs() ? a : b);
+  }
 
   Future<void> setValue(double newValue, {bool immediate = false}) {
     final clamped = newValue.clamp(_range.start, _range.end);
@@ -130,7 +146,7 @@ class NumericSliderState extends State<NumericSlider>
     if (args.isNotEmpty && args.first is num) {
       setValue((args.first as num).toDouble(), immediate: true);
     } else {
-      status = OscStatus.error; 
+      status = OscStatus.error;
     }
     return (status);
   }
@@ -162,7 +178,10 @@ class NumericSliderState extends State<NumericSlider>
   void _commitEditing() {
     final parsed = double.tryParse(_inputBuffer);
     if (parsed != null) {
-      final newValue = parsed.clamp(_range.start, _range.end);
+      double newValue = parsed.clamp(_range.start, _range.end);
+      if (widget.hardDetents) {
+        newValue = _nearestDetent(newValue);
+      }
       _cursorTimer?.cancel();
       setState(() {
         _value = newValue;
@@ -178,7 +197,22 @@ class NumericSliderState extends State<NumericSlider>
   void _onPanStart(DragStartDetails details) {
     _startDragPos = details.globalPosition;
     _startDragValue = _value;
+    prev_sent_value = null;
   }
+
+/*
+TODO:
+
+The slider mechanics needs to be reworked. 
+- If you click in the slider, the value should move to that spot
+- Dragging should cause velocity in proportion to the distance away from the starting spot
+- Velocity needs to be independent of framerate
+- Detents should act like springs, where the velocity slows around a detent during a drag
+- If the user lets go during a drag in a detent region, the value should oscilliate like a dampened spring to the detent value
+- Detents should be visible as horizontal lines in the display
+- (Text editing also needs a rework)
+*/
+
 
   void _onPanUpdate(DragUpdateDetails details) {
     if (_startDragPos == null || _editing) return;
@@ -190,15 +224,18 @@ class NumericSliderState extends State<NumericSlider>
     final rawValue =
         _range.start + (_range.end - _range.start) * (dragFraction + 1) / 2;
 
-    double snappedValue = rawValue;
-
-    for (final detent in _detents) {
-      if ((rawValue - detent).abs() <= _detentThreshold) {
-        snappedValue = detent;
-        break;
+    double snappedValue;
+    if (widget.hardDetents) {
+      snappedValue = _nearestDetent(rawValue);
+    } else {
+      snappedValue = rawValue;
+      for (final detent in _detents) {
+        if ((rawValue - detent).abs() <= _detentThreshold) {
+          snappedValue = detent;
+          break;
+        }
       }
     }
-
     snappedValue = snappedValue.clamp(_range.start, _range.end);
 
     setState(() {
@@ -231,7 +268,10 @@ class NumericSliderState extends State<NumericSlider>
           parsed != null && RegExp(r'^[+-]?\d\.\d{4}$').hasMatch(trimmed);
 
       if (isValid) {
-        final clamped = parsed.clamp(-2.0, 2.0);
+        double clamped = parsed.clamp(_range.start, _range.end);
+        if (widget.hardDetents) {
+          clamped = _nearestDetent(clamped);
+        }
         _cursorTimer?.cancel();
         setState(() {
           _value = clamped;

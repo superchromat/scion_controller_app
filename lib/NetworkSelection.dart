@@ -1,22 +1,26 @@
+// NetworkSelection.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'network.dart';
 import 'LabeledCard.dart';
 
 class NetworkConnectionSection extends StatefulWidget {
   const NetworkConnectionSection({super.key});
 
   @override
-  State<NetworkConnectionSection> createState() =>
-      _NetworkConnectionSectionState();
+  State<NetworkConnectionSection> createState() => _NetworkConnectionSectionState();
 }
 
 class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
-  final TextEditingController addressController = TextEditingController();
+  final TextEditingController addressController =
+      TextEditingController(text: '127.0.0.1');
   final TextEditingController txPortController =
-      TextEditingController(text: '8000');
-  final TextEditingController rxPortController =
       TextEditingController(text: '9000');
+  final TextEditingController rxPortController =
+      TextEditingController(text: '9010');
 
   bool discovering = false;
+  bool connecting = false;
   List<String> discoveredAddresses = [];
 
   void startDiscovery() {
@@ -24,7 +28,6 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
       discovering = true;
       discoveredAddresses = [];
     });
-
     Future.delayed(const Duration(milliseconds: 500), () {
       setState(() {
         discovering = false;
@@ -37,8 +40,50 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     });
   }
 
+  Future<void> _connect() async {
+    final host = addressController.text;
+    final port = int.tryParse(txPortController.text);
+    if (port == null) return;
+
+    setState(() => connecting = true);
+
+    try {
+      await network.connect(host, port);
+      network.sendOscMessage('/ack', []);
+    } on TimeoutException {
+      await _showError('Connection timeout exceeded');
+    } catch (e) {
+      await _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => connecting = false);
+    }
+  }
+
+  void _disconnect() {
+    network.disconnect();
+    setState(() {});
+  }
+
+  Future<void> _showError(String msg) {
+    return showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(msg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isConnected = network.isConnected;
+
     return LabeledCard(
       title: 'Network Connection',
       child: Column(
@@ -75,9 +120,16 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
           Row(
             children: [
               ElevatedButton.icon(
-                icon: const Icon(Icons.network_ping),
-                label: const Text('Connect'),
-                onPressed: () {},
+                icon: connecting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(isConnected ? Icons.link_off : Icons.network_ping),
+                label: Text(isConnected ? 'Disconnect' : 'Connect'),
+                onPressed:
+                    connecting ? null : (isConnected ? _disconnect : _connect),
               ),
               const SizedBox(width: 16),
               ElevatedButton.icon(
@@ -118,3 +170,4 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     );
   }
 }
+

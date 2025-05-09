@@ -1,4 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:namer_app/NumericSlider.dart';
 import 'LabeledCard.dart';
 import 'OscWidgetBinding.dart';
 
@@ -28,6 +31,10 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
   @override
   Widget build(BuildContext context) {
+    RangeValues pixel_clock_shift_range = RangeValues(-16, 17);
+    List<double> pcsri = List.generate(
+        (pixel_clock_shift_range.end - pixel_clock_shift_range.start).toInt(),
+        (i) => (pixel_clock_shift_range.start.toInt() + i).toDouble());
     return LabeledCard(
       title: 'Return Sync',
       child: Column(
@@ -59,7 +66,18 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
           Text('Pixel clock offset',
               style: Theme.of(context).textTheme.titleMedium),
           OscPathSegment(
-            segment: 'clock_offset',
+              segment: 'clock_offset',
+              child: SizedBox(
+                  width: 80,
+                  height: 24,
+                  child: NumericSlider(
+                      value: 0,
+                      onChanged: (_) {},
+                      range: pixel_clock_shift_range,
+                      detents: pcsri,
+                      hardDetents: true,
+                      precision: 0,))
+              /*
             child: Builder(builder: (sliderContext) {
               return Slider(
                 value: _pixelOffset.toDouble(),
@@ -73,13 +91,10 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
                     sendOscFromContext(sliderContext, value);
                   });
                 },
-              );
-            }),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(_formatPixelOffset(_pixelOffset)),
-          ),
+              );}),
+            ),
+              */
+              ),
         ],
       ),
     );
