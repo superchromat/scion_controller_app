@@ -42,13 +42,16 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
 
   Future<void> _connect() async {
     final host = addressController.text;
-    final port = int.tryParse(txPortController.text);
-    if (port == null) return;
+    final txPort = int.tryParse(txPortController.text);
+    final rxPort = int.tryParse(rxPortController.text);
+
+    if (txPort == null) return;
+    if (rxPort == null) return;
 
     setState(() => connecting = true);
 
     try {
-      await network.connect(host, port);
+      await network.connect(host, txPort, rxPort: rxPort);
       network.sendOscMessage('/ack', []);
     } on TimeoutException {
       await _showError('Connection timeout exceeded');
