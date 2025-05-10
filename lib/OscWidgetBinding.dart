@@ -8,7 +8,9 @@ import 'OscLog.dart';
 import 'network.dart';
 
 enum OscStatus { fail, error, ok }
+
 enum Direction { received, sent }
+
 typedef OscCallback = void Function(List<Object?> args);
 
 class OscParam {
@@ -24,16 +26,22 @@ class OscParam {
     required this.address,
     required this.defaultValue,
   })  : lastLoadedValue = List.of(defaultValue),
-        currentValue    = List.of(defaultValue),
-        notifier        = ValueNotifier<List<Object?>>(List.of(defaultValue));
+        currentValue = List.of(defaultValue),
+        notifier = ValueNotifier<List<Object?>>(List.of(defaultValue));
 
-  void registerListener(OscCallback cb)   => listeners.add(cb);
+  void registerListener(OscCallback cb) => listeners.add(cb);
   void unregisterListener(OscCallback cb) => listeners.remove(cb);
 
   void dispatch(List<Object?> args) {
-    currentValue   = args;
+    currentValue = args;
     notifier.value = args;
     for (final cb in listeners) cb(args);
+  }
+
+  // Update local state & notifier without treating it as an "incoming" dispatch.
+  void updateLocal(List<Object?> args) {
+    currentValue = args;
+    notifier.value = args;
   }
 }
 
@@ -61,13 +69,18 @@ class OscRegistry {
     _params[address]?.unregisterListener(cb);
   }
 
-  Future<void> saveToFile(String path) async {
+   Future<void> saveToFile(String path) async {
     final file = File(path);
     final jsonMap = {
       for (var p in _params.values) p.address: p.currentValue,
     };
     await file.writeAsString(jsonEncode(jsonMap));
+    // update lastLoadedValue to reflect what was saved
+    for (var p in _params.values) {
+      p.lastLoadedValue = List<Object?>.from(p.currentValue);
+    }
   }
+
 
   Future<void> loadFromFile(String path) async {
     final file = File(path);
@@ -104,11 +117,11 @@ class OscRegistry {
     if (param == null) {
       final logState = oscLogKey.currentState;
       logState?.logOscMessage(
-        address:   address,
-        arg:       args,
-        status:    OscStatus.fail,
+        address: address,
+        arg: args,
+        status: OscStatus.fail,
         direction: Direction.received,
-        binary:    Uint8List.fromList([0]),
+        binary: Uint8List.fromList([0]),
       );
       return;
     }
@@ -180,31 +193,42 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   }
 
   void sendOsc(dynamic arg, {String? address}) {
-    final List<Object> argsList = arg is List
-        ? List<Object>.from(arg)
-        : <Object>[arg as Object];
+    final List<Object> argsList =
+        arg is List ? List<Object>.from(arg) : <Object>[arg as Object];
     address ??= oscAddress;
 
     final typeTags = <String>[];
     var status = OscStatus.ok;
     for (var v in argsList) {
-      if (v is double)           typeTags.add('f');
-      else if (v is int)         typeTags.add('i');
-      else if (v is bool)        typeTags.add(v ? 'T' : 'F');
-      else if (v is String)      typeTags.add('s');
-      else { status = OscStatus.error; typeTags.add('?'); }
+      if (v is double)
+        typeTags.add('f');
+      else if (v is int)
+        typeTags.add('i');
+      else if (v is bool)
+        typeTags.add(v ? 'T' : 'F');
+      else if (v is String)
+        typeTags.add('s');
+      else {
+        status = OscStatus.error;
+        typeTags.add('?');
+      }
     }
 
     oscLogKey.currentState?.logOscMessage(
-      address:   address,
-      arg:       arg,
-      status:    status,
+      address: address,
+      arg: arg,
+      status: status,
       direction: Direction.sent,
-      binary:    Uint8List.fromList([0]),
+      binary: Uint8List.fromList([0]),
     );
 
     print('Sending \$argsList to \$address (types: \${typeTags.join()})');
     network.sendOscMessage(address, argsList);
+
+    final param = OscRegistry().getParam(address!);
+    if (param != null) {
+      param.updateLocal(argsList);
+    }
   }
 
   void sendOscFromContext(BuildContext ctx, dynamic arg) {
@@ -214,13 +238,13 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
 
   void _handleOsc(List<Object?> args) {
     final logState = oscLogKey.currentState;
-    final status   = onOscMessage(args);
+    final status = onOscMessage(args);
     logState?.logOscMessage(
-      address:   oscAddress,
-      arg:       args,
-      status:    status,
+      address: oscAddress,
+      arg: args,
+      status: status,
       direction: Direction.received,
-      binary:    Uint8List.fromList([0]),
+      binary: Uint8List.fromList([0]),
     );
   }
 

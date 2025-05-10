@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'LabeledCard.dart'; // Ensure this import is added
+import 'LabeledCard.dart';
+import 'OscWidgetBinding.dart'; // provides OscRegistry
 
 class FileManagementSection extends StatelessWidget {
   const FileManagementSection({super.key});
@@ -24,7 +25,10 @@ class FileManagementSection extends StatelessWidget {
                     fileName: 'default.config',
                   );
                   if (outputFile != null) {
-                    print('Saving to $outputFile');
+                    await OscRegistry().saveToFile(outputFile);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Configuration saved to $outputFile'))
+                    );
                   }
                 },
               ),
@@ -38,7 +42,10 @@ class FileManagementSection extends StatelessWidget {
                     fileName: 'default.config',
                   );
                   if (outputFile != null) {
-                    print('Saving to $outputFile');
+                    await OscRegistry().saveToFile(outputFile);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Configuration saved to $outputFile'))
+                    );
                   }
                 },
               ),
@@ -46,14 +53,26 @@ class FileManagementSection extends StatelessWidget {
               ElevatedButton.icon(
                 icon: const Icon(Icons.folder_open),
                 label: const Text('Load'),
-                onPressed: () {},
+                onPressed: () async {
+                  FilePickerResult? result = await FilePicker.platform.pickFiles(
+                    dialogTitle: 'Load Configuration',
+                    type: FileType.any,
+                  );
+                  final path = result?.files.single.path;
+                  if (path != null) {
+                    await OscRegistry().loadFromFile(path);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Configuration loaded from $path'))
+                    );
+                  }
+                },
               ),
             ],
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             icon: const Icon(Icons.restore),
-            label: const Text('Restore All Settings'),
+            label: const Text('Reset to defaults'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.errorContainer,
               foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
@@ -72,7 +91,10 @@ class FileManagementSection extends StatelessWidget {
                     ),
                     TextButton(
                       child: const Text('Confirm'),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        OscRegistry().resetToDefaults(null);
+                        Navigator.of(context).pop();
+                      },
                     ),
                   ],
                 ),
