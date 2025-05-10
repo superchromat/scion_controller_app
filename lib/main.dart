@@ -6,6 +6,7 @@ import 'status_bar.dart';
 import 'SetupPage.dart';
 import 'SendPage.dart';
 import 'OscLog.dart'; 
+import 'FileSelection.dart';
 
 void main() {
   runApp(

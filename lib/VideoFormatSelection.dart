@@ -6,6 +6,7 @@ import 'package:namer_app/OscWidgetBinding.dart';
 import 'ColorSpaceMatrix.dart';
 import 'NumericSlider.dart';
 import 'LabeledCard.dart';
+import 'osc_dropdown.dart';
 
 class VideoFormatSelectionSection extends StatefulWidget {
   const VideoFormatSelectionSection({super.key});
@@ -128,35 +129,6 @@ class _VideoFormatSelectionSectionState
     );
   }
 
-  Widget oscDropdown<T>(String label, List<T> items) {
-    return OscPathSegment(
-      segment: label.toLowerCase(),
-      child: Builder(
-        builder: (dropdownContext) => SizedBox(
-          width: 180,
-          child: DropdownButtonFormField<T>(
-            decoration: InputDecoration(labelText: label),
-            style: const TextStyle(fontFamily: 'monospace'),
-            value: items[0],
-            items: items
-                .map((res) => DropdownMenuItem<T>(
-                      value: res,
-                      child: Text(res.toString()),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  sendOscFromContext(dropdownContext, value);
-                });
-              }
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
@@ -175,9 +147,10 @@ class _VideoFormatSelectionSectionState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    oscDropdown('Resolution', resolutions),
+                    OscDropdown<String>(
+                        label: 'Resolution', items: resolutions),
                     const SizedBox(height: 16),
-                    oscDropdown('Framerate', framerates),
+                    OscDropdown<double>(label: 'Framerate', items: framerates),
                     const SizedBox(height: 16),
                     Transform.translate(
                       offset: const Offset(-8, 0),
@@ -189,43 +162,39 @@ class _VideoFormatSelectionSectionState
                         ),
                         child: SizedBox(
                           width: 180,
-                          child: DropdownButtonFormField<String>(
-                            decoration:
-                                const InputDecoration(labelText: 'Colourspace'),
-                            value: selectedColourspace,
-                            items: colourspaces
-                                .map((space) => DropdownMenuItem(
-                                      value: space,
-                                      child: Text(space),
-                                    ))
-                                .toList(),
+                          child: OscDropdown<String>(
+                            label: 'Colourspace',
+                            items: colourspaces,
                             onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  selectedColourspace = value;
-                                  _updatingFromPreset = true;
-                                  matrixModel = ColorSpaceMatrix(
-                                      getMatrixForColourspace(value));
-                                });
-
-                                final matrix = getMatrixForColourspace(value);
-                                final futures = <Future<void>>[];
-
-                                for (int i = 0; i < 3; i++) {
-                                  for (int j = 0; j < 3; j++) {
-                                    final future = sliderKeys[i][j]
-                                        .currentState
-                                        ?.setValue(matrix[i][j]);
-                                    if (future != null) futures.add(future);
-                                  }
-                                }
-
-                                Future.wait(futures).then((_) {
+                              setState(() {
+                                selectedColourspace = value;
+                                if (value != null) {
                                   setState(() {
-                                    _updatingFromPreset = false;
+                                    selectedColourspace = value;
+                                    _updatingFromPreset = true;
+                                    matrixModel = ColorSpaceMatrix(
+                                        getMatrixForColourspace(value));
                                   });
-                                });
-                              }
+
+                                  final matrix = getMatrixForColourspace(value);
+                                  final futures = <Future<void>>[];
+
+                                  for (int i = 0; i < 3; i++) {
+                                    for (int j = 0; j < 3; j++) {
+                                      final future = sliderKeys[i][j]
+                                          .currentState
+                                          ?.setValue(matrix[i][j]);
+                                      if (future != null) futures.add(future);
+                                    }
+                                  }
+
+                                  Future.wait(futures).then((_) {
+                                    setState(() {
+                                      _updatingFromPreset = false;
+                                    });
+                                  });
+                                }
+                              });
                             },
                           ),
                         ),

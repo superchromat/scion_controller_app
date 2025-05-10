@@ -4,6 +4,7 @@ import 'package:namer_app/OscWidgetBinding.dart';
 import 'LabeledCard.dart';
 import 'Shape.dart';
 import 'SendColor.dart';
+import 'osc_dropdown.dart';
 
 class SendPage extends StatefulWidget {
   final int pageNumber;
@@ -23,35 +24,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     _selectedInput = widget.pageNumber;
   }
 
-  Widget oscDropdown(String label, List<int> items, int defaultValue) {
-    return OscPathSegment(
-      segment: label.toLowerCase(),
-      child: Builder(
-        builder: (dropdownContext) => SizedBox(
-          width: 180,
-          child: DropdownButtonFormField(
-            decoration: InputDecoration(labelText: label),
-            style: const TextStyle(fontFamily: 'monospace'),
-            value: defaultValue,
-            items: items
-                .map((res) => DropdownMenuItem(
-                      value: res,
-                      child: Text('HDMI Input ' + res.toString()),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  sendOscFromContext(dropdownContext, value);
-                });
-              }
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
@@ -63,8 +35,10 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
           children: [
             LabeledCard(
                 title: 'Send Source',
-                child: oscDropdown('Input', [1,2,3,4],
-                    widget.pageNumber)),
+                child: OscDropdown(
+                    label: 'Input',
+                    items: [1, 2, 3, 4],
+                    defaultValue: widget.pageNumber)),
             LabeledCard(title: 'Shape', child: Shape()),
             LabeledCard(title: 'Color', child: SendColor()),
             LabeledCard(

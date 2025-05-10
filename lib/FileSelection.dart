@@ -3,8 +3,85 @@ import 'package:file_picker/file_picker.dart';
 import 'LabeledCard.dart';
 import 'OscWidgetBinding.dart'; // provides OscRegistry
 
-class FileManagementSection extends StatelessWidget {
-  const FileManagementSection({super.key});
+final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileManagementSectionState>();
+
+/// Stateful widget to manage config file I/O and currentFile state.
+class FileManagementSection extends StatefulWidget {
+  const FileManagementSection({Key? key}) : super(key: key);
+
+  @override
+  State<FileManagementSection> createState() => FileManagementSectionState();
+}
+
+class FileManagementSectionState extends State<FileManagementSection> {
+  String? _currentFile;
+
+  Future<void> _save(BuildContext context) async {
+    // If no currentFile, prompt "Save As"
+    final path = _currentFile ?? await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Configuration',
+      fileName: 'default.config',
+    );
+    if (path == null) return;
+
+    await OscRegistry().saveToFile(path);
+    setState(() => _currentFile = path);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Configuration saved to $path')),
+    );
+  }
+
+  Future<void> _saveAs(BuildContext context) async {
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save As',
+      fileName: 'default.config',
+    );
+    if (path == null) return;
+
+    await OscRegistry().saveToFile(path);
+    setState(() => _currentFile = path);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Configuration saved to $path')),
+    );
+  }
+
+  Future<void> _load(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Load Configuration',
+      type: FileType.any,
+    );
+    final path = result?.files.single.path;
+    if (path == null) return;
+
+    await OscRegistry().loadFromFile(path);
+    setState(() => _currentFile = path);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Configuration loaded from $path')),
+    );
+  }
+
+  void _reset(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Restore'),
+        content: const Text('Are you sure you want to restore all settings?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              OscRegistry().resetToDefaults(null);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,53 +96,19 @@ class FileManagementSection extends StatelessWidget {
               ElevatedButton.icon(
                 icon: const Icon(Icons.save),
                 label: const Text('Save'),
-                onPressed: () async {
-                  String? outputFile = await FilePicker.platform.saveFile(
-                    dialogTitle: 'Save As',
-                    fileName: 'default.config',
-                  );
-                  if (outputFile != null) {
-                    await OscRegistry().saveToFile(outputFile);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Configuration saved to $outputFile'))
-                    );
-                  }
-                },
+                onPressed: () => _save(context),
               ),
               const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.save_as),
                 label: const Text('Save As'),
-                onPressed: () async {
-                  String? outputFile = await FilePicker.platform.saveFile(
-                    dialogTitle: 'Save As',
-                    fileName: 'default.config',
-                  );
-                  if (outputFile != null) {
-                    await OscRegistry().saveToFile(outputFile);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Configuration saved to $outputFile'))
-                    );
-                  }
-                },
+                onPressed: () => _saveAs(context),
               ),
               const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.folder_open),
                 label: const Text('Load'),
-                onPressed: () async {
-                  FilePickerResult? result = await FilePicker.platform.pickFiles(
-                    dialogTitle: 'Load Configuration',
-                    type: FileType.any,
-                  );
-                  final path = result?.files.single.path;
-                  if (path != null) {
-                    await OscRegistry().loadFromFile(path);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Configuration loaded from $path'))
-                    );
-                  }
-                },
+                onPressed: () => _load(context),
               ),
             ],
           ),
@@ -77,29 +120,7 @@ class FileManagementSection extends StatelessWidget {
               backgroundColor: Theme.of(context).colorScheme.errorContainer,
               foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
             ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Confirm Restore'),
-                  content: const Text(
-                      'Are you sure you want to restore all settings?'),
-                  actions: [
-                    TextButton(
-                      child: const Text('Cancel'),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    TextButton(
-                      child: const Text('Confirm'),
-                      onPressed: () {
-                        OscRegistry().resetToDefaults(null);
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
+            onPressed: () => _reset(context),
           ),
         ],
       ),
