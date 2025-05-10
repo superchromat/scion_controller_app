@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'OscWidgetBinding.dart'; // for OscPathSegment & OscAddressMixin
+import 'osc_widget_binding.dart'; // for OscPathSegment & OscAddressMixin
 
 /// Callback type for custom onChanged handling.
 typedef OnChangedCallback<T> = void Function(T value);
