@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:osc/osc.dart';
 import 'osc_log.dart';
 import 'network.dart';
 
@@ -256,10 +255,10 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
       binary: Uint8List.fromList([0]),
     );
 
-    print('Sending \$argsList to \$address (types: \${typeTags.join()})');
+    print('Sending $argsList to $address (types: ${typeTags.join()})');
     network.sendOscMessage(address, argsList);
 
-    final param = OscRegistry().getParam(address!);
+    final param = OscRegistry().getParam(address);
     if (param != null) {
       param.updateLocal(argsList);
     }

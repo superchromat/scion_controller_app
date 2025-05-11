@@ -16,8 +16,6 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
       TextEditingController(text: '127.0.0.1');
   final TextEditingController txPortController =
       TextEditingController(text: '9000');
-  final TextEditingController rxPortController =
-      TextEditingController(text: '9010');
 
   bool discovering = false;
   bool connecting = false;
@@ -43,12 +41,11 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   Future<void> _connect() async {
     final host = addressController.text;
     final txPort = int.tryParse(txPortController.text);
-    final rxPort = int.tryParse(rxPortController.text);
-    if (txPort == null || rxPort == null) return;
+    if (txPort == null) return;
 
     setState(() => connecting = true);
     try {
-      await network.connect(host, txPort, rxPort: rxPort);
+      await network.connect(host, txPort);
       network.sendOscMessage('/ack', []);
     } on TimeoutException {
       await _showError('Connection timeout exceeded');
@@ -106,15 +103,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
                   keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextField(
-                  controller: rxPortController,
-                  decoration: const InputDecoration(labelText: 'Receive Port'),
-                  style: const TextStyle(fontFamily: 'monospace'),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
+
             ],
           ),
           const SizedBox(height: 16),

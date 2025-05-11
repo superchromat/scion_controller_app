@@ -332,7 +332,6 @@ class OscLogTableState extends State<OscLogTable> {
     required int groupIndex,
     int? entryIndex,
   }) {
-    final isExpanded = _expandedGroups.contains(groupIndex);
 
     if (isSummary) {
       // collapsed group: show '+'

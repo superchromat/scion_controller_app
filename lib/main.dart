@@ -3,10 +3,9 @@ import 'package:provider/provider.dart';
 
 import 'network.dart';
 import 'status_bar.dart';
-import 'SetupPage.dart';
+import 'setup_page.dart';
 import 'send_page.dart';
 import 'osc_log.dart'; 
-import 'file_selection.dart';
 
 void main() {
   runApp(

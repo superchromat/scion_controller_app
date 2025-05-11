@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:namer_app/osc_widget_binding.dart';
 
-import 'ColorSpaceMatrix.dart';
+import 'color_space_matrix.dart';
 import 'numeric_slider.dart';
 import 'labeled_card.dart';
 import 'osc_dropdown.dart';
@@ -168,24 +168,22 @@ class _VideoFormatSelectionSectionState
                             onChanged: (value) {
                               setState(() {
                                 selectedColourspace = value;
-                                if (value != null) {
-                                  setState(() {
-                                    selectedColourspace = value;
-                                    _updatingFromPreset = true;
-                                    matrixModel = ColorSpaceMatrix(
-                                        getMatrixForColourspace(value));
-                                  });
+                                setState(() {
+                                  selectedColourspace = value;
+                                  _updatingFromPreset = true;
+                                  matrixModel = ColorSpaceMatrix(
+                                      getMatrixForColourspace(value));
+                                });
 
-                                  final matrix = getMatrixForColourspace(value);
-                                  final futures = <Future<void>>[];
+                                final matrix = getMatrixForColourspace(value);
+                                final futures = <Future<void>>[];
 
-                                  for (int i = 0; i < 3; i++) {
-                                    for (int j = 0; j < 3; j++) {
-                                      final future = sliderKeys[i][j]
-                                          .currentState
-                                          ?.setValue(matrix[i][j]);
-                                      if (future != null) futures.add(future);
-                                    }
+                                for (int i = 0; i < 3; i++) {
+                                  for (int j = 0; j < 3; j++) {
+                                    final future = sliderKeys[i][j]
+                                        .currentState
+                                        ?.setValue(matrix[i][j]);
+                                    if (future != null) futures.add(future);
                                   }
 
                                   Future.wait(futures).then((_) {

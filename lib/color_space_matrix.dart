@@ -5,7 +5,7 @@ class ColorSpaceMatrix {
   static const double minAllowedValue = -2.0;
   static const double maxAllowedValue = 2.0;
 
-  List<List<double>> _matrix;
+  final List<List<double>> _matrix;
 
   ColorSpaceMatrix(List<List<double>> initialMatrix)
       : _matrix = initialMatrix.map((row) => List<double>.from(row)).toList();

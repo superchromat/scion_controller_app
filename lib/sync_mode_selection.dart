@@ -1,4 +1,3 @@
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:namer_app/numeric_slider.dart';
@@ -15,7 +14,6 @@ class SyncSettingsSection extends StatefulWidget {
 class _SyncSettingsSectionState extends State<SyncSettingsSection>
     with OscAddressMixin {
   String _selectedSync = 'locked';
-  int _pixelOffset = 0;
 
   final List<List<String>> _syncOptions = [
     ['locked', 'Sync locked to sends'],
@@ -23,11 +21,6 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
     ['external', 'External H/V sync input']
   ];
 
-  String _formatPixelOffset(int value) {
-    final sign = value > 0 ? '+' : '';
-    final unit = value.abs() == 1 ? 'pixel' : 'pixels';
-    return '$sign$value $unit';
-  }
 
   @override
   Widget build(BuildContext context) {

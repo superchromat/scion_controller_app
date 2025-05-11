@@ -434,7 +434,6 @@ class _NumericSliderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
     final baseColor = externallySet
         ? Colors.yellow[700]!
         : interacting

@@ -1,4 +1,3 @@
-// network.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:osc/osc.dart';
@@ -16,8 +15,8 @@ class _Pending {
 
 /// A singleton UDP/OSC network handler.
 ///
-/// - `connect(host, txPort, {rxPort})` binds a socket on rxPort (or ephemeral) and
-///   sets the send-destination to host:txPort.
+/// - `connect(host, txPort)` binds a socket on an ephemeral local port
+///   and sets the send-destination to host:txPort.
 /// - `sendOscMessage(address, args)` sends an OSC packet, queuing if needed.
 /// - Automatically sends "/ack" every 2s, and disconnects if no "/ack" received within 5s.
 /// - Incoming messages are dispatched via OscRegistry.
@@ -34,24 +33,46 @@ class Network extends ChangeNotifier {
   bool get isConnected =>
       _socket != null && _destination != null && _port != null;
 
-  /// Binds a UDP socket to receive on [rxPort] (or ephemeral port if null),
-  /// and sets destination to [host]:[txPort].
+  /// Binds a UDP socket on an ephemeral port and sets the remote host/port.
+  /// Always resolves to an IPv4 address to avoid sending IPv6 via an IPv4 socket.
   Future<void> connect(String host, int txPort,
-      {int? rxPort, Duration timeout = const Duration(seconds: 5)}) async {
-    final dest = InternetAddress.tryParse(host) ??
-        (await InternetAddress.lookup(host)).first;
+      {Duration timeout = const Duration(seconds: 5)}) async {
+    // resolve remote address as IPv4
+    InternetAddress dest;
+    final parsed = InternetAddress.tryParse(host);
+    if (parsed != null && parsed.type == InternetAddressType.IPv4) {
+      dest = parsed;
+    } else {
+      final addrs = await InternetAddress.lookup(
+        host,
+        type: InternetAddressType.IPv4,
+      );
+      if (addrs.isEmpty) {
+        throw SocketException('No IPv4 address found for \$host');
+      }
+      dest = addrs.first;
+    }
     _destination = dest;
     _port = txPort;
 
-    final bindPort = rxPort ?? 0;
+    // bind locally on port 0 (ephemeral)
     _socket = await RawDatagramSocket.bind(
       InternetAddress.anyIPv4,
-      bindPort,
+      0,
     ).timeout(timeout);
+
+    final localPort = _socket!.port;
+    if (kDebugMode) debugPrint('Network bound locally on port $localPort');
 
     _socket!
       ..writeEventsEnabled = false
-      ..listen(_onSocketEvent);
+      ..listen((event) {
+        try {
+          _onSocketEvent(event);
+        } catch (e, st) {
+          debugPrint('⚠️ _onSocketEvent error: $e\n$st');
+        }
+      });
 
     // initialize ack tracking
     _lastAckReceived = DateTime.now();
@@ -59,17 +80,20 @@ class Network extends ChangeNotifier {
     sendOscMessage('/ack', []);
     // every 2 seconds, send /ack
     _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      sendOscMessage('/ack', []);
+    _ackTimer = Timer.periodic(const Duration(seconds: 2), (t) {
+      try {
+        sendOscMessage('/ack', []);
+      } catch (e, st) {
+        debugPrint('⚠️ periodic /ack send error: $e\n$st');
+      }
     });
     // every 1 second, check for ack timeout
     _monitorTimer?.cancel();
     _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_lastAckReceived != null &&
           DateTime.now().difference(_lastAckReceived!).inSeconds > 5) {
-        // no ack in 5 seconds → disconnect
-        print ("DISABLED DISCONNECT FOR DEBUGGING");
-       // disconnect();
+        debugPrint('🔴 No /ack received in 5s; disconnecting');
+//        disconnect();
       }
     });
 
@@ -89,10 +113,10 @@ class Network extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sends an OSC message to the remote host, deferring if the socket buffer is full.
+  /// Sends an OSC message to the remote host, deferring if the buffer is full.
   void sendOscMessage(String address, List<Object> arguments) {
     if (!isConnected) {
-      print('Not connected');
+      debugPrint('Not connected');
       return;
     }
     final message = OSCMessage(address, arguments: arguments);
@@ -105,24 +129,35 @@ class Network extends ChangeNotifier {
         _socket!.writeEventsEnabled = true;
       }
     } on SocketException catch (e) {
-      print('OSC send failed: $e');
+      debugPrint('Deferred OSC send failed: $e');
+      _pending.clear();
+      _socket!.writeEventsEnabled = false;
+    } on OSError catch (e) {
+      debugPrint('OSC send failed (OSError): $e');
+      _pending.clear();
+      _socket!.writeEventsEnabled = false;
+    } catch (e) {
+      debugPrint('OSC send failed: $e');
+      _pending.clear();
+      _socket!.writeEventsEnabled = false;
     }
   }
 
   void _onSocketEvent(RawSocketEvent event) {
+    if (_socket == null) return;
     if (event == RawSocketEvent.read) {
       Datagram? dg = _socket!.receive();
       while (dg != null) {
         try {
           final msg = OSCMessage.fromBytes(dg.data);
-          // track acks
           if (msg.address == '/ack') {
             _lastAckReceived = DateTime.now();
           }
-          print('Received OSC ${msg.address} args=${msg.arguments}');
+          debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
           OscRegistry().dispatch(msg.address, msg.arguments);
         } catch (e) {
-          print('Received UDP ${dg.address.address}:${dg.port} ${dg.data}');
+          debugPrint(
+              'Error parsing packet from ${dg.address.address}:${dg.port}');
         }
         dg = _socket!.receive();
       }
@@ -132,12 +167,18 @@ class Network extends ChangeNotifier {
         final sent = _socket!.send(p.data, p.dest, p.port);
         if (sent == p.data.length) {
           _pending.removeAt(0);
-          if (_pending.isEmpty) {
-            _socket!.writeEventsEnabled = false;
-          }
+          if (_pending.isEmpty) _socket!.writeEventsEnabled = false;
         }
       } on SocketException catch (e) {
-        print('Deferred OSC send failed: $e');
+        debugPrint('Deferred OSC send failed: $e');
+        _pending.clear();
+        _socket!.writeEventsEnabled = false;
+      } on OSError catch (e) {
+        debugPrint('Deferred send OSError: $e');
+        _pending.clear();
+        _socket!.writeEventsEnabled = false;
+      } catch (e) {
+        debugPrint('Deferred send failed: $e');
         _pending.clear();
         _socket!.writeEventsEnabled = false;
       }
