@@ -1,72 +1,90 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'network.dart';
 import 'labeled_card.dart';
 
+/// A simpler combo-box style field that shows recent "host[:port]" entries
+/// in a dropdown when focused or clicked, and allows typing new ones.
 class NetworkConnectionSection extends StatefulWidget {
-  const NetworkConnectionSection({super.key});
+  const NetworkConnectionSection({Key? key}) : super(key: key);
 
   @override
   State<NetworkConnectionSection> createState() => _NetworkConnectionSectionState();
 }
 
 class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
-  final TextEditingController addressController =
-      TextEditingController(text: '127.0.0.1');
-  final TextEditingController txPortController =
-      TextEditingController(text: '9000');
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _connecting = false;
 
-  bool discovering = false;
-  bool connecting = false;
-  List<String> discoveredAddresses = [];
+  static const _prefKey = 'recent_endpoints';
+  static const _maxRecents = 5;
+  List<String> _recents = [];
 
-  void startDiscovery() {
+  @override
+  void initState() {
+    super.initState();
+    _loadRecents();
+  }
+
+  Future<void> _loadRecents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_prefKey) ?? <String>[];
     setState(() {
-      discovering = true;
-      discoveredAddresses = [];
-    });
-    Future.delayed(const Duration(milliseconds: 500), () {
-      setState(() {
-        discovering = false;
-        discoveredAddresses = [
-          '192.168.10.10',
-          'device.local',
-          '192.168.1.5',
-        ];
-      });
+      _recents = list;
+      _controller.text = _recents.isNotEmpty ? _recents.first : '127.0.0.1';
     });
   }
 
-  Future<void> _connect() async {
-    final host = addressController.text;
-    final txPort = int.tryParse(txPortController.text);
-    if (txPort == null) return;
+  Future<void> _saveRecent(String host, int port) async {
+    final entry = port == 9000 ? host : '\${host}:\$port';
+    _recents.remove(entry);
+    _recents.insert(0, entry);
+    if (_recents.length > _maxRecents) _recents.removeLast();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefKey, _recents);
+  }
 
-    setState(() => connecting = true);
+  Future<void> _connect() async {
+    final input = _controller.text.trim();
+    final parts = input.split(':');
+    if (parts.isEmpty || parts[0].isEmpty) {
+      await _showError('Enter a valid host');
+      return;
+    }
+    final host = parts[0];
+    int port = 9000;
+    if (parts.length == 2) {
+      port = int.tryParse(parts[1]) ?? 9000;
+    }
+
+    setState(() => _connecting = true);
     try {
-      await network.connect(host, txPort);
+      await network.connect(host, port);
+      await _saveRecent(host, port);
       network.sendOscMessage('/ack', []);
     } on TimeoutException {
-      await _showError('Connection timeout exceeded');
+      await _showError('Connection timed out');
     } catch (e) {
       await _showError(e.toString());
     } finally {
-      if (mounted) setState(() => connecting = false);
+      if (mounted) setState(() => _connecting = false);
     }
   }
 
   void _disconnect() {
     network.disconnect();
-    // context.watch will rebuild
   }
 
-  Future<void> _showError(String msg) {
-    return showDialog(
+  Future<void> _showError(String message) async {
+    await showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Error'),
-        content: Text(msg),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -87,75 +105,53 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: addressController,
-            decoration: const InputDecoration(labelText: 'Network Address'),
-            style: const TextStyle(fontFamily: 'monospace'),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: txPortController,
-                  decoration: const InputDecoration(labelText: 'Transmit Port'),
-                  style: const TextStyle(fontFamily: 'monospace'),
-                  keyboardType: TextInputType.number,
-                ),
+          TypeAheadFormField<String>(
+            textFieldConfiguration: TextFieldConfiguration(
+              controller: _controller,
+              focusNode: _focusNode,
+              decoration: const InputDecoration(
+                labelText: 'Server (host[:port])',
+                hintText: 'e.g. example.com or example.com:9010',
+                border: OutlineInputBorder(),
               ),
-
-            ],
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+            suggestionsCallback: (pattern) async {
+              if (pattern.isEmpty) return _recents;
+              return _recents.where(
+                (e) => e.toLowerCase().contains(pattern.toLowerCase()),
+              );
+            },
+            itemBuilder: (context, String suggestion) {
+              return ListTile(
+                title: Text(suggestion),
+              );
+            },
+            onSuggestionSelected: (String suggestion) {
+              _controller.text = suggestion;
+            },
+            hideOnEmpty: false,
+            minCharsForSuggestions: 0,
+            noItemsFoundBuilder: (context) => const SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              ElevatedButton.icon(
-                icon: connecting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(isConnected ? Icons.link_off : Icons.network_ping),
-                label: Text(isConnected ? 'Disconnect' : 'Connect'),
-                onPressed: connecting ? null : (isConnected ? _disconnect : _connect),
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                icon: discovering
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search),
-                label: const Text('Zeroconf'),
-                onPressed: discovering ? null : startDiscovery,
-              ),
-            ],
+          ElevatedButton.icon(
+            icon: _connecting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(isConnected ? Icons.link_off : Icons.network_ping),
+            label: Text(isConnected ? 'Disconnect' : 'Connect'),
+            onPressed:
+                _connecting ? null : (isConnected ? _disconnect : _connect),
           ),
-          if (discoveredAddresses.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: discoveredAddresses.first,
-              items: discoveredAddresses
-                  .map((address) => DropdownMenuItem(
-                        value: address,
-                        child: Text(address),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    addressController.text = value;
-                  });
-                }
-              },
-            ),
-          ],
         ],
       ),
     );
   }
 }
+
+/// Global singleton
+final network = Network();
