@@ -7,6 +7,8 @@ import 'osc_log.dart';
 import 'network.dart';
 import 'package:provider/provider.dart';
 
+// TODO: method to Sync OSC settings on startup and then let the user manually sync?x`
+
 enum OscStatus { fail, error, ok }
 
 enum Direction { received, sent }

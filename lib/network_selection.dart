@@ -17,8 +17,7 @@ class NetworkConnectionSection extends StatefulWidget {
       _NetworkConnectionSectionState();
 }
 
-class _NetworkConnectionSectionState
-    extends State<NetworkConnectionSection> {
+class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
@@ -42,8 +41,7 @@ class _NetworkConnectionSectionState
     final list = prefs.getStringList(_prefKey) ?? <String>[];
     setState(() {
       _recents = list;
-      _controller.text =
-          _recents.isNotEmpty ? _recents.first : '127.0.0.1';
+      _controller.text = _recents.isNotEmpty ? _recents.first : '127.0.0.1';
     });
   }
 
@@ -56,22 +54,19 @@ class _NetworkConnectionSectionState
     await prefs.setStringList(_prefKey, _recents);
   }
 
-  Future<void> _connect() async {
-    final input = _controller.text.trim();
+  Future<void> _connectTo(String input) async {
     final parts = input.split(':');
     if (parts.isEmpty || parts[0].isEmpty) {
       await _showError('Enter a valid host');
       return;
     }
     final host = parts[0];
-    int port = 9000;
-    if (parts.length == 2) {
-      port = int.tryParse(parts[1]) ?? 9000;
-    }
+    final port = (parts.length == 2) ? int.tryParse(parts[1]) ?? 9000 : 9000;
 
+    final net = context.read<Network>();
     setState(() => _connecting = true);
     try {
-      final net = context.read<Network>(); 
+      if (net.isConnected) net.disconnect();
       await net.connect(host, port);
       await _saveRecent(host, port);
       net.sendOscMessage('/ack', []);
@@ -82,11 +77,6 @@ class _NetworkConnectionSectionState
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
-  }
-
-  void _disconnect() {
-    final net = context.read<Network>(); 
-    net.disconnect();
   }
 
   Future<void> _findServices() async {
@@ -140,80 +130,53 @@ class _NetworkConnectionSectionState
 
   @override
   Widget build(BuildContext context) {
-    final isConnected = context.watch<Network>().isConnected;
-
     return LabeledCard(
       title: 'Network Connection',
       networkIndependent: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TypeAheadFormField<String>(
-            textFieldConfiguration: TextFieldConfiguration(
-              controller: _controller,
-              focusNode: _focusNode,
-              decoration: InputDecoration(
-                labelText: 'Network address',
-                hintText:
-                    'e.g. 192.168.10.27, or server.superchromat.com:9010',
-                border: const OutlineInputBorder(),
-                suffixIcon: _discovering
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child:
-                              CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed:
-                            _discovering ? null : _findServices,
-                      ),
-              ),
-              style: const TextStyle(fontFamily: 'monospace'),
-            ),
-            suggestionsCallback: (pattern) async {
-              final lower = pattern.toLowerCase();
-              final fromDiscovered = _discovered.where(
-                  (e) => e.toLowerCase().contains(lower));
-              final fromRecents = _recents.where(
-                  (e) => e.toLowerCase().contains(lower));
-              return [...fromDiscovered, ...fromRecents];
-            },
-            itemBuilder: (context, String suggestion) {
-              return ListTile(title: Text(suggestion));
-            },
-            onSuggestionSelected: (String suggestion) {
-              _controller.text = suggestion;
-            },
-            hideOnEmpty: false,
-            minCharsForSuggestions: 0,
-            noItemsFoundBuilder: (_) => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            icon: _connecting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child:
-                        CircularProgressIndicator(strokeWidth: 2),
+      child: TypeAheadFormField<String>(
+        textFieldConfiguration: TextFieldConfiguration(
+          controller: _controller,
+          focusNode: _focusNode,
+          decoration: InputDecoration(
+            labelText: 'Network address',
+            hintText: 'e.g. 192.168.10.27, or server.superchromat.com:9010',
+            border: const OutlineInputBorder(),
+            suffixIcon: _discovering
+                ? Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   )
-                : Icon(isConnected
-                    ? Icons.link_off
-                    : Icons.network_ping),
-            label: Text(
-                isConnected ? 'Disconnect' : 'Connect'),
-            onPressed: _connecting
-                ? null
-                : (isConnected
-                    ? _disconnect
-                    : _connect),
+                : IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: _discovering ? null : _findServices,
+                  ),
           ),
-        ],
+          style: const TextStyle(fontFamily: 'monospace'),
+          onSubmitted: (val) => _connectTo(val.trim()),
+        ),
+        suggestionsCallback: (pattern) async {
+          // always show discovered services
+          final suggestions = List<String>.from(_discovered);
+          // then append recents matching the current pattern
+          suggestions.addAll(
+            _recents.where((e) => e.toLowerCase().contains(pattern.toLowerCase())),
+          );
+          return suggestions;
+        },
+        itemBuilder: (context, String suggestion) {
+          return ListTile(title: Text(suggestion));
+        },
+        onSuggestionSelected: (String suggestion) {
+          _controller.text = suggestion;
+          _connectTo(suggestion);
+        },
+        hideOnEmpty: false,
+        minCharsForSuggestions: 0,
+        noItemsFoundBuilder: (_) => const SizedBox.shrink(),
       ),
     );
   }
