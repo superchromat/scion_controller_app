@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'osc_log.dart';
 import 'network.dart';
+import 'package:provider/provider.dart';
 
 enum OscStatus { fail, error, ok }
 
@@ -256,7 +257,8 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     );
 
     print('Sending $argsList to $address (types: ${typeTags.join()})');
-    network.sendOscMessage(address, argsList);
+    final net = context.read<Network>();
+net.sendOscMessage(address, argsList);
 
     final param = OscRegistry().getParam(address);
     if (param != null) {

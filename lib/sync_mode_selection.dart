@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:namer_app/numeric_slider.dart';
+import 'numeric_slider.dart';
 import 'labeled_card.dart';
 import 'osc_widget_binding.dart';
 

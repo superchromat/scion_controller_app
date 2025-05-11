@@ -71,9 +71,10 @@ class _NetworkConnectionSectionState
 
     setState(() => _connecting = true);
     try {
-      await network.connect(host, port);
+      final net = context.read<Network>(); 
+      await net.connect(host, port);
       await _saveRecent(host, port);
-      network.sendOscMessage('/ack', []);
+      net.sendOscMessage('/ack', []);
     } on TimeoutException {
       await _showError('Connection timed out');
     } catch (e) {
@@ -84,7 +85,8 @@ class _NetworkConnectionSectionState
   }
 
   void _disconnect() {
-    network.disconnect();
+    final net = context.read<Network>(); 
+    net.disconnect();
   }
 
   Future<void> _findServices() async {
@@ -216,6 +218,3 @@ class _NetworkConnectionSectionState
     );
   }
 }
-
-/// Global singleton
-final network = Network();

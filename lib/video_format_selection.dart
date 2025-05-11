@@ -1,7 +1,7 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
-import 'package:namer_app/osc_widget_binding.dart';
+import 'osc_widget_binding.dart';
 
 import 'color_space_matrix.dart';
 import 'numeric_slider.dart';

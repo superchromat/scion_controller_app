@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:namer_app/lut_editor.dart';
-import 'package:namer_app/osc_widget_binding.dart';
+import 'lut_editor.dart';
+import 'osc_widget_binding.dart';
 
 import 'numeric_slider.dart';
 

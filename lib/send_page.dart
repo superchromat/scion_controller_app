@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:namer_app/osc_widget_binding.dart';
-
+import 'osc_widget_binding.dart';
 import 'labeled_card.dart';
 import 'shape.dart';
 import 'send_color.dart';

@@ -185,6 +185,3 @@ class Network extends ChangeNotifier {
     }
   }
 }
-
-/// Global singleton
-final network = Network();

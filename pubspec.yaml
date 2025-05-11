@@ -1,5 +1,5 @@
-name: namer_app
-description: A new Flutter project.
+name: SCION_Controller
+description: A portable app for controlling the SCION device via OSC
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 

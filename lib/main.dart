@@ -10,7 +10,7 @@ import 'osc_log.dart';
 void main() {
   runApp(
     ChangeNotifierProvider<Network>.value(
-      value: network,
+      value: Network(),
       child: const MyApp(),
     ),
   );
