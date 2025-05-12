@@ -10,7 +10,7 @@ import 'labeled_card.dart';
 import 'nsd_client.dart';
 
 class NetworkConnectionSection extends StatefulWidget {
-  const NetworkConnectionSection({Key? key}) : super(key: key);
+  const NetworkConnectionSection({super.key});
 
   @override
   State<NetworkConnectionSection> createState() =>

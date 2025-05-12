@@ -63,10 +63,6 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-  }
 
   void updateSplines() {
     setState(() {

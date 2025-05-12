@@ -29,10 +29,10 @@ class OscLogTable extends StatefulWidget {
   final bool isActive;
 
   const OscLogTable({
-    Key? key,
+    super.key,
     required this.onDownload,
     required this.isActive,
-  }) : super(key: key);
+  });
 
   @override
   OscLogTableState createState() => OscLogTableState();
@@ -221,13 +221,10 @@ class OscLogTableState extends State<OscLogTable> {
     switch (e.status) {
       case OscStatus.ok:
         statusColor = Colors.green;
-        break;
       case OscStatus.error:
         statusColor = Colors.yellow;
-        break;
       case OscStatus.fail:
         statusColor = Colors.red;
-        break;
     }
 
     return Row(children: [
@@ -277,13 +274,10 @@ class OscLogTableState extends State<OscLogTable> {
     switch (e.status) {
       case OscStatus.ok:
         statusColor = Colors.green;
-        break;
       case OscStatus.error:
         statusColor = Colors.yellow;
-        break;
       case OscStatus.fail:
         statusColor = Colors.red;
-        break;
     }
 
     return Row(children: [

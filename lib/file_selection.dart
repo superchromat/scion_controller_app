@@ -7,7 +7,7 @@ final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileMa
 
 /// Stateful widget to manage config file I/O and currentFile state.
 class FileManagementSection extends StatefulWidget {
-  const FileManagementSection({Key? key}) : super(key: key);
+  const FileManagementSection({super.key});
 
   @override
   State<FileManagementSection> createState() => FileManagementSectionState();

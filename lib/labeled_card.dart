@@ -10,11 +10,11 @@ class LabeledCard extends StatelessWidget {
   final bool networkIndependent;
 
   const LabeledCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.child,
     this.networkIndependent = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +23,7 @@ class LabeledCard extends StatelessWidget {
     final disabled = !networkIndependent && !connected;
 
     // compute OSC namespace prefix for this card
-    final prefix = '/' + OscPathSegment.resolvePath(context).join('/');
+    final prefix = '/${OscPathSegment.resolvePath(context).join('/')}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),

@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:namer_app/OscWidgetBinding.dart';
-
-import 'NumericSlider.dart';
-import 'OscWidgetBinding.dart';
-
-
-import 'package:flutter/material.dart';
+import 'osc_widget_binding.dart';
+import 'numeric_slider.dart';
 
 class LinkableSliderPair extends StatefulWidget {
   final String label;

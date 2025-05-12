@@ -13,12 +13,12 @@ class OscDropdown<T> extends StatelessWidget {
   final OnChangedCallback<T>? onChanged;
 
   const OscDropdown({
-    Key? key,
+    super.key,
     required this.label,
     required this.items,
     this.defaultValue,
     this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +41,12 @@ class _OscDropdownInner<T> extends StatefulWidget {
   final OnChangedCallback<T>? onChanged;
 
   const _OscDropdownInner({
-    Key? key,
+    super.key,
     required this.label,
     required this.items,
     this.defaultValue,
     this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<_OscDropdownInner<T>> createState() => _OscDropdownInnerState<T>();

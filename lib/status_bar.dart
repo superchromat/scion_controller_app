@@ -6,9 +6,9 @@ import 'network.dart';
 class StatusBarRow extends StatefulWidget {
   final String rightText;
   const StatusBarRow({
-    Key? key,
+    super.key,
     this.rightText = "Status Right",
-  }) : super(key: key);
+  });
 
   @override
   _StatusBarRowState createState() => _StatusBarRowState();

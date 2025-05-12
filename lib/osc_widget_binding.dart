@@ -37,7 +37,9 @@ class OscParam {
   void dispatch(List<Object?> args) {
     currentValue = args;
     notifier.value = args;
-    for (final cb in listeners) cb(args);
+    for (final cb in listeners) {
+      cb(args);
+    }
   }
 
   // Update local state & notifier without treating it as an "incoming" dispatch.
@@ -202,7 +204,7 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    oscAddress = '/' + OscPathSegment.resolvePath(context).join('/');
+    oscAddress = '/${OscPathSegment.resolvePath(context).join('/')}';
     if (!_listenerRegistered) {
       // register defaults once address is known
       if (_pendingDefaults != null) {
@@ -236,9 +238,9 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     final typeTags = <String>[];
     var status = OscStatus.ok;
     for (var v in argsList) {
-      if (v is double)
+      if (v is double) {
         typeTags.add('f');
-      else if (v is int)
+      } else if (v is int)
         typeTags.add('i');
       else if (v is bool)
         typeTags.add(v ? 'T' : 'F');
@@ -269,7 +271,7 @@ net.sendOscMessage(address, argsList);
   }
 
   void sendOscFromContext(BuildContext ctx, dynamic arg) {
-    final addr = '/' + OscPathSegment.resolvePath(ctx).join('/');
+    final addr = '/${OscPathSegment.resolvePath(ctx).join('/')}';
     sendOsc(arg, address: addr);
   }
 

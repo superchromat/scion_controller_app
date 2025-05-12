@@ -24,24 +24,24 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
   @override
   Widget build(BuildContext context) {
-    RangeValues pixel_clock_shift_range = RangeValues(-16, 17);
+    RangeValues pixelClockShiftRange = RangeValues(-16, 17);
     List<double> pcsri = List.generate(
-        (pixel_clock_shift_range.end - pixel_clock_shift_range.start).toInt(),
-        (i) => (pixel_clock_shift_range.start.toInt() + i).toDouble());
+        (pixelClockShiftRange.end - pixelClockShiftRange.start).toInt(),
+        (i) => (pixelClockShiftRange.start.toInt() + i).toDouble());
     return LabeledCard( // TODO: This doesn't call setDefaultValue, so it doesn't go in the OscRegistry, so it isn't saved
       title: 'Return Sync',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ..._syncOptions.map((option_pair) => SizedBox(
+          ..._syncOptions.map((optionPair) => SizedBox(
                 width: double.infinity,
                 child: OscPathSegment(
                   segment: 'sync_mode',
                   child: Builder(builder: (radioContext) {
                     return RadioListTile<String>(
-                      title: Text(option_pair[1],
+                      title: Text(optionPair[1],
                           style: Theme.of(context).textTheme.bodyMedium),
-                      value: option_pair[0],
+                      value: optionPair[0],
                       groupValue: _selectedSync,
                       onChanged: (value) {
                         setState(() => _selectedSync = value!);
@@ -66,7 +66,7 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
                   child: NumericSlider(
                       value: 0,
                       onChanged: (_) {},
-                      range: pixel_clock_shift_range,
+                      range: pixelClockShiftRange,
                       detents: pcsri,
                       hardDetents: true,
                       precision: 0,))
