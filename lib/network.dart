@@ -93,10 +93,10 @@ class Network extends ChangeNotifier {
       if (_lastAckReceived != null &&
           DateTime.now().difference(_lastAckReceived!).inSeconds > 5) {
         debugPrint('🔴 No /ack received in 5s; disconnecting');
-       // disconnect();
+        // disconnect();
 
-       // TODO: Redo this logic so it only sends an ACK if it hasn't heard
-       // a mesage from the board in a while
+        // TODO: Redo this logic so it only sends an ACK if it hasn't heard
+        // a mesage from the board in a while
       }
     });
 
@@ -155,9 +155,10 @@ class Network extends ChangeNotifier {
           final msg = OSCMessage.fromBytes(dg.data);
           if (msg.address == '/ack') {
             _lastAckReceived = DateTime.now();
+          } else {
+            debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
+            OscRegistry().dispatch(msg.address, msg.arguments);
           }
-          debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
-          OscRegistry().dispatch(msg.address, msg.arguments);
         } catch (e) {
           debugPrint(
               'Error parsing packet from ${dg.address.address}:${dg.port}');
