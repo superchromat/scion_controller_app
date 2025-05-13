@@ -1,0 +1,18 @@
+{
+  "" : {
+    "diagnostics" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/window_size-master.dia",
+    "emit-module-dependencies" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/window_size-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/window_size-master-emit-module.dia",
+    "swift-dependencies" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/window_size-master.swiftdeps"
+  },
+  "/Users/josh/.pub-cache/hosted/pub.dev/window_size-0.1.0/macos/Classes/WindowSizePlugin.swift" : {
+    "const-values" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.swiftconstvalues",
+    "dependencies" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.d",
+    "diagnostics" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.dia",
+    "index-unit-output-path" : "/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.o",
+    "llvm-bc" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.bc",
+    "object" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.o",
+    "swift-dependencies" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin.swiftdeps",
+    "swiftmodule" : "/Users/josh/src/flutter-scion/flutter_scion/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/Objects-normal/arm64/WindowSizePlugin~partial.swiftmodule"
+  }
+}

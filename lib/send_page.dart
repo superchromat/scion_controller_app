@@ -35,7 +35,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
             LabeledCard(
                 title: 'Send Source',
                 child: OscDropdown(
-                    label: 'Input',
+                    label: 'Source',
                     items: [1, 2, 3, 4],
                     defaultValue: widget.pageNumber)),
             LabeledCard(title: 'Shape', child: Shape()),

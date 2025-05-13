@@ -93,7 +93,10 @@ class Network extends ChangeNotifier {
       if (_lastAckReceived != null &&
           DateTime.now().difference(_lastAckReceived!).inSeconds > 5) {
         debugPrint('🔴 No /ack received in 5s; disconnecting');
-        disconnect();
+       // disconnect();
+
+       // TODO: Redo this logic so it only sends an ACK if it hasn't heard
+       // a mesage from the board in a while
       }
     });
 
