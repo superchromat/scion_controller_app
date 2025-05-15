@@ -18,7 +18,13 @@ Color getChannelColor(String channel) {
 }
 
 class LUTEditor extends StatefulWidget {
-  const LUTEditor({super.key});
+  /// Maximum number of control points per channel (including placeholders).
+  final int maxControlPoints;
+
+  const LUTEditor({
+    super.key,
+    this.maxControlPoints = 16,
+  });
 
   @override
   State<LUTEditor> createState() => _LUTEditorState();
@@ -26,16 +32,9 @@ class LUTEditor extends StatefulWidget {
 
 class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   final ValueNotifier<bool> flashLockNotifier = ValueNotifier(false);
-
   static const List<String> channels = ['Y', 'R', 'G', 'B'];
 
-  final Map<String, List<Offset>> controlPoints = {
-    'Y': [Offset(0, 0), Offset(1, 1)],
-    'R': [Offset(0, 0), Offset(1, 1)],
-    'G': [Offset(0, 0), Offset(1, 1)],
-    'B': [Offset(0, 0), Offset(1, 1)],
-  };
-
+  late final Map<String, List<Offset>> controlPoints;
   final Map<String, MonotonicSpline?> splines = {
     'Y': null,
     'R': null,
@@ -48,10 +47,30 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   int? currentControlPointIdx;
   bool isDragging = false;
 
-  static const double insetPadding =
-      20.0; // True padding to avoid clipping control points
-
+  static const double insetPadding = 20.0;
   bool _didInit = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize fixed-size lists with placeholders
+    controlPoints = Map.fromEntries(
+      channels.map((c) {
+        return MapEntry(
+          c,
+          List<Offset>.generate(
+            widget.maxControlPoints,
+            (i) => i == 0
+                ? const Offset(0, 0)
+                : i == 1
+                    ? const Offset(1, 1)
+                    : const Offset(-1, -1),
+          ),
+        );
+      }),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -60,15 +79,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     if (!_didInit) {
       _didInit = true;
 
-      // 1) register each channel’s default control-points in the OSC registry
+      // Register defaults for each channel (including placeholders)
       for (var c in channels) {
-        final pts = controlPoints[c]!;
-        final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
-        // mixin method: store these defaults under “<base>/<channel>”
-        setDefaultValues(flat, address: '$oscAddress/$c');
+        final flat = controlPoints[c]!.expand((pt) => [pt.dx, pt.dy]).toList();
+        setDefaultValues(flat, address: c);
       }
 
-      // 2) now build your splines and send the initial “Y” curve out
       updateSplines();
     }
   }
@@ -76,52 +92,56 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   void updateSplines() {
     setState(() {
       for (var c in channels) {
-        splines[c] = MonotonicSpline(controlPoints[c]!);
+        final activePts = controlPoints[c]!.where((pt) => pt.dx >= 0).toList()
+          ..sort((a, b) => a.dx.compareTo(b.dx));
+        splines[c] = MonotonicSpline(activePts);
       }
     });
 
-    // After updating, send OSC with flattened control points for selected channel
+    // Send OSC for selected channel with sorted points
     final addr = '$oscAddress/$selectedChannel';
-
-    final points = controlPoints[selectedChannel]!;
-    final flat = <double>[];
-    for (var pt in points) {
-      flat.add(pt.dx);
-      flat.add(pt.dy);
-    }
+    final sortedPts = controlPoints[selectedChannel]!
+        .toList()
+      ..sort((a, b) => a.dx.compareTo(b.dx));
+    final flat = sortedPts.expand((pt) => [pt.dx, pt.dy]).toList();
     sendOsc(flat, address: addr);
   }
 
   void resetControlPoints() {
     setState(() {
       for (var c in channels) {
-        controlPoints[c] = [Offset(0, 0), Offset(1, 1)];
+        final list = controlPoints[c]!;
+        for (int i = 0; i < widget.maxControlPoints; i++) {
+          list[i] = i == 0
+              ? const Offset(0, 0)
+              : i == 1
+                  ? const Offset(1, 1)
+                  : const Offset(-1, -1);
+        }
       }
       updateSplines();
     });
   }
 
-  int findInsertIndex(double x, List<Offset> points) {
-    int i = 0;
-    while (i < points.length && points[i].dx < x) {
-      i++;
-    }
-    return i;
+  int? _findUnusedIndex(List<Offset> pts) {
+    final idx = pts.indexWhere((pt) => pt.dx < 0);
+    return idx == -1 ? null : idx;
   }
 
   int? findNearbyControlPoint(Offset pos, List<Offset> points) {
     for (int i = 0; i < points.length; i++) {
-      final dx = points[i].dx - pos.dx;
-      final dy = points[i].dy - pos.dy;
-      final dist = sqrt(dx * dx + dy * dy);
-      if (dist < 0.05) return i;
+      final pt = points[i];
+      if (pt.dx < 0) continue;
+      final dx = pt.dx - pos.dx;
+      final dy = pt.dy - pos.dy;
+      if (sqrt(dx * dx + dy * dy) < 0.05) return i;
     }
     return null;
   }
 
   Offset normalize(Offset localPos, Size size) {
-    final double w = size.width - 2 * insetPadding;
-    final double h = size.height - 2 * insetPadding;
+    final w = size.width - 2 * insetPadding;
+    final h = size.height - 2 * insetPadding;
     return Offset(
       (localPos.dx - insetPadding) / w,
       1.0 - (localPos.dy - insetPadding) / h,
@@ -130,22 +150,24 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   void onPanStart(DragStartDetails details, Size size) {
     final pos = normalize(details.localPosition, size);
-    final points = controlPoints[selectedChannel]!;
+    final pts = controlPoints[selectedChannel]!;
+    final idx = findNearbyControlPoint(pos, pts);
 
-    final idx = findNearbyControlPoint(pos, points);
     setState(() {
       if (idx != null) {
         currentControlPointIdx = idx;
       } else {
-        int i = findInsertIndex(pos.dx, points);
-        points.insert(i, pos);
-        currentControlPointIdx = i;
-        if (locked && selectedChannel == 'Y') {
-          for (var c in channels) {
-            controlPoints[c] = List<Offset>.from(points);
+        final unused = _findUnusedIndex(pts);
+        if (unused != null) {
+          pts[unused] = pos;
+          currentControlPointIdx = unused;
+          if (locked && selectedChannel == 'Y') {
+            for (var c in channels) {
+              controlPoints[c]![unused] = pos;
+            }
           }
+          updateSplines();
         }
-        updateSplines();
       }
       isDragging = true;
     });
@@ -153,44 +175,20 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   void onPanUpdate(DragUpdateDetails details, Size size) {
     if (!isDragging || currentControlPointIdx == null) return;
-
     final pos = normalize(details.localPosition, size);
-    final points = controlPoints[selectedChannel]!;
+    final pts = controlPoints[selectedChannel]!;
+    final idx = currentControlPointIdx!;
 
     setState(() {
       double x = pos.dx.clamp(0.0, 1.0);
       double y = pos.dy.clamp(0.0, 1.0);
 
-      const double minSpace = 0.01;
-      if (currentControlPointIdx! < points.length - 1) {
-        double nextX = points[currentControlPointIdx! + 1].dx;
-        x = min(x, nextX - minSpace);
-      }
-      if (currentControlPointIdx! > 0) {
-        double prevX = points[currentControlPointIdx! - 1].dx;
-        x = max(x, prevX + minSpace);
-      }
+      // (Optional) enforce ordering spacing here
 
-      if (currentControlPointIdx == 0) {
-        if (x > y) {
-          y = 0;
-        } else {
-          x = 0;
-        }
-      }
-      if (currentControlPointIdx == points.length - 1) {
-        if (x < y) {
-          y = 1;
-        } else {
-          x = 1;
-        }
-      }
-
-      points[currentControlPointIdx!] = Offset(x, y);
-
+      pts[idx] = Offset(x, y);
       if (locked && selectedChannel == 'Y') {
         for (var c in channels) {
-          controlPoints[c] = List<Offset>.from(points);
+          controlPoints[c]![idx] = Offset(x, y);
         }
       }
       updateSplines();
@@ -206,17 +204,15 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   void onLongPressStart(LongPressStartDetails details, Size size) {
     final pos = normalize(details.localPosition, size);
-    final points = controlPoints[selectedChannel]!;
+    final pts = controlPoints[selectedChannel]!;
+    final idx = findNearbyControlPoint(pos, pts);
 
-    final idx = findNearbyControlPoint(pos, points);
-
-    if (idx != null) {
+    if (idx != null && idx > 1) {
       setState(() {
-        points.removeAt(idx);
-        currentControlPointIdx = null;
+        pts[idx] = const Offset(-1, -1);
         if (locked && selectedChannel == 'Y') {
           for (var c in channels) {
-            controlPoints[c] = List<Offset>.from(points);
+            controlPoints[c]![idx] = const Offset(-1, -1);
           }
         }
         updateSplines();
@@ -272,7 +268,6 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                       setState(() {
                         locked = !locked;
                         if (locked) {
-                          // Copy Y into R,G,B
                           for (var c in ['R', 'G', 'B']) {
                             controlPoints[c] =
                                 List<Offset>.from(controlPoints['Y']!);

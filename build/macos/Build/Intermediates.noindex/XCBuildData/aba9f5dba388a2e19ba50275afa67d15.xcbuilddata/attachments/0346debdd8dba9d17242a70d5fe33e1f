@@ -1,0 +1,10 @@
+framework module nsd_macos {
+  umbrella header "nsd_macos-umbrella.h"
+
+  export *
+  module * { export * }
+}
+
+module nsd_macos.__Swift {
+  exclude header "nsd_macos-Swift.h"
+}
