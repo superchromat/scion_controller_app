@@ -73,7 +73,7 @@ class OscRegistry {
     _params[address]?.unregisterListener(cb);
   }
 
-   /// Save nested JSON: splits addresses by '/', storing currentValue accordingly.
+  /// Save nested JSON: splits addresses by '/', storing currentValue accordingly.
   Future<void> saveToFile(String path) async {
     final file = File(path);
     final nested = <String, dynamic>{};
@@ -130,8 +130,6 @@ class OscRegistry {
       param.dispatch(args);
     }
   }
-
-
 
   /// Reset all params whose address starts with [prefix] back to defaults.
   void resetToDefaults(String? prefix) {
@@ -190,38 +188,39 @@ class OscPathSegment extends InheritedWidget {
       old.segment != segment;
 }
 
+
 mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   late final String oscAddress;
   bool _listenerRegistered = false;
-  List<Object?>? _pendingDefaults;
+
+  // Holds defaults registered before we know the base address
+  final Map<String, List<Object?>> _pendingDefaultsMap = {};
 
   @override
   void initState() {
     super.initState();
-    // _pendingDefaults may be set by widget in its initState
+    // You can call setDefaultValues(...) here if needed
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Build this widget's base OSC address:
     oscAddress = '/${OscPathSegment.resolvePath(context).join('/')}';
+
     if (!_listenerRegistered) {
-      // register defaults once address is known
-      if (_pendingDefaults != null) {
-        OscRegistry().registerParam(oscAddress, _pendingDefaults!);
-        _pendingDefaults = null;
-      }
-      // then register for incoming OSC
+      // 1) Register any defaults stashed earlier
+      _pendingDefaultsMap.forEach((relAddr, defaults) {
+        final fullAddr = _resolveFullAddress(relAddr);
+        OscRegistry().registerParam(fullAddr, defaults);
+      });
+      _pendingDefaultsMap.clear();
+
+      // 2) Listen for incoming OSC on the base path
       OscRegistry().registerListener(oscAddress, _handleOsc);
       _listenerRegistered = true;
     }
-  }
-
-  /// Call in initState() with either a single value or a list; actual
-  /// registration happens in didChangeDependencies once oscAddress exists.
-  void setDefaultValues(dynamic defaults) {
-    _pendingDefaults =
-        defaults is List ? List<Object?>.from(defaults) : <Object?>[defaults];
   }
 
   @override
@@ -230,55 +229,93 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     super.dispose();
   }
 
-  void sendOsc(dynamic arg, {String? address}) {
-    final List<Object> argsList =
-        arg is List ? List<Object>.from(arg) : <Object>[arg as Object];
-    address ??= oscAddress;
+  /// Stash—or if the base address is known, immediately register—default values
+  /// under [address].
+  ///
+  /// - If [address] is `null` or empty, defaults apply to [oscAddress] itself.
+  /// - If [address] starts with `'/'`, it is treated as an absolute OSC path.
+  /// - Otherwise it is treated as a relative segment appended to [oscAddress].
+  void setDefaultValues(dynamic defaults, {String? address}) {
+    final rel = (address ?? '').trim();
+    final list = defaults is List<Object?>
+        ? List<Object?>.from(defaults)
+        : <Object?>[defaults as Object?];
 
+    if (_listenerRegistered) {
+      final fullAddr = _resolveFullAddress(rel);
+      OscRegistry().registerParam(fullAddr, list);
+    } else {
+      _pendingDefaultsMap[rel] = list;
+    }
+  }
+
+  String _resolveFullAddress(String rel) {
+    if (rel.startsWith('/')) {
+      // absolute path
+      return rel;
+    } else if (rel.isEmpty) {
+      // base path
+      return oscAddress;
+    } else {
+      // relative segment
+      return '$oscAddress/$rel';
+    }
+  }
+
+  /// Send an OSC message to [address] (relative or absolute) with [arg] or
+  /// list of args.
+  void sendOsc(dynamic arg, {String? address}) {
+    final addr = (address == null || address.isEmpty)
+        ? oscAddress
+        : (address.startsWith('/') ? address : '$oscAddress/$address');
+
+    final argsList = arg is List<Object>
+        ? List<Object>.from(arg)
+        : <Object>[arg as Object];
+
+    // Build type tags & status
     final typeTags = <String>[];
     var status = OscStatus.ok;
     for (var v in argsList) {
-      if (v is double) {
-        typeTags.add('f');
-      } else if (v is int)
-        typeTags.add('i');
-      else if (v is bool)
-        typeTags.add(v ? 'T' : 'F');
-      else if (v is String)
-        typeTags.add('s');
+      if (v is double) typeTags.add('f');
+      else if (v is int) typeTags.add('i');
+      else if (v is bool) typeTags.add(v ? 'T' : 'F');
+      else if (v is String) typeTags.add('s');
       else {
-        status = OscStatus.error;
         typeTags.add('?');
+        status = OscStatus.error;
       }
     }
 
+    // Log it
     oscLogKey.currentState?.logOscMessage(
-      address: address,
+      address: addr,
       arg: arg,
       status: status,
       direction: Direction.sent,
       binary: Uint8List.fromList([0]),
     );
 
-    print('Sending $argsList to $address (types: ${typeTags.join()})');
-    final net = context.read<Network>();
-net.sendOscMessage(address, argsList);
+    // Send over network
+    print('Sending $argsList to $addr (types: ${typeTags.join()})');
+    context.read<Network>().sendOscMessage(addr, argsList);
 
-    final param = OscRegistry().getParam(address);
+    // Update local registry param so saveToFile sees it
+    final param = OscRegistry().getParam(addr);
     if (param != null) {
       param.updateLocal(argsList);
     }
   }
 
+  /// Shortcut to send OSC to the path resolved from a BuildContext
   void sendOscFromContext(BuildContext ctx, dynamic arg) {
     final addr = '/${OscPathSegment.resolvePath(ctx).join('/')}';
     sendOsc(arg, address: addr);
   }
 
   void _handleOsc(List<Object?> args) {
-    final logState = oscLogKey.currentState;
     final status = onOscMessage(args);
-    logState?.logOscMessage(
+    oscLogKey.currentState?.logOscMessage(
       address: oscAddress,
       arg: args,
       status: status,
@@ -287,9 +324,7 @@ net.sendOscMessage(address, argsList);
     );
   }
 
-  /// Override in State to handle incoming OSC.
-  OscStatus onOscMessage(List<Object?> args) {
-    debugPrint('Unhandled OSC at \$oscAddress → \$args');
-    return OscStatus.error;
-  }
+  /// Override in your State to handle incoming OSC messages.
+  /// Return OscStatus.ok if you handled it, or OscStatus.error if not.
+  OscStatus onOscMessage(List<Object?> args) => OscStatus.error;
 }

@@ -55,14 +55,23 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   @override
   void didChangeDependencies() {
-    super.didChangeDependencies(); // runs OscAddressMixin’s logic first
+    super.didChangeDependencies();
 
     if (!_didInit) {
       _didInit = true;
-      updateSplines(); // now oscAddress is valid
+
+      // 1) register each channel’s default control-points in the OSC registry
+      for (var c in channels) {
+        final pts = controlPoints[c]!;
+        final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
+        // mixin method: store these defaults under “<base>/<channel>”
+        setDefaultValues(flat, address: '$oscAddress/$c');
+      }
+
+      // 2) now build your splines and send the initial “Y” curve out
+      updateSplines();
     }
   }
-
 
   void updateSplines() {
     setState(() {
