@@ -118,52 +118,84 @@ def topo_sort(defs):
     return order
 
 # Generate accessors
-def gen_accessors(raw,path,dims):
-    # struct
-    if isinstance(raw,tuple) and raw[0]=='struct':
-        for name,val in raw[1].items(): gen_accessors(val,path+[name],dims)
+
+def gen_accessors(raw, path, dims):
+    # Struct: recurse into each field
+    if isinstance(raw, tuple) and raw[0] == 'struct':
+        for name, val in raw[1].items():
+            gen_accessors(val, path + [name], dims)
         return
-    # array of structs
-    if isinstance(raw,list) and raw and isinstance(raw[0],tuple):
-        idx_name=path[-1]+'_idx'
-        for name,val in raw[0][1].items(): gen_accessors(val,path+[name],dims+[idx_name])
+
+    # Array of structs: add index dim and recurse
+    if isinstance(raw, list) and raw and isinstance(raw[0], tuple):
+        idx_name = path[-1] + '_idx'
+        for name, val in raw[0][1].items():
+            gen_accessors(val, path + [name], dims + [idx_name])
         return
-    # primitive array under struct
-    if isinstance(raw,list) and dims:
-        base=path[0]; field=path[-1]; idx=dims[0]; func='_'.join(path)
-        print(f"uint32_t get_{func}(char *buf,int len,int {idx}) {{")
+
+    # Primitive array under a struct: full-array getter/setter
+    if isinstance(raw, list) and dims:
+        base = path[0]
+        field = path[-1]
+        idx = dims[0]
+        func = '_'.join(path)
+        length = len(raw)
+        # Getter
+        print(f"uint32_t get_{func}(char *buf, int len, int {idx}) {{")
         print("  char address[OSC_BUF_SIZE];")
-        print(f"  snprintf(address,OSC_BUF_SIZE-1,\"/{base}/%d/{field}\",{idx});")
-        print(f"  return tosc_writeMessage(buf,len,address,\"f\",config.{base}[{idx}].{field});")
+        print(f"  snprintf(address, OSC_BUF_SIZE-1, \"/{base}/%d/{field}\", {idx});")
+        fmt_str = '"' + 'f'*length + '"'
+        print(f"  return tosc_writeMessage(buf, len, address, {fmt_str},")
+        for i in range(length):
+            comma = ',' if i < length-1 else ''
+            print(f"    config.{base}[{idx}].{field}[{i}]{comma}")
+        print("  );")
         print("}")
         print()
-        print(f"void set_{func}(int {idx},double v) {{ config.{base}[{idx}].{field}=v; }}")
+        # Setter
+        print(f"void set_{func}(int {idx}, double *v) {{")
+        print(f"  memcpy(config.{base}[{idx}].{field}, v, sizeof(double) * {length});")
+        print("}")
         print()
         return
-    # primitive leaf
-    func='_'.join(path); fmtc='s' if isinstance(raw,str) and raw.startswith('"') else 'f'
-    sig=['char *buf','int len']+[f"int {d}" for d in dims]
+
+    # Primitive leaf field: simple getter/setter
+    func = '_'.join(path)
+    fmtc = 's' if isinstance(raw, str) and raw.startswith('"') else 'f'
+    sig = ['char *buf', 'int len'] + [f"int {d}" for d in dims]
     print(f"uint32_t get_{func}({', '.join(sig)}) {{")
     print("  char address[OSC_BUF_SIZE];")
-    # build address
-    parts=[]; di=0
+    # Build OSC address format with %d placeholders
+    parts = []
+    dim_i = 0
     for seg in path:
         parts.append(seg)
-        if di<len(dims): parts.append('%d'); di+=1
-    fmt_str='/'+'/'.join(parts)
-    if dims: print(f"  snprintf(address,OSC_BUF_SIZE-1,\"{fmt_str}\",{','.join(dims)});")
-    else: print(f"  snprintf(address,OSC_BUF_SIZE-1,\"{fmt_str}\");")
-    # access
-    access='config'
-    for i,seg in enumerate(path):
-        access+=f".{seg}"+ (f"[{dims[i]}]" if i<len(dims) else '')
-    print(f"  return tosc_writeMessage(buf,len,address,\"{fmtc}\",{access});")
+        if dim_i < len(dims):
+            parts.append('%d')
+            dim_i += 1
+    fmt_str = '/' + '/'.join(parts)
+    if dims:
+        args = ', '.join(dims)
+        print(f"  snprintf(address, OSC_BUF_SIZE-1, \"{fmt_str}\", {args});")
+    else:
+        print(f"  snprintf(address, OSC_BUF_SIZE-1, \"{fmt_str}\");")
+    # Access config value
+    access = 'config'
+    for i, seg in enumerate(path):
+        if i < len(dims):
+            access += f".{seg}[{dims[i]}]"
+        else:
+            access += f".{seg}"
+    print(f"  return tosc_writeMessage(buf, len, address, \"{fmtc}\", {access});")
     print("}")
     print()
-    if fmtc=='f':
-        print(f"void set_{func}({', '.join(dims+['double v'])}) {{ {access}=v; }}")
+    # Setter
+    if fmtc == 'f':
+        set_sig = ', '.join(dims + ['double v'])
+        print(f"void set_{func}({set_sig}) {{ {access} = v; }}")
     else:
-        print(f"void set_{func}({', '.join(dims+['const char *s'])}) {{ {access}=s; }}")
+        set_sig = ', '.join(dims + ['const char *s'])
+        print(f"void set_{func}({set_sig}) {{ {access} = s; }}")
     print()
 
 # Main
