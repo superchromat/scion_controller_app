@@ -81,7 +81,10 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
       // Register defaults for each channel (including placeholders)
       for (var c in channels) {
-        final flat = controlPoints[c]!.expand((pt) => [pt.dx, pt.dy]).toList();
+        final flat = (List<Offset>.from(controlPoints[c]!)
+              ..sort((a, b) => a.dx.compareTo(b.dx)))
+            .expand((pt) => [pt.dx, pt.dy])
+            .toList();
         setDefaultValues(flat, address: c);
       }
 
@@ -100,8 +103,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
     // Send OSC for selected channel with sorted points
     final addr = '$oscAddress/$selectedChannel';
-    final sortedPts = controlPoints[selectedChannel]!
-        .toList()
+    final sortedPts = controlPoints[selectedChannel]!.toList()
       ..sort((a, b) => a.dx.compareTo(b.dx));
     final flat = sortedPts.expand((pt) => [pt.dx, pt.dy]).toList();
     sendOsc(flat, address: addr);
