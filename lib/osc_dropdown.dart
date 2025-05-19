@@ -60,13 +60,25 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
   void initState() {
     super.initState();
     // Use provided defaultValue if specified and valid, otherwise first item
-    if (widget.defaultValue != null && widget.items.contains(widget.defaultValue)) {
+    if (widget.defaultValue != null &&
+        widget.items.contains(widget.defaultValue)) {
       _selected = widget.defaultValue as T;
     } else {
       _selected = widget.items.first;
     }
     // register default before address resolution
     setDefaultValues(_selected);
+  }
+
+  @override
+  OscStatus onOscMessage(List<Object?> args) {
+    // take the first argument, cast to T if possible
+    final incoming = args.isNotEmpty ? args.first : null;
+    if (incoming is T && widget.items.contains(incoming)) {
+      setState(() => _selected = incoming);
+      return OscStatus.ok;
+    }
+    return OscStatus.error;
   }
 
   @override

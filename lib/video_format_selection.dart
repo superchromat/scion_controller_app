@@ -104,7 +104,7 @@ class _VideoFormatSelectionSectionState
                   width: 45,
                   height: 20,
                   child: OscPathSegment(
-                    segment: '${row}_$col',
+                    segment: '${row}/$col',
                     child: NumericSlider(
                       key: sliderKeys[row][col],
                       value: matrixModel.getCell(row, col),
