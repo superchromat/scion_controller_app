@@ -684,6 +684,7 @@
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_dropdown.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_log.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_radiolist.dart
+/Users/joshreich/flutter-scion/scion_widgets/lib/osc_text.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_widget_binding.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/send_color.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/send_page.dart
@@ -691,6 +692,7 @@
 /Users/joshreich/flutter-scion/scion_widgets/lib/shape.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/status_bar.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/sync_mode_selection.dart
+/Users/joshreich/flutter-scion/scion_widgets/lib/system_overview.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/video_format_selection.dart
 /Users/joshreich/flutter-scion/scion_widgets/pubspec.yaml
 /Users/joshreich/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf

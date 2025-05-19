@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'osc_widget_binding.dart';   // for OscPathSegment & OscAddressMixin
-import 'labeled_card.dart';        // for LabeledCard
+import 'osc_widget_binding.dart'; 
+import 'labeled_card.dart'; 
+import 'osc_text.dart';
 
 enum LabelPosition { top, bottom }
 
@@ -17,7 +18,7 @@ class _SystemOverviewState extends State<SystemOverview> {
 
   final GlobalKey _stackKey = GlobalKey();
   final List<GlobalKey> _inputKeys = List.generate(4, (_) => GlobalKey());
-  final List<GlobalKey> _sendKeys  = List.generate(4, (_) => GlobalKey());
+  final List<GlobalKey> _sendKeys = List.generate(4, (_) => GlobalKey());
   List<Arrow> _arrows = [];
 
   @override
@@ -33,8 +34,10 @@ class _SystemOverviewState extends State<SystemOverview> {
     final List<Arrow> newArrows = [];
 
     void connect(int fromIndex, int toIndex) {
-      final fromBox = _inputKeys[fromIndex].currentContext?.findRenderObject() as RenderBox?;
-      final toBox   = _sendKeys[toIndex].currentContext?.findRenderObject() as RenderBox?;
+      final fromBox = _inputKeys[fromIndex].currentContext?.findRenderObject()
+          as RenderBox?;
+      final toBox =
+          _sendKeys[toIndex].currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
 
       // bottom-center of the input tile
@@ -47,7 +50,7 @@ class _SystemOverviewState extends State<SystemOverview> {
       );
 
       final fromLocal = stackBox.globalToLocal(fromGlobal);
-      final toLocal   = stackBox.globalToLocal(toGlobal);
+      final toLocal = stackBox.globalToLocal(toGlobal);
       newArrows.add(Arrow(fromLocal, toLocal));
     }
 
@@ -55,7 +58,7 @@ class _SystemOverviewState extends State<SystemOverview> {
     connect(0, 0);
     connect(1, 1);
     connect(1, 2);
-    connect(2, 2);
+    connect(2, 3);
     connect(2, 3);
 
     setState(() => _arrows = newArrows);
@@ -82,7 +85,11 @@ class _SystemOverviewState extends State<SystemOverview> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: labelPosition == LabelPosition.top
             ? [label, const SizedBox(height: 4), child]
-            : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
+            : [
+                child,
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerLeft, child: label)
+              ],
       ),
     );
   }
@@ -122,7 +129,8 @@ class _SystemOverviewState extends State<SystemOverview> {
                           child: Row(
                             children: List.generate(
                               4,
-                              (i) => sizedTile(InputTile(index: i + 1), _inputKeys[i]),
+                              (i) => sizedTile(
+                                  InputTile(index: i + 1), _inputKeys[i]),
                             ),
                           ),
                         ),
@@ -152,7 +160,8 @@ class _SystemOverviewState extends State<SystemOverview> {
                           child: Row(
                             children: List.generate(
                               4,
-                              (i) => sizedTile(AnalogSendTile(index: i + 1), _sendKeys[i]),
+                              (i) => sizedTile(
+                                  AnalogSendTile(index: i + 1), _sendKeys[i]),
                             ),
                           ),
                         ),
@@ -191,32 +200,6 @@ class Arrow {
   Arrow(this.from, this.to);
 }
 
-class _ArrowsPainter extends CustomPainter {
-  final List<Arrow> arrows;
-  _ArrowsPainter(this.arrows);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 4; 
-
-    for (final a in arrows) {
-      canvas.drawLine(a.from, a.to, paint);
-
-      final angle = (a.to - a.from).direction;
-      const headLen = 12.0, headAngle = pi / 6;
-      final p1 = a.to - Offset(headLen * cos(angle - headAngle), headLen * sin(angle - headAngle));
-      final p2 = a.to - Offset(headLen * cos(angle + headAngle), headLen * sin(angle + headAngle));
-      canvas.drawLine(a.to, p1, paint);
-      canvas.drawLine(a.to, p2, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArrowsPainter old) => old.arrows != arrows;
-}
-
 // ----------------------------------------------------------------------------
 // Tile stubs below.  Replace "Fixme" and static text with your OSC watch/getValue.
 // ----------------------------------------------------------------------------
@@ -249,9 +232,30 @@ class InputTile extends StatelessWidget {
                 alignment: Alignment.topLeft,
                 child: Padding(
                   padding: EdgeInsets.all(8),
-                  child: Text(
-                    'Fixme',
-                    style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OscText(segment: 'resolution',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontFamily: 'Courier',
+                              fontSize: 12)),
+                      OscText(segment: 'framerate',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontFamily: 'Courier',
+                              fontSize: 12)),
+                      OscText(segment: 'bit_depth',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontFamily: 'Courier',
+                              fontSize: 12)),
+                      Text('colorspace chroma_subsampling',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontFamily: 'Courier',
+                              fontSize: 12)),
+                    ],
                   ),
                 ),
               ),
@@ -261,6 +265,72 @@ class InputTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ArrowsPainter extends CustomPainter {
+  final List<Arrow> arrows;
+  _ArrowsPainter(this.arrows);
+
+  Color? col = Colors.grey[400];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Paint for the shaft
+    final shaftPaint = Paint()
+      ..color = col!
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
+
+    // Paint for the filled arrowhead
+    final headFillPaint = Paint()
+      ..color = col!
+      ..style = PaintingStyle.fill;
+
+    // Paint for the arrowhead outline
+    final headStrokePaint = Paint()
+      ..color = col!
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    for (final a in arrows) {
+      // Compute arrowhead points
+      final angle = (a.to - a.from).direction;
+      const headLen = 12.0, headAngle = pi / 6;
+      final p1 = a.to -
+          Offset(
+            headLen * cos(angle - headAngle),
+            headLen * sin(angle - headAngle),
+          );
+      final p2 = a.to -
+          Offset(
+            headLen * cos(angle + headAngle),
+            headLen * sin(angle + headAngle),
+          );
+
+      // Compute the base center of the arrowhead triangle
+      final baseCenter = Offset(
+        (p1.dx + p2.dx) / 2,
+        (p1.dy + p2.dy) / 2,
+      );
+
+      // Draw the shaft up to the base of the arrowhead
+      canvas.drawLine(a.from, baseCenter, shaftPaint);
+
+      // Build a triangular path for the arrowhead
+      final path = Path()
+        ..moveTo(a.to.dx, a.to.dy)
+        ..lineTo(p1.dx, p1.dy)
+        ..lineTo(p2.dx, p2.dy)
+        ..close();
+
+      // Fill and stroke the arrowhead
+      canvas.drawPath(path, headFillPaint);
+      canvas.drawPath(path, headStrokePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowsPainter old) => old.arrows != arrows;
 }
 
 class AnalogSendTile extends StatelessWidget {
@@ -280,7 +350,10 @@ class AnalogSendTile extends StatelessWidget {
               Center(
                 child: Text(
                   '$index',
-                  style: TextStyle(fontSize: 96, color: Colors.white.withOpacity(0.2), fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 96,
+                      color: Colors.white.withOpacity(0.2),
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               const Align(
@@ -290,8 +363,16 @@ class AnalogSendTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('10bit', style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
-                      Text('Custom 4:4:4', style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
+                      Text('10bit',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontFamily: 'Courier',
+                              fontSize: 12)),
+                      Text('Custom 4:4:4',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontFamily: 'Courier',
+                              fontSize: 12)),
                     ],
                   ),
                 ),
@@ -318,7 +399,10 @@ class ReturnTile extends StatelessWidget {
             Center(
               child: Text(
                 'R',
-                style: TextStyle(fontSize: 96, color: Colors.white.withOpacity(0.2), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 96,
+                    color: Colors.white.withOpacity(0.2),
+                    fontWeight: FontWeight.bold),
               ),
             ),
             const Align(
@@ -328,10 +412,26 @@ class ReturnTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('1920x1080', style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
-                    Text('66fps',      style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
-                    Text('128bit',     style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
-                    Text('BLK 9:0:2',  style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
+                    Text('1920x1080',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontFamily: 'Courier',
+                            fontSize: 12)),
+                    Text('66fps',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontFamily: 'Courier',
+                            fontSize: 12)),
+                    Text('128bit',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontFamily: 'Courier',
+                            fontSize: 12)),
+                    Text('BLK 9:0:2',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontFamily: 'Courier',
+                            fontSize: 12)),
                   ],
                 ),
               ),
@@ -357,7 +457,10 @@ class HdmiOutTile extends StatelessWidget {
             Center(
               child: Text(
                 'O',
-                style: TextStyle(fontSize: 96, color: Colors.white.withOpacity(0.2), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 96,
+                    color: Colors.white.withOpacity(0.2),
+                    fontWeight: FontWeight.bold),
               ),
             ),
             const Align(
@@ -367,8 +470,16 @@ class HdmiOutTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('12bit',    style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
-                    Text('RGB 4:4:4',style: TextStyle(color: Colors.green, fontFamily: 'Courier', fontSize: 12)),
+                    Text('12bit',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontFamily: 'Courier',
+                            fontSize: 12)),
+                    Text('RGB 4:4:4',
+                        style: TextStyle(
+                            color: Colors.green,
+                            fontFamily: 'Courier',
+                            fontSize: 12)),
                   ],
                 ),
               ),
@@ -385,6 +496,7 @@ class SyncLock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const locked = true;
-    return Icon(locked ? Icons.lock : Icons.lock_open, color: locked ? Colors.yellow : Colors.grey, size: 48);
+    return Icon(locked ? Icons.lock : Icons.lock_open,
+        color: locked ? Colors.yellow : Colors.grey, size: 48);
   }
 }
