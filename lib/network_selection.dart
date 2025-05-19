@@ -21,6 +21,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
+  // ignore: unused_field
   bool _connecting = false;
   bool _discovering = false;
 

@@ -148,9 +148,9 @@ class _VideoFormatSelectionSectionState
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OscDropdown<String>(
-                        label: 'Resolution', items: resolutions),
+                        label: 'Resolution', items: resolutions, defaultValue: resolutions[0],),
                     const SizedBox(height: 16),
-                    OscDropdown<double>(label: 'Framerate', items: framerates),
+                    OscDropdown<double>(label: 'Framerate', items: framerates, defaultValue: framerates[0],),
                     const SizedBox(height: 16),
                     Transform.translate(
                       offset: const Offset(-8, 0),
@@ -165,6 +165,7 @@ class _VideoFormatSelectionSectionState
                           child: OscDropdown<String>(
                             label: 'Colourspace',
                             items: colourspaces,
+                            defaultValue: colourspaces[0],
                             onChanged: (value) {
                               setState(() {
                                 selectedColourspace = value;

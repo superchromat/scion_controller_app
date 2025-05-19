@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'osc_radiolist.dart';
 import 'numeric_slider.dart';
 import 'labeled_card.dart';
 import 'osc_widget_binding.dart';
@@ -21,40 +21,22 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
     ['external', 'External H/V sync input']
   ];
 
-
   @override
   Widget build(BuildContext context) {
     RangeValues pixelClockShiftRange = RangeValues(-16, 17);
     List<double> pcsri = List.generate(
         (pixelClockShiftRange.end - pixelClockShiftRange.start).toInt(),
         (i) => (pixelClockShiftRange.start.toInt() + i).toDouble());
-    return LabeledCard( // TODO: This doesn't call setDefaultValue, so it doesn't go in the OscRegistry, so it isn't saved
+
+    return LabeledCard(
       title: 'Return Sync',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ..._syncOptions.map((optionPair) => SizedBox(
-                width: double.infinity,
-                child: OscPathSegment(
-                  segment: 'sync_mode',
-                  child: Builder(builder: (radioContext) {
-                    return RadioListTile<String>(
-                      title: Text(optionPair[1],
-                          style: Theme.of(context).textTheme.bodyMedium),
-                      value: optionPair[0],
-                      groupValue: _selectedSync,
-                      onChanged: (value) {
-                        setState(() => _selectedSync = value!);
-                        if (value != null) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            sendOscFromContext(radioContext, value);
-                          });
-                        }
-                      },
-                    );
-                  }),
-                ),
-              )),
+            OscPathSegment(
+        segment: 'sync_mode',
+        child: OscRadioList(options: _syncOptions),
+      ),
           const SizedBox(height: 16),
           Text('Pixel clock offset',
               style: Theme.of(context).textTheme.titleMedium),
@@ -64,13 +46,13 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
                   width: 80,
                   height: 24,
                   child: NumericSlider(
-                      value: 0,
-                      onChanged: (_) {},
-                      range: pixelClockShiftRange,
-                      detents: pcsri,
-                      hardDetents: true,
-                      precision: 0,))
-              ),
+                    value: 0,
+                    onChanged: (_) {},
+                    range: pixelClockShiftRange,
+                    detents: pcsri,
+                    hardDetents: true,
+                    precision: 0,
+                  ))),
         ],
       ),
     );

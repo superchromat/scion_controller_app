@@ -30,7 +30,6 @@ class NumericSliderState extends State<NumericSlider>
   late double _value;
   double _displayValue = 0;
   Offset? _startDragPos;
-  double _startDragValue = 0;
   bool _editing = false;
   bool _externallySet = false;
   late String _inputBuffer;
@@ -43,7 +42,6 @@ class NumericSliderState extends State<NumericSlider>
   late final RangeValues _range;
   late final List<double> _detents;
   final double _detentThreshold = 0.1;
-  double? _activeDetent;
 
   late final int _precision;
 
@@ -58,11 +56,6 @@ class NumericSliderState extends State<NumericSlider>
     color: Colors.white,
   );
 
-  final _strutStyle = const StrutStyle(
-    fontSize: 12,
-    forceStrutHeight: true,
-    height: 1,
-  );
 
   @override
   void initState() {
@@ -197,7 +190,6 @@ class NumericSliderState extends State<NumericSlider>
 
   void _onPanStart(DragStartDetails details) {
     _startDragPos = details.globalPosition;
-    _startDragValue = _value;
     prev_sent_value = null;
   }
 
@@ -375,7 +367,6 @@ The slider mechanics needs to be reworked.
           onPanUpdate: _onPanUpdate,
           onPanEnd: (_) => setState(() {
             _startDragPos = null;
-            _activeDetent = null;
           }),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(3),

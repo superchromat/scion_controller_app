@@ -76,15 +76,15 @@ class Network extends ChangeNotifier {
 
     // initialize ack tracking
     _lastAckReceived = DateTime.now();
-    // send an immediate ack to prime
-    sendOscMessage('/ack', []);
+    // send an immediate sync 
+    sendOscMessage('/sync', []);
     // every 2 seconds, send /ack
     _ackTimer?.cancel();
     _ackTimer = Timer.periodic(const Duration(seconds: 2), (t) {
       try {
         sendOscMessage('/ack', []);
       } catch (e, st) {
-        debugPrint('⚠️ periodic /ack send error: $e\n$st');
+        debugPrint('Periodic /ack send error: $e\n$st');
       }
     });
     // every 1 second, check for ack timeout
@@ -92,8 +92,8 @@ class Network extends ChangeNotifier {
     _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_lastAckReceived != null &&
           DateTime.now().difference(_lastAckReceived!).inSeconds > 5) {
-        debugPrint('🔴 No /ack received in 5s; disconnecting');
-       // disconnect();
+        debugPrint('No /ack received in 5s; disconnecting');
+        disconnect();
 
        // TODO: Redo this logic so it only sends an ACK if it hasn't heard
        // a mesage from the board in a while

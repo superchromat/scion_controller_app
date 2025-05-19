@@ -15,12 +15,10 @@ class SendPage extends StatefulWidget {
 }
 
 class _SendPageState extends State<SendPage> with OscAddressMixin {
-  late int _selectedInput;
 
   @override
   void initState() {
     super.initState();
-    _selectedInput = widget.pageNumber;
   }
 
   @override

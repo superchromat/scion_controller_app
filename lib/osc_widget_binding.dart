@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -6,8 +8,6 @@ import 'package:flutter/material.dart';
 import 'osc_log.dart';
 import 'network.dart';
 import 'package:provider/provider.dart';
-
-// TODO: method to Sync OSC settings on startup and then let the user manually sync?x`
 
 enum OscStatus { fail, error, ok }
 
@@ -277,8 +277,9 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     final typeTags = <String>[];
     var status = OscStatus.ok;
     for (var v in argsList) {
-      if (v is double) typeTags.add('f');
-      else if (v is int) typeTags.add('i');
+      if (v is double) {
+        typeTags.add('f');
+      } else if (v is int) typeTags.add('i');
       else if (v is bool) typeTags.add(v ? 'T' : 'F');
       else if (v is String) typeTags.add('s');
       else {
