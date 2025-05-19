@@ -1,9 +1,11 @@
+import 'package:SCION_Controller/system_overview.dart';
 import 'package:flutter/material.dart';
 
 import 'file_selection.dart';
 import 'video_format_selection.dart';
 import 'network_selection.dart';
 import 'sync_mode_selection.dart';
+import 'system_overview.dart';
 
 class SetupPage extends StatefulWidget {
   const SetupPage({super.key});
@@ -33,9 +35,9 @@ class _SetupPageState extends State<SetupPage> {
               ),
               IntrinsicHeight(
                   child: SizedBox(
-                      height: 200,
+                      height: 800,
                       // System status overview diagram TODO
-                      child: Placeholder())),
+                      child: SystemOverview())),
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment
