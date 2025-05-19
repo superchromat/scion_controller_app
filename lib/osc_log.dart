@@ -1,3 +1,6 @@
+// lib/osc_log_table.dart
+
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +9,8 @@ import 'osc_widget_binding.dart';
 
 final GlobalKey<OscLogTableState> oscLogKey = GlobalKey<OscLogTableState>();
 
+
+/// A single entry in the OSC log
 class OscLogEntry {
   final OscStatus status;
   final Direction direction;
@@ -24,6 +29,7 @@ class OscLogEntry {
   });
 }
 
+/// A table widget that logs OSC messages with filtering and grouping
 class OscLogTable extends StatefulWidget {
   final ValueChanged<Uint8List> onDownload;
   final bool isActive;
@@ -47,11 +53,14 @@ class OscLogTableState extends State<OscLogTable> {
     OscStatus.error,
     OscStatus.fail,
   };
+  final Set<Direction> _filterDirections = {
+    Direction.sent,
+    Direction.received,
+  };
+
   final ScrollController _scrollController = ScrollController();
   bool _isAtBottom = true;
   int _pendingCount = 0;
-
-  // track which address-groups are expanded
   final Set<int> _expandedGroups = {};
 
   @override
@@ -72,6 +81,7 @@ class OscLogTableState extends State<OscLogTable> {
     }
   }
 
+  /// Add a new OSC message to the log
   void logOscMessage({
     required String address,
     required dynamic arg,
@@ -79,9 +89,7 @@ class OscLogTableState extends State<OscLogTable> {
     required Direction direction,
     required Uint8List binary,
   }) {
-    final argsList = (arg is List
-        ? arg.map((e) => e.toString())
-        : [arg.toString()]);
+    final argsList = (arg is List ? arg.map((e) => e.toString()) : [arg.toString()]);
     final entry = OscLogEntry(
       status: status,
       direction: direction,
@@ -109,17 +117,10 @@ class OscLogTableState extends State<OscLogTable> {
     );
   }
 
-  Widget _buildCell(
-    Widget child,
-    int flex, {
-    String? tooltip,
-    bool isHeader = false,
-    String? copyText,
-  }) {
+  Widget _buildCell(Widget child, int flex,
+      {String? tooltip, bool isHeader = false, String? copyText}) {
     final side = BorderSide(color: Colors.grey[600]!, width: 1);
-    final bottom = isHeader
-        ? BorderSide(color: Colors.yellow, width: 1)
-        : side;
+    final bottom = isHeader ? BorderSide(color: Colors.yellow, width: 1) : side;
 
     Widget content = Container(
       height: 12,
@@ -156,55 +157,61 @@ class OscLogTableState extends State<OscLogTable> {
   }
 
   Widget _buildHeader() {
+    // Status filter
     List<PopupMenuEntry<OscStatus>> statusItems() {
       PopupMenuEntry<OscStatus> item(OscStatus s, String label) {
         return PopupMenuItem<OscStatus>(
           value: s,
           child: Row(
             children: [
-              Checkbox(
-                value: _filterStatuses.contains(s),
-                onChanged: null,
-              ),
+              Checkbox(value: _filterStatuses.contains(s), onChanged: null),
               const SizedBox(width: 4),
               Text(label, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
             ],
           ),
         );
       }
+      return [item(OscStatus.ok, 'OK'), item(OscStatus.error, 'ERROR'), item(OscStatus.fail, 'FAIL')];
+    }
 
-      return [
-        item(OscStatus.ok, 'OK'),
-        item(OscStatus.error, 'ERROR'),
-        item(OscStatus.fail, 'FAIL'),
-      ];
+    // Direction filter
+    List<PopupMenuEntry<Direction>> dirItems() {
+      PopupMenuEntry<Direction> item(Direction d, String label) {
+        return PopupMenuItem<Direction>(
+          value: d,
+          child: Row(
+            children: [
+              Checkbox(value: _filterDirections.contains(d), onChanged: null),
+              const SizedBox(width: 4),
+              Text(label, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+            ],
+          ),
+        );
+      }
+      return [item(Direction.sent, 'SENT'), item(Direction.received, 'RECEIVED')];
     }
 
     return Row(children: [
       _buildCell(
         PopupMenuButton<OscStatus>(
           tooltip: 'Filter by status',
-          child: Row(
-            children: const [
-              Text('Status', style: TextStyle(fontFamily: 'Courier', fontSize: 10)),
-              Icon(Icons.arrow_drop_down, size: 12),
-            ],
-          ),
-          itemBuilder: (context) => statusItems(),
-          onSelected: (s) {
-            setState(() {
-              if (_filterStatuses.contains(s)) {
-                _filterStatuses.remove(s);
-              } else {
-                _filterStatuses.add(s);
-              }
-            });
-          },
+          child: Row(children: const [Text('Status', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), Icon(Icons.arrow_drop_down, size: 12)]),
+          itemBuilder: (c) => statusItems(),
+          onSelected: (s) => setState(() => _filterStatuses.contains(s) ? _filterStatuses.remove(s) : _filterStatuses.add(s)),
         ),
         1,
         isHeader: true,
       ),
-      _buildCell(const Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 1, isHeader: true),
+      _buildCell(
+        PopupMenuButton<Direction>(
+          tooltip: 'Filter by direction',
+          child: Row(children: const [Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), Icon(Icons.arrow_drop_down, size: 12)]),
+          itemBuilder: (c) => dirItems(),
+          onSelected: (d) => setState(() => _filterDirections.contains(d) ? _filterDirections.remove(d) : _filterDirections.add(d)),
+        ),
+        1,
+        isHeader: true,
+      ),
       _buildCell(const Text('Time', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 2, isHeader: true),
       _buildCell(const Text('Address', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 4, isHeader: true),
       _buildCell(const Text('Args', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 6, isHeader: true),
@@ -212,123 +219,44 @@ class OscLogTableState extends State<OscLogTable> {
     ]);
   }
 
+  /// Single row for one entry
   Widget _rowForEntry(OscLogEntry e) {
     final statusText = e.status.toString().split('.').last.toUpperCase();
-    final dirText = e.direction == Direction.received ? 'RECEIVED' : 'SENT';
-    final timeTextStr = DateFormat('HH:mm:ss.SSS').format(e.timestamp);
-
-    Color statusColor;
-    switch (e.status) {
-      case OscStatus.ok:
-        statusColor = Colors.green;
-      case OscStatus.error:
-        statusColor = Colors.yellow;
-      case OscStatus.fail:
-        statusColor = Colors.red;
-    }
-
-    return Row(children: [
-      _buildCell(
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
-        1,
-        copyText: statusText,
-      ),
-      _buildCell(
-        Icon(e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back, size: 10),
-        1,
-        copyText: dirText,
-      ),
-      _buildCell(
-        Text(timeTextStr, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
-        2,
-        copyText: timeTextStr,
-      ),
-      _buildCell(
-        Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
-        4,
-        tooltip: e.address,
-        copyText: e.address,
-      ),
-      _buildCell(
-        Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
-        6,
-        tooltip: e.args,
-        copyText: e.args,
-      ),
-      _buildCell(
-        GestureDetector(onTap: () => widget.onDownload(e.binary), child: const Icon(Icons.download, size: 12)),
-        1,
-      ),
-    ]);
-  }
-
-  /// Builds the summary row when collapsed.
-  Widget _buildSummaryRow(List<OscLogEntry> group, int groupIndex) {
-    final e = group.last;
-    final count = group.length;
-    final statusText = e.status.toString().split('.').last.toUpperCase();
-    final dirText = e.direction == Direction.received ? 'RECEIVED' : 'SENT';
     final timeText = DateFormat('HH:mm:ss.SSS').format(e.timestamp);
-
     Color statusColor;
     switch (e.status) {
       case OscStatus.ok:
         statusColor = Colors.green;
+        break;
       case OscStatus.error:
         statusColor = Colors.yellow;
+        break;
       case OscStatus.fail:
         statusColor = Colors.red;
+        break;
     }
+    final iconColor = e.direction == Direction.received ? const Color.fromARGB(255, 156, 204, 243) : const Color.fromARGB(255, 238, 125, 163);
+    final icon = Icon(e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back, size: 10, color: iconColor);
 
     return Row(children: [
-      _buildCell(
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
-        1,
-        copyText: statusText,
-      ),
-      _buildCell(
-        Icon(e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back, size: 10),
-        1,
-        copyText: dirText,
-      ),
-      _buildCell(
-        Text(timeText, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
-        2,
-        copyText: timeText,
-      ),
-      _buildCell(
-        Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
-        4,
-        tooltip: e.address,
-        copyText: e.address,
-      ),
-      _buildCell(
-        Row(children: [
-          Expanded(
-            child: Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis),
-          ),
-          Text(' (${count-1} more)', style: const TextStyle(fontFamily: 'Courier', fontSize: 10, color: Colors.yellow)),
-        ]),
-        6,
-        tooltip: e.args,
-        copyText: e.args,
-      ),
-      _buildCell(
-        Icon(Icons.add, size: 12), // TODO: Clear
-        1,
-      ),
+      _buildCell(Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)), 1, copyText: statusText),
+      _buildCell(icon, 1, copyText: e.direction.toString().split('.').last.toUpperCase()),
+      _buildCell(Text(timeText, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)), 2, copyText: timeText),
+      _buildCell(Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis), 4, tooltip: e.address, copyText: e.address),
+      _buildCell(Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis), 6, tooltip: e.args, copyText: e.args),
+      _buildCell(GestureDetector(onTap: () => widget.onDownload(e.binary), child: const Icon(Icons.download, size: 12)), 1),
     ]);
   }
 
-  /// Toggle area for grouping UX
-  Widget _buildGroupToggleArea({
-    required bool isSummary,
-    required int groupIndex,
-    int? entryIndex,
-  }) {
+  /// Summary row when collapsed
+  Widget _buildSummaryRow(List<OscLogEntry> group, int gi) {
+    final e = group.last;
+    return _rowForEntry(e); // reuse single-row styling; grouping indicator is separate
+  }
 
+  /// Group toggle column widget
+  Widget _buildGroupToggleArea({required bool isSummary, required int groupIndex, int? entryIndex}) {
     if (isSummary) {
-      // collapsed group: show '+'
       return GestureDetector(
         onTap: () => setState(() => _expandedGroups.add(groupIndex)),
         child: Container(
@@ -339,8 +267,6 @@ class OscLogTableState extends State<OscLogTable> {
         ),
       );
     }
-
-    // expanded group entries: show '-' on first, vertical line all
     final first = entryIndex == 0;
     return GestureDetector(
       onTap: () => setState(() => _expandedGroups.remove(groupIndex)),
@@ -348,35 +274,27 @@ class OscLogTableState extends State<OscLogTable> {
         width: _toggleAreaWidth,
         height: 12,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          border: Border(
-            right: BorderSide(color: Colors.yellow, width: 1),
-          ),
-        ),
-        child: first ? const Icon(Icons.compress, size: 12, color: Colors.yellow,) : null,
+        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.yellow, width: 1))),
+        child: first ? const Icon(Icons.compress, size: 12, color: Colors.yellow) : null,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final visible = _entries.where((e) => _filterStatuses.contains(e.status)).toList();
+    // apply filters
+    final visible = _entries.where((e) => _filterStatuses.contains(e.status) && _filterDirections.contains(e.direction)).toList();
+    // group by address
     final List<List<OscLogEntry>> groups = [];
-    for (var i = 0; i < visible.length; ) {
+    for (var i = 0; i < visible.length;) {
       var j = i + 1;
-      while (j < visible.length && visible[j].address == visible[i].address) {
-        j++;
-      }
+      while (j < visible.length && visible[j].address == visible[i].address) j++;
       groups.add(visible.sublist(i, j));
       i = j;
     }
 
     return Column(children: [
-      // header with placeholder for toggle column
-      Row(children: [
-        const SizedBox(width: _toggleAreaWidth),
-        Expanded(child: _buildHeader()),
-      ]),
+      Row(children: [const SizedBox(width: _toggleAreaWidth), Expanded(child: _buildHeader())]),
       Expanded(
         child: Stack(children: [
           ListView.builder(
@@ -384,37 +302,23 @@ class OscLogTableState extends State<OscLogTable> {
             itemCount: groups.length,
             itemBuilder: (_, gi) {
               final group = groups[gi];
-              // collapsed multi-entry group
-              if (group.length > 1 && !_expandedGroups.contains(gi)) {
-                return Row(children: [
-                  _buildGroupToggleArea(isSummary: true, groupIndex: gi),
-                  Expanded(child: _buildSummaryRow(group, gi)),
-                ]);
+              final collapsed = group.length > 1 && !_expandedGroups.contains(gi);
+              if (collapsed) {
+                return Row(children: [_buildGroupToggleArea(isSummary: true, groupIndex: gi), Expanded(child: _buildSummaryRow(group, gi))]);
               }
-
-              // expanded group
               if (group.length > 1 && _expandedGroups.contains(gi)) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (var ei = 0; ei < group.length; ei++)
                       Row(children: [
-                        _buildGroupToggleArea(
-                          isSummary: false,
-                          groupIndex: gi,
-                          entryIndex: ei,
-                        ),
+                        _buildGroupToggleArea(isSummary: false, groupIndex: gi, entryIndex: ei),
                         Expanded(child: _rowForEntry(group[ei])),
                       ]),
                   ],
                 );
               }
-
-              // single entry (no grouping)
-              return Row(children: [
-                const SizedBox(width: _toggleAreaWidth),
-                Expanded(child: _rowForEntry(group.first)),
-              ]);
+              return Row(children: [const SizedBox(width: _toggleAreaWidth), Expanded(child: _rowForEntry(group.first))]);
             },
           ),
           if (!_isAtBottom && _pendingCount > 0)
