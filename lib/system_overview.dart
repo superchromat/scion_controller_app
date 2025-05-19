@@ -1,10 +1,21 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'osc_widget_binding.dart'; 
-import 'labeled_card.dart'; 
+import 'osc_widget_binding.dart';
+import 'labeled_card.dart';
 import 'osc_text.dart';
 
 enum LabelPosition { top, bottom }
+
+const TextStyle _systemTextStyle = TextStyle(
+  color: Colors.green,
+  fontFamily: 'Courier',
+  fontSize: 12,
+);
+const TextStyle _systemTextStyleRed = TextStyle(
+  color: Colors.red,
+  fontFamily: 'Courier',
+  fontSize: 12,
+);
 
 class SystemOverview extends StatefulWidget {
   const SystemOverview({Key? key}) : super(key: key);
@@ -40,11 +51,9 @@ class _SystemOverviewState extends State<SystemOverview> {
           _sendKeys[toIndex].currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
 
-      // bottom-center of the input tile
       final fromGlobal = fromBox.localToGlobal(
         Offset(fromBox.size.width / 2, fromBox.size.height),
       );
-      // top-center of the send tile
       final toGlobal = toBox.localToGlobal(
         Offset(toBox.size.width / 2, 0),
       );
@@ -54,7 +63,6 @@ class _SystemOverviewState extends State<SystemOverview> {
       newArrows.add(Arrow(fromLocal, toLocal));
     }
 
-    // your connections:
     connect(0, 0);
     connect(1, 1);
     connect(1, 2);
@@ -101,9 +109,10 @@ class _SystemOverviewState extends State<SystemOverview> {
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: LayoutBuilder(builder: (context, constraints) {
-          const double marginPerTile = 8; // 4px left + 4px right
+          const double marginPerTile = 8;
           final double availableWidth = constraints.maxWidth - _lockColumnWidth;
-          final double tileSize = (availableWidth - 5 * marginPerTile) / 5;
+          final double tileSize =
+              (availableWidth - 5 * marginPerTile) / 5;
 
           Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
                 key: key,
@@ -130,7 +139,9 @@ class _SystemOverviewState extends State<SystemOverview> {
                             children: List.generate(
                               4,
                               (i) => sizedTile(
-                                  InputTile(index: i + 1), _inputKeys[i]),
+                                InputTile(index: i + 1),
+                                _inputKeys[i],
+                              ),
                             ),
                           ),
                         ),
@@ -141,7 +152,10 @@ class _SystemOverviewState extends State<SystemOverview> {
                         child: _sectionBox(
                           title: 'HDMI Out',
                           labelPosition: LabelPosition.top,
-                          child: sizedTile(const HdmiOutTile(), GlobalKey()),
+                          child: sizedTile(
+                            const HdmiOutTile(),
+                            GlobalKey(),
+                          ),
                         ),
                       ),
                     ],
@@ -161,7 +175,9 @@ class _SystemOverviewState extends State<SystemOverview> {
                             children: List.generate(
                               4,
                               (i) => sizedTile(
-                                  AnalogSendTile(index: i + 1), _sendKeys[i]),
+                                AnalogSendTile(index: i + 1),
+                                _sendKeys[i],
+                              ),
                             ),
                           ),
                         ),
@@ -175,7 +191,10 @@ class _SystemOverviewState extends State<SystemOverview> {
                         child: _sectionBox(
                           title: 'Return',
                           labelPosition: LabelPosition.bottom,
-                          child: sizedTile(const ReturnTile(), GlobalKey()),
+                          child: sizedTile(
+                            const ReturnTile(),
+                            GlobalKey(),
+                          ),
                         ),
                       ),
                     ],
@@ -200,69 +219,233 @@ class Arrow {
   Arrow(this.from, this.to);
 }
 
-// ----------------------------------------------------------------------------
-// Tile stubs below.  Replace "Fixme" and static text with your OSC watch/getValue.
-// ----------------------------------------------------------------------------
-
+/// 1) Stateless wrapper that installs the “input” + “n” segments
 class InputTile extends StatelessWidget {
   final int index;
   const InputTile({Key? key, required this.index}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
       segment: 'input',
       child: OscPathSegment(
         segment: index.toString(),
+        child: _InputTileInner(index: index),
+      ),
+    );
+  }
+}
+
+/// 2) Inner StatefulWidget that manually hooks up its six listeners
+class _InputTileInner extends StatefulWidget {
+  final int index;
+  const _InputTileInner({Key? key, required this.index}) : super(key: key);
+
+  @override
+  __InputTileInnerState createState() => __InputTileInnerState();
+}
+
+class __InputTileInnerState extends State<_InputTileInner> {
+  bool _connected = false;
+  String _res = '', _fps = '', _bpp = '', _cs = '', _sub = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final base = '/input/${widget.index}';
+
+    // 1) register defaults so they appear in the registry
+    for (var seg in [
+      'connected',
+      'resolution',
+      'framerate',
+      'bit_depth',
+      'colorspace',
+      'chroma_subsampling',
+    ]) {
+      OscRegistry().registerParam('$base/$seg', seg == 'connected' ? [false] : ['']);
+    }
+
+    // 2) hook up listeners for each path
+    OscRegistry().registerListener('$base/connected', (args) {
+      final v = args.isNotEmpty && args.first == true;
+      if (v != _connected) setState(() => _connected = v);
+    });
+    OscRegistry().registerListener('$base/resolution', (args) {
+      final v = args.isNotEmpty ? args.first.toString() : '';
+      if (v != _res) setState(() => _res = v);
+    });
+    OscRegistry().registerListener('$base/framerate', (args) {
+      final v = args.isNotEmpty ? args.first.toString() : '';
+      if (v != _fps) setState(() => _fps = v);
+    });
+    OscRegistry().registerListener('$base/bit_depth', (args) {
+      final v = args.isNotEmpty ? args.first.toString() : '';
+      if (v != _bpp) setState(() => _bpp = v);
+    });
+    OscRegistry().registerListener('$base/colorspace', (args) {
+      final v = args.isNotEmpty ? args.first.toString() : '';
+      if (v != _cs) setState(() => _cs = v);
+    });
+    OscRegistry().registerListener('$base/chroma_subsampling', (args) {
+      final v = args.isNotEmpty ? args.first.toString() : '';
+      if (v != _sub) setState(() => _sub = v);
+    });
+  }
+
+  @override
+  void dispose() {
+    final base = '/input/${widget.index}';
+    for (var seg in [
+      'connected',
+      'resolution',
+      'framerate',
+      'bit_depth',
+      'colorspace',
+      'chroma_subsampling',
+    ]) {
+      OscRegistry().unregisterListener('$base/$seg', (_) {});
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(4),
+      color: Colors.grey[900],
+      child: _connected
+          ? Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_res, style: _systemTextStyle),
+                  Text(_fps, style: _systemTextStyle),
+                  Text('$_bpp bpp', style: _systemTextStyle),
+                  Row(children: [
+                    Text(_cs, style: _systemTextStyle),
+                    const SizedBox(width: 8),
+                    Text(_sub, style: _systemTextStyle),
+                  ]),
+                ],
+              ),
+            )
+          : Center(
+              child:
+                  Text('Disconnected', style: _systemTextStyleRed),
+            ),
+    );
+  }
+}
+
+
+
+
+
+class AnalogSendTile extends StatelessWidget {
+  final int index;
+  const AnalogSendTile({Key? key, required this.index}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return OscPathSegment(
+      segment: 'send',
+      child: OscPathSegment(
+        segment: index.toString(),
         child: Container(
           margin: const EdgeInsets.all(4),
           color: Colors.grey[900],
-          child: Stack(
-            children: [
-              Center(
-                child: Text(
-                  '$index',
-                  style: TextStyle(
-                    fontSize: 96,
-                    color: Colors.white.withOpacity(0.2),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text('10bit', style: _systemTextStyle),
+                  Text('Custom 4:4:4', style: _systemTextStyle),
+                ],
               ),
-              const Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      OscText(segment: 'resolution',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontFamily: 'Courier',
-                              fontSize: 12)),
-                      OscText(segment: 'framerate',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontFamily: 'Courier',
-                              fontSize: 12)),
-                      OscText(segment: 'bit_depth',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontFamily: 'Courier',
-                              fontSize: 12)),
-                      Text('colorspace chroma_subsampling',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontFamily: 'Courier',
-                              fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class ReturnTile extends StatelessWidget {
+  const ReturnTile({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return OscPathSegment(
+      segment: 'return',
+      child: Container(
+        margin: const EdgeInsets.all(4),
+        color: Colors.grey[900],
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text('1920x1080', style: _systemTextStyle),
+                Text('66fps', style: _systemTextStyle),
+                Text('128bit', style: _systemTextStyle),
+                Text('BLK 9:0:2', style: _systemTextStyle),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HdmiOutTile extends StatelessWidget {
+  const HdmiOutTile({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return OscPathSegment(
+      segment: 'output',
+      child: Container(
+        margin: const EdgeInsets.all(4),
+        color: Colors.grey[900],
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text('12bit', style: _systemTextStyle),
+                Text('RGB 4:4:4', style: _systemTextStyle),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SyncLock extends StatelessWidget {
+  const SyncLock({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    const locked = true;
+    return Icon(
+      locked ? Icons.lock : Icons.lock_open,
+      color: locked ? Colors.yellow : Colors.grey,
+      size: 48,
     );
   }
 }
@@ -275,25 +458,19 @@ class _ArrowsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Paint for the shaft
     final shaftPaint = Paint()
       ..color = col!
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
-
-    // Paint for the filled arrowhead
     final headFillPaint = Paint()
       ..color = col!
       ..style = PaintingStyle.fill;
-
-    // Paint for the arrowhead outline
     final headStrokePaint = Paint()
       ..color = col!
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
     for (final a in arrows) {
-      // Compute arrowhead points
       final angle = (a.to - a.from).direction;
       const headLen = 12.0, headAngle = pi / 6;
       final p1 = a.to -
@@ -306,197 +483,23 @@ class _ArrowsPainter extends CustomPainter {
             headLen * cos(angle + headAngle),
             headLen * sin(angle + headAngle),
           );
-
-      // Compute the base center of the arrowhead triangle
       final baseCenter = Offset(
         (p1.dx + p2.dx) / 2,
         (p1.dy + p2.dy) / 2,
       );
-
-      // Draw the shaft up to the base of the arrowhead
       canvas.drawLine(a.from, baseCenter, shaftPaint);
 
-      // Build a triangular path for the arrowhead
       final path = Path()
         ..moveTo(a.to.dx, a.to.dy)
         ..lineTo(p1.dx, p1.dy)
         ..lineTo(p2.dx, p2.dy)
         ..close();
-
-      // Fill and stroke the arrowhead
       canvas.drawPath(path, headFillPaint);
       canvas.drawPath(path, headStrokePaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ArrowsPainter old) => old.arrows != arrows;
-}
-
-class AnalogSendTile extends StatelessWidget {
-  final int index;
-  const AnalogSendTile({Key? key, required this.index}) : super(key: key);
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'send',
-      child: OscPathSegment(
-        segment: index.toString(),
-        child: Container(
-          margin: const EdgeInsets.all(4),
-          color: Colors.grey[900],
-          child: Stack(
-            children: [
-              Center(
-                child: Text(
-                  '$index',
-                  style: TextStyle(
-                      fontSize: 96,
-                      color: Colors.white.withOpacity(0.2),
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-              const Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('10bit',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontFamily: 'Courier',
-                              fontSize: 12)),
-                      Text('Custom 4:4:4',
-                          style: TextStyle(
-                              color: Colors.green,
-                              fontFamily: 'Courier',
-                              fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ReturnTile extends StatelessWidget {
-  const ReturnTile({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'return',
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        color: Colors.grey[900],
-        child: Stack(
-          children: [
-            Center(
-              child: Text(
-                'R',
-                style: TextStyle(
-                    fontSize: 96,
-                    color: Colors.white.withOpacity(0.2),
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-            const Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('1920x1080',
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Courier',
-                            fontSize: 12)),
-                    Text('66fps',
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Courier',
-                            fontSize: 12)),
-                    Text('128bit',
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Courier',
-                            fontSize: 12)),
-                    Text('BLK 9:0:2',
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Courier',
-                            fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class HdmiOutTile extends StatelessWidget {
-  const HdmiOutTile({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'output',
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        color: Colors.grey[900],
-        child: Stack(
-          children: [
-            Center(
-              child: Text(
-                'O',
-                style: TextStyle(
-                    fontSize: 96,
-                    color: Colors.white.withOpacity(0.2),
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-            const Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('12bit',
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Courier',
-                            fontSize: 12)),
-                    Text('RGB 4:4:4',
-                        style: TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Courier',
-                            fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class SyncLock extends StatelessWidget {
-  const SyncLock({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) {
-    const locked = true;
-    return Icon(locked ? Icons.lock : Icons.lock_open,
-        color: locked ? Colors.yellow : Colors.grey, size: 48);
-  }
+  bool shouldRepaint(covariant _ArrowsPainter old) =>
+      old.arrows != arrows;
 }

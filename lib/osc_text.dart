@@ -1,12 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'osc_widget_binding.dart';
 
-/// 1) Stateless “wrapper” that adds your segment into the inherited path
+// Stateless “wrapper” that adds your segment into the inherited path
 class OscText extends StatelessWidget {
   final String segment;
   final String initialText;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final String? suffix;
 
   const OscText({
     Key? key,
@@ -14,33 +15,36 @@ class OscText extends StatelessWidget {
     this.initialText = '',
     this.style,
     this.textAlign,
+    this.suffix = ''
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // now any OscAddressMixin below will see this segment in resolvePath()
     return OscPathSegment(
       segment: segment,
       child: _OscTextInner(
         initialText: initialText,
         style: style,
         textAlign: textAlign,
+        suffix: suffix
       ),
     );
   }
 }
 
-/// 2) Inner StatefulWidget that picks up the full OSC path automatically
+// Inner StatefulWidget that picks up the full OSC path automatically
 class _OscTextInner extends StatefulWidget {
   final String initialText;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final String? suffix;
 
   const _OscTextInner({
     Key? key,
     this.initialText = '',
     this.style,
     this.textAlign,
+    this.suffix
   }) : super(key: key);
 
   @override
@@ -50,11 +54,13 @@ class _OscTextInner extends StatefulWidget {
 class __OscTextInnerState extends State<_OscTextInner>
     with OscAddressMixin<_OscTextInner> {
   late String _text;
+  late String suffix;
 
   @override
   void initState() {
     super.initState();
     _text = widget.initialText;
+    suffix = widget.suffix ?? '';
     // rel = '' → param at full oscAddress (including the segment above)
     setDefaultValues(_text);
   }
@@ -73,7 +79,7 @@ class __OscTextInnerState extends State<_OscTextInner>
     // by the time build runs, didChangeDependencies() will have
     // registered your listener on the exact path you want
     return Text(
-      _text,
+      "${_text}$suffix",
       style: widget.style,
       textAlign: widget.textAlign,
     );

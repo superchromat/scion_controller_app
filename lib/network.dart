@@ -164,7 +164,7 @@ class Network extends ChangeNotifier {
           }
         } catch (e) {
           debugPrint(
-              'Error parsing packet from ${dg.address.address}:${dg.port}');
+              'Error parsing packet ($e) from ${dg.address.address}:${dg.port}');
         }
         dg = _socket!.receive();
       }

@@ -5,7 +5,9 @@ import 'network.dart';
 import 'status_bar.dart';
 import 'setup_page.dart';
 import 'send_page.dart';
-import 'osc_log.dart'; 
+import 'osc_log.dart';
+import 'osc_registry_viewer.dart';
+import 'osc_widget_binding.dart';
 
 void main() {
   runApp(
@@ -76,15 +78,19 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     list.add(const ReturnPage());
 
+    // OSC log screen
     list.add(
       OscLogTable(
-        key: oscLogKey,     
+        key: oscLogKey,
         onDownload: (bytes) {
           // TODO: desktop file-save dialog here
         },
-        isActive: selectedIndex == list.length,
+        isActive: selectedIndex == list.length, // TODO: This only works when OSC Log is the last page
       ),
     );
+
+    // Registry viewer screen
+    list.add(const OscRegistryViewer());
 
     return list;
   }
@@ -112,20 +118,37 @@ class _MyHomePageState extends State<MyHomePage> {
                       },
                       destinations: const [
                         NavigationRailDestination(
-                            icon: Icon(Icons.settings), label: Text('Setup')),
+                          icon: Icon(Icons.settings),
+                          label: Text('Setup'),
+                        ),
                         NavigationRailDestination(
-                            icon: Icon(Icons.output), label: Text('Send 1')),
+                          icon: Icon(Icons.output),
+                          label: Text('Send 1'),
+                        ),
                         NavigationRailDestination(
-                            icon: Icon(Icons.output), label: Text('Send 2')),
+                          icon: Icon(Icons.output),
+                          label: Text('Send 2'),
+                        ),
                         NavigationRailDestination(
-                            icon: Icon(Icons.output), label: Text('Send 3')),
+                          icon: Icon(Icons.output),
+                          label: Text('Send 3'),
+                        ),
                         NavigationRailDestination(
-                            icon: Icon(Icons.output), label: Text('Send 4')),
+                          icon: Icon(Icons.output),
+                          label: Text('Send 4'),
+                        ),
                         NavigationRailDestination(
-                            icon: Icon(Icons.input), label: Text('Return')),
+                          icon: Icon(Icons.input),
+                          label: Text('Return'),
+                        ),
                         NavigationRailDestination(
-                            icon: Icon(Icons.view_list),
-                            label: Text('OSC Log')),
+                          icon: Icon(Icons.view_list),
+                          label: Text('OSC Log'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.storage),
+                          label: Text('Registry'),
+                        ),
                       ],
                     ),
                   ),
@@ -153,7 +176,6 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 }
-
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});

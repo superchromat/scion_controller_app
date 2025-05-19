@@ -331,10 +331,9 @@ packages:
   osc:
     dependency: "direct main"
     description:
-      name: osc
-      sha256: "5252beff07c0ecb1e94af5cd5e2b1fefe80c10367c5d49fadfef2c9986e9969b"
-      url: "https://pub.dev"
-    source: hosted
+      path: "/Users/joshreich/osc"
+      relative: false
+    source: path
     version: "1.0.0"
   path:
     dependency: transitive
