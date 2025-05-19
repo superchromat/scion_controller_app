@@ -20,9 +20,6 @@ class NetworkConnectionSection extends StatefulWidget {
 class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-
-  // ignore: unused_field
-  bool _connecting = false;
   bool _discovering = false;
 
   static const _prefKey = 'recent_endpoints';
@@ -65,18 +62,14 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     final port = (parts.length == 2) ? int.tryParse(parts[1]) ?? 9000 : 9000;
 
     final net = context.read<Network>();
-    setState(() => _connecting = true);
     try {
       if (net.isConnected) net.disconnect();
       await net.connect(host, port);
       await _saveRecent(host, port);
-      net.sendOscMessage('/ack', []);
     } on TimeoutException {
       await _showError('Connection timed out');
     } catch (e) {
       await _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _connecting = false);
     }
   }
 
@@ -131,6 +124,8 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
 
   @override
   Widget build(BuildContext context) {
+    final network = context.watch<Network>();
+
     return LabeledCard(
       title: 'Network Connection',
       networkIndependent: true,
@@ -151,26 +146,36 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
-                : IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: _discovering ? null : _findServices,
-                  ),
+                : network.isConnecting
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: _discovering ? null : _findServices,
+                      ),
           ),
           style: const TextStyle(fontFamily: 'monospace'),
-          onSubmitted: (val) => _connectTo(val.trim()),
+          onSubmitted: network.isConnecting
+              ? null
+              : (val) => _connectTo(val.trim()),
         ),
         suggestionsCallback: (pattern) async {
-          // always show discovered services
           final suggestions = List<String>.from(_discovered);
-          // then append recents matching the current pattern
           suggestions.addAll(
-            _recents.where((e) => e.toLowerCase().contains(pattern.toLowerCase())),
+            _recents.where(
+              (e) => e.toLowerCase().contains(pattern.toLowerCase()),
+            ),
           );
           return suggestions;
         },
-        itemBuilder: (context, String suggestion) {
-          return ListTile(title: Text(suggestion));
-        },
+        itemBuilder: (context, String suggestion) =>
+            ListTile(title: Text(suggestion)),
         onSuggestionSelected: (String suggestion) {
           _controller.text = suggestion;
           _connectTo(suggestion);

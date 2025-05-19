@@ -35,7 +35,7 @@ class LabeledCard extends StatelessWidget {
             color: Colors.grey[800],
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(3),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),

@@ -18,7 +18,6 @@ class _Pending {
 /// - `connect(host, txPort)` binds a socket on an ephemeral local port
 ///   and sets the send-destination to host:txPort.
 /// - `sendOscMessage(address, args)` sends an OSC packet, queuing if needed.
-/// - Automatically sends "/ack" every 2s, and disconnects if no "/ack" received within 5s.
 /// - Incoming messages are dispatched via OscRegistry.
 class Network extends ChangeNotifier {
   RawDatagramSocket? _socket;
@@ -28,10 +27,13 @@ class Network extends ChangeNotifier {
 
   Timer? _ackTimer;
   Timer? _monitorTimer;
-  DateTime? _lastAckReceived;
+  DateTime? _lastMsgReceived;
+  bool _hasSynced = false;
 
   bool get isConnected =>
-      _socket != null && _destination != null && _port != null;
+      _socket != null && _destination != null && _port != null && _hasSynced;
+
+  bool get isConnecting => _socket != null && !_hasSynced;
 
   /// Binds a UDP socket on an ephemeral port and sets the remote host/port.
   /// Always resolves to an IPv4 address to avoid sending IPv6 via an IPv4 socket.
@@ -74,29 +76,27 @@ class Network extends ChangeNotifier {
         }
       });
 
-    // initialize ack tracking
-    _lastAckReceived = DateTime.now();
-    // send an immediate sync 
+    // initialize response tracking
+    _lastMsgReceived = DateTime.now();
+    // send an immediate sync
     sendOscMessage('/sync', []);
-    // every 2 seconds, send /ack
+    // every 2 seconds, send /sync
     _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 2), (t) {
+    _ackTimer = Timer.periodic(const Duration(seconds: 5), (t) {
       try {
-        sendOscMessage('/ack', []);
+        sendOscMessage('/sync', []);
       } catch (e, st) {
-        debugPrint('Periodic /ack send error: $e\n$st');
+        debugPrint('Periodic /sync send error: $e\n$st');
+        disconnect();
       }
     });
-    // every 1 second, check for ack timeout
+    // every 5 second, check for timeout
     _monitorTimer?.cancel();
     _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_lastAckReceived != null &&
-          DateTime.now().difference(_lastAckReceived!).inSeconds > 5) {
-        debugPrint('No /ack received in 5s; disconnecting');
+      if (_lastMsgReceived != null &&
+          DateTime.now().difference(_lastMsgReceived!).inSeconds > 10) {
+        debugPrint('No msg received in 5s; disconnecting');
         disconnect();
-
-       // TODO: Redo this logic so it only sends an ACK if it hasn't heard
-       // a mesage from the board in a while
       }
     });
 
@@ -112,13 +112,14 @@ class Network extends ChangeNotifier {
     _destination = null;
     _port = null;
     _pending.clear();
+    _hasSynced = false;
 
     notifyListeners();
   }
 
   /// Sends an OSC message to the remote host, deferring if the buffer is full.
   void sendOscMessage(String address, List<Object> arguments) {
-    if (!isConnected) {
+    if (!isConnected && (address != "/sync")) {
       debugPrint('Not connected');
       return;
     }
@@ -153,12 +154,13 @@ class Network extends ChangeNotifier {
       while (dg != null) {
         try {
           final msg = OSCMessage.fromBytes(dg.data);
-          if (msg.address == '/ack') {
-            _lastAckReceived = DateTime.now();
+          _lastMsgReceived = DateTime.now();
+          if (msg.address != '/ack') {
+            debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
+            OscRegistry().dispatch(msg.address, msg.arguments);
           } else {
-
-          debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
-          OscRegistry().dispatch(msg.address, msg.arguments);
+            _hasSynced = true;
+            notifyListeners();
           }
         } catch (e) {
           debugPrint(
