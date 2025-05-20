@@ -9,12 +9,12 @@ import 'system_overview_tiles.dart';
 
 /// Centralized layout constants
 class TileLayout {
-  static const double marginPerTile = 8;         // horizontal space between tiles
-  static const double tileOuterMargin = 4;       // outer margin on each tile container
-  static const double sectionBoxPadding = 8;     // padding inside each section box
-  static const double cardPadding = 8;           // padding inside the LabeledCard
-  static const double lockColumnWidth = 60;      // fixed width for the lock column
-  static const double rowSpacing = 48;           // vertical spacing between rows
+  static const double marginPerTile = 8;      // horizontal space between tiles
+  static const double tileOuterMargin = 4;    // outer margin on each tile container
+  static const double sectionBoxPadding = 8;  // padding inside each section box
+  static const double cardPadding = 8;        // padding inside the LabeledCard
+  static const double lockColumnWidth = 60;   // fixed width for the lock column
+  static const double rowSpacing = 48;        // vertical spacing between rows
 
   static double totalHorizontalPaddingPerTile() =>
       2 * (tileOuterMargin + sectionBoxPadding);
@@ -26,8 +26,6 @@ class TileLayout {
     return (maxWidth - lockColumnWidth - spacing - outer) / tileCount;
   }
 }
-
-
 
 enum LabelPosition { top, bottom }
 
@@ -63,8 +61,7 @@ class _SystemOverviewState extends State<SystemOverview>
 
   @override
   void didChangeMetrics() {
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _updateArrows());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
   }
 
   Widget _sectionBox({
@@ -74,8 +71,7 @@ class _SystemOverviewState extends State<SystemOverview>
   }) {
     final label = Text(
       title,
-      style: const TextStyle(
-          color: Colors.white, fontWeight: FontWeight.bold),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     );
     return Container(
       margin: EdgeInsets.all(TileLayout.tileOuterMargin),
@@ -92,38 +88,32 @@ class _SystemOverviewState extends State<SystemOverview>
             : [
                 child,
                 const SizedBox(height: 4),
-                Align(
-                    alignment: Alignment.centerLeft, child: label)
+                Align(alignment: Alignment.centerLeft, child: label),
               ],
       ),
     );
   }
 
   void _updateArrows() {
-    final stackBox = _stackKey.currentContext
-            ?.findRenderObject() as RenderBox?;
-    if (stackBox == null) return;
+    final box =
+        _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
 
-    final constraints = stackBox;
-    final double availableWidth =
-        constraints.size.width - TileLayout.lockColumnWidth;
-    final double tileSize =
-        TileLayout.computeTileSize(constraints.size.width);
-
+    final double tileSize = TileLayout.computeTileSize(box.size.width);
     final List<Arrow> newArrows = [];
 
     void connect(GlobalKey fromKey, GlobalKey toKey,
         Offset fromOffset, Offset toOffset) {
-      final fromBox = fromKey.currentContext
-          ?.findRenderObject() as RenderBox?;
-      final toBox = toKey.currentContext
-          ?.findRenderObject() as RenderBox?;
+      final fromBox =
+          fromKey.currentContext?.findRenderObject() as RenderBox?;
+      final toBox =
+          toKey.currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
 
       final fromGlobal = fromBox.localToGlobal(fromOffset);
       final toGlobal = toBox.localToGlobal(toOffset);
-      final fromLocal = stackBox.globalToLocal(fromGlobal);
-      final toLocal = stackBox.globalToLocal(toGlobal);
+      final fromLocal = box.globalToLocal(fromGlobal);
+      final toLocal = box.globalToLocal(toGlobal);
       newArrows.add(Arrow(fromLocal, toLocal));
     }
 
@@ -168,23 +158,24 @@ class _SystemOverviewState extends State<SystemOverview>
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Top row
                   Row(
                     children: [
-                      Expanded(
-                        flex: 4,
-                        child: _sectionBox(
-                          title: 'HDMI Inputs',
-                          labelPosition: LabelPosition.top,
-                          child: Row(
-                            children: List.generate(
-                              4,
-                              (i) => Padding(
-                                  padding:
-                                      EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
-                                  child: sizedTile(
-                                    InputTile(index: i + 1),
-                                    _inputKeys[i],
-                                  )),
+                      _sectionBox(
+                        title: 'HDMI Inputs',
+                        labelPosition: LabelPosition.top,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            4,
+                            (i) => Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal:
+                                      TileLayout.marginPerTile / 2),
+                              child: sizedTile(
+                                InputTile(index: i + 1),
+                                _inputKeys[i],
+                              ),
                             ),
                           ),
                         ),
@@ -194,38 +185,42 @@ class _SystemOverviewState extends State<SystemOverview>
                         title: 'HDMI Out',
                         labelPosition: LabelPosition.top,
                         child: sizedTile(
-                          const HdmiOutTile(),
+                          const HDMIOutTile(),
                           _outputKey,
                         ),
                       ),
                     ],
                   ),
 
+                  // Vertical spacing
                   SizedBox(height: TileLayout.rowSpacing),
 
+                  // Bottom row
                   Row(
                     children: [
-                      Expanded(
-                        flex: 4,
-                        child: _sectionBox(
-                          title: 'Analog Sends',
-                          labelPosition: LabelPosition.bottom,
-                          child: Row(
-                            children: List.generate(
-                              4,
-                              (i) => Padding(
-                                  padding:
-                                      EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
-                                  child: sizedTile(
-                                    AnalogSendTile(index: i + 1),
-                                    _sendKeys[i],
-                                  )),
+                      _sectionBox(
+                        title: 'Analog Sends',
+                        labelPosition: LabelPosition.bottom,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            4,
+                            (i) => Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal:
+                                      TileLayout.marginPerTile / 2),
+                              child: sizedTile(
+                                AnalogSendTile(index: i + 1),
+                                _sendKeys[i],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: TileLayout.lockColumnWidth,
-                        child: Center(child: const SyncLock())),
+                      SizedBox(
+                        width: TileLayout.lockColumnWidth,
+                        child: Center(child: const SyncLock()),
+                      ),
                       _sectionBox(
                         title: 'Return',
                         labelPosition: LabelPosition.bottom,
@@ -239,6 +234,7 @@ class _SystemOverviewState extends State<SystemOverview>
                 ],
               ),
 
+              // Arrows overlay
               Positioned.fill(
                 child: CustomPaint(painter: _ArrowsPainter(_arrows)),
               ),

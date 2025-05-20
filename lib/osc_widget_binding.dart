@@ -56,14 +56,30 @@ class OscRegistry extends ChangeNotifier {
   OscRegistry._internal();
 
   final Map<String, OscParam> _params = {};
+  final Map<String, List<OscCallback>> _pendingListeners = {};
 
-  void registerParam(String address, List<Object?> defaultValue) {
-    _params.putIfAbsent(
-      address,
-      () => OscParam(address: address, defaultValue: defaultValue),
-    );
-    notifyListeners();
+void registerParam(String address, List<Object?> defaultValue) {
+  // 1) did we already have a param at that address?
+  final bool wasNew = !_params.containsKey(address);
+
+  // 2) insert it if missing
+  _params.putIfAbsent(
+    address,
+    () => OscParam(address: address, defaultValue: defaultValue),
+  );
+
+  if (wasNew) {
+    // flush any pending listeners for this new address...
+    final pend = _pendingListeners.remove(address);
+    if (pend != null) {
+      final param = _params[address]!;
+      for (var cb in pend) param.registerListener(cb);
+    }
   }
+
+  notifyListeners();
+}
+
 
   OscParam? getParam(String address) => _params[address];
 
@@ -71,7 +87,14 @@ class OscRegistry extends ChangeNotifier {
       UnmodifiableMapView(_params);
 
   void registerListener(String address, OscCallback cb) {
-    _params[address]?.registerListener(cb);
+    final param = _params[address];
+    if (param != null) {
+      // param exists → attach immediately
+      param.registerListener(cb);
+    } else {
+      // param not yet registered → defer
+      _pendingListeners.putIfAbsent(address, () => []).add(cb);
+    }
   }
 
   void unregisterListener(String address, OscCallback cb) {
@@ -200,6 +223,7 @@ class OscPathSegment extends InheritedWidget {
   bool updateShouldNotify(covariant OscPathSegment old) =>
       old.segment != segment;
 }
+
 mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   /// Your resolved OSC address, e.g. '/input/1'
   String oscAddress = '';
@@ -261,9 +285,9 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   }
 
   String _resolveFullAddress(String rel) {
-    if (rel.startsWith('/')) return rel;           // absolute
-    if (rel.isEmpty) return oscAddress;           // base
-    return oscAddress.isEmpty                     // relative
+    if (rel.startsWith('/')) return rel; // absolute
+    if (rel.isEmpty) return oscAddress; // base
+    return oscAddress.isEmpty // relative
         ? '/$rel'
         : '$oscAddress/$rel';
   }
@@ -283,11 +307,18 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     final tags = <String>[];
     var status = OscStatus.ok;
     for (var v in argsList) {
-      if (v is double) tags.add('f');
-      else if (v is int) tags.add('i');
-      else if (v is bool) tags.add(v ? 'T' : 'F');
-      else if (v is String) tags.add('s');
-      else { tags.add('?'); status = OscStatus.error; }
+      if (v is double)
+        tags.add('f');
+      else if (v is int)
+        tags.add('i');
+      else if (v is bool)
+        tags.add(v ? 'T' : 'F');
+      else if (v is String)
+        tags.add('s');
+      else {
+        tags.add('?');
+        status = OscStatus.error;
+      }
     }
 
     // log outgoing
