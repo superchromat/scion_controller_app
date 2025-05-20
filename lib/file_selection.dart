@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'labeled_card.dart';
 import 'osc_widget_binding.dart'; // provides OscRegistry
 
 final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileManagementSectionState>();
@@ -17,7 +16,6 @@ class FileManagementSectionState extends State<FileManagementSection> {
   String? _currentFile;
 
   Future<void> _save(BuildContext context) async {
-    // If no currentFile, prompt "Save As"
     final path = _currentFile ?? await FilePicker.platform.saveFile(
       dialogTitle: 'Save Configuration',
       fileName: 'default.config',
@@ -83,47 +81,81 @@ class FileManagementSectionState extends State<FileManagementSection> {
     );
   }
 
+  ButtonStyle _iconButtonStyle(
+      BuildContext context, {
+      Color? borderColor,
+      Color? foregroundColor,
+  }) {
+    final theme = Theme.of(context);
+    return ElevatedButton.styleFrom(
+      backgroundColor: Colors.grey[600],
+      foregroundColor: foregroundColor ?? theme.colorScheme.onPrimary,
+      padding: const EdgeInsets.all(12),
+      minimumSize: const Size(40, 40),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: BorderSide(
+          color: borderColor ?? theme.colorScheme.primary,
+          width: 2,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return LabeledCard(
-      title: 'Configuration',
-      networkIndependent: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Save'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Tooltip(
+              message: 'Save',
+              child: ElevatedButton(
+                style: _iconButtonStyle(context,
+                    borderColor: Theme.of(context).colorScheme.primary),
                 onPressed: () => _save(context),
+                child: const Icon(Icons.save),
               ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save_as),
-                label: const Text('Save As'),
+            ),
+            const SizedBox(width: 10),
+            Tooltip(
+              message: 'Save As',
+              child: ElevatedButton(
+                style: _iconButtonStyle(context,
+                    borderColor: Theme.of(context).colorScheme.primary),
                 onPressed: () => _saveAs(context),
+                child: const Icon(Icons.save_as),
               ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.folder_open),
-                label: const Text('Load'),
+            ),
+            const SizedBox(width: 10),
+            Tooltip(
+              message: 'Load',
+              child: ElevatedButton(
+                style: _iconButtonStyle(context,
+                    borderColor: Theme.of(context).colorScheme.primary),
                 onPressed: () => _load(context),
+                child: const Icon(Icons.folder_open),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.restore),
-            label: const Text('Reset to defaults'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            SizedBox(width: 16),
+            Tooltip(
+          message: 'Reset to defaults',
+          child: ElevatedButton(
+            style: _iconButtonStyle(
+              context,
+              borderColor: Theme.of(context).colorScheme.errorContainer,
+              foregroundColor:
+                  Theme.of(context).colorScheme.onErrorContainer,
             ),
             onPressed: () => _reset(context),
+            child: const Icon(Icons.restore),
           ),
-        ],
-      ),
+        ),
+          ],
+        ),
+        
+      ],
     );
   }
 }

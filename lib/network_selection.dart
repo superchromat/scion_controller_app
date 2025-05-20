@@ -126,64 +126,60 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   Widget build(BuildContext context) {
     final network = context.watch<Network>();
 
-    return LabeledCard(
-      title: 'Network Connection',
-      networkIndependent: true,
-      child: TypeAheadFormField<String>(
-        textFieldConfiguration: TextFieldConfiguration(
-          controller: _controller,
-          focusNode: _focusNode,
-          decoration: InputDecoration(
-            labelText: 'Network address',
-            hintText: 'e.g. 192.168.10.27, or server.superchromat.com:9010',
-            border: const OutlineInputBorder(),
-            suffixIcon: _discovering
-                ? Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : network.isConnecting
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: _discovering ? null : _findServices,
+    return TypeAheadFormField<String>(
+      textFieldConfiguration: TextFieldConfiguration(
+        controller: _controller,
+        focusNode: _focusNode,
+        decoration: InputDecoration(
+          labelText: 'Network address',
+          hintText: 'e.g. 192.168.10.27, or server.superchromat.com:9010',
+          border: const OutlineInputBorder(),
+          suffixIcon: _discovering
+              ? Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : network.isConnecting
+                  ? Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-          ),
-          style: const TextStyle(fontFamily: 'monospace'),
-          onSubmitted: network.isConnecting
-              ? null
-              : (val) => _connectTo(val.trim()),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: _discovering ? null : _findServices,
+                    ),
         ),
-        suggestionsCallback: (pattern) async {
-          final suggestions = List<String>.from(_discovered);
-          suggestions.addAll(
-            _recents.where(
-              (e) => e.toLowerCase().contains(pattern.toLowerCase()),
-            ),
-          );
-          return suggestions;
-        },
-        itemBuilder: (context, String suggestion) =>
-            ListTile(title: Text(suggestion)),
-        onSuggestionSelected: (String suggestion) {
-          _controller.text = suggestion;
-          _connectTo(suggestion);
-        },
-        hideOnEmpty: false,
-        minCharsForSuggestions: 0,
-        noItemsFoundBuilder: (_) => const SizedBox.shrink(),
+        style: const TextStyle(fontFamily: 'monospace'),
+        onSubmitted: network.isConnecting
+            ? null
+            : (val) => _connectTo(val.trim()),
       ),
+      suggestionsCallback: (pattern) async {
+        final suggestions = List<String>.from(_discovered);
+        suggestions.addAll(
+          _recents.where(
+            (e) => e.toLowerCase().contains(pattern.toLowerCase()),
+          ),
+        );
+        return suggestions;
+      },
+      itemBuilder: (context, String suggestion) =>
+          ListTile(title: Text(suggestion)),
+      onSuggestionSelected: (String suggestion) {
+        _controller.text = suggestion;
+        _connectTo(suggestion);
+      },
+      hideOnEmpty: false,
+      minCharsForSuggestions: 0,
+      noItemsFoundBuilder: (_) => const SizedBox.shrink(),
     );
   }
 }

@@ -1,7 +1,11 @@
+// main.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'network.dart';
+import 'network_selection.dart';
+import 'file_selection.dart';
 import 'status_bar.dart';
 import 'setup_page.dart';
 import 'send_page.dart';
@@ -23,7 +27,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => MyAppState(),
+      create: (_) => MyAppState(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'scion',
@@ -57,7 +61,7 @@ class MyApp extends StatelessWidget {
 
 class MyAppState extends ChangeNotifier {
   @override
-  void notifyListeners() {}
+  void notifyListeners() => super.notifyListeners();
 }
 
 class MyHomePage extends StatefulWidget {
@@ -70,48 +74,66 @@ class _MyHomePageState extends State<MyHomePage> {
   int selectedIndex = 0;
 
   List<Widget> get pages {
-    final list = <Widget>[];
+  return [
+    // 0 → Setup
+    const SetupPage(),
+    // 1–4 → Send 1–4
+    for (var i = 1; i <= 4; i++)
+      SendPage(key: ValueKey(i), pageNumber: i),
+    // 5 → Return
+    const ReturnPage(),
+    // 6 → OSC Log
+    OscLogTable(
+      key: oscLogKey,
+      onDownload: (bytes) { /* … */ },
+      isActive: selectedIndex == 6,
+    ),
+    // 7 → Registry Viewer
+    const OscRegistryViewer(),
+  ];
+}
 
-    list.add(const SetupPage());
-    for (var i = 1; i < 5; i++) {
-      list.add(SendPage(key: ValueKey(i), pageNumber: i));
-    }
-    list.add(const ReturnPage());
-
-    // OSC log screen
-    list.add(
-      OscLogTable(
-        key: oscLogKey,
-        onDownload: (bytes) {
-          // TODO: desktop file-save dialog here
-        },
-        isActive: selectedIndex == list.length, // TODO: This only works when OSC Log is the last page
-      ),
-    );
-
-    // Registry viewer screen
-    list.add(const OscRegistryViewer());
-
-    return list;
-  }
 
   @override
   Widget build(BuildContext context) {
     final allPages = pages;
     return LayoutBuilder(builder: (context, constraints) {
+      // Determine whether rail is extended
+      final bool isRailExtended = constraints.maxWidth >= 1000;
+      // Use the same constants passed to NavigationRail:
+      const double railCollapsedWidth = 100;
+      const double railExtendedWidth  = 220;
+
       return Scaffold(
         body: Column(
           children: [
-            Flexible(
-              fit: FlexFit.loose,
+            Expanded(
               child: Row(
                 children: [
                   SafeArea(
                     child: NavigationRail(
                       backgroundColor: const Color.fromARGB(255, 88, 88, 92),
-                      minWidth: 72,
-                      minExtendedWidth: 180,
-                      extended: constraints.maxWidth >= 100,
+                      minWidth: railCollapsedWidth,
+                      minExtendedWidth: railExtendedWidth,
+                      extended: isRailExtended,
+                      // Precisely constrain the leading section to the rail width:
+                      leading: SizedBox(
+                        width: isRailExtended
+                            ? railExtendedWidth
+                            : railCollapsedWidth,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              NetworkConnectionSection(),
+                              SizedBox(height: 16),
+                              FileManagementSection(),
+                              Divider(color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
                       selectedIndex: selectedIndex,
                       onDestinationSelected: (value) {
                         setState(() => selectedIndex = value);

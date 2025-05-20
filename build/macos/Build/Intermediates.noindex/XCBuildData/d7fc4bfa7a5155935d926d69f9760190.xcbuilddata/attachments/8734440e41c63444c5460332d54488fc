@@ -1,4 +1,0 @@
-
-module shared_preferences_foundation.__Swift {
-  exclude header "shared_preferences_foundation-Swift.h"
-}
