@@ -35,8 +35,7 @@ class _SetupPageState extends State<SetupPage> {
               ),
               IntrinsicHeight(
                   child: SizedBox(
-                      height: 800,
-                      // System status overview diagram TODO
+                      height: 400,
                       child: SystemOverview())),
               IntrinsicHeight(
                 child: Row(
