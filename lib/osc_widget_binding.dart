@@ -304,7 +304,8 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
 
     // update local registry param
     final param = OscRegistry().getParam(addr);
-    if (param != null) param.updateLocal(argsList);
+    //if (param != null) param.updateLocal(argsList);
+    if (param != null) param.dispatch(argsList);
   }
 
   void _handleOsc(List<Object?> args) {
