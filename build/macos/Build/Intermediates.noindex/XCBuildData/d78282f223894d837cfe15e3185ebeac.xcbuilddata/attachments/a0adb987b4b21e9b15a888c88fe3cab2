@@ -1,5 +1,0 @@
-
-module nsd_macos.Swift {
-  header "nsd_macos-Swift.h"
-  requires objc
-}

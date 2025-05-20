@@ -1,4 +1,0 @@
-
-module nsd_macos.__Swift {
-  exclude header "nsd_macos-Swift.h"
-}

@@ -1,21 +1,35 @@
+// system_overview.dart
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'labeled_card.dart';
 import 'osc_text.dart';
+import 'system_overview_tiles.dart';
+
+/// Centralized layout constants
+class TileLayout {
+  static const double marginPerTile = 8;         // horizontal space between tiles
+  static const double tileOuterMargin = 4;       // outer margin on each tile container
+  static const double sectionBoxPadding = 8;     // padding inside each section box
+  static const double cardPadding = 8;           // padding inside the LabeledCard
+  static const double lockColumnWidth = 60;      // fixed width for the lock column
+  static const double rowSpacing = 48;           // vertical spacing between rows
+
+  static double totalHorizontalPaddingPerTile() =>
+      2 * (tileOuterMargin + sectionBoxPadding);
+
+  static double computeTileSize(double maxWidth) {
+    const int tileCount = 5;
+    final double spacing = (tileCount - 1) * marginPerTile;
+    final double outer = tileCount * totalHorizontalPaddingPerTile();
+    return (maxWidth - lockColumnWidth - spacing - outer) / tileCount;
+  }
+}
+
+
 
 enum LabelPosition { top, bottom }
-
-const TextStyle _systemTextStyle = TextStyle(
-  color: Colors.green,
-  fontFamily: 'Courier',
-  fontSize: 12,
-);
-const TextStyle _systemTextStyleRed = TextStyle(
-  color: Colors.red,
-  fontFamily: 'Courier',
-  fontSize: 12,
-);
 
 class SystemOverview extends StatefulWidget {
   const SystemOverview({Key? key}) : super(key: key);
@@ -24,52 +38,33 @@ class SystemOverview extends StatefulWidget {
   _SystemOverviewState createState() => _SystemOverviewState();
 }
 
-class _SystemOverviewState extends State<SystemOverview> {
-  static const double _lockColumnWidth = 60;
-
+class _SystemOverviewState extends State<SystemOverview>
+    with WidgetsBindingObserver {
   final GlobalKey _stackKey = GlobalKey();
   final List<GlobalKey> _inputKeys = List.generate(4, (_) => GlobalKey());
   final List<GlobalKey> _sendKeys = List.generate(4, (_) => GlobalKey());
+  final GlobalKey _returnKey = GlobalKey();
+  final GlobalKey _outputKey = GlobalKey();
+
   List<Arrow> _arrows = [];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
   }
 
-  void _updateArrows() {
-    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (stackBox == null) return;
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
-    final List<Arrow> newArrows = [];
-
-    void connect(int fromIndex, int toIndex) {
-      final fromBox = _inputKeys[fromIndex].currentContext?.findRenderObject()
-          as RenderBox?;
-      final toBox =
-          _sendKeys[toIndex].currentContext?.findRenderObject() as RenderBox?;
-      if (fromBox == null || toBox == null) return;
-
-      final fromGlobal = fromBox.localToGlobal(
-        Offset(fromBox.size.width / 2, fromBox.size.height),
-      );
-      final toGlobal = toBox.localToGlobal(
-        Offset(toBox.size.width / 2, 0),
-      );
-
-      final fromLocal = stackBox.globalToLocal(fromGlobal);
-      final toLocal = stackBox.globalToLocal(toGlobal);
-      newArrows.add(Arrow(fromLocal, toLocal));
-    }
-
-    connect(0, 0);
-    connect(1, 1);
-    connect(1, 2);
-    connect(2, 3);
-    connect(2, 3);
-
-    setState(() => _arrows = newArrows);
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _updateArrows());
   }
 
   Widget _sectionBox({
@@ -79,11 +74,12 @@ class _SystemOverviewState extends State<SystemOverview> {
   }) {
     final label = Text(
       title,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      style: const TextStyle(
+          color: Colors.white, fontWeight: FontWeight.bold),
     );
     return Container(
-      margin: const EdgeInsets.all(4),
-      padding: const EdgeInsets.all(8),
+      margin: EdgeInsets.all(TileLayout.tileOuterMargin),
+      padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[700]!),
         borderRadius: BorderRadius.circular(4),
@@ -96,10 +92,57 @@ class _SystemOverviewState extends State<SystemOverview> {
             : [
                 child,
                 const SizedBox(height: 4),
-                Align(alignment: Alignment.centerLeft, child: label)
+                Align(
+                    alignment: Alignment.centerLeft, child: label)
               ],
       ),
     );
+  }
+
+  void _updateArrows() {
+    final stackBox = _stackKey.currentContext
+            ?.findRenderObject() as RenderBox?;
+    if (stackBox == null) return;
+
+    final constraints = stackBox;
+    final double availableWidth =
+        constraints.size.width - TileLayout.lockColumnWidth;
+    final double tileSize =
+        TileLayout.computeTileSize(constraints.size.width);
+
+    final List<Arrow> newArrows = [];
+
+    void connect(GlobalKey fromKey, GlobalKey toKey,
+        Offset fromOffset, Offset toOffset) {
+      final fromBox = fromKey.currentContext
+          ?.findRenderObject() as RenderBox?;
+      final toBox = toKey.currentContext
+          ?.findRenderObject() as RenderBox?;
+      if (fromBox == null || toBox == null) return;
+
+      final fromGlobal = fromBox.localToGlobal(fromOffset);
+      final toGlobal = toBox.localToGlobal(toOffset);
+      final fromLocal = stackBox.globalToLocal(fromGlobal);
+      final toLocal = stackBox.globalToLocal(toGlobal);
+      newArrows.add(Arrow(fromLocal, toLocal));
+    }
+
+    connect(_inputKeys[0], _sendKeys[0],
+        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
+    connect(_inputKeys[1], _sendKeys[1],
+        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
+    connect(_inputKeys[1], _sendKeys[2],
+        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
+    connect(_inputKeys[2], _sendKeys[3],
+        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
+    connect(_inputKeys[2], _sendKeys[3],
+        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
+
+    // Return → Output
+    connect(_returnKey, _outputKey,
+        Offset(tileSize / 2, 0), Offset(tileSize / 2, tileSize));
+
+    setState(() => _arrows = newArrows);
   }
 
   @override
@@ -107,11 +150,10 @@ class _SystemOverviewState extends State<SystemOverview> {
     return LabeledCard(
       title: 'System Overview',
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: EdgeInsets.all(TileLayout.cardPadding),
         child: LayoutBuilder(builder: (context, constraints) {
-          const double marginPerTile = 8;
-          final double availableWidth = constraints.maxWidth - _lockColumnWidth;
-          final double tileSize = (availableWidth - 5 * marginPerTile) / 5;
+          final double tileSize =
+              TileLayout.computeTileSize(constraints.maxWidth);
 
           Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
                 key: key,
@@ -126,7 +168,6 @@ class _SystemOverviewState extends State<SystemOverview> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Top row
                   Row(
                     children: [
                       Expanded(
@@ -137,32 +178,31 @@ class _SystemOverviewState extends State<SystemOverview> {
                           child: Row(
                             children: List.generate(
                               4,
-                              (i) => sizedTile(
-                                InputTile(index: i + 1),
-                                _inputKeys[i],
-                              ),
+                              (i) => Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
+                                  child: sizedTile(
+                                    InputTile(index: i + 1),
+                                    _inputKeys[i],
+                                  )),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: _lockColumnWidth),
-                      Expanded(
-                        flex: 1,
-                        child: _sectionBox(
-                          title: 'HDMI Out',
-                          labelPosition: LabelPosition.top,
-                          child: sizedTile(
-                            const HdmiOutTile(),
-                            GlobalKey(),
-                          ),
+                      SizedBox(width: TileLayout.lockColumnWidth),
+                      _sectionBox(
+                        title: 'HDMI Out',
+                        labelPosition: LabelPosition.top,
+                        child: sizedTile(
+                          const HdmiOutTile(),
+                          _outputKey,
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 48),
+                  SizedBox(height: TileLayout.rowSpacing),
 
-                  // Bottom row
                   Row(
                     children: [
                       Expanded(
@@ -173,27 +213,25 @@ class _SystemOverviewState extends State<SystemOverview> {
                           child: Row(
                             children: List.generate(
                               4,
-                              (i) => sizedTile(
-                                AnalogSendTile(index: i + 1),
-                                _sendKeys[i],
-                              ),
+                              (i) => Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
+                                  child: sizedTile(
+                                    AnalogSendTile(index: i + 1),
+                                    _sendKeys[i],
+                                  )),
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(
-                        width: _lockColumnWidth,
-                        child: Center(child: const SyncLock()),
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: _sectionBox(
-                          title: 'Return',
-                          labelPosition: LabelPosition.bottom,
-                          child: sizedTile(
-                            const ReturnTile(),
-                            GlobalKey(),
-                          ),
+                      SizedBox(width: TileLayout.lockColumnWidth,
+                        child: Center(child: const SyncLock())),
+                      _sectionBox(
+                        title: 'Return',
+                        labelPosition: LabelPosition.bottom,
+                        child: sizedTile(
+                          const ReturnTile(),
+                          _returnKey,
                         ),
                       ),
                     ],
@@ -201,7 +239,6 @@ class _SystemOverviewState extends State<SystemOverview> {
                 ],
               ),
 
-              // arrows overlay
               Positioned.fill(
                 child: CustomPaint(painter: _ArrowsPainter(_arrows)),
               ),
@@ -216,280 +253,6 @@ class _SystemOverviewState extends State<SystemOverview> {
 class Arrow {
   final Offset from, to;
   Arrow(this.from, this.to);
-}
-
-/// 1) Stateless wrapper that installs the “input” + “n” segments
-class InputTile extends StatelessWidget {
-  final int index;
-  const InputTile({Key? key, required this.index}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'input',
-      child: OscPathSegment(
-        segment: index.toString(),
-        child: _InputTileInner(index: index),
-      ),
-    );
-  }
-}
-
-/// 2) Inner StatefulWidget that manually hooks up its six listeners
-class _InputTileInner extends StatefulWidget {
-  final int index;
-  const _InputTileInner({Key? key, required this.index}) : super(key: key);
-
-  @override
-  __InputTileInnerState createState() => __InputTileInnerState();
-}
-
-class __InputTileInnerState extends State<_InputTileInner> {
-  bool _connected = false;
-  String _res = '', _fps = '', _bpp = '', _cs = '', _sub = '';
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final base = '/input/${widget.index}';
-
-    // 1) register defaults so they appear in the registry
-    for (var seg in [
-      'connected',
-      'resolution',
-      'framerate',
-      'bit_depth',
-      'colorspace',
-      'chroma_subsampling',
-    ]) {
-      OscRegistry()
-          .registerParam('$base/$seg', seg == 'connected' ? [false] : ['']);
-    }
-
-    // 2) hook up listeners for each path
-    OscRegistry().registerListener('$base/connected', (args) {
-      final v = args.isNotEmpty && args.first == true;
-      if (v != _connected) setState(() => _connected = v);
-    });
-    OscRegistry().registerListener('$base/resolution', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _res) setState(() => _res = v);
-    });
-    OscRegistry().registerListener('$base/framerate', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _fps) setState(() => _fps = v);
-    });
-    OscRegistry().registerListener('$base/bit_depth', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _bpp) setState(() => _bpp = v);
-    });
-    OscRegistry().registerListener('$base/colorspace', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _cs) setState(() => _cs = v);
-    });
-    OscRegistry().registerListener('$base/chroma_subsampling', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _sub) setState(() => _sub = v);
-    });
-  }
-
-  @override
-  void dispose() {
-    final base = '/input/${widget.index}';
-    for (var seg in [
-      'connected',
-      'resolution',
-      'framerate',
-      'bit_depth',
-      'colorspace',
-      'chroma_subsampling',
-    ]) {
-      OscRegistry().unregisterListener('$base/$seg', (_) {});
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(4),
-      color: Colors.grey[900],
-      child: _connected
-          ? Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_res, style: _systemTextStyle),
-                  Text(_fps, style: _systemTextStyle),
-                  Text('$_bpp bpp', style: _systemTextStyle),
-                  Row(children: [
-                    Text(_cs, style: _systemTextStyle),
-                    const SizedBox(width: 8),
-                    Text(_sub, style: _systemTextStyle),
-                  ]),
-                ],
-              ),
-            )
-          : Center(
-              child: Text('Disconnected', style: _systemTextStyleRed),
-            ),
-    );
-  }
-}
-
-class AnalogSendTile extends StatelessWidget {
-  final int index;
-  const AnalogSendTile({Key? key, required this.index}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'input',
-      child: OscPathSegment(
-        segment: index.toString(),
-        child: _AnalogSendTileInner(index: index),
-      ),
-    );
-  }
-}
-
-class _AnalogSendTileInner extends StatefulWidget {
-  final int index;
-  const _AnalogSendTileInner({Key? key, required this.index}) : super(key: key);
-
-  @override
-  __AnalogSendTileInnerState createState() => __AnalogSendTileInnerState();
-}
-
-class __AnalogSendTileInnerState extends State<_AnalogSendTileInner> {
-  String _res = '', _fps = '', _bpp = '10', _cs = '', _sub = '4:4:4';
-  final base = '/analog_format';
-
-  @override
-  void dispose() {
-    for (var seg in [
-      'resolution',
-      'framerate',
-      'colorspace',
-    ]) {
-      OscRegistry().unregisterListener('$base/$seg', (_) {});
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-
-    OscRegistry().registerListener('$base/resolution', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _res) setState(() => _res = v);
-    });
-    OscRegistry().registerListener('$base/framerate', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _fps) setState(() => _fps = v);
-    });
-    OscRegistry().registerListener('$base/colourspace', (args) {
-      final v = args.isNotEmpty ? args.first.toString() : '';
-      if (v != _cs) setState(() => _cs = v);
-    });
-
-    return Container(
-      margin: const EdgeInsets.all(4),
-      color: Colors.grey[900],
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_res, style: _systemTextStyle),
-              Text(_fps, style: _systemTextStyle),
-              Text('$_bpp bpp', style: _systemTextStyle),
-              Row(children: [
-                Text(_cs, style: _systemTextStyle),
-                const SizedBox(width: 8),
-                Text(_sub, style: _systemTextStyle),
-              ]),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ReturnTile extends StatelessWidget {
-  const ReturnTile({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'return',
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        color: Colors.grey[900],
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('1920x1080', style: _systemTextStyle),
-                Text('66fps', style: _systemTextStyle),
-                Text('128bit', style: _systemTextStyle),
-                Text('BLK 9:0:2', style: _systemTextStyle),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class HdmiOutTile extends StatelessWidget {
-  const HdmiOutTile({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'output',
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        color: Colors.grey[900],
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('12bit', style: _systemTextStyle),
-                Text('RGB 4:4:4', style: _systemTextStyle),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class SyncLock extends StatelessWidget {
-  const SyncLock({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    const locked = true;
-    return Icon(
-      locked ? Icons.lock : Icons.lock_open,
-      color: locked ? Colors.yellow : Colors.grey,
-      size: 48,
-    );
-  }
 }
 
 class _ArrowsPainter extends CustomPainter {
@@ -542,5 +305,6 @@ class _ArrowsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ArrowsPainter old) => old.arrows != arrows;
+  bool shouldRepaint(covariant _ArrowsPainter old) =>
+      old.arrows != arrows;
 }
