@@ -35,7 +35,8 @@ class _SetupPageState extends State<SetupPage> {
               ),
               IntrinsicHeight(
                   child: SizedBox(
-                      height: 400,
+                      height: 520,
+                      width: 875,
                       child: SystemOverview())),
               IntrinsicHeight(
                 child: Row(

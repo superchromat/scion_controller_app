@@ -1,5 +1,3 @@
-// system_overview.dart
-
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
@@ -50,6 +48,12 @@ class _SystemOverviewState extends State<SystemOverview>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // listen for changes in send mappings
+    for (var i = 1; i <= _sendKeys.length; i++) {
+      OscRegistry().registerListener('/send/$i/input', (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
   }
 
@@ -85,29 +89,21 @@ class _SystemOverviewState extends State<SystemOverview>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: labelPosition == LabelPosition.top
             ? [label, const SizedBox(height: 4), child]
-            : [
-                child,
-                const SizedBox(height: 4),
-                Align(alignment: Alignment.centerLeft, child: label),
-              ],
+            : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
       ),
     );
   }
 
   void _updateArrows() {
-    final box =
-        _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final double tileSize = TileLayout.computeTileSize(box.size.width);
     final List<Arrow> newArrows = [];
 
-    void connect(GlobalKey fromKey, GlobalKey toKey,
-        Offset fromOffset, Offset toOffset) {
-      final fromBox =
-          fromKey.currentContext?.findRenderObject() as RenderBox?;
-      final toBox =
-          toKey.currentContext?.findRenderObject() as RenderBox?;
+    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset, Offset toOffset) {
+      final fromBox = fromKey.currentContext?.findRenderObject() as RenderBox?;
+      final toBox = toKey.currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
 
       final fromGlobal = fromBox.localToGlobal(fromOffset);
@@ -117,20 +113,31 @@ class _SystemOverviewState extends State<SystemOverview>
       newArrows.add(Arrow(fromLocal, toLocal));
     }
 
-    connect(_inputKeys[0], _sendKeys[0],
-        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
-    connect(_inputKeys[1], _sendKeys[1],
-        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
-    connect(_inputKeys[1], _sendKeys[2],
-        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
-    connect(_inputKeys[2], _sendKeys[3],
-        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
-    connect(_inputKeys[2], _sendKeys[3],
-        Offset(tileSize / 2, tileSize), Offset(tileSize / 2, 0));
+    // dynamic input->send arrows based on /send/{n}/input registry
+    for (var i = 0; i < _sendKeys.length; i++) {
+      final sendIdx = i + 1;
+      final param = OscRegistry().getParam('/send/$sendIdx/input');
+      if (param != null && param.currentValue.isNotEmpty) {
+        final val = param.currentValue.first;
+        final inIdx = val is int ? val : int.tryParse(val.toString()) ?? -1;
+        if (inIdx >= 1 && inIdx <= _inputKeys.length) {
+          connect(
+            _inputKeys[inIdx - 1],
+            _sendKeys[i],
+            Offset(tileSize / 2, tileSize),
+            Offset(tileSize / 2, 0),
+          );
+        }
+      }
+    }
 
-    // Return → Output
-    connect(_returnKey, _outputKey,
-        Offset(tileSize / 2, 0), Offset(tileSize / 2, tileSize));
+    // static return->output arrow
+    connect(
+      _returnKey,
+      _outputKey,
+      Offset(tileSize / 2, 0),
+      Offset(tileSize / 2, tileSize),
+    );
 
     setState(() => _arrows = newArrows);
   }
@@ -138,12 +145,12 @@ class _SystemOverviewState extends State<SystemOverview>
   @override
   Widget build(BuildContext context) {
     return LabeledCard(
+      networkIndependent: false,
       title: 'System Overview',
       child: Padding(
         padding: EdgeInsets.all(TileLayout.cardPadding),
         child: LayoutBuilder(builder: (context, constraints) {
-          final double tileSize =
-              TileLayout.computeTileSize(constraints.maxWidth);
+          final double tileSize = TileLayout.computeTileSize(constraints.maxWidth);
 
           Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
                 key: key,
@@ -169,13 +176,8 @@ class _SystemOverviewState extends State<SystemOverview>
                           children: List.generate(
                             4,
                             (i) => Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal:
-                                      TileLayout.marginPerTile / 2),
-                              child: sizedTile(
-                                InputTile(index: i + 1),
-                                _inputKeys[i],
-                              ),
+                              padding: EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
+                              child: sizedTile(InputTile(index: i + 1), _inputKeys[i]),
                             ),
                           ),
                         ),
@@ -184,17 +186,12 @@ class _SystemOverviewState extends State<SystemOverview>
                       _sectionBox(
                         title: 'HDMI Out',
                         labelPosition: LabelPosition.top,
-                        child: sizedTile(
-                          const HDMIOutTile(),
-                          _outputKey,
-                        ),
+                        child: sizedTile(const HDMIOutTile(), _outputKey),
                       ),
                     ],
                   ),
-
                   // Vertical spacing
                   SizedBox(height: TileLayout.rowSpacing),
-
                   // Bottom row
                   Row(
                     children: [
@@ -206,13 +203,8 @@ class _SystemOverviewState extends State<SystemOverview>
                           children: List.generate(
                             4,
                             (i) => Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal:
-                                      TileLayout.marginPerTile / 2),
-                              child: sizedTile(
-                                AnalogSendTile(index: i + 1),
-                                _sendKeys[i],
-                              ),
+                              padding: EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
+                              child: sizedTile(AnalogSendTile(index: i + 1), _sendKeys[i]),
                             ),
                           ),
                         ),
@@ -224,16 +216,12 @@ class _SystemOverviewState extends State<SystemOverview>
                       _sectionBox(
                         title: 'Return',
                         labelPosition: LabelPosition.bottom,
-                        child: sizedTile(
-                          const ReturnTile(),
-                          _returnKey,
-                        ),
+                        child: sizedTile(const ReturnTile(), _returnKey),
                       ),
                     ],
                   ),
                 ],
               ),
-
               // Arrows overlay
               Positioned.fill(
                 child: CustomPaint(painter: _ArrowsPainter(_arrows)),
@@ -274,20 +262,15 @@ class _ArrowsPainter extends CustomPainter {
     for (final a in arrows) {
       final angle = (a.to - a.from).direction;
       const headLen = 12.0, headAngle = pi / 6;
-      final p1 = a.to -
-          Offset(
+      final p1 = a.to - Offset(
             headLen * cos(angle - headAngle),
             headLen * sin(angle - headAngle),
           );
-      final p2 = a.to -
-          Offset(
+      final p2 = a.to - Offset(
             headLen * cos(angle + headAngle),
             headLen * sin(angle + headAngle),
           );
-      final baseCenter = Offset(
-        (p1.dx + p2.dx) / 2,
-        (p1.dy + p2.dy) / 2,
-      );
+      final baseCenter = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
       canvas.drawLine(a.from, baseCenter, shaftPaint);
 
       final path = Path()
@@ -301,6 +284,5 @@ class _ArrowsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ArrowsPainter old) =>
-      old.arrows != arrows;
+  bool shouldRepaint(covariant _ArrowsPainter old) => old.arrows != arrows;
 }

@@ -180,11 +180,11 @@ class ReturnTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return VideoFormatTile(
       overlayLabel: 'R',
-      resolution: '/return/resolution',
-      framerate: '/return/framerate',
-      bitDepth: '128',
-      colorSpace: 'BLK',
-      chromaSubsampling: '9:0:2',
+      resolution: '/analog_format/resolution',
+      framerate: '/analog_format/framerate',
+      bitDepth: '12',
+      colorSpace: '/analog_format/colourspace',
+      chromaSubsampling: '4:4:4',
     );
   }
 }
