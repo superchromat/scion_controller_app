@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'osc_widget_binding.dart'; 
 import 'osc_registry.dart';
 
 final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileManagementSectionState>();

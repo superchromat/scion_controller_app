@@ -26,12 +26,15 @@ class OscParam {
   void registerListener(OscCallback cb) => listeners.add(cb);
   void unregisterListener(OscCallback cb) => listeners.remove(cb);
 
-  void dispatch(List<Object?> args) {
+  bool dispatch(List<Object?> args) {
+    bool ret = false;
     currentValue = args;
     notifier.value = args;
     for (final cb in listeners) {
       cb(args);
+      ret = true;
     }
+    return (ret);
   }
 
   // Update local state & notifier without treating it as an "incoming" dispatch.
@@ -49,28 +52,27 @@ class OscRegistry extends ChangeNotifier {
   final Map<String, OscParam> _params = {};
   final Map<String, List<OscCallback>> _pendingListeners = {};
 
-void registerParam(String address, List<Object?> defaultValue) {
-  // 1) did we already have a param at that address?
-  final bool wasNew = !_params.containsKey(address);
+  void registerParam(String address, List<Object?> defaultValue) {
+    // 1) did we already have a param at that address?
+    final bool wasNew = !_params.containsKey(address);
 
-  // 2) insert it if missing
-  _params.putIfAbsent(
-    address,
-    () => OscParam(address: address, defaultValue: defaultValue),
-  );
+    // 2) insert it if missing
+    _params.putIfAbsent(
+      address,
+      () => OscParam(address: address, defaultValue: defaultValue),
+    );
 
-  if (wasNew) {
-    // flush any pending listeners for this new address...
-    final pend = _pendingListeners.remove(address);
-    if (pend != null) {
-      final param = _params[address]!;
-      for (var cb in pend) param.registerListener(cb);
+    if (wasNew) {
+      // flush any pending listeners for this new address...
+      final pend = _pendingListeners.remove(address);
+      if (pend != null) {
+        final param = _params[address]!;
+        for (var cb in pend) param.registerListener(cb);
+      }
     }
+
+    notifyListeners();
   }
-
-  notifyListeners();
-}
-
 
   OscParam? getParam(String address) => _params[address];
 
@@ -176,7 +178,7 @@ void registerParam(String address, List<Object?> defaultValue) {
 
     final param = _params[key];
     if (param == null) {
-      // Log failure as before
+      debugPrint('OSC dispatch key:"$key" NO PARAMS');
       final logState = oscLogKey.currentState;
       logState?.logOscMessage(
         address: key,
@@ -188,6 +190,17 @@ void registerParam(String address, List<Object?> defaultValue) {
       return;
     }
     // Route to any listeners
-    param.dispatch(args);
+    if (!param.dispatch(args)) {
+      debugPrint('OSC dispatch key:"$key" NO LISTENERS');
+      final logState = oscLogKey.currentState;
+      logState?.logOscMessage(
+        address: key,
+        arg: args,
+        status: OscStatus.error,
+        direction: Direction.received,
+        binary: Uint8List.fromList([0]),
+      );
+      return;
+    }
   }
 }

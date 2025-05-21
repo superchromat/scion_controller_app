@@ -1,5 +1,3 @@
-// main.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +11,6 @@ import 'setup_page.dart';
 import 'send_page.dart';
 import 'osc_log.dart';
 import 'osc_registry_viewer.dart';
-import 'osc_widget_binding.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
