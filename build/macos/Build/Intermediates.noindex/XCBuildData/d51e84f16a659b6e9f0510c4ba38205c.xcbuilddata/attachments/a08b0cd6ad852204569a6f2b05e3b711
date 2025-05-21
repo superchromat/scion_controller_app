@@ -1,5 +1,0 @@
-
-module shared_preferences_foundation.Swift {
-  header "shared_preferences_foundation-Swift.h"
-  requires objc
-}

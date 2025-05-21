@@ -1,5 +1,0 @@
-
-module window_size.Swift {
-  header "window_size-Swift.h"
-  requires objc
-}

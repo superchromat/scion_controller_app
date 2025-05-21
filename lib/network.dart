@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:osc/osc.dart';
 import 'package:flutter/foundation.dart';
 
-import 'osc_widget_binding.dart';
+import 'osc_registry.dart';
 
 /// Internal class to hold deferred sends
 class _Pending {

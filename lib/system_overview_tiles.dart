@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
-import 'osc_text.dart';
 import 'system_overview.dart'; // for TileLayout
+import 'osc_registry.dart';
 
 const TextStyle _systemTextStyle = TextStyle(
   color: Colors.green,
@@ -69,11 +69,11 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   @override
   void initState() {
     super.initState();
-    const int _flashTime = 500; //ms
+    const int flashTime = 500; //ms
 
     _resController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: _flashTime),
+      duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
     _resColor =
@@ -81,7 +81,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 
     _fpsController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: _flashTime),
+      duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
     _fpsColor =
@@ -89,7 +89,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 
     _bppController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: _flashTime),
+      duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
     _bppColor =
@@ -97,7 +97,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 
     _csController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: _flashTime),
+      duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
     _csColor =
@@ -105,7 +105,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 
     _subController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: _flashTime),
+      duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
     _subColor =
@@ -126,7 +126,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    void _bindString(
+    void bindString(
       String? src,
       String Function() getOld,
       ValueSetter<String> setter,
@@ -157,7 +157,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       }
     }
 
-    void _bindDouble(
+    void bindDouble(
       String? src,
       double Function() getOld,
       ValueSetter<double> setter,
@@ -192,7 +192,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       }
     }
 
-    void _bindInt(
+    void bindInt(
       String src,
       int Function() getOld,
       ValueSetter<int> setter,
@@ -224,31 +224,31 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       }
     }
 
-    _bindString(
+    bindString(
       widget.resolution,
       () => _res,
       (v) => _res = v,
       _resController,
     );
-    _bindDouble(
+    bindDouble(
       widget.framerate,
       () => _fps,
       (v) => _fps = v,
       _fpsController,
     );
-    _bindInt(
+    bindInt(
       widget.bitDepth,
       () => _bpp,
       (v) => _bpp = v,
       _bppController,
     );
-    _bindString(
+    bindString(
       widget.colorSpace,
       () => _cs,
       (v) => _cs = v,
       _csController,
     );
-    _bindString(
+    bindString(
       widget.chromaSubsampling,
       () => _sub,
       (v) => _sub = v,

@@ -672,10 +672,12 @@
 /Users/joshreich/.pub-cache/hosted/pub.dev/window_size-0.1.0/lib/window_size.dart
 /Users/joshreich/.pub-cache/hosted/pub.dev/xdg_directories-1.1.0/LICENSE
 /Users/joshreich/.pub-cache/hosted/pub.dev/xdg_directories-1.1.0/lib/xdg_directories.dart
+/Users/joshreich/flutter-scion/scion_widgets/lib/arrow.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/color_space_matrix.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/file_selection.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/labeled_card.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/lut_editor.dart
+/Users/joshreich/flutter-scion/scion_widgets/lib/lut_painter.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/main.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/monotonic_spline.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/network.dart
@@ -685,8 +687,8 @@
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_dropdown.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_log.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_radiolist.dart
+/Users/joshreich/flutter-scion/scion_widgets/lib/osc_registry.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_registry_viewer.dart
-/Users/joshreich/flutter-scion/scion_widgets/lib/osc_text.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/osc_widget_binding.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/send_color.dart
 /Users/joshreich/flutter-scion/scion_widgets/lib/send_page.dart

@@ -1,8 +1,6 @@
-// osc_registry_viewer.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'osc_widget_binding.dart';
+import 'osc_registry.dart';
 
 class OscRegistryViewer extends StatefulWidget {
   const OscRegistryViewer({Key? key}) : super(key: key);
