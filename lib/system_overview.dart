@@ -4,6 +4,7 @@ import 'osc_widget_binding.dart';
 import 'labeled_card.dart';
 import 'osc_text.dart';
 import 'system_overview_tiles.dart';
+import 'arrow.dart';
 
 /// Centralized layout constants
 class TileLayout {
@@ -240,7 +241,7 @@ class _SystemOverviewState extends State<SystemOverview>
               ),
               // Arrows overlay
               Positioned.fill(
-                child: CustomPaint(painter: _ArrowsPainter(_arrows)),
+                child: CustomPaint(painter: ArrowsPainter(_arrows)),
               ),
             ],
           );
@@ -250,57 +251,3 @@ class _SystemOverviewState extends State<SystemOverview>
   }
 }
 
-class Arrow {
-  final Offset from, to;
-  Arrow(this.from, this.to);
-}
-
-class _ArrowsPainter extends CustomPainter {
-  final List<Arrow> arrows;
-  _ArrowsPainter(this.arrows);
-
-  Color? col = Colors.grey[400];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final shaftPaint = Paint()
-      ..color = col!
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-    final headFillPaint = Paint()
-      ..color = col!
-      ..style = PaintingStyle.fill;
-    final headStrokePaint = Paint()
-      ..color = col!
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    for (final a in arrows) {
-      final angle = (a.to - a.from).direction;
-      const headLen = 12.0, headAngle = pi / 6;
-      final p1 = a.to -
-          Offset(
-            headLen * cos(angle - headAngle),
-            headLen * sin(angle - headAngle),
-          );
-      final p2 = a.to -
-          Offset(
-            headLen * cos(angle + headAngle),
-            headLen * sin(angle + headAngle),
-          );
-      final baseCenter = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      canvas.drawLine(a.from, baseCenter, shaftPaint);
-
-      final path = Path()
-        ..moveTo(a.to.dx, a.to.dy)
-        ..lineTo(p1.dx, p1.dy)
-        ..lineTo(p2.dx, p2.dy)
-        ..close();
-      canvas.drawPath(path, headFillPaint);
-      canvas.drawPath(path, headStrokePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArrowsPainter old) => old.arrows != arrows;
-}

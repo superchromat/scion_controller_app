@@ -47,69 +47,213 @@ class VideoFormatTile extends StatefulWidget {
   _VideoFormatTileState createState() => _VideoFormatTileState();
 }
 
-class _VideoFormatTileState extends State<VideoFormatTile> {
+class _VideoFormatTileState extends State<VideoFormatTile>
+    with TickerProviderStateMixin {
   String _res = '';
   double _fps = 0.0;
   int _bpp = 0;
   String _cs = '';
   String _sub = '';
 
+  late final AnimationController _resController;
+  late final Animation<Color?> _resColor;
+  late final AnimationController _fpsController;
+  late final Animation<Color?> _fpsColor;
+  late final AnimationController _bppController;
+  late final Animation<Color?> _bppColor;
+  late final AnimationController _csController;
+  late final Animation<Color?> _csColor;
+  late final AnimationController _subController;
+  late final Animation<Color?> _subColor;
+
+  @override
+  void initState() {
+    super.initState();
+    const int _flashTime = 500; //ms
+
+    _resController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _flashTime),
+      value: 1,
+    );
+    _resColor =
+        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_resController);
+
+    _fpsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _flashTime),
+      value: 1,
+    );
+    _fpsColor =
+        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_fpsController);
+
+    _bppController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _flashTime),
+      value: 1,
+    );
+    _bppColor =
+        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_bppController);
+
+    _csController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _flashTime),
+      value: 1,
+    );
+    _csColor =
+        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_csController);
+
+    _subController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _flashTime),
+      value: 1,
+    );
+    _subColor =
+        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_subController);
+  }
+
+  @override
+  void dispose() {
+    _resController.dispose();
+    _fpsController.dispose();
+    _bppController.dispose();
+    _csController.dispose();
+    _subController.dispose();
+    super.dispose();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    void _bindString(String? src, ValueSetter<String> setter) {
+    void _bindString(
+      String? src,
+      String Function() getOld,
+      ValueSetter<String> setter,
+      AnimationController ctl,
+    ) {
       if (src == null) return;
       if (src.startsWith('/')) {
         final param = OscRegistry().getParam(src);
-        if (param != null && param.currentValue.isNotEmpty)
-          setState(() => setter(param.currentValue.first.toString()));
+        if (param != null && param.currentValue.isNotEmpty) {
+          final newVal = param.currentValue.first.toString();
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
+        }
         OscRegistry().registerListener(src, (args) {
-          final v = args.isNotEmpty ? args.first.toString() : '';
+          final newVal = args.isNotEmpty ? args.first.toString() : '';
           if (!mounted) return;
-          setState(() => setter(v));
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
         });
       } else {
-        setState(() => setter(src));
+        if (getOld() != src) {
+          setState(() => setter(src));
+        }
       }
     }
 
-    void _bindDouble(String? src, ValueSetter<double> setter) {
+    void _bindDouble(
+      String? src,
+      double Function() getOld,
+      ValueSetter<double> setter,
+      AnimationController ctl,
+    ) {
       if (src == null) return;
       if (src.startsWith('/')) {
         final param = OscRegistry().getParam(src);
-        if (param != null && param.currentValue.isNotEmpty)
-          setState(() => setter(double.tryParse(param.currentValue.first.toString()) ?? 0.0));
+        if (param != null && param.currentValue.isNotEmpty) {
+          final newVal =
+              double.tryParse(param.currentValue.first.toString()) ?? 0.0;
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
+        }
         OscRegistry().registerListener(src, (args) {
-          final v = double.tryParse(args.isNotEmpty ? args.first.toString() : '') ?? 0.0;
+          final newVal =
+              double.tryParse(args.isNotEmpty ? args.first.toString() : '') ??
+              0.0;
           if (!mounted) return;
-          setState(() => setter(v));
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
         });
       } else {
-        setState(() => setter(double.tryParse(src) ?? 0.0));
+        final parsed = double.tryParse(src) ?? 0.0;
+        if (getOld() != parsed) {
+          setState(() => setter(parsed));
+        }
       }
     }
 
-    void _bindInt(String src, ValueSetter<int> setter) {
+    void _bindInt(
+      String src,
+      int Function() getOld,
+      ValueSetter<int> setter,
+      AnimationController ctl,
+    ) {
       if (src.startsWith('/')) {
         final param = OscRegistry().getParam(src);
-        if (param != null && param.currentValue.isNotEmpty)
-          setState(() => setter(int.tryParse(param.currentValue.first.toString()) ?? 0));
+        if (param != null && param.currentValue.isNotEmpty) {
+          final newVal = int.tryParse(param.currentValue.first.toString()) ?? 0;
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
+        }
         OscRegistry().registerListener(src, (args) {
-          final v = int.tryParse(args.isNotEmpty ? args.first.toString() : '') ?? 0;
+          final newVal =
+              int.tryParse(args.isNotEmpty ? args.first.toString() : '') ?? 0;
           if (!mounted) return;
-          setState(() => setter(v));
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
         });
       } else {
-        setState(() => setter(int.tryParse(src) ?? 0));
+        final parsed = int.tryParse(src) ?? 0;
+        if (getOld() != parsed) {
+          setState(() => setter(parsed));
+        }
       }
     }
 
-    _bindString(widget.resolution, (v) => _res = v);
-    _bindDouble(widget.framerate, (v) => _fps = v);
-    _bindInt(widget.bitDepth, (v) => _bpp = v);
-    _bindString(widget.colorSpace, (v) => _cs = v);
-    _bindString(widget.chromaSubsampling, (v) => _sub = v);
+    _bindString(
+      widget.resolution,
+      () => _res,
+      (v) => _res = v,
+      _resController,
+    );
+    _bindDouble(
+      widget.framerate,
+      () => _fps,
+      (v) => _fps = v,
+      _fpsController,
+    );
+    _bindInt(
+      widget.bitDepth,
+      () => _bpp,
+      (v) => _bpp = v,
+      _bppController,
+    );
+    _bindString(
+      widget.colorSpace,
+      () => _cs,
+      (v) => _cs = v,
+      _csController,
+    );
+    _bindString(
+      widget.chromaSubsampling,
+      () => _sub,
+      (v) => _sub = v,
+      _subController,
+    );
   }
 
   @override
@@ -127,16 +271,47 @@ class _VideoFormatTileState extends State<VideoFormatTile> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.resolution != null)
-                  Text(_res, style: _systemTextStyle),
+                  AnimatedBuilder(
+                    animation: _resColor,
+                    builder: (ctx, _) => Text(
+                      _res,
+                      style: _systemTextStyle.copyWith(color: _resColor.value),
+                    ),
+                  ),
                 if (widget.framerate != null)
-                  Text(_fps.toStringAsFixed(2), style: _systemTextStyle),
-                Text('$_bpp bpp', style: _systemTextStyle),
+                  AnimatedBuilder(
+                    animation: _fpsColor,
+                    builder: (ctx, _) => Text(
+                      _fps.toStringAsFixed(2),
+                      style: _systemTextStyle.copyWith(color: _fpsColor.value),
+                    ),
+                  ),
+                AnimatedBuilder(
+                  animation: _bppColor,
+                  builder: (ctx, _) => Text(
+                    '$_bpp bpp',
+                    style: _systemTextStyle.copyWith(color: _bppColor.value),
+                  ),
+                ),
                 Row(
                   children: [
-                    Text(_cs, style: _systemTextStyle),
+                    AnimatedBuilder(
+                      animation: _csColor,
+                      builder: (ctx, _) => Text(
+                        _cs,
+                        style: _systemTextStyle.copyWith(color: _csColor.value),
+                      ),
+                    ),
                     if (widget.chromaSubsampling != null) ...[
                       const SizedBox(width: 8),
-                      Text(_sub, style: _systemTextStyle),
+                      AnimatedBuilder(
+                        animation: _subColor,
+                        builder: (ctx, _) => Text(
+                          _sub,
+                          style:
+                              _systemTextStyle.copyWith(color: _subColor.value),
+                        ),
+                      ),
                     ],
                   ],
                 ),

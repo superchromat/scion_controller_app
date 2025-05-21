@@ -1,0 +1,23 @@
+{
+  "version": 0,
+  "use-external-names": false,
+  "case-sensitive": false,
+  "roots": [{
+    "type": "directory",
+    "name": "/Users/joshreich/flutter-scion/scion_widgets/build/macos/Build/Products/Debug/window_size/window_size.framework/Modules",
+    "contents": [{
+      "type": "file",
+      "name": "module.modulemap",
+      "external-contents": "/Users/joshreich/flutter-scion/scion_widgets/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/unextended-module.modulemap",
+    }]
+    },
+    {
+    "type": "directory",
+    "name": "/Users/joshreich/flutter-scion/scion_widgets/build/macos/Build/Products/Debug/window_size/window_size.framework/Headers",
+    "contents": [{
+      "type": "file",
+      "name": "window_size-Swift.h",
+      "external-contents": "/Users/joshreich/flutter-scion/scion_widgets/build/macos/Build/Intermediates.noindex/Pods.build/Debug/window_size.build/unextended-interface-header.h",
+    }]
+  }]
+}
