@@ -25,8 +25,7 @@ class _SetupPageState extends State<SetupPage> {
           child: Column(
             children: [
               IntrinsicHeight(
-                  child: SizedBox(
-                      height: 520, width: 875, child: SystemOverview())),
+                  child: SizedBox(height: 490, child: SystemOverview())),
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment

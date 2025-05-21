@@ -23,10 +23,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			+AQADmI3BBCQHwVqn46BRr142+c=
+			wBV5SwS9MeEAW41dkkVBpBWu8xY=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"f804000e62370410901f056a9f8e8146bd78dbe7"</string>
+			<string>cdhash H"c015794b04bd31e1005b8d5d924541a415aef316"</string>
 		</dict>
 		<key>Frameworks/FlutterMacOS.framework</key>
 		<dict>
@@ -217,6 +217,15 @@
 			<key>requirement</key>
 			<string>cdhash H"1a5779fef2d5e74cf1452fbe9a8ae77a21f5514e"</string>
 		</dict>
+		<key>Frameworks/window_size.framework</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			xhIrGJ8RoK33J8M9p9pG88ocRHg=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"c6122b189f11a0adf727c33da7da46f3ca1c4478"</string>
+		</dict>
 		<key>MacOS/__preview.dylib</key>
 		<dict>
 			<key>cdhash</key>
@@ -230,10 +239,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			fMZsoboR+sL+XFOsXe/n6G5omtQ=
+			1v3VwCmEVu4lI1pS+YCC4IZkV1o=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"7cc66ca1ba11fac2fe5c53ac5defe7e86e689ad4"</string>
+			<string>cdhash H"d6fdd5c0298456ee25235a52f98082e08664575a"</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>

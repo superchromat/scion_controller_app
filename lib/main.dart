@@ -1,7 +1,9 @@
 // main.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:window_size/window_size.dart';
 
 import 'network.dart';
 import 'network_selection.dart';
@@ -14,6 +16,11 @@ import 'osc_registry_viewer.dart';
 import 'osc_widget_binding.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    setWindowMinSize(const Size(1200, 800));
+  }
+
   runApp(
     ChangeNotifierProvider<Network>.value(
       value: Network(),
@@ -59,6 +66,9 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// … rest of file unchanged …
+
+
 class MyAppState extends ChangeNotifier {
   @override
   void notifyListeners() => super.notifyListeners();
@@ -102,7 +112,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final bool isRailExtended = constraints.maxWidth >= 1000;
       // Use the same constants passed to NavigationRail:
       const double railCollapsedWidth = 100;
-      const double railExtendedWidth  = 220;
+      const double railExtendedWidth  = 222;
 
       return Scaffold(
         body: Column(
@@ -122,13 +132,15 @@ class _MyHomePageState extends State<MyHomePage> {
                             ? railExtendedWidth
                             : railCollapsedWidth,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                          padding: const EdgeInsets.fromLTRB(9, 0, 9, 0),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
+                              SizedBox(height: 8),
                               NetworkConnectionSection(),
                               SizedBox(height: 16),
                               FileManagementSection(),
+                              SizedBox(height: 8),
                               Divider(color: Colors.grey),
                             ],
                           ),

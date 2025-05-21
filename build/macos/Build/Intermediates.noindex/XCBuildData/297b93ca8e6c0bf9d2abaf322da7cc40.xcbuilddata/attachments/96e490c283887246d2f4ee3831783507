@@ -1,0 +1,4 @@
+
+module window_size.__Swift {
+  exclude header "window_size-Swift.h"
+}

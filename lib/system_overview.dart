@@ -7,12 +7,14 @@ import 'system_overview_tiles.dart';
 
 /// Centralized layout constants
 class TileLayout {
-  static const double marginPerTile = 8;      // horizontal space between tiles
-  static const double tileOuterMargin = 4;    // outer margin on each tile container
-  static const double sectionBoxPadding = 8;  // padding inside each section box
-  static const double cardPadding = 8;        // padding inside the LabeledCard
-  static const double lockColumnWidth = 60;   // fixed width for the lock column
-  static const double rowSpacing = 48;        // vertical spacing between rows
+  static const double marginPerTile = 8; // horizontal space between tiles
+  static const double tileOuterMargin =
+      4; // outer margin on each tile container
+  static const double sectionBoxPadding = 8; // padding inside each section box
+  static const double cardPaddingTB = 0; // padding inside the LabeledCard
+  static const double cardPaddingLR = 55; // padding inside the LabeledCard
+  static const double lockColumnWidth = 60; // fixed width for the lock column
+  static const double rowSpacing = 40; // vertical spacing between rows
 
   static double totalHorizontalPaddingPerTile() =>
       2 * (tileOuterMargin + sectionBoxPadding);
@@ -89,7 +91,11 @@ class _SystemOverviewState extends State<SystemOverview>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: labelPosition == LabelPosition.top
             ? [label, const SizedBox(height: 4), child]
-            : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
+            : [
+                child,
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerLeft, child: label)
+              ],
       ),
     );
   }
@@ -101,7 +107,8 @@ class _SystemOverviewState extends State<SystemOverview>
     final double tileSize = TileLayout.computeTileSize(box.size.width);
     final List<Arrow> newArrows = [];
 
-    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset, Offset toOffset) {
+    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset,
+        Offset toOffset) {
       final fromBox = fromKey.currentContext?.findRenderObject() as RenderBox?;
       final toBox = toKey.currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
@@ -148,9 +155,14 @@ class _SystemOverviewState extends State<SystemOverview>
       networkIndependent: false,
       title: 'System Overview',
       child: Padding(
-        padding: EdgeInsets.all(TileLayout.cardPadding),
+        padding: EdgeInsets.fromLTRB(
+            TileLayout.cardPaddingLR,
+            TileLayout.cardPaddingTB,
+            TileLayout.cardPaddingLR,
+            TileLayout.cardPaddingTB),
         child: LayoutBuilder(builder: (context, constraints) {
-          final double tileSize = TileLayout.computeTileSize(constraints.maxWidth);
+          final double tileSize =
+              TileLayout.computeTileSize(constraints.maxWidth);
 
           Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
                 key: key,
@@ -176,8 +188,10 @@ class _SystemOverviewState extends State<SystemOverview>
                           children: List.generate(
                             4,
                             (i) => Padding(
-                              padding: EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
-                              child: sizedTile(InputTile(index: i + 1), _inputKeys[i]),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: TileLayout.marginPerTile / 2),
+                              child: sizedTile(
+                                  InputTile(index: i + 1), _inputKeys[i]),
                             ),
                           ),
                         ),
@@ -203,8 +217,10 @@ class _SystemOverviewState extends State<SystemOverview>
                           children: List.generate(
                             4,
                             (i) => Padding(
-                              padding: EdgeInsets.symmetric(horizontal: TileLayout.marginPerTile / 2),
-                              child: sizedTile(AnalogSendTile(index: i + 1), _sendKeys[i]),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: TileLayout.marginPerTile / 2),
+                              child: sizedTile(
+                                  AnalogSendTile(index: i + 1), _sendKeys[i]),
                             ),
                           ),
                         ),
@@ -262,11 +278,13 @@ class _ArrowsPainter extends CustomPainter {
     for (final a in arrows) {
       final angle = (a.to - a.from).direction;
       const headLen = 12.0, headAngle = pi / 6;
-      final p1 = a.to - Offset(
+      final p1 = a.to -
+          Offset(
             headLen * cos(angle - headAngle),
             headLen * sin(angle - headAngle),
           );
-      final p2 = a.to - Offset(
+      final p2 = a.to -
+          Offset(
             headLen * cos(angle + headAngle),
             headLen * sin(angle + headAngle),
           );
