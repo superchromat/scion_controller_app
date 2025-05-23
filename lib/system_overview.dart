@@ -6,14 +6,13 @@ import 'osc_registry.dart';
 
 /// Centralized layout constants
 class TileLayout {
-  static const double marginPerTile = 8; // horizontal space between tiles
-  static const double tileOuterMargin =
-      4; // outer margin on each tile container
-  static const double sectionBoxPadding = 8; // padding inside each section box
-  static const double cardPaddingTB = 0; // padding inside the LabeledCard
-  static const double cardPaddingLR = 55; // padding inside the LabeledCard
-  static const double lockColumnWidth = 60; // fixed width for the lock column
-  static const double rowSpacing = 40; // vertical spacing between rows
+  static const double marginPerTile = 8;
+  static const double tileOuterMargin = 4;
+  static const double sectionBoxPadding = 8;
+  static const double cardPaddingTB = 0;
+  static const double cardPaddingLR = 55;
+  static const double lockColumnWidth = 60;
+  static const double rowSpacing = 40;
 
   static double totalHorizontalPaddingPerTile() =>
       2 * (tileOuterMargin + sectionBoxPadding);
@@ -30,7 +29,6 @@ enum LabelPosition { top, bottom }
 
 class SystemOverview extends StatefulWidget {
   const SystemOverview({Key? key}) : super(key: key);
-
   @override
   _SystemOverviewState createState() => _SystemOverviewState();
 }
@@ -49,9 +47,12 @@ class _SystemOverviewState extends State<SystemOverview>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // listen for changes in send mappings
+    // Listen for changes in mappings
+    final registry = OscRegistry();
     for (var i = 1; i <= _sendKeys.length; i++) {
-      OscRegistry().registerListener('/send/$i/input', (_) {
+      final path = '/send/$i/input';
+      registry.registerAddress(path);
+      registry.registerListener(path, (_) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
       });
     }
@@ -90,11 +91,7 @@ class _SystemOverviewState extends State<SystemOverview>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: labelPosition == LabelPosition.top
             ? [label, const SizedBox(height: 4), child]
-            : [
-                child,
-                const SizedBox(height: 4),
-                Align(alignment: Alignment.centerLeft, child: label)
-              ],
+            : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
       ),
     );
   }
@@ -102,16 +99,14 @@ class _SystemOverviewState extends State<SystemOverview>
   void _updateArrows() {
     final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-
-    final double tileSize = TileLayout.computeTileSize(box.size.width);
+    final tileSize = TileLayout.computeTileSize(box.size.width);
+    final registry = OscRegistry();
     final List<Arrow> newArrows = [];
 
-    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset,
-        Offset toOffset) {
+    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset, Offset toOffset) {
       final fromBox = fromKey.currentContext?.findRenderObject() as RenderBox?;
       final toBox = toKey.currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
-
       final fromGlobal = fromBox.localToGlobal(fromOffset);
       final toGlobal = toBox.localToGlobal(toOffset);
       final fromLocal = box.globalToLocal(fromGlobal);
@@ -119,10 +114,11 @@ class _SystemOverviewState extends State<SystemOverview>
       newArrows.add(Arrow(fromLocal, toLocal));
     }
 
-    // dynamic input->send arrows based on /send/{n}/input registry
+    // dynamic input->send arrows based on registry values
     for (var i = 0; i < _sendKeys.length; i++) {
       final sendIdx = i + 1;
-      final param = OscRegistry().getParam('/send/$sendIdx/input');
+      final path = '/send/$sendIdx/input';
+      final param = registry.allParams[path];
       if (param != null && param.currentValue.isNotEmpty) {
         final val = param.currentValue.first;
         final inIdx = val is int ? val : int.tryParse(val.toString()) ?? -1;
@@ -155,97 +151,92 @@ class _SystemOverviewState extends State<SystemOverview>
       title: 'System Overview',
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-            TileLayout.cardPaddingLR,
-            TileLayout.cardPaddingTB,
-            TileLayout.cardPaddingLR,
-            TileLayout.cardPaddingTB),
-        child: LayoutBuilder(builder: (context, constraints) {
-          final double tileSize =
-              TileLayout.computeTileSize(constraints.maxWidth);
-
-          Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
-                key: key,
-                width: tileSize,
-                height: tileSize,
-                child: tile,
-              );
-
-          return Stack(
-            key: _stackKey,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Top row
-                  Row(
-                    children: [
-                      _sectionBox(
-                        title: 'HDMI Inputs',
-                        labelPosition: LabelPosition.top,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            4,
-                            (i) => Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: TileLayout.marginPerTile / 2),
-                              child: sizedTile(
-                                  InputTile(index: i + 1), _inputKeys[i]),
+          TileLayout.cardPaddingLR,
+          TileLayout.cardPaddingTB,
+          TileLayout.cardPaddingLR,
+          TileLayout.cardPaddingTB,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final tileSize = TileLayout.computeTileSize(constraints.maxWidth);
+            Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
+                  key: key,
+                  width: tileSize,
+                  height: tileSize,
+                  child: tile,
+                );
+            return Stack(
+              key: _stackKey,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        _sectionBox(
+                          title: 'HDMI Inputs',
+                          labelPosition: LabelPosition.top,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(
+                              4,
+                              (i) => Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: TileLayout.marginPerTile / 2),
+                                child: sizedTile(
+                                    InputTile(index: i + 1), _inputKeys[i]),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(width: TileLayout.lockColumnWidth),
-                      _sectionBox(
-                        title: 'HDMI Out',
-                        labelPosition: LabelPosition.top,
-                        child: sizedTile(const HDMIOutTile(), _outputKey),
-                      ),
-                    ],
-                  ),
-                  // Vertical spacing
-                  SizedBox(height: TileLayout.rowSpacing),
-                  // Bottom row
-                  Row(
-                    children: [
-                      _sectionBox(
-                        title: 'Analog Sends',
-                        labelPosition: LabelPosition.bottom,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            4,
-                            (i) => Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: TileLayout.marginPerTile / 2),
-                              child: sizedTile(
-                                  AnalogSendTile(index: i + 1), _sendKeys[i]),
+                        SizedBox(width: TileLayout.lockColumnWidth),
+                        _sectionBox(
+                          title: 'HDMI Out',
+                          labelPosition: LabelPosition.top,
+                          child: sizedTile(const HDMIOutTile(), _outputKey),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: TileLayout.rowSpacing),
+                    Row(
+                      children: [
+                        _sectionBox(
+                          title: 'Analog Sends',
+                          labelPosition: LabelPosition.bottom,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(
+                              4,
+                              (i) => Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: TileLayout.marginPerTile / 2),
+                                child: sizedTile(
+                                    AnalogSendTile(index: i + 1), _sendKeys[i]),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: TileLayout.lockColumnWidth,
-                        child: Center(child: const SyncLock()),
-                      ),
-                      _sectionBox(
-                        title: 'Return',
-                        labelPosition: LabelPosition.bottom,
-                        child: sizedTile(const ReturnTile(), _returnKey),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              // Arrows overlay
-              Positioned.fill(
-                child: CustomPaint(painter: ArrowsPainter(_arrows)),
-              ),
-            ],
-          );
-        }),
+                        SizedBox(
+                          width: TileLayout.lockColumnWidth,
+                          child: Center(child: const SyncLock()),
+                        ),
+                        _sectionBox(
+                          title: 'Return',
+                          labelPosition: LabelPosition.bottom,
+                          child: sizedTile(const ReturnTile(), _returnKey),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned.fill(
+                  child: CustomPaint(painter: ArrowsPainter(_arrows)),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
-

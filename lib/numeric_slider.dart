@@ -63,7 +63,6 @@ class NumericSliderState extends State<NumericSlider>
     _range = widget.range ?? const RangeValues(-2.0, 2.0);
     _detents = widget.detents ?? const [-1.0, 0.0, 1.0];
     _value = widget.value.clamp(_range.start, _range.end);
-    setDefaultValues(_value);
     _displayValue = _value;
     _precision = widget.precision ?? 4;
     _inputBuffer =

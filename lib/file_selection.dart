@@ -62,7 +62,7 @@ class FileManagementSectionState extends State<FileManagementSection> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Restore'),
+        title: const Text('UNIMPLEMENTED!@!! Confirm Restore'),
         content: const Text('Are you sure you want to restore all settings?'),
         actions: [
           TextButton(
@@ -71,7 +71,9 @@ class FileManagementSectionState extends State<FileManagementSection> {
           ),
           TextButton(
             onPressed: () {
-              OscRegistry().resetToDefaults(null);
+
+              // THIS IS WHERE WE NEED TO LOAD THE DEFAULTS INTO THE REGISTRY AND SEND VIA OSC
+              // TOOD
               Navigator.of(ctx).pop();
             },
             child: const Text('Confirm'),

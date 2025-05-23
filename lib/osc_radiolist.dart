@@ -9,10 +9,10 @@ class OscRadioList extends StatefulWidget {
   final String? initialValue;
 
   const OscRadioList({
-    Key? key,
+    super.key,
     required this.options,
     this.initialValue,
-  }) : super(key: key);
+  });
 
   @override
   _OscRadioListState createState() => _OscRadioListState();
@@ -25,7 +25,6 @@ class _OscRadioListState extends State<OscRadioList>
   void initState() {
     super.initState();
     _selectedValue = widget.initialValue ?? widget.options.first[0];
-    setDefaultValues(_selectedValue);
   }
 
   @override

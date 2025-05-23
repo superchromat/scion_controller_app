@@ -1,49 +1,49 @@
 import 'dart:io';
 import 'dart:convert';
-import 'dart:collection';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:collection/collection.dart';
 import 'osc_log.dart';
 import 'osc_widget_binding.dart';
 
+/// Callback invoked on incoming OSC messages for a given address.
 typedef OscCallback = void Function(List<Object?> args);
 
+/// Holds current OSC value and notifies registered listeners.
 class OscParam {
   final String address;
-  final List<Object?> defaultValue;
-
-  List<Object?> lastLoadedValue;
   List<Object?> currentValue;
   final ValueNotifier<List<Object?>> notifier;
   final Set<OscCallback> listeners = {};
 
-  OscParam({
-    required this.address,
-    required this.defaultValue,
-  })  : lastLoadedValue = List.of(defaultValue),
-        currentValue = List.of(defaultValue),
-        notifier = ValueNotifier<List<Object?>>(List.of(defaultValue));
+  OscParam(this.address)
+      : currentValue = [],
+        notifier = ValueNotifier(<Object?>[]);
 
   void registerListener(OscCallback cb) => listeners.add(cb);
   void unregisterListener(OscCallback cb) => listeners.remove(cb);
 
+  /// Dispatches new values to listeners and updates notifier.
   bool dispatch(List<Object?> args) {
-    bool ret = false;
+    var notified = false;
     currentValue = args;
     notifier.value = args;
     for (final cb in listeners) {
       cb(args);
-      ret = true;
+      notified = true;
     }
-    return (ret);
+    return notified;
   }
 
-  // Update local state & notifier without treating it as an "incoming" dispatch.
+  /// Update local state without invoking listeners.
   void updateLocal(List<Object?> args) {
     currentValue = args;
     notifier.value = args;
   }
 }
 
+/// Central registry for OSC-bound addresses.
 class OscRegistry extends ChangeNotifier {
   static final OscRegistry _instance = OscRegistry._internal();
   factory OscRegistry() => _instance;
@@ -52,49 +52,79 @@ class OscRegistry extends ChangeNotifier {
   final Map<String, OscParam> _params = {};
   final Map<String, List<OscCallback>> _pendingListeners = {};
 
-  void registerParam(String address, List<Object?> defaultValue) {
-    // 1) did we already have a param at that address?
-    final bool wasNew = !_params.containsKey(address);
-
-    // 2) insert it if missing
-    _params.putIfAbsent(
-      address,
-      () => OscParam(address: address, defaultValue: defaultValue),
-    );
-
-    if (wasNew) {
-      // flush any pending listeners for this new address...
-      final pend = _pendingListeners.remove(address);
-      if (pend != null) {
-        final param = _params[address]!;
-        for (var cb in pend) param.registerListener(cb);
+  /// Ensure an OSC address is registered for sending/listening.
+  void registerAddress(String address) {
+    final key = address.startsWith('/') ? address : '/$address';
+    final isNew = !_params.containsKey(key);
+    if (isNew) {
+      _params[key] = OscParam(key);
+      // flush any deferred listeners
+      final deferred = _pendingListeners.remove(key);
+      if (deferred != null) {
+        for (var cb in deferred) {
+          _params[key]!.registerListener(cb);
+        }
       }
+      notifyListeners();
     }
-
-    notifyListeners();
   }
 
-  OscParam? getParam(String address) => _params[address];
-
+  /// Read-only view of all registered addresses.
   UnmodifiableMapView<String, OscParam> get allParams =>
       UnmodifiableMapView(_params);
 
+  /// Register a callback for incoming messages on [address].
   void registerListener(String address, OscCallback cb) {
-    final param = _params[address];
+    final key = address.startsWith('/') ? address : '/$address';
+    final param = _params[key];
     if (param != null) {
-      // param exists → attach immediately
       param.registerListener(cb);
     } else {
-      // param not yet registered → defer
-      _pendingListeners.putIfAbsent(address, () => []).add(cb);
+      _pendingListeners.putIfAbsent(key, () => []).add(cb);
     }
   }
 
+  /// Unregister a previously registered listener.
   void unregisterListener(String address, OscCallback cb) {
-    _params[address]?.unregisterListener(cb);
+    final key = address.startsWith('/') ? address : '/$address';
+    _params[key]?.unregisterListener(cb);
   }
 
-  /// Save nested JSON: splits addresses by '/', storing currentValue accordingly.
+  /// Dispatch an incoming OSC message to listeners for [address].
+  void dispatch(String address, List<Object?> args) {
+    final key = address.startsWith('/') ? address : '/$address';
+    debugPrint('OSC dispatch → key: "$key", args: $args');
+
+    final param = _params[key];
+    if (param == null) {
+      debugPrint('OSC dispatch key:"$key" NO PARAMS');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: key,
+          arg: args,
+          status: OscStatus.fail,
+          direction: Direction.received,
+          binary: Uint8List.fromList([0]),
+        );
+      });
+      return;
+    }
+
+    if (!param.dispatch(args)) {
+      debugPrint('OSC dispatch key:"$key" NO LISTENERS');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: key,
+          arg: args,
+          status: OscStatus.error,
+          direction: Direction.received,
+          binary: Uint8List.fromList([0]),
+        );
+      });
+    }
+  }
+
+  /// Save all current values into a nested JSON structure at [path].
   Future<void> saveToFile(String path) async {
     final file = File(path);
     final nested = <String, dynamic>{};
@@ -109,98 +139,35 @@ class OscRegistry extends ChangeNotifier {
               : p.currentValue;
           map[seg] = val;
         } else {
-          if (map[seg] is! Map<String, dynamic>) {
-            map[seg] = <String, dynamic>{};
-          }
-          map = map[seg] as Map<String, dynamic>;
+          map = map.putIfAbsent(seg, () => <String, dynamic>{})
+              as Map<String, dynamic>;
         }
       }
     }
     await file.writeAsString(jsonEncode(nested));
-    for (var p in _params.values) {
-      p.lastLoadedValue = List<Object?>.from(p.currentValue);
-    }
   }
 
-  /// Load nested JSON: traverse by address and dispatch values.
+  /// Load values from a nested JSON file at [path] and dispatch them.
   Future<void> loadFromFile(String path) async {
     final file = File(path);
     final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-    for (final entry in _params.entries) {
-      final address = entry.key;
-      final param = entry.value;
-      final segments = address.split('/').where((s) => s.isNotEmpty).toList();
-      dynamic leaf = data;
-      var found = true;
-      for (final seg in segments) {
-        if (leaf is Map<String, dynamic> && leaf.containsKey(seg)) {
-          leaf = leaf[seg];
+
+    void recurse(Map<String, dynamic> node, List<String> prefix) {
+      node.forEach((key, value) {
+        final newPrefix = [...prefix, key];
+        if (value is Map<String, dynamic>) {
+          recurse(value, newPrefix);
         } else {
-          found = false;
-          break;
+          final addr = '/${newPrefix.join('/')}';
+          registerAddress(addr);
+          final param = _params[addr]!;
+          final args =
+              value is List ? List<Object?>.from(value) : <Object?>[value];
+          param.dispatch(args);
         }
-      }
-      if (!found) continue;
-      List<Object?> args;
-      if (leaf is List) {
-        args = List<Object?>.from(leaf);
-      } else {
-        args = <Object?>[leaf];
-      }
-      param.lastLoadedValue = args;
-      param.dispatch(args);
+      });
     }
-  }
 
-  /// Reset all params whose address starts with [prefix] back to defaults.
-  void resetToDefaults(String? prefix) {
-    _params.forEach((address, param) {
-      if (prefix == null || address.startsWith(prefix)) {
-        param.dispatch(List<Object?>.from(param.defaultValue));
-      }
-    });
-  }
-
-  void resetToFile(String? prefix) {
-    _params.forEach((address, param) {
-      if (prefix == null || address.startsWith(prefix)) {
-        param.dispatch(List<Object?>.from(param.lastLoadedValue));
-      }
-    });
-  }
-
-  /// In osc_widget_binding.dart, inside class OscRegistry:
-  void dispatch(String address, List<Object?> args) {
-    // Normalize to always start with '/'
-    final key = address.startsWith('/') ? address : '/$address';
-    // Debug log so you can see exactly what's being dispatched
-    debugPrint('OSC dispatch → key: "$key", args: $args');
-
-    final param = _params[key];
-    if (param == null) {
-      debugPrint('OSC dispatch key:"$key" NO PARAMS');
-      final logState = oscLogKey.currentState;
-      logState?.logOscMessage(
-        address: key,
-        arg: args,
-        status: OscStatus.fail,
-        direction: Direction.received,
-        binary: Uint8List.fromList([0]),
-      );
-      return;
-    }
-    // Route to any listeners
-    if (!param.dispatch(args)) {
-      debugPrint('OSC dispatch key:"$key" NO LISTENERS');
-      final logState = oscLogKey.currentState;
-      logState?.logOscMessage(
-        address: key,
-        arg: args,
-        status: OscStatus.error,
-        direction: Direction.received,
-        binary: Uint8List.fromList([0]),
-      );
-      return;
-    }
+    recurse(data, []);
   }
 }

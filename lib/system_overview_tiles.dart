@@ -34,14 +34,14 @@ class VideoFormatTile extends StatefulWidget {
   final String? chromaSubsampling;
 
   const VideoFormatTile({
-    Key? key,
+    super.key,
     required this.overlayLabel,
     this.resolution,
     this.framerate,
     required this.bitDepth,
     required this.colorSpace,
     this.chromaSubsampling,
-  }) : super(key: key);
+  });
 
   @override
   _VideoFormatTileState createState() => _VideoFormatTileState();
@@ -69,7 +69,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   @override
   void initState() {
     super.initState();
-    const int flashTime = 500; //ms
+    const flashTime = 500; // ms
 
     _resController = AnimationController(
       vsync: this,
@@ -125,6 +125,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final registry = OscRegistry();
 
     void bindString(
       String? src,
@@ -134,7 +135,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
     ) {
       if (src == null) return;
       if (src.startsWith('/')) {
-        final param = OscRegistry().getParam(src);
+        registry.registerAddress(src);
+        final param = registry.allParams[src];
         if (param != null && param.currentValue.isNotEmpty) {
           final newVal = param.currentValue.first.toString();
           if (getOld() != newVal) {
@@ -142,7 +144,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
             ctl.forward(from: 0);
           }
         }
-        OscRegistry().registerListener(src, (args) {
+        registry.registerListener(src, (args) {
           final newVal = args.isNotEmpty ? args.first.toString() : '';
           if (!mounted) return;
           if (getOld() != newVal) {
@@ -151,9 +153,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
           }
         });
       } else {
-        if (getOld() != src) {
-          setState(() => setter(src));
-        }
+        if (getOld() != src) setState(() => setter(src));
       }
     }
 
@@ -165,18 +165,19 @@ class _VideoFormatTileState extends State<VideoFormatTile>
     ) {
       if (src == null) return;
       if (src.startsWith('/')) {
-        final param = OscRegistry().getParam(src);
+        registry.registerAddress(src);
+        final param = registry.allParams[src];
         if (param != null && param.currentValue.isNotEmpty) {
-          final newVal =
-              double.tryParse(param.currentValue.first.toString()) ?? 0.0;
+          final newVal = double.tryParse(param.currentValue.first.toString()) ?? 0.0;
           if (getOld() != newVal) {
             setState(() => setter(newVal));
             ctl.forward(from: 0);
           }
         }
-        OscRegistry().registerListener(src, (args) {
-          final newVal =
-              double.tryParse(args.isNotEmpty ? args.first.toString() : '') ??
+        registry.registerListener(src, (args) {
+          final newVal = double.tryParse(
+                args.isNotEmpty ? args.first.toString() : '',
+              ) ??
               0.0;
           if (!mounted) return;
           if (getOld() != newVal) {
@@ -186,9 +187,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         });
       } else {
         final parsed = double.tryParse(src) ?? 0.0;
-        if (getOld() != parsed) {
-          setState(() => setter(parsed));
-        }
+        if (getOld() != parsed) setState(() => setter(parsed));
       }
     }
 
@@ -199,7 +198,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       AnimationController ctl,
     ) {
       if (src.startsWith('/')) {
-        final param = OscRegistry().getParam(src);
+        registry.registerAddress(src);
+        final param = registry.allParams[src];
         if (param != null && param.currentValue.isNotEmpty) {
           final newVal = int.tryParse(param.currentValue.first.toString()) ?? 0;
           if (getOld() != newVal) {
@@ -207,9 +207,11 @@ class _VideoFormatTileState extends State<VideoFormatTile>
             ctl.forward(from: 0);
           }
         }
-        OscRegistry().registerListener(src, (args) {
-          final newVal =
-              int.tryParse(args.isNotEmpty ? args.first.toString() : '') ?? 0;
+        registry.registerListener(src, (args) {
+          final newVal = int.tryParse(
+                args.isNotEmpty ? args.first.toString() : '',
+              ) ??
+              0;
           if (!mounted) return;
           if (getOld() != newVal) {
             setState(() => setter(newVal));
@@ -218,42 +220,15 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         });
       } else {
         final parsed = int.tryParse(src) ?? 0;
-        if (getOld() != parsed) {
-          setState(() => setter(parsed));
-        }
+        if (getOld() != parsed) setState(() => setter(parsed));
       }
     }
 
-    bindString(
-      widget.resolution,
-      () => _res,
-      (v) => _res = v,
-      _resController,
-    );
-    bindDouble(
-      widget.framerate,
-      () => _fps,
-      (v) => _fps = v,
-      _fpsController,
-    );
-    bindInt(
-      widget.bitDepth,
-      () => _bpp,
-      (v) => _bpp = v,
-      _bppController,
-    );
-    bindString(
-      widget.colorSpace,
-      () => _cs,
-      (v) => _cs = v,
-      _csController,
-    );
-    bindString(
-      widget.chromaSubsampling,
-      () => _sub,
-      (v) => _sub = v,
-      _subController,
-    );
+    bindString(widget.resolution, () => _res, (v) => _res = v, _resController);
+    bindDouble(widget.framerate, () => _fps, (v) => _fps = v, _fpsController);
+    bindInt(widget.bitDepth, () => _bpp, (v) => _bpp = v, _bppController);
+    bindString(widget.colorSpace, () => _cs, (v) => _cs = v, _csController);
+    bindString(widget.chromaSubsampling, () => _sub, (v) => _sub = v, _subController);
   }
 
   @override
@@ -308,8 +283,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                         animation: _subColor,
                         builder: (ctx, _) => Text(
                           _sub,
-                          style:
-                              _systemTextStyle.copyWith(color: _subColor.value),
+                          style: _systemTextStyle.copyWith(color: _subColor.value),
                         ),
                       ),
                     ],
@@ -327,7 +301,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 /// Wraps VideoFormatTile for each section
 class AnalogSendTile extends StatelessWidget {
   final int index;
-  const AnalogSendTile({Key? key, required this.index}) : super(key: key);
+  const AnalogSendTile({super.key, required this.index});
 
   @override
   Widget build(BuildContext context) {
@@ -349,7 +323,7 @@ class AnalogSendTile extends StatelessWidget {
 }
 
 class ReturnTile extends StatelessWidget {
-  const ReturnTile({Key? key}) : super(key: key);
+  const ReturnTile({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +339,7 @@ class ReturnTile extends StatelessWidget {
 }
 
 class HDMIOutTile extends StatelessWidget {
-  const HDMIOutTile({Key? key}) : super(key: key);
+  const HDMIOutTile({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -383,7 +357,7 @@ class HDMIOutTile extends StatelessWidget {
 /// Input tiles: show large number behind content
 class InputTile extends StatelessWidget {
   final int index;
-  const InputTile({Key? key, required this.index}) : super(key: key);
+  const InputTile({super.key, required this.index});
 
   @override
   Widget build(BuildContext context) {
@@ -399,7 +373,7 @@ class InputTile extends StatelessWidget {
 
 class _InputTileInner extends StatefulWidget {
   final int index;
-  const _InputTileInner({Key? key, required this.index}) : super(key: key);
+  const _InputTileInner({super.key, required this.index});
 
   @override
   __InputTileInnerState createState() => __InputTileInnerState();
@@ -416,47 +390,47 @@ class __InputTileInnerState extends State<_InputTileInner> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final registry = OscRegistry();
     final base = '/input/${widget.index}';
-    for (var seg in [
+    final segments = [
       'connected',
       'resolution',
       'framerate',
       'bit_depth',
       'colorspace',
       'chroma_subsampling',
-    ]) {
-      OscRegistry().registerParam(
-        '$base/$seg',
-        seg == 'connected' ? [false] : [''],
-      );
+    ];
+    for (var seg in segments) {
+      registry.registerAddress('$base/$seg');
     }
-    OscRegistry().registerListener('$base/connected', (args) {
+
+    registry.registerListener('$base/connected', (args) {
       final v = args.isNotEmpty && args.first == true;
       if (v != _connected) setState(() => _connected = v);
     });
-    OscRegistry().registerListener('$base/resolution', (args) {
+    registry.registerListener('$base/resolution', (args) {
       final v = args.isNotEmpty ? args.first.toString() : '';
       if (v != _res) setState(() => _res = v);
     });
-    OscRegistry().registerListener('$base/framerate', (args) {
+    registry.registerListener('$base/framerate', (args) {
       final parsed = double.tryParse(
             args.isNotEmpty ? args.first.toString() : '',
           ) ??
           0.0;
       if (parsed != _fps) setState(() => _fps = parsed);
     });
-    OscRegistry().registerListener('$base/bit_depth', (args) {
+    registry.registerListener('$base/bit_depth', (args) {
       final parsed = int.tryParse(
             args.isNotEmpty ? args.first.toString() : '',
           ) ??
           0;
       if (parsed != _bpp) setState(() => _bpp = parsed);
     });
-    OscRegistry().registerListener('$base/colorspace', (args) {
+    registry.registerListener('$base/colorspace', (args) {
       final v = args.isNotEmpty ? args.first.toString() : '';
       if (v != _cs) setState(() => _cs = v);
     });
-    OscRegistry().registerListener('$base/chroma_subsampling', (args) {
+    registry.registerListener('$base/chroma_subsampling', (args) {
       final v = args.isNotEmpty ? args.first.toString() : '';
       if (v != _sub) setState(() => _sub = v);
     });
@@ -464,6 +438,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
 
   @override
   void dispose() {
+    final registry = OscRegistry();
     final base = '/input/${widget.index}';
     for (var seg in [
       'connected',
@@ -473,7 +448,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
       'colorspace',
       'chroma_subsampling',
     ]) {
-      OscRegistry().unregisterListener('$base/$seg', (_) {});
+      registry.unregisterListener('$base/$seg', (_) {});
     }
     super.dispose();
   }
@@ -514,9 +489,8 @@ class __InputTileInnerState extends State<_InputTileInner> {
   }
 }
 
-/// SyncLock remains unchanged
 class SyncLock extends StatelessWidget {
-  const SyncLock({Key? key}) : super(key: key);
+  const SyncLock({super.key});
 
   @override
   Widget build(BuildContext context) {

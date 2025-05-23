@@ -1,0 +1,5 @@
+uint32_t tosc_writeMessage(char *,int ,char *,char *, ... ) { return (0); }
+#define OSC_BUF_SIZE 128
+
+
+int main (void) { return (0); }

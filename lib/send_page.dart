@@ -16,10 +16,6 @@ class SendPage extends StatefulWidget {
 
 class _SendPageState extends State<SendPage> with OscAddressMixin {
 
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   Widget build(BuildContext context) {

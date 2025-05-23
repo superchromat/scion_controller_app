@@ -3,15 +3,16 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'osc_log.dart';
 import 'network.dart';
-import 'package:provider/provider.dart';
 import 'osc_registry.dart';
 
 enum OscStatus { fail, error, ok }
 
 enum Direction { received, sent }
 
+/// Marks a segment in the OSC address hierarchy.
 class OscPathSegment extends InheritedWidget {
   final String segment;
   const OscPathSegment({
@@ -35,40 +36,25 @@ class OscPathSegment extends InheritedWidget {
       old.segment != segment;
 }
 
+/// Mixin to wire a State<T> to OSC send/receive.
 mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
-  /// Your resolved OSC address, e.g. '/input/1'
-  String oscAddress = '';
-
-  /// Defaults stashed before we know our base path
-  final Map<String, List<Object?>> _pendingDefaults = {};
-
-  /// Whether we've already done the one-time registration
+  /// The full OSC address (e.g. "/root/child").
+  late final String oscAddress;
   bool _registered = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Wait until after the first build so OscPathSegment ancestors exist:
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _registered) return;
-      _registered = true;
-
-      // 1) Resolve the full OSC path from the tree
-      final segs = OscPathSegment.resolvePath(context);
-      oscAddress = segs.isEmpty ? '' : '/${segs.join('/')}';
-
-      // 2) Register any defaults the user called earlier
-      _pendingDefaults.forEach((rel, defaults) {
-        final full = _resolveFullAddress(rel);
-        OscRegistry().registerParam(full, defaults);
-      });
-      _pendingDefaults.clear();
-
-      // 3) Listen for incoming OSC on our base address
-      if (oscAddress.isNotEmpty) {
-        OscRegistry().registerListener(oscAddress, _handleOsc);
-      }
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registered) return;
+    _registered = true;
+    // Resolve path once all OscPathSegments are available
+    final segs = OscPathSegment.resolvePath(context);
+    oscAddress = segs.isEmpty ? '' : '/${segs.join('/')}';
+    if (oscAddress.isNotEmpty) {
+      // register path and listener
+      OscRegistry().registerAddress(oscAddress);
+      OscRegistry().registerListener(oscAddress, _handleOsc);
+    }
   }
 
   @override
@@ -79,89 +65,49 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     super.dispose();
   }
 
-  /// Stash—or immediately register—a default value under [address].
-  /// If [address] is null/empty → applies to [oscAddress].
-  /// If it starts with '/' → absolute; otherwise relative.
-  void setDefaultValues(dynamic defaults, {String? address}) {
-    final rel = (address ?? '').trim();
-    final list = (defaults is List<Object?>)
-        ? List<Object?>.from(defaults)
-        : <Object?>[defaults as Object?];
-
-    if (_registered) {
-      OscRegistry().registerParam(_resolveFullAddress(rel), list);
-    } else {
-      _pendingDefaults[rel] = list;
-    }
-  }
-
-  String _resolveFullAddress(String rel) {
-    if (rel.startsWith('/')) return rel; // absolute
-    if (rel.isEmpty) return oscAddress; // base
-    return oscAddress.isEmpty // relative
-        ? '/$rel'
-        : '$oscAddress/$rel';
-  }
-
-  /// Send an OSC message, logging and updating the registry.
+  /// Send an OSC message over the network and notify local listeners.
   void sendOsc(dynamic arg, {String? address}) {
     final addr = (address == null || address.isEmpty)
         ? oscAddress
         : (address.startsWith('/') ? address : '$oscAddress/$address');
-
-    // ensure List<Object>
     final argsList = (arg is Iterable)
         ? arg.map((e) => e as Object).toList()
         : <Object>[arg as Object];
 
-    // build type tags & status
-    final tags = <String>[];
-    var status = OscStatus.ok;
-    for (var v in argsList) {
-      if (v is double)
-        tags.add('f');
-      else if (v is int)
-        tags.add('i');
-      else if (v is bool)
-        tags.add(v ? 'T' : 'F');
-      else if (v is String)
-        tags.add('s');
-      else {
-        tags.add('?');
-        status = OscStatus.error;
-      }
-    }
+    // Log outgoing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      oscLogKey.currentState?.logOscMessage(
+        address: addr,
+        arg: argsList,
+        status: OscStatus.ok,
+        direction: Direction.sent,
+        binary: Uint8List(0),
+      );
+    });
 
-    // log outgoing
-    oscLogKey.currentState?.logOscMessage(
-      address: addr,
-      arg: argsList,
-      status: status,
-      direction: Direction.sent,
-      binary: Uint8List.fromList([0]),
-    );
-
-    // send over network
+    // Send over network
     context.read<Network>().sendOscMessage(addr, argsList);
 
-    // update local registry param
-    final param = OscRegistry().getParam(addr);
-    //if (param != null) param.updateLocal(argsList);
-    if (param != null) param.dispatch(argsList);
+    // Ensure registry path and dispatch locally via registry
+    OscRegistry().registerAddress(addr);
+    OscRegistry().dispatch(addr, argsList);
   }
 
   void _handleOsc(List<Object?> args) {
     final status = onOscMessage(args);
-    // log incoming
-    oscLogKey.currentState?.logOscMessage(
-      address: oscAddress,
-      arg: args,
-      status: status,
-      direction: Direction.received,
-      binary: Uint8List.fromList([0]),
-    );
+    // Log incoming
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      oscLogKey.currentState?.logOscMessage(
+        address: oscAddress,
+        arg: args,
+        status: status,
+        direction: Direction.received,
+        binary: Uint8List(0),
+      );
+    });
   }
 
-  /// Override to handle incoming OSC. Return ok or error.
+  /// Override this to react to incoming OSC messages.
+  /// Return [OscStatus.ok] or [OscStatus.error].
   OscStatus onOscMessage(List<Object?> args) => OscStatus.error;
 }

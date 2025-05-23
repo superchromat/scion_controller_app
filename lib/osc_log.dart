@@ -227,13 +227,10 @@ class OscLogTableState extends State<OscLogTable> {
     switch (e.status) {
       case OscStatus.ok:
         statusColor = Colors.green;
-        break;
       case OscStatus.error:
         statusColor = Colors.yellow;
-        break;
       case OscStatus.fail:
         statusColor = Colors.red;
-        break;
     }
     final iconColor = e.direction == Direction.received ? const Color.fromARGB(255, 156, 204, 243) : const Color.fromARGB(255, 238, 125, 163);
     final icon = Icon(e.direction == Direction.received ? Icons.arrow_forward : Icons.arrow_back, size: 10, color: iconColor);
@@ -288,7 +285,9 @@ class OscLogTableState extends State<OscLogTable> {
     final List<List<OscLogEntry>> groups = [];
     for (var i = 0; i < visible.length;) {
       var j = i + 1;
-      while (j < visible.length && visible[j].address == visible[i].address) j++;
+      while (j < visible.length && visible[j].address == visible[i].address) {
+        j++;
+      }
       groups.add(visible.sublist(i, j));
       i = j;
     }

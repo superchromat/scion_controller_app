@@ -1,0 +1,24 @@
+its producing code like:
+
+
+void set_send_lut_B(int send_idx, double *v) { memcpy(config.send[send_idx].G, v, sizeof(double) * 32); }
+
+uint32_t get_send_lut_B(char *buf, int len, int send_idx) {
+  char address[OSC_BUF_SIZE];
+  snprintf(address, OSC_BUF_SIZE-1, "/send/%d/B", send_idx);
+  return tosc_writeMessage(buf, len, address, "ffffffffffffffffffffffffffffffff",
+    config.send[send_idx].B[0],
+    config.send[send_idx].B[1],
+    config.send[send_idx].B[2],
+
+when it should be:
+
+void set_send_lut_B(int send_idx, double *v) { memcpy(config.send[send_idx].lut.G, v, sizeof(double) * 32); }
+
+uint32_t get_send_lut_B(char *buf, int len, int send_idx) {
+  char address[OSC_BUF_SIZE];
+  snprintf(address, OSC_BUF_SIZE-1, "/send/%d/lut/B", send_idx);
+  return tosc_writeMessage(buf, len, address, "ffffffffffffffffffffffffffffffff",
+    config.send[send_idx].lut.B[0],
+    config.send[send_idx].lut.B[1],
+    config.send[send_idx].lut.B[2],

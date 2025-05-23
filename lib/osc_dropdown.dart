@@ -66,8 +66,6 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
     } else {
       _selected = widget.items.first;
     }
-    // register default before address resolution
-    setDefaultValues(_selected);
   }
 
   @override

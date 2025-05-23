@@ -3,7 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'osc_registry.dart';
 
 class OscRegistryViewer extends StatefulWidget {
-  const OscRegistryViewer({Key? key}) : super(key: key);
+  const OscRegistryViewer({super.key});
 
   @override
   _OscRegistryViewerState createState() => _OscRegistryViewerState();
@@ -47,11 +47,6 @@ class _OscRegistryViewerState extends State<OscRegistryViewer> {
           return ExpansionTile(
             title: Text(address),
             children: [
-              ListTile(
-                dense: true,
-                title: const Text('Default Value'),
-                subtitle: Text(p.defaultValue.toString()),
-              ),
               ListTile(
                 dense: true,
                 title: const Text('Current Value'),

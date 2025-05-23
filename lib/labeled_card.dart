@@ -52,24 +52,6 @@ class LabeledCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      if (!networkIndependent)
-                        IconButton(
-                          icon: const Icon(Symbols.source_notes),
-                          tooltip: 'Reset from file',
-                          onPressed: () {
-                            OscRegistry().resetToFile(prefix);
-                          },
-                        ),
-                      if (!networkIndependent)
-                        IconButton(
-                          icon: const Icon(Icons.refresh),
-                          color: Colors.yellow,
-                          tooltip: 'Reset to defaults',
-                          onPressed: () {
-                            // reset all OSC params under this card
-                            OscRegistry().resetToDefaults(prefix);
-                          },
-                        ),
                     ],
                   ),
                   const SizedBox(height: 12),

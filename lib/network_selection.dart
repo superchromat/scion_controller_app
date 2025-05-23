@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'network.dart';
-import 'labeled_card.dart';
 import 'nsd_client.dart';
 
 class NetworkConnectionSection extends StatefulWidget {

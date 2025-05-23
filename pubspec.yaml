@@ -15,9 +15,8 @@ dependencies:
   provider: ^6.1.2
   file_picker: ^6.1.1
   intl: ^0.20.2
- # osc: ^1.0.0
   osc:
-    path: /Users/joshreich/osc/
+    path: /Users/josh/src/osc/
   material_symbols_icons: ^4.2815.0
   shared_preferences: ^2.0.18
   flutter_typeahead: ^4.1.1
