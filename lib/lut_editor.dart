@@ -1,11 +1,14 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'monotonic_spline.dart';
 import 'osc_widget_binding.dart';
 import 'lut_painter.dart';
 import 'osc_registry.dart';
+import 'osc_log.dart';
 import 'network.dart';
+
 
 /// A LUT editor widget with two-way OSC binding per channel.
 class LUTEditor extends StatefulWidget {
@@ -18,8 +21,7 @@ class LUTEditor extends StatefulWidget {
   State<LUTEditor> createState() => _LUTEditorState();
 }
 
-class _LUTEditorState extends State<LUTEditor>
-    with OscAddressMixin<LUTEditor> {
+class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   static const List<String> channels = ['Y', 'R', 'G', 'B'];
 
   /// Control points per channel, fixed length with placeholders at (-1,-1).
@@ -83,6 +85,15 @@ class _LUTEditorState extends State<LUTEditor>
             }
           }
           _rebuildSplines();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            oscLogKey.currentState?.logOscMessage(
+              address: path,
+              arg: args,
+              status: OscStatus.ok,
+              direction: Direction.received,
+              binary: Uint8List(0),
+            );
+          });
         });
       }
 
@@ -96,24 +107,34 @@ class _LUTEditorState extends State<LUTEditor>
   void _rebuildSplines() {
     setState(() {
       for (var c in channels) {
-        final active = controlPoints[c]!
-            .where((pt) => pt.dx >= 0)
-            .toList()
+        final active = controlPoints[c]!.where((pt) => pt.dx >= 0).toList()
           ..sort((a, b) => a.dx.compareTo(b.dx));
         splines[c] = MonotonicSpline(active);
       }
     });
   }
 
-  /// Send current channel data over OSC network only.
-  void _sendCurrentChannel() {
+/// Send current channel data over OSC network only.
+/// When locked (and editing Y), broadcast the same data to R, G & B.
+void _sendCurrentChannel() {
+  // Pick the points from the selected channel
+  final pts = List<Offset>.from(controlPoints[selectedChannel]!);
+  pts.sort((a, b) => a.dx.compareTo(b.dx));
+  final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
+
+  if (locked && selectedChannel == 'Y') {
+    // Broadcast Y edits to all channels when locked
+    for (var c in channels) {
+      final path = '$oscAddress/$c';
+      context.read<Network>().sendOscMessage(path, flat);
+    }
+  } else {
+    // Normal single-channel send
     final path = '$oscAddress/$selectedChannel';
-    final pts = List<Offset>.from(controlPoints[selectedChannel]!);
-    pts.sort((a, b) => a.dx.compareTo(b.dx));
-    final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
-    // network send only
     context.read<Network>().sendOscMessage(path, flat);
   }
+}
+
 
   void resetControlPoints() {
     for (var c in channels) {
@@ -228,7 +249,8 @@ class _LUTEditorState extends State<LUTEditor>
     required bool selected,
     required VoidCallback onPressed,
     Color? color,
-  }) => OutlinedButton(
+  }) =>
+      OutlinedButton(
         style: OutlinedButton.styleFrom(
           backgroundColor: selected ? (color ?? Colors.white) : null,
           side: BorderSide(color: (color ?? Colors.white)),
@@ -255,7 +277,9 @@ class _LUTEditorState extends State<LUTEditor>
               builder: (_, flashing, __) => _buildButton(
                 child: Icon(
                   locked ? Icons.lock : Icons.lock_open,
-                  color: flashing ? Colors.amber : (locked ? Colors.grey[900] : Colors.white),
+                  color: flashing
+                      ? Colors.amber
+                      : (locked ? Colors.grey[900] : Colors.white),
                 ),
                 selected: locked,
                 onPressed: () {
@@ -278,26 +302,16 @@ class _LUTEditorState extends State<LUTEditor>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildButton(
-                  child: Text(c,
-                      style: TextStyle(
-                          color: selectedChannel == c
-                              ? Colors.grey[900]
-                              : (c == 'Y'
-                                  ? Colors.white
-                                  : (c == 'R'
-                                      ? Colors.red
-                                      : c == 'G'
-                                          ? Colors.green
-                                          : Colors.blue)))),
+                  child: Text(
+                    c,
+                    style: TextStyle(
+                      color: selectedChannel == c
+                          ? Colors.grey[900]
+                          : getChannelColor(c),
+                    ),
+                  ),
                   selected: selectedChannel == c,
-                  color: (c == 'Y'
-                          ? Colors.white
-                          : c == 'R'
-                              ? Colors.red
-                              : c == 'G'
-                                  ? Colors.green
-                                  : Colors.blue)
-                      .withOpacity(0.8),
+                  color: getChannelColor(c).withOpacity(0.8),
                   onPressed: () {
                     if (locked && c != 'Y') {
                       flashLockNotifier.value = true;
