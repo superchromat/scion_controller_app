@@ -1,5 +1,6 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -65,33 +66,67 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
     super.dispose();
   }
 
-  /// Send an OSC message over the network and notify local listeners.
-  void sendOsc(dynamic arg, {String? address}) {
-    final addr = (address == null || address.isEmpty)
-        ? oscAddress
-        : (address.startsWith('/') ? address : '$oscAddress/$address');
-    final argsList = (arg is Iterable)
-        ? arg.map((e) => e as Object).toList()
-        : <Object>[arg as Object];
+// inside your State or wherever sendOsc lives:
 
-    // Log outgoing
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      oscLogKey.currentState?.logOscMessage(
-        address: addr,
-        arg: argsList,
-        status: OscStatus.ok,
-        direction: Direction.sent,
-        binary: Uint8List(0),
-      );
-    });
+/// Minimum interval between log entries
+final Duration _minLogInterval = const Duration(milliseconds: 50);
+DateTime _lastLogTime = DateTime.fromMillisecondsSinceEpoch(0);
+Timer? _logTimer;
 
-    // Send over network
-    context.read<Network>().sendOscMessage(addr, argsList);
+/// Cache of the most recent log info
+String? _cachedAddress;
+List<Object>? _cachedArgs;
+OscStatus? _cachedStatus;
+Direction? _cachedDirection;
+Uint8List? _cachedBinary;
 
-    // Ensure registry path and dispatch locally via registry
-    OscRegistry().registerAddress(addr);
-    OscRegistry().dispatch(addr, argsList);
+void sendOsc(dynamic arg, {String? address}) {
+  final addr = (address == null || address.isEmpty)
+      ? oscAddress
+      : (address.startsWith('/') ? address : '$oscAddress/$address');
+  final argsList = (arg is Iterable)
+      ? arg.map((e) => e as Object).toList()
+      : <Object>[arg as Object];
+
+  // 1) always fire the real OSC packet immediately:
+  context.read<Network>().sendOscMessage(addr, argsList);
+
+  // 2) cache for logging
+  _cachedAddress = addr;
+  _cachedArgs = argsList;
+  _cachedStatus = OscStatus.ok;
+  _cachedDirection = Direction.sent;
+  _cachedBinary = Uint8List(0);
+
+  // 3) decide whether to flush now or schedule
+  final now = DateTime.now();
+  final elapsed = now.difference(_lastLogTime);
+  if (elapsed >= _minLogInterval) {
+    _flushLog();
+  } else if (_logTimer == null) {
+    _logTimer = Timer(_minLogInterval - elapsed, _flushLog);
   }
+}
+
+void _flushLog() {
+  // perform the log on the next frame
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (_cachedAddress != null && _cachedArgs != null) {
+      oscLogKey.currentState?.logOscMessage(
+        address: _cachedAddress!,
+        arg: _cachedArgs!,
+        status: _cachedStatus!,
+        direction: _cachedDirection!,
+        binary: _cachedBinary!,
+      );
+    }
+  });
+
+  _lastLogTime = DateTime.now();
+  _logTimer?.cancel();
+  _logTimer = null;
+}
+
 
   void _handleOsc(List<Object?> args) {
     final status = onOscMessage(args);

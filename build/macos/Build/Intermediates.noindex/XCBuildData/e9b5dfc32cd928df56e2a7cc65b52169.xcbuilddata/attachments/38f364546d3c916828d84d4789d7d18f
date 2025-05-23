@@ -1,0 +1,11 @@
+framework module window_size {
+  umbrella header "window_size-umbrella.h"
+
+  export *
+  module * { export * }
+}
+
+module window_size.Swift {
+  header "window_size-Swift.h"
+  requires objc
+}

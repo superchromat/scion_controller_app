@@ -126,12 +126,12 @@ void _sendCurrentChannel() {
     // Broadcast Y edits to all channels when locked
     for (var c in channels) {
       final path = '$oscAddress/$c';
-      context.read<Network>().sendOscMessage(path, flat);
+      sendOsc(flat, address: path);
     }
   } else {
     // Normal single-channel send
     final path = '$oscAddress/$selectedChannel';
-    context.read<Network>().sendOscMessage(path, flat);
+      sendOsc(flat, address: path);
   }
 }
 
