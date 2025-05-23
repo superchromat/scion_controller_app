@@ -72,6 +72,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
         final path = '$oscAddress/$c';
         registry.registerAddress(path);
         registry.registerListener(path, (args) {
+          if (isDragging) return; 
+
           final pts = controlPoints[c]!;
           for (var i = 0; i < pts.length; i++) {
             final idx = i * 2;
