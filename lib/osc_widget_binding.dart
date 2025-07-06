@@ -103,9 +103,7 @@ void sendOsc(dynamic arg, {String? address}) {
   final elapsed = now.difference(_lastLogTime);
   if (elapsed >= _minLogInterval) {
     _flushLog();
-  } else if (_logTimer == null) {
-    _logTimer = Timer(_minLogInterval - elapsed, _flushLog);
-  }
+  } else _logTimer ??= Timer(_minLogInterval - elapsed, _flushLog);
 }
 
 void _flushLog() {

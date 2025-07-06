@@ -28,7 +28,7 @@ class TileLayout {
 enum LabelPosition { top, bottom }
 
 class SystemOverview extends StatefulWidget {
-  const SystemOverview({Key? key}) : super(key: key);
+  const SystemOverview({super.key});
   @override
   _SystemOverviewState createState() => _SystemOverviewState();
 }

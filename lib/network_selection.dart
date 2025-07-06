@@ -38,7 +38,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     final list = prefs.getStringList(_prefKey) ?? <String>[];
     setState(() {
       _recents = list;
-      _controller.text = _recents.isNotEmpty ? _recents.first : '127.0.0.1';
+      _controller.text = _recents.isNotEmpty ? _recents.first : '192.168.2.75';
     });
   }
 

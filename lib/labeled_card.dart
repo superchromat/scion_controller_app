@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_widget_binding.dart'; 
-import 'osc_registry.dart';
 
 class LabeledCard extends StatelessWidget {
   final String title;

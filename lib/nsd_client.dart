@@ -27,8 +27,7 @@ class NSDClient {
   /// Discover instances of [resource] (e.g. "_scion._udp.local").
   /// Completes with a list of found host:port addresses.
   Future<List<NetworkAddress>> discover({
-    //String resource = '_scion._udp',
-    String resource = '_airplay._tcp',
+    String resource = '_scion._udp',
   }) async {
     final discovery = await startDiscovery(
       resource,

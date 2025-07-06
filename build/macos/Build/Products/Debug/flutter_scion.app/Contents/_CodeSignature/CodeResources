@@ -10,7 +10,7 @@
 		</data>
 		<key>Resources/Assets.car</key>
 		<data>
-		RnlBuBrirl8pozaeVnehmRtwqWo=
+		Bg+lrBJNz9cICOzHvb5w4qDWB3g=
 		</data>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
 		<data>
@@ -23,19 +23,19 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			LbRXsrzWVAP6eq4ujoZuZm6575I=
+			H6ouI8WIJpY2xRa6pq9/Atg9oco=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"2db457b2bcd65403fa7aae2e8e866e666eb9ef92"</string>
+			<string>cdhash H"1faa2e23c588269636c516baa6af7f02d83da1ca"</string>
 		</dict>
 		<key>Frameworks/FlutterMacOS.framework</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			0CZhigMDag4YaldhhqhnPBT/ZMc=
+			rgPlrSSPdyemJD0xoJsFoeYdIMU=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"d026618a03036a0e186a576186a8673c14ff64c7"</string>
+			<string>cdhash H"ae03e5ad248f7727a6243d31a09b05a1e61d20c5"</string>
 		</dict>
 		<key>Frameworks/libswiftAppKit.dylib</key>
 		<dict>
@@ -203,46 +203,46 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			v0SrH1cy78U1ignTkMfmTKKqvJM=
+			p2Aw/vDGB9dly/3cNaJWtcd6dT4=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"bf44ab1f5732efc5358a09d390c7e64ca2aabc93"</string>
+			<string>cdhash H"a76030fef0c607d765cbfddc35a256b5c77a753e"</string>
 		</dict>
 		<key>Frameworks/shared_preferences_foundation.framework</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			EekwcD9D52XqYwlppQr/hlZhXxo=
+			b9rtsfdBotlSkym3ned3JA/YsAA=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"11e930703f43e765ea630969a50aff8656615f1a"</string>
+			<string>cdhash H"6fdaedb1f741a2d9529329b79de777240fd8b000"</string>
 		</dict>
 		<key>Frameworks/window_size.framework</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			1CCMCVlimFFfHOBf925ApXt4aCI=
+			WQtaJ80o7MXi7bM4+AfVZe2nKus=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"d4208c09596298515f1ce05ff76e40a57b786822"</string>
+			<string>cdhash H"590b5a27cd28ecc5e2edb338f807d565eda72aeb"</string>
 		</dict>
 		<key>MacOS/__preview.dylib</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			H25XDpzx36zBIn0utHXgVRPpxJ8=
+			LoCQuhWb2zBWMxJSBByhH/HGYrc=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"1f6e570e9cf1dfacc1227d2eb475e05513e9c49f"</string>
+			<string>cdhash H"2e8090ba159bdb3056331252041ca11ff1c662b7"</string>
 		</dict>
 		<key>MacOS/flutter_scion.debug.dylib</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			jcKZc7wtHBBKbHRgSqYsMOjL6zU=
+			ixaxOs0rTYJO37Cov1h11ZfNq8A=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"8dc29973bc2d1c104a6c74604aa62c30e8cbeb35"</string>
+			<string>cdhash H"8b16b13acd2b4d824edfb0a8bf5875d597cdabc0"</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
@@ -255,7 +255,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			PnyoLOsNgHhHs6RYfKtrPZr9lckcTgBxlNLdN3EUmfw=
+			UgZvvc/ydqdgr4J/WUk7ncLrnovUj6KThge3GQkfdLM=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/MainMenu.nib</key>

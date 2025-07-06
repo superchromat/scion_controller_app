@@ -373,7 +373,7 @@ class InputTile extends StatelessWidget {
 
 class _InputTileInner extends StatefulWidget {
   final int index;
-  const _InputTileInner({super.key, required this.index});
+  const _InputTileInner({required this.index});
 
   @override
   __InputTileInnerState createState() => __InputTileInnerState();

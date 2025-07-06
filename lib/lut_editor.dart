@@ -1,13 +1,11 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'monotonic_spline.dart';
 import 'osc_widget_binding.dart';
 import 'lut_painter.dart';
 import 'osc_registry.dart';
 import 'osc_log.dart';
-import 'network.dart';
 
 
 /// A LUT editor widget with two-way OSC binding per channel.
@@ -15,7 +13,7 @@ class LUTEditor extends StatefulWidget {
   /// Maximum number of control points per channel (including placeholders).
   final int maxControlPoints;
 
-  const LUTEditor({Key? key, this.maxControlPoints = 16}) : super(key: key);
+  const LUTEditor({super.key, this.maxControlPoints = 16});
 
   @override
   State<LUTEditor> createState() => _LUTEditorState();
