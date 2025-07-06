@@ -102,7 +102,12 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
       _controller.text = addresses.first;
       _discovered = addresses.length > 1 ? addresses.sublist(1) : [];
     });
-    if (_discovered.isNotEmpty) _focusNode.requestFocus();
+
+    if (addresses.length == 1) {
+      await _connectTo(addresses.first);
+    } else if (_discovered.isNotEmpty) {
+      _focusNode.requestFocus();
+    }
   }
 
   Future<void> _showError(String message) async {
