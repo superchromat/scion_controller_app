@@ -45,6 +45,7 @@ class OscLogTable extends StatefulWidget {
 
 class OscLogTableState extends State<OscLogTable> {
   static const double _toggleAreaWidth = 24.0;
+  static const int _maxEntries = 5000;
 
   final List<OscLogEntry> _entries = [];
   final Set<OscStatus> _filterStatuses = {
@@ -105,6 +106,10 @@ class OscLogTableState extends State<OscLogTable> {
       } else {
         _pendingCount++;
       }
+      if (_entries.length > _maxEntries) {
+        _entries.removeRange(0, _entries.length - _maxEntries);
+        _pendingCount = _pendingCount.clamp(0, _maxEntries);
+      }
     });
   }
 
@@ -114,6 +119,14 @@ class OscLogTableState extends State<OscLogTable> {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
     );
+  }
+
+  void _clearAll() {
+    setState(() {
+      _entries.clear();
+      _pendingCount = 0;
+      _expandedGroups.clear();
+    });
   }
 
   Widget _buildCell(Widget child, int flex,
@@ -292,6 +305,12 @@ class OscLogTableState extends State<OscLogTable> {
     }
 
     return Column(children: [
+      Row(
+        children: [
+          const Spacer(),
+          TextButton(onPressed: _clearAll, child: const Text('Clear All')),
+        ],
+      ),
       Row(children: [const SizedBox(width: _toggleAreaWidth), Expanded(child: _buildHeader())]),
       Expanded(
         child: Stack(children: [
