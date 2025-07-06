@@ -83,17 +83,17 @@ class _MyHomePageState extends State<MyHomePage> {
     return [
       // 0 → Setup
       const SetupPage(),
-      // 1–4 → Send 1–4
-      for (var i = 1; i <= 4; i++) SendPage(key: ValueKey(i), pageNumber: i),
-      // 5 → Return
+      // 1–3 → Send 1–3
+      for (var i = 1; i <= 3; i++) SendPage(key: ValueKey(i), pageNumber: i),
+      // 4 → Return
       const ReturnPage(),
-      // 6 → OSC Log
+      // 5 → OSC Log
       OscLogTable(
         key: oscLogKey,
         onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 6,
+        isActive: selectedIndex == 5,
       ),
-      // 7 → Registry Viewer
+      // 6 → Registry Viewer
       const OscRegistryViewer(),
     ];
   }
