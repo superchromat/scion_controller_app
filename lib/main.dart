@@ -162,10 +162,6 @@ class _MyHomePageState extends State<MyHomePage> {
                           label: Text('Send 3'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.output),
-                          label: Text('Send 4'),
-                        ),
-                        NavigationRailDestination(
                           icon: Icon(Icons.input),
                           label: Text('Return'),
                         ),
