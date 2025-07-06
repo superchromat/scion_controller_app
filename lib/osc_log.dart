@@ -109,6 +109,10 @@ class OscLogTableState extends State<OscLogTable> {
       } else {
         _pendingCount++;
       }
+      if (_entries.length > _maxEntries) {
+        _entries.removeRange(0, _entries.length - _maxEntries);
+        _pendingCount = _pendingCount.clamp(0, _maxEntries);
+      }
     });
   }
 
