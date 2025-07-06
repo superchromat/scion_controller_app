@@ -15,7 +15,9 @@ import 'osc_registry_viewer.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    setWindowMinSize(const Size(1200, 800));
+    const Size initialSize = Size(1200, 800);
+    setWindowMinSize(initialSize);
+    setWindowFrame(const Rect.fromLTWH(0, 0, 1200, 800));
   }
 
   runApp(
@@ -63,9 +65,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// … rest of file unchanged …
-
-
 class MyAppState extends ChangeNotifier {
   @override
   void notifyListeners() => super.notifyListeners();
@@ -81,25 +80,23 @@ class _MyHomePageState extends State<MyHomePage> {
   int selectedIndex = 0;
 
   List<Widget> get pages {
-  return [
-    // 0 → Setup
-    const SetupPage(),
-    // 1–4 → Send 1–4
-    for (var i = 1; i <= 4; i++)
-      SendPage(key: ValueKey(i), pageNumber: i),
-    // 5 → Return
-    const ReturnPage(),
-    // 6 → OSC Log
-    OscLogTable(
-      key: oscLogKey,
-      onDownload: (bytes) { /* … */ },
-      isActive: selectedIndex == 6,
-    ),
-    // 7 → Registry Viewer
-    const OscRegistryViewer(),
-  ];
-}
-
+    return [
+      // 0 → Setup
+      const SetupPage(),
+      // 1–4 → Send 1–4
+      for (var i = 1; i <= 4; i++) SendPage(key: ValueKey(i), pageNumber: i),
+      // 5 → Return
+      const ReturnPage(),
+      // 6 → OSC Log
+      OscLogTable(
+        key: oscLogKey,
+        onDownload: (bytes) {/* … */},
+        isActive: selectedIndex == 6,
+      ),
+      // 7 → Registry Viewer
+      const OscRegistryViewer(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +106,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final bool isRailExtended = constraints.maxWidth >= 1000;
       // Use the same constants passed to NavigationRail:
       const double railCollapsedWidth = 100;
-      const double railExtendedWidth  = 222;
+      const double railExtendedWidth = 222;
 
       return Scaffold(
         body: Column(
