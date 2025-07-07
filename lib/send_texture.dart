@@ -93,16 +93,17 @@ class _FloatArrayEditor extends StatefulWidget {
   State<_FloatArrayEditor> createState() => _FloatArrayEditorState();
 }
 
-class _FloatArrayEditorState extends State<_FloatArrayEditor>
-    with OscAddressMixin {
+class _FloatArrayEditorState extends State<_FloatArrayEditor> {
   late final List<double> _values = List.filled(widget.length, 0.0);
   late final List<GlobalKey<NumericSliderState>> _keys = List.generate(
     widget.length,
     (_) => GlobalKey<NumericSliderState>(),
   );
 
-  @override
-  OscStatus onOscMessage(List<Object?> args) {
+  late String _address;
+  bool _registered = false;
+
+  void _listener(List<Object?> args) {
     if (args.length >= widget.length &&
         args.take(widget.length).every((e) => e is num)) {
       for (int i = 0; i < widget.length; i++) {
@@ -110,14 +111,67 @@ class _FloatArrayEditorState extends State<_FloatArrayEditor>
         _values[i] = v;
         _keys[i].currentState?.setValue(v, immediate: true);
       }
-      return OscStatus.ok;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: _address,
+          arg: args,
+          status: OscStatus.ok,
+          direction: Direction.received,
+          binary: Uint8List(0),
+        );
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: _address,
+          arg: args,
+          status: OscStatus.error,
+          direction: Direction.received,
+          binary: Uint8List(0),
+        );
+      });
     }
-    return OscStatus.error;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registered) return;
+    final segs = OscPathSegment.resolvePath(context);
+    segs.add(widget.segment);
+    _address = segs.isEmpty ? '' : '/${segs.join('/')}';
+    if (_address.isNotEmpty) {
+      OscRegistry().registerAddress(_address);
+      OscRegistry().registerListener(_address, _listener);
+      _registered = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_registered) {
+      OscRegistry().unregisterListener(_address, _listener);
+    }
+    super.dispose();
+  }
+
+  void _send() {
+    final args = _values.toList();
+    context.read<Network>().sendOscMessage(_address, args);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      oscLogKey.currentState?.logOscMessage(
+        address: _address,
+        arg: args,
+        status: OscStatus.ok,
+        direction: Direction.sent,
+        binary: Uint8List(0),
+      );
+    });
   }
 
   void _onChanged(int idx, double v) {
     _values[idx] = v;
-    sendOsc(_values);
+    _send();
   }
 
   @override
