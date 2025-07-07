@@ -53,7 +53,6 @@ class DacParameters extends StatelessWidget {
       child: LabeledCard(
         title: title,
         child: Wrap(spacing: 12, runSpacing: 8, children: children),
-
       ),
     );
   }
@@ -66,6 +65,13 @@ class DacParameters extends StatelessWidget {
     ];
     return Table(
       border: TableBorder.all(color: Colors.grey, width: 0.5),
+      defaultColumnWidth: const FixedColumnWidth(60),
+      children: List.generate(3, (row) {
+        return TableRow(
+          children: List.generate(3, (col) {
+            final seg = 'csc/${labels[row][col]}';
+            return Padding(
+              padding: const EdgeInsets.all(2),
               child: OscPathSegment(
                 segment: seg,
                 child: OscNumberField(precision: 2),
@@ -123,7 +129,6 @@ class DacParameters extends StatelessWidget {
           ],
         );
       }),
-
     );
   }
 
@@ -244,7 +249,6 @@ class DacParameters extends StatelessWidget {
         _section('Readback', [
           _numField('PPL', 'readback/ppl', readOnly: true),
           _numField('LPF', 'readback/lpf', readOnly: true),
-
         ]),
       ],
     );
