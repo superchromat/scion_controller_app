@@ -5,6 +5,7 @@ import 'shape.dart';
 import 'send_color.dart';
 import 'osc_dropdown.dart';
 import 'dac_parameters.dart';
+import 'send_texture.dart';
 
 class SendPage extends StatefulWidget {
   final int pageNumber;
@@ -38,10 +39,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                 ),
                 LabeledCard(title: 'Shape', child: Shape()),
                 LabeledCard(title: 'Color', child: SendColor()),
-                LabeledCard(
-                  title: 'Texture',
-                  child: const Placeholder(fallbackHeight: 100),
-                ),
+                const LabeledCard(title: 'Texture', child: SendTexture()),
               ],
             ),
           ),
