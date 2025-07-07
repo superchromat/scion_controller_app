@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -123,18 +124,19 @@ class _FloatArrayEditorState extends State<_FloatArrayEditor>
   Widget build(BuildContext context) {
     return OscPathSegment(
       segment: widget.segment,
-      child: Row(
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
         children: List.generate(widget.length, (i) {
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: NumericSlider(
-                key: _keys[i],
-                value: _values[i],
-                range: const RangeValues(0, 1),
-                precision: 3,
-                onChanged: (v) => _onChanged(i, v),
-              ),
+          return SizedBox(
+            width: 60,
+            height: 24,
+            child: NumericSlider(
+              key: _keys[i],
+              value: _values[i],
+              range: const RangeValues(0, 1),
+              precision: 3,
+              onChanged: (v) => _onChanged(i, v),
             ),
           );
         }),
