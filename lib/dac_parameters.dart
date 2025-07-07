@@ -1,56 +1,59 @@
 import 'package:flutter/material.dart';
-import 'numeric_slider.dart';
-import 'osc_dropdown.dart';
+
+import 'labeled_card.dart';
+import 'osc_checkbox.dart';
+import 'osc_number_field.dart';
+import 'osc_value_dropdown.dart';
 import 'osc_widget_binding.dart';
 
-/// Widget for editing THS8200 DAC registers.
-///
-/// The layout mirrors the C data structure with sections for each register
-/// block (System, CSC, Test, etc.). Only a subset of the many fields are
-/// exposed here to keep the UI manageable.
 class DacParameters extends StatelessWidget {
   const DacParameters({super.key});
 
-  Widget _slider({
-    required String label,
-    required String segment,
-    RangeValues range = const RangeValues(0, 1023),
+  Widget _numField(
+    String label,
+    String segment, {
     int precision = 0,
+    bool readOnly = false,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(width: 80, child: Text(label)),
-        SizedBox(
-          height: 24,
-          width: 60,
-          child: OscPathSegment(
-            segment: segment,
-            child: NumericSlider(
-              value: range.start,
-              onChanged: (v) {},
-              range: range,
-              precision: precision,
-              hardDetents: precision == 0,
+    return SizedBox(
+      width: 150,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 80, child: Text(label)),
+          SizedBox(
+            width: 60,
+            height: 24,
+            child: OscPathSegment(
+              segment: segment,
+              child: OscNumberField(precision: precision, readOnly: readOnly),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _matrixCell(String segment) {
+  Widget _boolField(String label, String segment) {
     return SizedBox(
-      width: 60,
-      height: 20,
-      child: OscPathSegment(
-        segment: segment,
-        child: NumericSlider(
-          value: 0,
-          onChanged: (_) {},
-          range: const RangeValues(-4, 4),
-          precision: 2,
-        ),
+      width: 150,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 80, child: Text(label)),
+          OscPathSegment(segment: segment, child: const OscCheckbox()),
+        ],
+      ),
+    );
+  }
+
+  Widget _section(String title, List<Widget> children) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: LabeledCard(
+        title: title,
+        child: Wrap(spacing: 12, runSpacing: 8, children: children),
+
       ),
     );
   }
@@ -62,14 +65,11 @@ class DacParameters extends StatelessWidget {
       ['b2r', 'b2g', 'b2b'],
     ];
     return Table(
-      defaultColumnWidth: const FixedColumnWidth(60),
-      children: List.generate(3, (row) {
-        return TableRow(
-          children: List.generate(3, (col) {
-            final seg = 'csc/${labels[row][col]}';
-            return Padding(
-              padding: const EdgeInsets.all(2),
-              child: _matrixCell(seg),
+      border: TableBorder.all(color: Colors.grey, width: 0.5),
+              child: OscPathSegment(
+                segment: seg,
+                child: OscNumberField(precision: 2),
+              ),
             );
           }),
         );
@@ -77,27 +77,53 @@ class DacParameters extends StatelessWidget {
     );
   }
 
-  Widget _bool({required String label, required String segment}) {
-    return OscPathSegment(
-      segment: segment,
-      child: OscDropdown<bool>(
-        label: label,
-        items: const [false, true],
-        defaultValue: false,
-      ),
-    );
-  }
+  Widget _dtg2Table() {
+    const modes = [
+      'ACTIVE_VIDEO',
+      'FULL_NTSP',
+      'FULL_BTSP',
+      'NTSP_NTSP',
+      'BTSP_BTSP',
+      'NTSP_BTSP',
+      'BTSP_NTSP',
+      'ACTIVE_NEQ',
+      'NSP_ACTIVE',
+      'FULL_NSP',
+      'FULL_BSP',
+      'FULL_NEQ',
+      'NEQ_NEQ',
+      'BSP_BSP',
+      'BSP_NEQ',
+      'NEQ_BSP',
+    ];
+    return Table(
+      border: TableBorder.all(color: Colors.grey, width: 0.5),
+      defaultColumnWidth: const FixedColumnWidth(140),
+      children: List.generate(16, (i) {
+        return TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(4),
+              child: OscPathSegment(
+                segment: 'dtg2/bp/$i',
+                child: OscNumberField(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(4),
+              child: OscPathSegment(
+                segment: 'dtg2/linetype/$i',
+                child: OscValueDropdown<int>(
+                  values: List.generate(16, (j) => j),
+                  labels: modes,
+                  initialValue: 0,
+                ),
+              ),
+            ),
+          ],
+        );
+      }),
 
-  Widget _section(String title, List<Widget> children) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: LabeledCard(
-        title: title,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children,
-        ),
-      ),
     );
   }
 
@@ -107,367 +133,118 @@ class DacParameters extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _section('System Control', [
-          _slider(
-            label: 'Version',
-            segment: 'system/version',
-            range: const RangeValues(0, 255),
-          ),
-          _bool(label: 'ARST_FUNC_N', segment: 'system/ctl/arst_func_n'),
-          _bool(label: 'Chip MS', segment: 'system/ctl/chip_ms'),
-          _bool(label: 'Chip Pwdn', segment: 'system/ctl/chip_pwdn'),
-          _bool(label: 'DAC Pwdn', segment: 'system/ctl/dac_pwdn'),
-          _bool(label: 'DLL Bypass', segment: 'system/ctl/dll_bypass'),
-          _bool(label: 'DLL Freq Sel', segment: 'system/ctl/dll_freq_sel'),
-          _bool(label: 'VESA Clk', segment: 'system/ctl/vesa_clk'),
-          _bool(label: 'VESA Bars', segment: 'system/ctl/vesa_colorbars'),
+          _numField('Version', 'system/version', readOnly: true),
+          _boolField('ARST_FUNC_N', 'system/ctl/arst_func_n'),
+          _boolField('Chip MS', 'system/ctl/chip_ms'),
+          _boolField('Chip Pwdn', 'system/ctl/chip_pwdn'),
+          _boolField('DAC Pwdn', 'system/ctl/dac_pwdn'),
+          _boolField('DLL Bypass', 'system/ctl/dll_bypass'),
+          _boolField('DLL Freq Sel', 'system/ctl/dll_freq_sel'),
+          _boolField('VESA Clk', 'system/ctl/vesa_clk'),
+          _boolField('VESA Bars', 'system/ctl/vesa_colorbars'),
         ]),
-
         _section('Color Space Conversion', [
           _cscMatrix(),
-          const SizedBox(height: 8),
-          _slider(
-            label: 'Y Off',
-            segment: 'csc/yoff',
-            range: const RangeValues(-4, 4),
-            precision: 2,
-          ),
-          _slider(
-            label: 'CbCr Off',
-            segment: 'csc/cboff',
-            range: const RangeValues(-4, 4),
-            precision: 2,
-          ),
-          _bool(label: 'CSC Bypass', segment: 'csc/csc_bypass'),
-          _bool(label: 'CSC UOF', segment: 'csc/csc_uof'),
+          _numField('Y Off', 'csc/yoff', precision: 2),
+          _numField('CbCr Off', 'csc/cboff', precision: 2),
+          _boolField('CSC Bypass', 'csc/csc_bypass'),
+          _boolField('CSC UOF', 'csc/csc_uof'),
         ]),
-
         _section('Test Control', [
-          _bool(label: 'DigBypass', segment: 'test/digbypass'),
-          _bool(label: 'Force Off', segment: 'test/force_off'),
-          _slider(
-            label: 'Y Delay',
-            segment: 'test/ydelay',
-            range: const RangeValues(0, 3),
-          ),
-          _bool(label: 'Fast Ramp', segment: 'test/fastramp'),
-          _bool(label: 'Slow Ramp', segment: 'test/slowramp'),
+          _boolField('DigBypass', 'test/digbypass'),
+          _boolField('Force Off', 'test/force_off'),
+          _numField('Y Delay', 'test/ydelay'),
+          _boolField('Fast Ramp', 'test/fastramp'),
+          _boolField('Slow Ramp', 'test/slowramp'),
         ]),
-
         _section('Data Path', [
-          _bool(label: 'CLK656 On', segment: 'datapath/clk656_on'),
-          _bool(label: 'FS Adjust', segment: 'datapath/fsadj'),
-          _bool(label: 'IFIR12 Bypass', segment: 'datapath/ifir12_bypass'),
-          _bool(label: 'IFIR35 Bypass', segment: 'datapath/ifir35_bypass'),
-          _bool(label: 'Tristate656', segment: 'datapath/tristate656'),
-          _slider(
-            label: 'DMAN Cntl',
-            segment: 'datapath/dman_cntl',
-            range: const RangeValues(0, 7),
-          ),
+          _boolField('CLK656 On', 'datapath/clk656_on'),
+          _boolField('FS Adjust', 'datapath/fsadj'),
+          _boolField('IFIR12 Bypass', 'datapath/ifir12_bypass'),
+          _boolField('IFIR35 Bypass', 'datapath/ifir35_bypass'),
+          _boolField('Tristate656', 'datapath/tristate656'),
+          _numField('DMAN Cntl', 'datapath/dman_cntl'),
         ]),
-
         _section('DAC Control', [
-          _slider(label: 'DAC1', segment: 'dac/dac1'),
-          const SizedBox(height: 8),
-          _slider(label: 'DAC2', segment: 'dac/dac2'),
-          const SizedBox(height: 8),
-          _slider(label: 'DAC3', segment: 'dac/dac3'),
-          const SizedBox(height: 12),
-          _bool(label: 'I2C Control', segment: 'dac/i2c_cntl'),
+          _numField('DAC1', 'dac/dac1'),
+          _numField('DAC2', 'dac/dac2'),
+          _numField('DAC3', 'dac/dac3'),
+          _boolField('I2C Control', 'dac/i2c_cntl'),
         ]),
-
         _section('Clip/Scale/Multiplier', [
-          _slider(
-            label: 'Clip GY Lo',
-            segment: 'csm/clip_gy_lo',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Clip CB Lo',
-            segment: 'csm/clip_cb_lo',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Clip CR Lo',
-            segment: 'csm/clip_cr_lo',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Clip GY Hi',
-            segment: 'csm/clip_gy_hi',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Clip CB Hi',
-            segment: 'csm/clip_cb_hi',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Clip CR Hi',
-            segment: 'csm/clip_cr_hi',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Shift GY',
-            segment: 'csm/shift_gy',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Shift CB',
-            segment: 'csm/shift_cb',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Shift CR',
-            segment: 'csm/shift_cr',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Mult GY',
-            segment: 'csm/mult_gy',
-            range: const RangeValues(0, 2047),
-          ),
-          _slider(
-            label: 'Mult CB',
-            segment: 'csm/mult_cb',
-            range: const RangeValues(0, 2047),
-          ),
-          _slider(
-            label: 'Mult CR',
-            segment: 'csm/mult_cr',
-            range: const RangeValues(0, 2047),
-          ),
-          _slider(
-            label: 'CSM Ctrl',
-            segment: 'csm/csm_ctrl',
-            range: const RangeValues(0, 255),
-          ),
+          _numField('Clip GY Lo', 'csm/clip_gy_lo'),
+          _numField('Clip CB Lo', 'csm/clip_cb_lo'),
+          _numField('Clip CR Lo', 'csm/clip_cr_lo'),
+          _numField('Clip GY Hi', 'csm/clip_gy_hi'),
+          _numField('Clip CB Hi', 'csm/clip_cb_hi'),
+          _numField('Clip CR Hi', 'csm/clip_cr_hi'),
+          _numField('Shift GY', 'csm/shift_gy'),
+          _numField('Shift CB', 'csm/shift_cb'),
+          _numField('Shift CR', 'csm/shift_cr'),
+          _numField('Mult GY', 'csm/mult_gy'),
+          _numField('Mult CB', 'csm/mult_cb'),
+          _numField('Mult CR', 'csm/mult_cr'),
+          _numField('CSM Ctrl', 'csm/csm_ctrl'),
         ]),
-
         _section('DTG1', [
-          _slider(
-            label: 'Y Blank',
-            segment: 'dtg1/y_blank',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Y Sync Lo',
-            segment: 'dtg1/y_sync_lo',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Y Sync Hi',
-            segment: 'dtg1/y_sync_hi',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'CbCr Blank',
-            segment: 'dtg1/cbcr_blank',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'CbCr Sync Lo',
-            segment: 'dtg1/cbcr_sync_lo',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'CbCr Sync Hi',
-            segment: 'dtg1/cbcr_sync_hi',
-            range: const RangeValues(0, 65535),
-          ),
-          _bool(label: 'DTG1 On', segment: 'dtg1/dtg1_on'),
-          _bool(label: 'Pass Thru', segment: 'dtg1/pass_thru'),
-          _slider(
-            label: 'Mode',
-            segment: 'dtg1/mode',
-            range: const RangeValues(0, 15),
-          ),
-          _slider(
-            label: 'Spec A',
-            segment: 'dtg1/spec_a',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec B',
-            segment: 'dtg1/spec_b',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec C',
-            segment: 'dtg1/spec_c',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec D',
-            segment: 'dtg1/spec_d',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec D1',
-            segment: 'dtg1/spec_d1',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec E',
-            segment: 'dtg1/spec_e',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec H',
-            segment: 'dtg1/spec_h',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Spec I',
-            segment: 'dtg1/spec_i',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Spec K',
-            segment: 'dtg1/spec_k',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Spec K1',
-            segment: 'dtg1/spec_k1',
-            range: const RangeValues(0, 255),
-          ),
-          _slider(
-            label: 'Spec G',
-            segment: 'dtg1/spec_g',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Total Pixels',
-            segment: 'dtg1/total_pixels',
-            range: const RangeValues(0, 65535),
-          ),
-          _bool(label: 'Field Flip', segment: 'dtg1/field_flip'),
-          _slider(
-            label: 'Line Cnt',
-            segment: 'dtg1/line_cnt',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Frame Size',
-            segment: 'dtg1/frame_size',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'Field Size',
-            segment: 'dtg1/field_size',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'CBar Size',
-            segment: 'dtg1/cbar_size',
-            range: const RangeValues(0, 255),
-          ),
+          _numField('Y Blank', 'dtg1/y_blank'),
+          _numField('Y Sync Lo', 'dtg1/y_sync_lo'),
+          _numField('Y Sync Hi', 'dtg1/y_sync_hi'),
+          _numField('CbCr Blank', 'dtg1/cbcr_blank'),
+          _numField('CbCr Sync Lo', 'dtg1/cbcr_sync_lo'),
+          _numField('CbCr Sync Hi', 'dtg1/cbcr_sync_hi'),
+          _boolField('DTG1 On', 'dtg1/dtg1_on'),
+          _boolField('Pass Thru', 'dtg1/pass_thru'),
+          _numField('Mode', 'dtg1/mode'),
+          _numField('Spec A', 'dtg1/spec_a'),
+          _numField('Spec B', 'dtg1/spec_b'),
+          _numField('Spec C', 'dtg1/spec_c'),
+          _numField('Spec D', 'dtg1/spec_d'),
+          _numField('Spec D1', 'dtg1/spec_d1'),
+          _numField('Spec E', 'dtg1/spec_e'),
+          _numField('Spec H', 'dtg1/spec_h'),
+          _numField('Spec I', 'dtg1/spec_i'),
+          _numField('Spec K', 'dtg1/spec_k'),
+          _numField('Spec K1', 'dtg1/spec_k1'),
+          _numField('Spec G', 'dtg1/spec_g'),
+          _numField('Total Pixels', 'dtg1/total_pixels'),
+          _boolField('Field Flip', 'dtg1/field_flip'),
+          _numField('Line Cnt', 'dtg1/line_cnt'),
+          _numField('Frame Size', 'dtg1/frame_size'),
+          _numField('Field Size', 'dtg1/field_size'),
+          _numField('CBar Size', 'dtg1/cbar_size'),
         ]),
-
         _section('DTG2', [
-          ...List.generate(
-            16,
-            (i) => _slider(
-              label: 'BP$i',
-              segment: 'dtg2/bp/$i',
-              range: const RangeValues(0, 2047),
-            ),
-          ),
-          ...List.generate(
-            16,
-            (i) => _slider(
-              label: 'Type$i',
-              segment: 'dtg2/linetype/$i',
-              range: const RangeValues(0, 255),
-            ),
-          ),
-          _slider(
-            label: 'HLength',
-            segment: 'dtg2/hlength',
-            range: const RangeValues(0, 1023),
-          ),
-          _slider(
-            label: 'HDly',
-            segment: 'dtg2/hdly',
-            range: const RangeValues(0, 8191),
-          ),
-          _slider(
-            label: 'VLength1',
-            segment: 'dtg2/vlength1',
-            range: const RangeValues(0, 1023),
-          ),
-          _slider(
-            label: 'VDly1',
-            segment: 'dtg2/vdly1',
-            range: const RangeValues(0, 2047),
-          ),
-          _slider(
-            label: 'VLength2',
-            segment: 'dtg2/vlength2',
-            range: const RangeValues(0, 1023),
-          ),
-          _slider(
-            label: 'VDly2',
-            segment: 'dtg2/vdly2',
-            range: const RangeValues(0, 2047),
-          ),
-          _slider(
-            label: 'HS In Dly',
-            segment: 'dtg2/hs_in_dly',
-            range: const RangeValues(0, 8191),
-          ),
-          _slider(
-            label: 'VS In Dly',
-            segment: 'dtg2/vs_in_dly',
-            range: const RangeValues(0, 2047),
-          ),
-          _slider(
-            label: 'Pixel Cnt',
-            segment: 'dtg2/pixel_cnt',
-            range: const RangeValues(0, 65535),
-          ),
-          _bool(label: 'IP Fmt', segment: 'dtg2/ctrl/ip_fmt'),
-          _slider(
-            label: 'Line Cnt',
-            segment: 'dtg2/ctrl/line_cnt',
-            range: const RangeValues(0, 2047),
-          ),
-          _bool(label: 'FID DE', segment: 'dtg2/ctrl/fid_de'),
-          _bool(label: 'RGB Mode', segment: 'dtg2/ctrl/rgb_mode'),
-          _bool(label: 'Emb Timing', segment: 'dtg2/ctrl/emb_timing'),
-          _bool(label: 'VSOut Pol', segment: 'dtg2/ctrl/vsout_pol'),
-          _bool(label: 'HSOut Pol', segment: 'dtg2/ctrl/hsout_pol'),
-          _bool(label: 'FID Pol', segment: 'dtg2/ctrl/fid_pol'),
-          _bool(label: 'VS Pol', segment: 'dtg2/ctrl/vs_pol'),
-          _bool(label: 'HS Pol', segment: 'dtg2/ctrl/hs_pol'),
+          _dtg2Table(),
+          _numField('HLength', 'dtg2/hlength'),
+          _numField('HDly', 'dtg2/hdly'),
+          _numField('VLength1', 'dtg2/vlength1'),
+          _numField('VDly1', 'dtg2/vdly1'),
+          _numField('VLength2', 'dtg2/vlength2'),
+          _numField('VDly2', 'dtg2/vdly2'),
+          _numField('HS In Dly', 'dtg2/hs_in_dly'),
+          _numField('VS In Dly', 'dtg2/vs_in_dly'),
+          _numField('Pixel Cnt', 'dtg2/pixel_cnt'),
+          _boolField('IP Fmt', 'dtg2/ctrl/ip_fmt'),
+          _numField('Line Cnt', 'dtg2/ctrl/line_cnt'),
+          _boolField('FID DE', 'dtg2/ctrl/fid_de'),
+          _boolField('RGB Mode', 'dtg2/ctrl/rgb_mode'),
+          _boolField('Emb Timing', 'dtg2/ctrl/emb_timing'),
+          _boolField('VSOut Pol', 'dtg2/ctrl/vsout_pol'),
+          _boolField('HSOut Pol', 'dtg2/ctrl/hsout_pol'),
+          _boolField('FID Pol', 'dtg2/ctrl/fid_pol'),
+          _boolField('VS Pol', 'dtg2/ctrl/vs_pol'),
+          _boolField('HS Pol', 'dtg2/ctrl/hs_pol'),
         ]),
-
         _section('CGMS', [
-          _bool(label: 'Enable', segment: 'cgms/enable'),
-          _slider(
-            label: 'Header',
-            segment: 'cgms/header',
-            range: const RangeValues(0, 63),
-          ),
-          _slider(
-            label: 'Payload',
-            segment: 'cgms/payload',
-            range: const RangeValues(0, 1023),
-          ),
+          _boolField('Enable', 'cgms/enable'),
+          _numField('Header', 'cgms/header'),
+          _numField('Payload', 'cgms/payload'),
         ]),
-
         _section('Readback', [
-          _slider(
-            label: 'PPL',
-            segment: 'readback/ppl',
-            range: const RangeValues(0, 65535),
-          ),
-          _slider(
-            label: 'LPF',
-            segment: 'readback/lpf',
-            range: const RangeValues(0, 65535),
-          ),
+          _numField('PPL', 'readback/ppl', readOnly: true),
+          _numField('LPF', 'readback/lpf', readOnly: true),
+
         ]),
       ],
     );
