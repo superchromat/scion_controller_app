@@ -84,114 +84,38 @@ class _AbsoluteOscCheckboxState extends State<AbsoluteOscCheckbox> {
   }
 }
 
-class _FloatArrayEditor extends StatefulWidget {
+class _IndexedSliders extends StatelessWidget {
   final String segment;
   final int length;
-  const _FloatArrayEditor({required this.segment, required this.length});
+  final RangeValues range;
+  final int precision;
 
-  @override
-  State<_FloatArrayEditor> createState() => _FloatArrayEditorState();
-}
-
-class _FloatArrayEditorState extends State<_FloatArrayEditor> {
-  late final List<double> _values = List.filled(widget.length, 0.0);
-  late final List<GlobalKey<NumericSliderState>> _keys = List.generate(
-    widget.length,
-    (_) => GlobalKey<NumericSliderState>(),
-  );
-
-  late String _address;
-  bool _registered = false;
-
-  void _listener(List<Object?> args) {
-    if (args.length >= widget.length &&
-        args.take(widget.length).every((e) => e is num)) {
-      for (int i = 0; i < widget.length; i++) {
-        final v = (args[i] as num).toDouble();
-        _values[i] = v;
-        _keys[i].currentState?.setValue(v, immediate: true);
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oscLogKey.currentState?.logOscMessage(
-          address: _address,
-          arg: args,
-          status: OscStatus.ok,
-          direction: Direction.received,
-          binary: Uint8List(0),
-        );
-      });
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oscLogKey.currentState?.logOscMessage(
-          address: _address,
-          arg: args,
-          status: OscStatus.error,
-          direction: Direction.received,
-          binary: Uint8List(0),
-        );
-      });
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_registered) return;
-    final segs = OscPathSegment.resolvePath(context);
-    segs.add(widget.segment);
-    _address = segs.isEmpty ? '' : '/${segs.join('/')}';
-    if (_address.isNotEmpty) {
-      OscRegistry().registerAddress(_address);
-      OscRegistry().registerListener(_address, _listener);
-      _registered = true;
-    }
-  }
-
-  @override
-  void dispose() {
-    if (_registered) {
-      OscRegistry().unregisterListener(_address, _listener);
-    }
-    super.dispose();
-  }
-
-  void _send() {
-    final args = _values.toList();
-    context.read<Network>().sendOscMessage(_address, args);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      oscLogKey.currentState?.logOscMessage(
-        address: _address,
-        arg: args,
-        status: OscStatus.ok,
-        direction: Direction.sent,
-        binary: Uint8List(0),
-      );
-    });
-  }
-
-  void _onChanged(int idx, double v) {
-    _values[idx] = v;
-    _send();
-  }
+  const _IndexedSliders({
+    required this.segment,
+    required this.length,
+    this.range = const RangeValues(0, 1),
+    this.precision = 3,
+  });
 
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
-      segment: widget.segment,
+      segment: segment,
       child: Wrap(
         spacing: 4,
         runSpacing: 4,
-        children: List.generate(widget.length, (i) {
+        children: List.generate(length, (i) {
           return SizedBox(
             width: 60,
             height: 24,
-            child: NumericSlider(
-              key: _keys[i],
-              value: _values[i],
-              range: const RangeValues(0, 1),
-              precision: 3,
-              onChanged: (v) => _onChanged(i, v),
-              sendOsc: false,
+            child: OscPathSegment(
+              segment: '$i',
+              child: NumericSlider(
+                value: range.start,
+                range: range,
+                precision: precision,
+                onChanged: (v) {},
+              ),
             ),
           );
         }),
@@ -203,86 +127,148 @@ class _FloatArrayEditorState extends State<_FloatArrayEditor> {
 class SendTexture extends StatelessWidget {
   const SendTexture({super.key});
 
-  Widget _sliderRow(
-    String label,
-    String segment,
-    GlobalKey<NumericSliderState> key,
-  ) {
+  Widget _checkboxRow(String label, String segment) {
     return Row(
       children: [
-        SizedBox(width: 80, child: Text(label)),
+        SizedBox(width: 120, child: Text(label)),
+        OscPathSegment(segment: segment, child: const OscCheckbox()),
+      ],
+    );
+  }
+
+  Widget _floatSliderRow(
+    String label,
+    String segment, {
+    RangeValues range = const RangeValues(0, 1),
+    int precision = 3,
+  }) {
+    return Row(
+      children: [
+        SizedBox(width: 120, child: Text(label)),
         SizedBox(
           width: 60,
           height: 24,
           child: OscPathSegment(
             segment: segment,
             child: NumericSlider(
-              key: key,
-              value: 0.0,
-              range: const RangeValues(0, 1),
-              detents: const [0.0, 1.0],
-              precision: 3,
+              value: range.start,
+              range: range,
+              precision: precision,
               onChanged: (v) {},
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () => key.currentState?.setValue(0.0, immediate: true),
-          child: const Icon(Icons.refresh, size: 16),
         ),
       ],
     );
   }
 
+  Widget _intSliderRow(
+    String label,
+    String segment, {
+    RangeValues range = const RangeValues(0, 255),
+  }) => _floatSliderRow(label, segment, range: range, precision: 0);
+
+  Widget _frontNrSection() {
+    return OscPathSegment(
+      segment: 'front_nr',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(width: 120, child: Text('Enable Y')),
+              OscPathSegment(segment: 'enable_y', child: const OscCheckbox()),
+              const SizedBox(width: 32),
+              const SizedBox(width: 120, child: Text('Enable C')),
+              OscPathSegment(segment: 'enable_c', child: const OscCheckbox()),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const SizedBox(width: 120, child: Text('Bypass Y')),
+              OscPathSegment(segment: 'bypass_y', child: const OscCheckbox()),
+              const SizedBox(width: 32),
+              const SizedBox(width: 120, child: Text('Bypass Cb')),
+              OscPathSegment(segment: 'bypass_cb', child: const OscCheckbox()),
+              const SizedBox(width: 32),
+              const SizedBox(width: 120, child: Text('Bypass Cr')),
+              OscPathSegment(segment: 'bypass_cr', child: const OscCheckbox()),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text('Y Coefficients'),
+          const _IndexedSliders(segment: 'y', length: 8),
+          const SizedBox(height: 8),
+          const Text('C Coefficients'),
+          const _IndexedSliders(segment: 'c', length: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _hPeakSection() {
+    return OscPathSegment(
+      segment: 'h_peak',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Coefficients'),
+          const _IndexedSliders(segment: 'coef', length: 8),
+          const SizedBox(height: 8),
+          _floatSliderRow('Gain', 'gain'),
+          _checkboxRow('Gain Level En', 'gain_level_en'),
+          _checkboxRow('Hact Sep', 'hact_sep'),
+          _checkboxRow('No Add', 'no_add'),
+          _checkboxRow('Reverse', 'reverse'),
+          _intSliderRow('Cor Val', 'cor_val'),
+          _intSliderRow('Sat Val', 'sat_val'),
+          _checkboxRow('Cor Half', 'cor_half'),
+          _checkboxRow('Cor En', 'cor_en'),
+          _checkboxRow('Sat En', 'sat_en'),
+          _checkboxRow('Enable', 'enable'),
+          _intSliderRow('Gain Slope', 'gain_slope'),
+          _intSliderRow('Gain Thres', 'gain_thres'),
+          _intSliderRow('Gain Offset', 'gain_offset'),
+        ],
+      ),
+    );
+  }
+
+  Widget _vPeakSection() {
+    return OscPathSegment(
+      segment: 'v_peak',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _checkboxRow('Enable', 'enable'),
+          _floatSliderRow('Gain', 'gain'),
+          _intSliderRow('Gain Div', 'gain_div'),
+          _intSliderRow('V Delay', 'v_dly'),
+          _intSliderRow('H Delay', 'h_dly'),
+          _floatSliderRow('Gain Clip Low', 'gain_clip_low'),
+          _floatSliderRow('Gain Clip High', 'gain_clip_high'),
+          _floatSliderRow('Out Clip Low', 'out_clip_low'),
+          _floatSliderRow('Out Clip High', 'out_clip_high'),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final _pHKey = GlobalKey<NumericSliderState>();
-    final _pVKey = GlobalKey<NumericSliderState>();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const SizedBox(width: 80, child: Text('LTI')),
-            OscPathSegment(segment: 'lti', child: const OscCheckbox()),
-            const SizedBox(width: 32),
-            const SizedBox(width: 80, child: Text('CTI')),
-            OscPathSegment(segment: 'cti', child: const OscCheckbox()),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _sliderRow('Peaking H', 'peakingH', _pHKey),
-        const SizedBox(height: 8),
-        _sliderRow('Peaking V', 'peakingV', _pVKey),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const SizedBox(width: 80, child: Text('Color Enhance')),
-            OscPathSegment(
-              segment: 'color_enhance',
-              child: const OscCheckbox(),
-            ),
-            const SizedBox(width: 32),
-            const SizedBox(width: 80, child: Text('Front NR')),
-            OscPathSegment(segment: 'front_nr', child: const OscCheckbox()),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text('Front NR Y Coef'),
-        const _FloatArrayEditor(segment: 'front_nr_ycoef', length: 8),
-        const SizedBox(height: 8),
-        const Text('Front NR C Coef'),
-        const _FloatArrayEditor(segment: 'front_nr_ccoef', length: 4),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const SizedBox(width: 80, child: Text('Block NR')),
-            const AbsoluteOscCheckbox(address: '/block_nr'),
-          ],
-        ),
-      ],
+    return OscPathSegment(
+      segment: 'filter',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _frontNrSection(),
+          const SizedBox(height: 8),
+          _hPeakSection(),
+          const SizedBox(height: 8),
+          _vPeakSection(),
+        ],
+      ),
     );
   }
 }
