@@ -191,6 +191,7 @@ class _FloatArrayEditorState extends State<_FloatArrayEditor> {
               range: const RangeValues(0, 1),
               precision: 3,
               onChanged: (v) => _onChanged(i, v),
+              sendOsc: false,
             ),
           );
         }),

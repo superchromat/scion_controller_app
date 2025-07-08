@@ -11,15 +11,18 @@ class NumericSlider extends StatefulWidget {
   final List<double>? detents;
   final int? precision;
   final bool hardDetents;
+  final bool sendOsc;
 
-  const NumericSlider(
-      {super.key,
-      required this.value,
-      required this.onChanged,
-      this.range,
-      this.detents,
-      this.precision,
-      this.hardDetents = false});
+  const NumericSlider({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.range,
+    this.detents,
+    this.precision,
+    this.hardDetents = false,
+    this.sendOsc = true,
+  });
 
   @override
   State<NumericSlider> createState() => NumericSliderState();
@@ -56,7 +59,6 @@ class NumericSliderState extends State<NumericSlider>
     color: Colors.white,
   );
 
-
   @override
   void initState() {
     super.initState();
@@ -86,19 +88,20 @@ class NumericSliderState extends State<NumericSlider>
     // Assume hard detents + integer values means its only integers, could be something set by constructor
     if (widget.hardDetents && (value == value.toInt())) {
       if (value.toInt() != prev_sent_value) {
-        sendOsc(value.toInt());
+        if (widget.sendOsc) sendOsc(value.toInt());
         prev_sent_value = value.toInt();
       }
     } else {
-      sendOsc(value);
+      if (widget.sendOsc) sendOsc(value);
     }
   }
 
   double get value => _value;
 
   double _nearestDetent(double rawValue) {
-    return _detents
-        .reduce((a, b) => (rawValue - a).abs() < (rawValue - b).abs() ? a : b);
+    return _detents.reduce(
+      (a, b) => (rawValue - a).abs() < (rawValue - b).abs() ? a : b,
+    );
   }
 
   Future<void> setValue(double newValue, {bool immediate = false}) {
@@ -115,13 +118,14 @@ class NumericSliderState extends State<NumericSlider>
 
       _animStart = _displayValue;
       _animTarget = clamped;
-      _anim = Tween(begin: _animStart, end: _animTarget).animate(
-        CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-      )..addListener(() {
-          setState(() {
-            _displayValue = _anim.value;
+      _anim =
+          Tween(begin: _animStart, end: _animTarget).animate(
+            CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+          )..addListener(() {
+            setState(() {
+              _displayValue = _anim.value;
+            });
           });
-        });
 
       _externallySet = true;
       return _animController.forward(from: 0).whenComplete(() {
@@ -192,7 +196,7 @@ class NumericSliderState extends State<NumericSlider>
     prev_sent_value = null;
   }
 
-/*
+  /*
 TODO:
 
 The slider mechanics needs to be reworked. 
@@ -204,7 +208,6 @@ The slider mechanics needs to be reworked.
 - Detents should be visible as horizontal lines in the display
 - (Text editing also needs a rework)
 */
-
 
   void _onPanUpdate(DragUpdateDetails details) {
     if (_startDragPos == null || _editing) return;
@@ -409,26 +412,27 @@ class _NumericSliderPainter extends CustomPainter {
   final List<double> detents;
   final int precision;
 
-  _NumericSliderPainter(
-      {required this.value,
-      required this.interacting,
-      required this.externallySet,
-      required this.textStyle,
-      required this.text,
-      required this.showCursor,
-      required this.cursorPosition,
-      required this.editing,
-      required this.range,
-      required this.detents,
-      required this.precision});
+  _NumericSliderPainter({
+    required this.value,
+    required this.interacting,
+    required this.externallySet,
+    required this.textStyle,
+    required this.text,
+    required this.showCursor,
+    required this.cursorPosition,
+    required this.editing,
+    required this.range,
+    required this.detents,
+    required this.precision,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final baseColor = externallySet
         ? Colors.yellow[700]!
         : interacting
-            ? Colors.yellow
-            : Colors.white;
+        ? Colors.yellow
+        : Colors.white;
 
     final bgPaint = Paint()..color = Colors.transparent;
     final linePaint = Paint()
@@ -454,15 +458,16 @@ class _NumericSliderPainter extends CustomPainter {
     canvas.clipPath(clipPath);
 
     for (var d in detents) {
-      final X = (d - range.start) /
+      final X =
+          (d - range.start) /
           (range.end - range.start).clamp(0, 1) *
           size.width;
       canvas.drawLine(Offset(X, 0), Offset(X, size.height), linePaint);
     }
 
     if (!editing) {
-      final normalized =
-          ((value - range.start) / (range.end - range.start)).clamp(0.0, 1.0);
+      final normalized = ((value - range.start) / (range.end - range.start))
+          .clamp(0.0, 1.0);
       final posX = size.width * normalized;
       final centerX = size.width / 2;
 
@@ -476,11 +481,7 @@ class _NumericSliderPainter extends CustomPainter {
       );
       canvas.drawRect(rect, shadePaint);
 
-      canvas.drawLine(
-        Offset(posX, 0),
-        Offset(posX, size.height),
-        linePaint,
-      );
+      canvas.drawLine(Offset(posX, 0), Offset(posX, size.height), linePaint);
     }
 
     canvas.restore();
@@ -507,7 +508,9 @@ class _NumericSliderPainter extends CustomPainter {
     if (editing && showCursor && cursorPosition < text.length) {
       final boxes = textPainter.getBoxesForSelection(
         TextSelection(
-            baseOffset: cursorPosition, extentOffset: cursorPosition + 1),
+          baseOffset: cursorPosition,
+          extentOffset: cursorPosition + 1,
+        ),
       );
 
       if (boxes.isNotEmpty) {
