@@ -93,7 +93,7 @@ class _IndexedSliders extends StatelessWidget {
   const _IndexedSliders({
     required this.segment,
     required this.length,
-    this.range = const RangeValues(0, 1),
+    this.range = const RangeValues(-1, 1),
     this.precision = 3,
   });
 

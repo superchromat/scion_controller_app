@@ -36,8 +36,8 @@ class SystemOverview extends StatefulWidget {
 class _SystemOverviewState extends State<SystemOverview>
     with WidgetsBindingObserver {
   final GlobalKey _stackKey = GlobalKey();
-  final List<GlobalKey> _inputKeys = List.generate(4, (_) => GlobalKey());
-  final List<GlobalKey> _sendKeys = List.generate(4, (_) => GlobalKey());
+  final List<GlobalKey> _inputKeys = List.generate(3, (_) => GlobalKey());
+  final List<GlobalKey> _sendKeys = List.generate(3, (_) => GlobalKey());
   final GlobalKey _returnKey = GlobalKey();
   final GlobalKey _outputKey = GlobalKey();
 
@@ -179,7 +179,7 @@ class _SystemOverviewState extends State<SystemOverview>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(
-                              4,
+                              3,
                               (i) => Padding(
                                 padding: EdgeInsets.symmetric(
                                     horizontal: TileLayout.marginPerTile / 2),
@@ -206,7 +206,7 @@ class _SystemOverviewState extends State<SystemOverview>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(
-                              4,
+                              3,
                               (i) => Padding(
                                 padding: EdgeInsets.symmetric(
                                     horizontal: TileLayout.marginPerTile / 2),

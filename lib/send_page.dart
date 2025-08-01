@@ -33,7 +33,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                   title: 'Send Source',
                   child: OscDropdown(
                     label: 'Input',
-                    items: [1, 2, 3, 4],
+                    items: [1, 2, 3],
                     defaultValue: widget.pageNumber,
                   ),
                 ),
