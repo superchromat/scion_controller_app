@@ -314,7 +314,7 @@ class AnalogSendTile extends StatelessWidget {
           resolution: '/analog_format/resolution',
           framerate: '/analog_format/framerate',
           bitDepth: '10',
-          colorSpace: '/analog_format/colourspace',
+          colorSpace: '/analog_format/colorspace',
           chromaSubsampling: '4:4:4',
         ),
       ),
@@ -332,7 +332,7 @@ class ReturnTile extends StatelessWidget {
       resolution: '/analog_format/resolution',
       framerate: '/analog_format/framerate',
       bitDepth: '12',
-      colorSpace: '/analog_format/colourspace',
+      colorSpace: '/analog_format/colorspace',
       chromaSubsampling: '4:4:4',
     );
   }
