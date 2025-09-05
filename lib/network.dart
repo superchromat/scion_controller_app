@@ -27,8 +27,12 @@ class Network extends ChangeNotifier {
 
   Timer? _ackTimer;
   Timer? _monitorTimer;
+  Timer? _reconnectTimer;
   DateTime? _lastMsgReceived;
   bool _hasSynced = false;
+
+  String? _lastHost;
+  int? _lastPort;
 
   bool get isConnected =>
       _socket != null && _destination != null && _port != null && _hasSynced;
@@ -39,6 +43,9 @@ class Network extends ChangeNotifier {
   /// Always resolves to an IPv4 address to avoid sending IPv6 via an IPv4 socket.
   Future<void> connect(String host, int txPort,
       {Duration timeout = const Duration(seconds: 5)}) async {
+    // remember target for auto-reconnect attempts
+    _lastHost = host;
+    _lastPort = txPort;
     // resolve remote address as IPv4
     InternetAddress dest;
     final parsed = InternetAddress.tryParse(host);
@@ -80,22 +87,22 @@ class Network extends ChangeNotifier {
     _lastMsgReceived = DateTime.now();
     // send an immediate sync
     sendOscMessage('/sync', []);
-    // every 2 seconds, send /sync
+    // Send /sync frequently while waiting for /ack
     _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 5), (t) {
+    _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       try {
         sendOscMessage('/sync', []);
       } catch (e, st) {
         debugPrint('Periodic /sync send error: $e\n$st');
-        disconnect();
+        // Do not force disconnect here; monitor handles timeouts.
       }
     });
-    // every 5 second, check for timeout
+    // Monitor timeout
     _monitorTimer?.cancel();
     _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_lastMsgReceived != null &&
           DateTime.now().difference(_lastMsgReceived!).inSeconds > 10) {
-        debugPrint('No msg received in 5s; disconnecting');
+        debugPrint('No msg received in 10s; disconnecting');
         disconnect();
       }
     });
@@ -115,6 +122,9 @@ class Network extends ChangeNotifier {
     _hasSynced = false;
 
     notifyListeners();
+
+    // kick off auto-reconnect attempts to the last target
+    _scheduleReconnect();
   }
 
   /// Sends an OSC message to the remote host, deferring if the buffer is full.
@@ -160,6 +170,8 @@ class Network extends ChangeNotifier {
             OscRegistry().dispatch(msg.address, msg.arguments);
           } else {
             _hasSynced = true;
+            // on successful sync, stop any reconnect attempts
+            _reconnectTimer?.cancel();
             notifyListeners();
           }
         } catch (e) {
@@ -190,5 +202,23 @@ class Network extends ChangeNotifier {
         _socket!.writeEventsEnabled = false;
       }
     }
+  }
+
+  void _scheduleReconnect() {
+    if (_lastHost == null || _lastPort == null) return;
+    // prevent multiple timers
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (isConnected || isConnecting) return;
+      try {
+        if (kDebugMode) {
+          debugPrint('Attempting auto-reconnect to $_lastHost:$_lastPort');
+        }
+        await connect(_lastHost!, _lastPort!);
+      } catch (e, st) {
+        if (kDebugMode) debugPrint('Auto-reconnect failed: $e\n$st');
+        // keep timer running; will retry on next tick
+      }
+    });
   }
 }
