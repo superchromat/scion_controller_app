@@ -174,10 +174,19 @@ void set_analog_format_colourspace(const char *s) { config.analog_format.colours
 /*
 ** analog_format_color_matrix
 */
-uint32_t get_analog_format_color_matrix(char *buf, int len, int row, int col) {
+uint32_t get_analog_format_color_matrix(char *buf, int len) {
   char address[OSC_BUF_SIZE];
-  snprintf(address, OSC_BUF_SIZE-1, "/analog_format/color_matrix/%d/%d", row, col);
-  return tosc_writeMessage(buf, len, address, "f", config.analog_format.color_matrix[row][col]);
+  snprintf(address, OSC_BUF_SIZE-1, "/analog_format/color_matrix");
+  return tosc_writeMessage(buf, len, address, "fffffffff",
+    config.analog_format.color_matrix[0][0],
+    config.analog_format.color_matrix[0][1],
+    config.analog_format.color_matrix[0][2],
+    config.analog_format.color_matrix[1][0],
+    config.analog_format.color_matrix[1][1],
+    config.analog_format.color_matrix[1][2],
+    config.analog_format.color_matrix[2][0],
+    config.analog_format.color_matrix[2][1],
+    config.analog_format.color_matrix[2][2]);
 }
 void set_analog_format_color_matrix(int row, int col, double v) { config.analog_format.color_matrix[row][col] = v; }
 /*
@@ -474,7 +483,7 @@ void sync_all(char *buf, int len) {
   // sync analog_format_colourspace
   get_analog_format_colourspace(buf,len);
   // sync analog_format_color_matrix matrix
-  for(int row=0; row<3; ++row) for(int col=0; col<3; ++col) get_analog_format_color_matrix(buf,len,row,col);
+  get_analog_format_color_matrix(buf, len);
   // sync clock_offset
   get_clock_offset(buf,len);
   // sync send
