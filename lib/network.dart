@@ -40,35 +40,42 @@ class Network extends ChangeNotifier {
   bool get isConnecting => _socket != null && !_hasSynced;
 
   /// Binds a UDP socket on an ephemeral port and sets the remote host/port.
-  /// Always resolves to an IPv4 address to avoid sending IPv6 via an IPv4 socket.
+  /// Prefers IPv4 but falls back to IPv6 if necessary, and binds a socket that
+  /// matches the destination address family.
   Future<void> connect(String host, int txPort,
       {Duration timeout = const Duration(seconds: 5)}) async {
     // remember target for auto-reconnect attempts
     _lastHost = host;
     _lastPort = txPort;
-    // resolve remote address as IPv4
+    // resolve remote address; prefer IPv4, fall back to IPv6
     InternetAddress dest;
     final parsed = InternetAddress.tryParse(host);
-    if (parsed != null && parsed.type == InternetAddressType.IPv4) {
+    if (parsed != null) {
       dest = parsed;
     } else {
-      final addrs = await InternetAddress.lookup(
-        host,
-        type: InternetAddressType.IPv4,
-      );
+      List<InternetAddress> addrs = [];
+      try {
+        addrs = await InternetAddress.lookup(host, type: InternetAddressType.IPv4);
+      } catch (_) {
+        addrs = const [];
+      }
       if (addrs.isEmpty) {
-        throw SocketException('No IPv4 address found for \$host');
+        // fall back to IPv6 lookup
+        addrs = await InternetAddress.lookup(host, type: InternetAddressType.IPv6);
+      }
+      if (addrs.isEmpty) {
+        throw SocketException('No IP address found for $host');
       }
       dest = addrs.first;
     }
     _destination = dest;
     _port = txPort;
 
-    // bind locally on port 0 (ephemeral)
-    _socket = await RawDatagramSocket.bind(
-      InternetAddress.anyIPv4,
-      0,
-    ).timeout(timeout);
+    // bind locally on port 0 (ephemeral), matching destination IP family
+    final bindAddr = (dest.type == InternetAddressType.IPv6)
+        ? InternetAddress.anyIPv6
+        : InternetAddress.anyIPv4;
+    _socket = await RawDatagramSocket.bind(bindAddr, 0).timeout(timeout);
 
     final localPort = _socket!.port;
     if (kDebugMode) debugPrint('Network bound locally on port $localPort');
@@ -89,7 +96,7 @@ class Network extends ChangeNotifier {
     sendOscMessage('/sync', []);
     // Send /sync frequently while waiting for /ack
     _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _ackTimer = Timer.periodic(const Duration(seconds: 10), (t) {
       try {
         sendOscMessage('/sync', []);
       } catch (e, st) {
@@ -129,6 +136,15 @@ class Network extends ChangeNotifier {
 
   /// Sends an OSC message to the remote host, deferring if the buffer is full.
   void sendOscMessage(String address, List<Object> arguments) {
+    // Hard block: never send Y LUT over the network
+    // Matches any address ending with "/lut/Y" (e.g., "/send/1/lut/Y")
+    final segs = address.split('/').where((s) => s.isNotEmpty).toList();
+    final isYLut = segs.length >= 2 && segs[segs.length - 2] == 'lut' && segs.last == 'Y';
+    if (isYLut) {
+      if (kDebugMode) debugPrint('Skipping send for Y LUT at "$address"');
+      return;
+    }
+
     if (!isConnected && (address != "/sync")) {
       debugPrint('Not connected');
       return;

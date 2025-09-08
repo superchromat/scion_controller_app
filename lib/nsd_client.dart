@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:nsd/nsd.dart';
+import 'package:flutter/foundation.dart';
 
 /// Holds a discovered host + port.
 class NetworkAddress {
@@ -38,6 +39,12 @@ class NSDClient {
     // wait for responses
     await Future.delayed(scanDuration);
 
+    if (kDebugMode) {
+      for (final s in discovery.services) {
+        debugPrint('NSD: service name="${s.name}" type="${s.type}" host=${s.host} port=${s.port}');
+      }
+    }
+
     final results = discovery.services
         .where((s) => s.host != null && s.port != null)
         .map((s) => NetworkAddress(host: s.host!, port: s.port!))
@@ -47,4 +54,3 @@ class NSDClient {
     return results;
   }
 }
-

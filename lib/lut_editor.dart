@@ -115,23 +115,29 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   }
 
 /// Send current channel data over OSC network only.
-/// When locked (and editing Y), broadcast the same data to R, G & B.
+/// Note: Do not transmit the Y channel LUT over the network.
+/// When locked (and editing Y), mirror the curve to R/G/B and send only those.
 void _sendCurrentChannel() {
-  // Pick the points from the selected channel
+  // Prepare flattened control points for the active channel
   final pts = List<Offset>.from(controlPoints[selectedChannel]!);
   pts.sort((a, b) => a.dx.compareTo(b.dx));
   final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
 
+  // Determine which channels to send to, explicitly skipping 'Y'
+  List<String> destinations;
   if (locked && selectedChannel == 'Y') {
-    // Broadcast Y edits to all channels when locked
-    for (var c in channels) {
-      final path = '$oscAddress/$c';
-      sendOsc(flat, address: path);
-    }
+    // Mirror Y edits to RGB when locked, but do not send Y itself
+    destinations = const ['R', 'G', 'B'];
+  } else if (selectedChannel == 'Y') {
+    // Never send Y LUT
+    destinations = const [];
   } else {
-    // Normal single-channel send
-    final path = '$oscAddress/$selectedChannel';
-      sendOsc(flat, address: path);
+    destinations = [selectedChannel];
+  }
+
+  for (final c in destinations) {
+    final path = '$oscAddress/$c';
+    sendOsc(flat, address: path);
   }
 }
 
