@@ -27,6 +27,7 @@ class Network extends ChangeNotifier {
 
   Timer? _ackTimer;
   Timer? _monitorTimer;
+  Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   DateTime? _lastMsgReceived;
   bool _hasSynced = false;
@@ -94,11 +95,11 @@ class Network extends ChangeNotifier {
     _lastMsgReceived = DateTime.now();
     // send an immediate sync
     sendOscMessage('/sync', []);
-    // Send /sync frequently while waiting for /ack
+    // While waiting for /ack, ping with /ack (lightweight) to elicit a reply
     _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 10), (t) {
+    _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       try {
-        sendOscMessage('/sync', []);
+        sendOscMessage('/ack', []);
       } catch (e, st) {
         debugPrint('Periodic /sync send error: $e\n$st');
         // Do not force disconnect here; monitor handles timeouts.
@@ -121,6 +122,7 @@ class Network extends ChangeNotifier {
   void disconnect() {
     _ackTimer?.cancel();
     _monitorTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _socket?.close();
     _socket = null;
     _destination = null;
@@ -145,7 +147,7 @@ class Network extends ChangeNotifier {
       return;
     }
 
-    if (!isConnected && (address != "/sync")) {
+    if (!isConnected && (address != "/sync" && address != "/ack")) {
       debugPrint('Not connected');
       return;
     }
@@ -188,6 +190,13 @@ class Network extends ChangeNotifier {
             _hasSynced = true;
             // on successful sync, stop any reconnect attempts
             _reconnectTimer?.cancel();
+            // stop waiting-for-ack timer
+            _ackTimer?.cancel();
+            // start heartbeat to keep link healthy without full syncs
+            _heartbeatTimer?.cancel();
+            _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+              try { sendOscMessage('/ack', []); } catch (_) {}
+            });
             notifyListeners();
           }
         } catch (e) {
