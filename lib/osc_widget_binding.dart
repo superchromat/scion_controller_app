@@ -91,6 +91,15 @@ void sendOsc(dynamic arg, {String? address}) {
   // 1) always fire the real OSC packet immediately:
   context.read<Network>().sendOscMessage(addr, argsList);
 
+  // 1a) local echo: immediately update OscRegistry so all widgets bound to
+  // the same address reflect the new value without waiting for server /sync.
+  // Suppress log entries for these locally originated updates.
+  try {
+    final reg = OscRegistry();
+    reg.registerAddress(addr);
+    reg.dispatchLocal(addr, argsList.cast<Object?>());
+  } catch (_) {}
+
   // 2) cache for logging
   _cachedAddress = addr;
   _cachedArgs = argsList;
@@ -128,16 +137,18 @@ void _flushLog() {
 
   void _handleOsc(List<Object?> args) {
     final status = onOscMessage(args);
-    // Log incoming
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      oscLogKey.currentState?.logOscMessage(
-        address: oscAddress,
-        arg: args,
-        status: status,
-        direction: Direction.received,
-        binary: Uint8List(0),
-      );
-    });
+    // Log incoming unless suppressed (local echo)
+    if (!OscRegistry().isLogSuppressed(oscAddress)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: oscAddress,
+          arg: args,
+          status: status,
+          direction: Direction.received,
+          binary: Uint8List(0),
+        );
+      });
+    }
   }
 
   /// Override this to react to incoming OSC messages.
