@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:osc/osc.dart';
 import 'package:flutter/foundation.dart';
 
@@ -170,6 +171,54 @@ class Network extends ChangeNotifier {
       _socket!.writeEventsEnabled = false;
     } catch (e) {
       debugPrint('OSC send failed: $e');
+      _pending.clear();
+      _socket!.writeEventsEnabled = false;
+    }
+  }
+
+  /// Sends an OSC bundle containing multiple messages in a single datagram.
+  /// Applies same connection checks and deferred send handling as single send.
+  void sendOscBundle(List<OSCMessage> messages) {
+    if (!isConnected) {
+      debugPrint('Not connected');
+      return;
+    }
+    // Build OSC bundle: '#bundle\0' + 8-byte timetag + N elements
+    // Each element: 4-byte big-endian size + message bytes
+    final header = <int>[];
+    header.addAll('#bundle\x00'.codeUnits);
+    // timetag: immediate (0,1)
+    final bb = BytesBuilder();
+    bb.add(header);
+    final tt = ByteData(8);
+    tt.setUint32(0, 0); // seconds
+    tt.setUint32(4, 1); // fractional, 'immediate'
+    bb.add(tt.buffer.asUint8List());
+
+    for (final m in messages) {
+      final mb = m.toBytes();
+      final sz = ByteData(4)..setUint32(0, mb.length, Endian.big);
+      bb.add(sz.buffer.asUint8List());
+      bb.add(mb);
+    }
+
+    final data = bb.toBytes();
+    try {
+      final sent = _socket!.send(data, _destination!, _port!);
+      if (sent != data.length) {
+        _pending.add(_Pending(data, _destination!, _port!));
+        _socket!.writeEventsEnabled = true;
+      }
+    } on SocketException catch (e) {
+      debugPrint('Deferred OSC bundle send failed: $e');
+      _pending.clear();
+      _socket!.writeEventsEnabled = false;
+    } on OSError catch (e) {
+      debugPrint('OSC bundle send failed (OSError): $e');
+      _pending.clear();
+      _socket!.writeEventsEnabled = false;
+    } catch (e) {
+      debugPrint('OSC bundle send failed: $e');
       _pending.clear();
       _socket!.writeEventsEnabled = false;
     }
