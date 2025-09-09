@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
@@ -12,20 +15,95 @@ import 'send_page.dart';
 import 'osc_log.dart';
 import 'osc_registry_viewer.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    const Size initialSize = Size(1200, 800);
-    setWindowMinSize(initialSize);
-    setWindowFrame(const Rect.fromLTWH(0, 0, 1200, 800));
-  }
+// A global messenger for surfacing errors unobtrusively during debugging.
+final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
-  runApp(
-    ChangeNotifierProvider<Network>.value(
-      value: Network(),
-      child: const MyApp(),
-    ),
-  );
+void _showGlobalErrorSnack(Object error, StackTrace stack) {
+  if (!kDebugMode) return;
+  // Keep the snack concise; full details are printed to the console.
+  final msg = error.toString().split('\n').first;
+  // Schedule after a frame to avoid setState during build.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final messenger = globalScaffoldMessengerKey.currentState;
+    if (messenger == null) return;
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Unhandled error: $msg'),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red[700],
+      ),
+    );
+  });
+}
+
+void _installGlobalErrorHooks() {
+  // Route Flutter framework errors into the Zone and console.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    // Always dump a rich report to the console for devs.
+    FlutterError.dumpErrorToConsole(details);
+    final stack = details.stack ?? StackTrace.current;
+    // Forward into the zone so runZonedGuarded can also observe.
+    if (Zone.current != Zone.root) {
+      Zone.current.handleUncaughtError(details.exception, stack);
+    }
+    // Show a brief UI hint in debug mode.
+    _showGlobalErrorSnack(details.exception, stack);
+  };
+
+  // Catch errors that escape the framework (e.g., microtasks, platform).
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('Uncaught platform error: $error\n$stack');
+    _showGlobalErrorSnack(error, stack);
+    // Return true to mark as handled and avoid default crash behavior in debug.
+    return true;
+  };
+
+  // Make red error widgets more informative in debug builds.
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    if (!kDebugMode) return ErrorWidget(details.exception);
+    final textStyle = const TextStyle(
+      color: Colors.white,
+      fontSize: 12,
+      fontFamily: 'monospace',
+    );
+    return Container(
+      color: const Color(0xFFB00020),
+      padding: const EdgeInsets.all(8),
+      child: SingleChildScrollView(
+        child: Text(
+          'Error: ${details.exceptionAsString()}\n\n${details.stack?.toString() ?? ''}',
+          style: textStyle,
+        ),
+      ),
+    );
+  };
+}
+
+void main() {
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      const Size initialSize = Size(1200, 800);
+      setWindowMinSize(initialSize);
+      setWindowFrame(const Rect.fromLTWH(0, 0, 1200, 800));
+    }
+
+    _installGlobalErrorHooks();
+
+    runApp(
+      ChangeNotifierProvider<Network>.value(
+        value: Network(),
+        child: const MyApp(),
+      ),
+    );
+  }, (Object error, StackTrace stack) {
+    // Last‑chance handler for anything not caught by FlutterError.onError.
+    debugPrint('Uncaught zone error: $error\n$stack');
+    _showGlobalErrorSnack(error, stack);
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -37,6 +115,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'scion',
+        scaffoldMessengerKey: globalScaffoldMessengerKey,
         theme: ThemeData(
           brightness: Brightness.dark,
           scaffoldBackgroundColor: const Color(0xFF1C1C1E),
