@@ -128,7 +128,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     List<Object> flatFor(String c) {
       final pts = List<Offset>.from(controlPoints[c]!);
       pts.sort((a, b) => a.dx.compareTo(b.dx));
-      return pts.expand((pt) => [pt.dx, pt.dy]).toList();
+      final active = pts.where((pt) => pt.dx >= 0 && pt.dy >= 0);
+      return active.expand((pt) => [pt.dx, pt.dy]).toList();
     }
 
     if (locked && selectedChannel == 'Y') {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:osc/osc.dart';
 import 'package:flutter/foundation.dart';
 
@@ -185,14 +186,13 @@ class Network extends ChangeNotifier {
     }
     // Build OSC bundle: '#bundle\0' + 8-byte timetag + N elements
     // Each element: 4-byte big-endian size + message bytes
-    final header = <int>[];
-    header.addAll('#bundle\x00'.codeUnits);
-    // timetag: immediate (0,1)
     final bb = BytesBuilder();
-    bb.add(header);
+    bb.add(utf8.encode('#bundle'));
+    bb.add([0]); // null terminator to make 8-byte header
+    // timetag: immediate (0,1) big-endian
     final tt = ByteData(8);
-    tt.setUint32(0, 0); // seconds
-    tt.setUint32(4, 1); // fractional, 'immediate'
+    tt.setUint32(0, 0, Endian.big); // seconds
+    tt.setUint32(4, 1, Endian.big); // fractional, 'immediate'
     bb.add(tt.buffer.asUint8List());
 
     for (final m in messages) {
