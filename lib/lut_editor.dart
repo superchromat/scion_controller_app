@@ -24,6 +24,7 @@ class LUTEditor extends StatefulWidget {
 
 class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   static const List<String> channels = ['Y', 'R', 'G', 'B'];
+  static const double _eqEps = 1e-6;
 
   /// Control points per channel, fixed length with placeholders at (-1,-1).
   late final Map<String, List<Offset>> controlPoints;
@@ -87,6 +88,10 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
               pts[i] = const Offset(-1, -1);
             }
           }
+          // If all RGB LUTs are identical after this update, mirror to Y
+          if (c != 'Y') {
+            _maybeMirrorRgbToY();
+          }
           _rebuildSplines();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             oscLogKey.currentState?.logOscMessage(
@@ -103,6 +108,29 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
       // Initial build and one network send
       _rebuildSplines();
       _sendCurrentChannel();
+    }
+  }
+
+  bool _offsetEq(Offset a, Offset b) {
+    return (a.dx - b.dx).abs() <= _eqEps && (a.dy - b.dy).abs() <= _eqEps;
+  }
+
+  bool _listEq(List<Offset> a, List<Offset> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (!_offsetEq(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  /// If R, G, and B are equal, copy that LUT into Y.
+  void _maybeMirrorRgbToY() {
+    final r = controlPoints['R']!;
+    final g = controlPoints['G']!;
+    final b = controlPoints['B']!;
+    if (_listEq(r, g) && _listEq(g, b)) {
+      // Replace Y with a copy so downstream equality checks don't alias
+      controlPoints['Y'] = List<Offset>.from(r);
     }
   }
 

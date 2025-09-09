@@ -31,6 +31,8 @@ class Network extends ChangeNotifier {
   Timer? _monitorTimer;
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
+  // When true, send a full "/sync" right after a successful auto-reconnect
+  bool _pendingSyncAfterAutoReconnect = false;
   DateTime? _lastMsgReceived;
   bool _hasSynced = false;
 
@@ -235,7 +237,7 @@ class Network extends ChangeNotifier {
           if (msg.address != '/ack') {
             debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
             OscRegistry().dispatch(msg.address, msg.arguments);
-          } else {
+        } else {
             _hasSynced = true;
             // on successful sync, stop any reconnect attempts
             _reconnectTimer?.cancel();
@@ -246,6 +248,11 @@ class Network extends ChangeNotifier {
             _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
               try { sendOscMessage('/ack', []); } catch (_) {}
             });
+            // If this ACK finalized an auto-reconnect, issue a full sync now
+            if (_pendingSyncAfterAutoReconnect) {
+              try { sendOscMessage('/sync', []); } catch (_) {}
+              _pendingSyncAfterAutoReconnect = false;
+            }
             notifyListeners();
           }
         } catch (e) {
@@ -288,6 +295,8 @@ class Network extends ChangeNotifier {
         if (kDebugMode) {
           debugPrint('Attempting auto-reconnect to $_lastHost:$_lastPort');
         }
+        // Mark that we should perform a full sync after this auto-reconnect
+        _pendingSyncAfterAutoReconnect = true;
         await connect(_lastHost!, _lastPort!);
       } catch (e, st) {
         if (kDebugMode) debugPrint('Auto-reconnect failed: $e\n$st');
