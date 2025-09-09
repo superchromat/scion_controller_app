@@ -1,6 +1,9 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:osc/osc.dart';
+import 'network.dart';
 import 'monotonic_spline.dart';
 import 'osc_widget_binding.dart';
 import 'lut_painter.dart';
@@ -114,62 +117,34 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     });
   }
 
-  // Resolve '/send/{n}' base from our oscAddress '/send/{n}/lut'
-  String get _sendBasePath {
-    // oscAddress is expected like '/send/1/lut'
-    final parts = oscAddress.split('/').where((e) => e.isNotEmpty).toList();
-    if (parts.length >= 2 && parts[0] == 'send') {
-      return '/send/${parts[1]}';
-    }
-    // Fallback to oscAddress root
-    return '/send/1';
-  }
-
-  void _sendLutPoint(String channel, int index, double x, double y) {
-    // Absolute endpoint: '/send/{n}/lutp' with args [channel, index, x, y]
-    final addr = '${_sendBasePath}/lutp';
-    sendOsc([channel, index, x, y], address: addr);
-  }
-
-  void _commitLut() {
-    final addr = '${_sendBasePath}/lut/commit';
-    sendOsc([], address: addr);
-  }
-
-  /// Send current channel data over OSC using point-wise updates.
-  /// - Never transmit the Y channel directly.
-  /// - When locked and editing Y, mirror the point updates to R/G/B and commit.
+  /// Send current channel data over OSC network only.
+  /// Note: Do not transmit the Y channel LUT over the network.
+  /// When locked (and editing Y), mirror the curve to R/G/B and send only those.
   void _sendCurrentChannel() {
-    // Determine which channels to send to, explicitly skipping 'Y'
-    List<String> destinations;
+    // Determine channels to send (skip Y)
+    if (selectedChannel == 'Y' && !locked) return;
+
+    // Helper to flatten points for a channel
+    List<Object> flatFor(String c) {
+      final pts = List<Offset>.from(controlPoints[c]!);
+      pts.sort((a, b) => a.dx.compareTo(b.dx));
+      return pts.expand((pt) => [pt.dx, pt.dy]).toList();
+    }
+
     if (locked && selectedChannel == 'Y') {
-      destinations = const ['R', 'G', 'B'];
-    } else if (selectedChannel == 'Y') {
-      destinations = const [];
+      // Bundle R,G,B into one OSC bundle for atomic apply on device
+      final messages = <OSCMessage>[
+        OSCMessage('$oscAddress/R', arguments: flatFor('R')),
+        OSCMessage('$oscAddress/G', arguments: flatFor('G')),
+        OSCMessage('$oscAddress/B', arguments: flatFor('B')),
+      ];
+      // Send via Network directly to ensure single datagram
+      final net = context.read<Network>();
+      net.sendOscBundle(messages);
     } else {
-      destinations = [selectedChannel];
-    }
-
-    // If dragging a specific control point, send only that point; otherwise send all active points
-    final indices = <int>[];
-    if (currentControlPointIdx != null) {
-      indices.add(currentControlPointIdx!);
-    } else {
-      final pts = controlPoints[selectedChannel]!;
-      for (var i = 0; i < pts.length; i++) {
-        if (pts[i].dx >= 0 && pts[i].dy >= 0) indices.add(i);
-      }
-    }
-
-    for (final c in destinations) {
-      for (final i in indices) {
-        final pt = controlPoints[locked && selectedChannel == 'Y' ? 'Y' : c]![i];
-        _sendLutPoint(c, i, pt.dx, pt.dy);
-      }
-    }
-
-    if (destinations.isNotEmpty) {
-      _commitLut();
+      // Single channel update
+      final flat = flatFor(selectedChannel);
+      sendOsc(flat, address: '$oscAddress/$selectedChannel');
     }
   }
 
