@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -138,9 +139,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   void _rebuildSplines() {
     setState(() {
       for (var c in channels) {
-        final active = controlPoints[c]!.where((pt) => pt.dx >= 0).toList()
+        final active = controlPoints[c]!
+            .where((pt) => pt.dx >= 0 && pt.dy >= 0)
+            .toList()
           ..sort((a, b) => a.dx.compareTo(b.dx));
-        splines[c] = MonotonicSpline(active);
+        // MonotonicSpline requires at least two points; if not available, skip.
+        splines[c] = active.length >= 2 ? MonotonicSpline(active) : null;
       }
     });
   }
