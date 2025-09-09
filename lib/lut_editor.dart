@@ -94,15 +94,17 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
             _maybeMirrorRgbToY();
           }
           _rebuildSplines();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            oscLogKey.currentState?.logOscMessage(
-              address: path,
-              arg: args,
-              status: OscStatus.ok,
-              direction: Direction.received,
-              binary: Uint8List(0),
-            );
-          });
+          if (!OscRegistry().isLogSuppressed(path)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              oscLogKey.currentState?.logOscMessage(
+                address: path,
+                arg: args,
+                status: OscStatus.ok,
+                direction: Direction.received,
+                binary: Uint8List(0),
+              );
+            });
+          }
         });
       }
 

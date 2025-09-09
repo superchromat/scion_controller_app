@@ -23,25 +23,29 @@ class _AbsoluteOscCheckboxState extends State<AbsoluteOscCheckbox> {
   void _listener(List<Object?> args) {
     if (args.isNotEmpty && args.first is bool) {
       setState(() => _value = args.first as bool);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oscLogKey.currentState?.logOscMessage(
-          address: widget.address,
-          arg: args,
-          status: OscStatus.ok,
-          direction: Direction.received,
-          binary: Uint8List(0),
-        );
-      });
+      if (!OscRegistry().isLogSuppressed(widget.address)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          oscLogKey.currentState?.logOscMessage(
+            address: widget.address,
+            arg: args,
+            status: OscStatus.ok,
+            direction: Direction.received,
+            binary: Uint8List(0),
+          );
+        });
+      }
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oscLogKey.currentState?.logOscMessage(
-          address: widget.address,
-          arg: args,
-          status: OscStatus.error,
-          direction: Direction.received,
-          binary: Uint8List(0),
-        );
-      });
+      if (!OscRegistry().isLogSuppressed(widget.address)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          oscLogKey.currentState?.logOscMessage(
+            address: widget.address,
+            arg: args,
+            status: OscStatus.error,
+            direction: Direction.received,
+            binary: Uint8List(0),
+          );
+        });
+      }
     }
   }
 

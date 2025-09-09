@@ -50,6 +50,8 @@ class OscRegistry extends ChangeNotifier {
 
   final Map<String, OscParam> _params = {};
   final Map<String, List<OscCallback>> _pendingListeners = {};
+  // Addresses for which we should suppress logging during local echo dispatch
+  final Set<String> _suppressLogAddresses = {};
 
   /// Ensure an OSC address is registered for sending/listening.
   void registerAddress(String address) {
@@ -168,5 +170,29 @@ class OscRegistry extends ChangeNotifier {
     }
 
     recurse(data, []);
+  }
+
+  /// Dispatch a value locally (from UI) and suppress log entries for listeners.
+  /// This keeps widgets bound to the same address in sync without polluting
+  /// the OSC log with mirror "received" entries for locally-originated sends.
+  void dispatchLocal(String address, List<Object?> args) {
+    final key = address.startsWith('/') ? address : '/$address';
+    final param = _params[key];
+    if (param == null) {
+      // If not registered yet, do nothing; caller should registerAddress first.
+      return;
+    }
+    _suppressLogAddresses.add(key);
+    try {
+      param.dispatch(args);
+    } finally {
+      _suppressLogAddresses.remove(key);
+    }
+  }
+
+  /// True if logs should be suppressed for this address during current dispatch.
+  bool isLogSuppressed(String address) {
+    final key = address.startsWith('/') ? address : '/$address';
+    return _suppressLogAddresses.contains(key);
   }
 }
