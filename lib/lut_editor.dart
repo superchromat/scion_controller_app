@@ -114,32 +114,64 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     });
   }
 
-/// Send current channel data over OSC network only.
-/// Note: Do not transmit the Y channel LUT over the network.
-/// When locked (and editing Y), mirror the curve to R/G/B and send only those.
-void _sendCurrentChannel() {
-  // Prepare flattened control points for the active channel
-  final pts = List<Offset>.from(controlPoints[selectedChannel]!);
-  pts.sort((a, b) => a.dx.compareTo(b.dx));
-  final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
-
-  // Determine which channels to send to, explicitly skipping 'Y'
-  List<String> destinations;
-  if (locked && selectedChannel == 'Y') {
-    // Mirror Y edits to RGB when locked, but do not send Y itself
-    destinations = const ['R', 'G', 'B'];
-  } else if (selectedChannel == 'Y') {
-    // Never send Y LUT
-    destinations = const [];
-  } else {
-    destinations = [selectedChannel];
+  // Resolve '/send/{n}' base from our oscAddress '/send/{n}/lut'
+  String get _sendBasePath {
+    // oscAddress is expected like '/send/1/lut'
+    final parts = oscAddress.split('/').where((e) => e.isNotEmpty).toList();
+    if (parts.length >= 2 && parts[0] == 'send') {
+      return '/send/${parts[1]}';
+    }
+    // Fallback to oscAddress root
+    return '/send/1';
   }
 
-  for (final c in destinations) {
-    final path = '$oscAddress/$c';
-    sendOsc(flat, address: path);
+  void _sendLutPoint(String channel, int index, double x, double y) {
+    // Absolute endpoint: '/send/{n}/lutp' with args [channel, index, x, y]
+    final addr = '${_sendBasePath}/lutp';
+    sendOsc([channel, index, x, y], address: addr);
   }
-}
+
+  void _commitLut() {
+    final addr = '${_sendBasePath}/lut/commit';
+    sendOsc([], address: addr);
+  }
+
+  /// Send current channel data over OSC using point-wise updates.
+  /// - Never transmit the Y channel directly.
+  /// - When locked and editing Y, mirror the point updates to R/G/B and commit.
+  void _sendCurrentChannel() {
+    // Determine which channels to send to, explicitly skipping 'Y'
+    List<String> destinations;
+    if (locked && selectedChannel == 'Y') {
+      destinations = const ['R', 'G', 'B'];
+    } else if (selectedChannel == 'Y') {
+      destinations = const [];
+    } else {
+      destinations = [selectedChannel];
+    }
+
+    // If dragging a specific control point, send only that point; otherwise send all active points
+    final indices = <int>[];
+    if (currentControlPointIdx != null) {
+      indices.add(currentControlPointIdx!);
+    } else {
+      final pts = controlPoints[selectedChannel]!;
+      for (var i = 0; i < pts.length; i++) {
+        if (pts[i].dx >= 0 && pts[i].dy >= 0) indices.add(i);
+      }
+    }
+
+    for (final c in destinations) {
+      for (final i in indices) {
+        final pt = controlPoints[locked && selectedChannel == 'Y' ? 'Y' : c]![i];
+        _sendLutPoint(c, i, pt.dx, pt.dy);
+      }
+    }
+
+    if (destinations.isNotEmpty) {
+      _commitLut();
+    }
+  }
 
 
   void resetControlPoints() {
