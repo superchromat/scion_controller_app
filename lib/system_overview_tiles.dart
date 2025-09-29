@@ -32,6 +32,7 @@ class VideoFormatTile extends StatefulWidget {
   final String bitDepth;
   final String colorSpace;
   final String? chromaSubsampling;
+  final String? connectedPath;
 
   const VideoFormatTile({
     super.key,
@@ -41,6 +42,7 @@ class VideoFormatTile extends StatefulWidget {
     required this.bitDepth,
     required this.colorSpace,
     this.chromaSubsampling,
+    this.connectedPath,
   });
 
   @override
@@ -54,6 +56,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   int _bpp = 0;
   String _cs = '';
   String _sub = '';
+  bool _connected = true;
 
   late final AnimationController _resController;
   late final Animation<Color?> _resColor;
@@ -126,6 +129,12 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final registry = OscRegistry();
+
+    bool parseBool(dynamic raw) {
+      if (raw is bool) return raw;
+      final s = raw.toString().toLowerCase();
+      return s == 't' || s == 'true' || s == '1';
+    }
 
     void bindString(
       String? src,
@@ -224,6 +233,30 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       }
     }
 
+    if (widget.connectedPath != null) {
+      final src = widget.connectedPath!;
+      if (src.startsWith('/')) {
+        registry.registerAddress(src);
+        final param = registry.allParams[src];
+        if (param != null && param.currentValue.isNotEmpty) {
+          final newVal = parseBool(param.currentValue.first);
+          if (_connected != newVal) _connected = newVal;
+        }
+        registry.registerListener(src, (args) {
+          final newVal = args.isNotEmpty ? parseBool(args.first) : false;
+          if (!mounted) return;
+          if (_connected != newVal) {
+            setState(() => _connected = newVal);
+          }
+        });
+      } else {
+        final newVal = parseBool(src);
+        if (_connected != newVal) _connected = newVal;
+      }
+    } else if (!_connected) {
+      _connected = true;
+    }
+
     bindString(widget.resolution, () => _res, (v) => _res = v, _resController);
     bindDouble(widget.framerate, () => _fps, (v) => _fps = v, _fpsController);
     bindInt(widget.bitDepth, () => _bpp, (v) => _bpp = v, _bppController);
@@ -240,58 +273,63 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         alignment: Alignment.center,
         children: [
           Text(widget.overlayLabel, style: kOverlayTextStyle),
-          Padding(
-            padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.resolution != null)
-                  AnimatedBuilder(
-                    animation: _resColor,
-                    builder: (ctx, _) => Text(
-                      _res,
-                      style: _systemTextStyle.copyWith(color: _resColor.value),
-                    ),
-                  ),
-                if (widget.framerate != null)
-                  AnimatedBuilder(
-                    animation: _fpsColor,
-                    builder: (ctx, _) => Text(
-                      _fps.toStringAsFixed(2),
-                      style: _systemTextStyle.copyWith(color: _fpsColor.value),
-                    ),
-                  ),
-                AnimatedBuilder(
-                  animation: _bppColor,
-                  builder: (ctx, _) => Text(
-                    '$_bpp bpp',
-                    style: _systemTextStyle.copyWith(color: _bppColor.value),
-                  ),
-                ),
-                Row(
-                  children: [
+          if (_connected)
+            Padding(
+              padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.resolution != null)
                     AnimatedBuilder(
-                      animation: _csColor,
+                      animation: _resColor,
                       builder: (ctx, _) => Text(
-                        _cs,
-                        style: _systemTextStyle.copyWith(color: _csColor.value),
+                        _res,
+                        style: _systemTextStyle.copyWith(color: _resColor.value),
                       ),
                     ),
-                    if (widget.chromaSubsampling != null) ...[
-                      const SizedBox(width: 8),
+                  if (widget.framerate != null)
+                    AnimatedBuilder(
+                      animation: _fpsColor,
+                      builder: (ctx, _) => Text(
+                        _fps.toStringAsFixed(2),
+                        style: _systemTextStyle.copyWith(color: _fpsColor.value),
+                      ),
+                    ),
+                  AnimatedBuilder(
+                    animation: _bppColor,
+                    builder: (ctx, _) => Text(
+                      '$_bpp bpp',
+                      style: _systemTextStyle.copyWith(color: _bppColor.value),
+                    ),
+                  ),
+                  Row(
+                    children: [
                       AnimatedBuilder(
-                        animation: _subColor,
+                        animation: _csColor,
                         builder: (ctx, _) => Text(
-                          _sub,
-                          style: _systemTextStyle.copyWith(color: _subColor.value),
+                          _cs,
+                          style: _systemTextStyle.copyWith(color: _csColor.value),
                         ),
                       ),
+                      if (widget.chromaSubsampling != null) ...[
+                        const SizedBox(width: 8),
+                        AnimatedBuilder(
+                          animation: _subColor,
+                          builder: (ctx, _) => Text(
+                            _sub,
+                            style: _systemTextStyle.copyWith(color: _subColor.value),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
+            )
+          else
+            Center(
+              child: Text('Disconnected', style: _systemTextStyleRed),
             ),
-          ),
         ],
       ),
     );
@@ -345,11 +383,12 @@ class HDMIOutTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return VideoFormatTile(
       overlayLabel: 'O',
-      resolution: '/analog_format/resolution',
-      framerate: '/analog_format/framerate',
-      bitDepth: '12',
-      colorSpace: 'RGB',
-      chromaSubsampling: '4:4:4',
+      connectedPath: '/output/connected',
+      resolution: '/output/resolution',
+      framerate: '/output/framerate',
+      bitDepth: '/output/bit_depth',
+      colorSpace: '/output/colorspace',
+      chromaSubsampling: '/output/chroma_subsampling',
     );
   }
 }
