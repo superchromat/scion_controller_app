@@ -14,6 +14,7 @@ import 'setup_page.dart';
 import 'send_page.dart';
 import 'osc_log.dart';
 import 'osc_registry_viewer.dart';
+import 'return_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -278,10 +279,4 @@ class _MyHomePageState extends State<MyHomePage> {
       );
     });
   }
-}
-
-class ReturnPage extends StatelessWidget {
-  const ReturnPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Placeholder();
 }
