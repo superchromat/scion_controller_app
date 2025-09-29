@@ -31,10 +31,13 @@ class Network extends ChangeNotifier {
   Timer? _monitorTimer;
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
+  Timer? _drainResumeTimer;
   // When true, send a full "/sync" right after a successful auto-reconnect
   bool _pendingSyncAfterAutoReconnect = false;
   DateTime? _lastMsgReceived;
   bool _hasSynced = false;
+
+  static const int _maxDatagramsPerDrain = 64;
 
   String? _lastHost;
   int? _lastPort;
@@ -60,13 +63,15 @@ class Network extends ChangeNotifier {
     } else {
       List<InternetAddress> addrs = [];
       try {
-        addrs = await InternetAddress.lookup(host, type: InternetAddressType.IPv4);
+        addrs =
+            await InternetAddress.lookup(host, type: InternetAddressType.IPv4);
       } catch (_) {
         addrs = const [];
       }
       if (addrs.isEmpty) {
         // fall back to IPv6 lookup
-        addrs = await InternetAddress.lookup(host, type: InternetAddressType.IPv6);
+        addrs =
+            await InternetAddress.lookup(host, type: InternetAddressType.IPv6);
       }
       if (addrs.isEmpty) {
         throw SocketException('No IP address found for $host');
@@ -127,6 +132,8 @@ class Network extends ChangeNotifier {
     _ackTimer?.cancel();
     _monitorTimer?.cancel();
     _heartbeatTimer?.cancel();
+    _drainResumeTimer?.cancel();
+    _drainResumeTimer = null;
     _socket?.close();
     _socket = null;
     _destination = null;
@@ -145,7 +152,8 @@ class Network extends ChangeNotifier {
     // Hard block: never send Y LUT over the network
     // Matches any address ending with "/lut/Y" (e.g., "/send/1/lut/Y")
     final segs = address.split('/').where((s) => s.isNotEmpty).toList();
-    final isYLut = segs.length >= 2 && segs[segs.length - 2] == 'lut' && segs.last == 'Y';
+    final isYLut =
+        segs.length >= 2 && segs[segs.length - 2] == 'lut' && segs.last == 'Y';
     if (isYLut) {
       if (kDebugMode) debugPrint('Skipping send for Y LUT at "$address"');
       return;
@@ -229,38 +237,7 @@ class Network extends ChangeNotifier {
   void _onSocketEvent(RawSocketEvent event) {
     if (_socket == null) return;
     if (event == RawSocketEvent.read) {
-      Datagram? dg = _socket!.receive();
-      while (dg != null) {
-        try {
-          final msg = OSCMessage.fromBytes(dg.data);
-          _lastMsgReceived = DateTime.now();
-          if (msg.address != '/ack') {
-            debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
-            OscRegistry().dispatch(msg.address, msg.arguments);
-        } else {
-            _hasSynced = true;
-            // on successful sync, stop any reconnect attempts
-            _reconnectTimer?.cancel();
-            // stop waiting-for-ack timer
-            _ackTimer?.cancel();
-            // start heartbeat to keep link healthy without full syncs
-            _heartbeatTimer?.cancel();
-            _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-              try { sendOscMessage('/ack', []); } catch (_) {}
-            });
-            // If this ACK finalized an auto-reconnect, issue a full sync now
-            if (_pendingSyncAfterAutoReconnect) {
-              try { sendOscMessage('/sync', []); } catch (_) {}
-              _pendingSyncAfterAutoReconnect = false;
-            }
-            notifyListeners();
-          }
-        } catch (e) {
-          debugPrint(
-              'Error parsing packet ($e) from ${dg.address.address}:${dg.port}');
-        }
-        dg = _socket!.receive();
-      }
+      _drainIncomingDatagrams();
     } else if (event == RawSocketEvent.write && _pending.isNotEmpty) {
       final p = _pending.first;
       try {
@@ -283,6 +260,70 @@ class Network extends ChangeNotifier {
         _socket!.writeEventsEnabled = false;
       }
     }
+  }
+
+  void _drainIncomingDatagrams() {
+    var socket = _socket;
+    if (socket == null) return;
+
+    var processed = 0;
+    Datagram? dg = socket.receive();
+    while (dg != null) {
+      _handleDatagram(dg);
+      processed++;
+
+      socket = _socket;
+      if (socket == null) return;
+
+      if (processed >= _maxDatagramsPerDrain) {
+        _scheduleDatagramDrain();
+        return;
+      }
+
+      dg = socket.receive();
+    }
+  }
+
+  void _handleDatagram(Datagram dg) {
+    try {
+      final msg = OSCMessage.fromBytes(dg.data);
+      _lastMsgReceived = DateTime.now();
+      if (msg.address != '/ack') {
+        debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
+        OscRegistry().dispatch(msg.address, msg.arguments);
+      } else {
+        _hasSynced = true;
+        // on successful sync, stop any reconnect attempts
+        _reconnectTimer?.cancel();
+        // stop waiting-for-ack timer
+        _ackTimer?.cancel();
+        // start heartbeat to keep link healthy without full syncs
+        _heartbeatTimer?.cancel();
+        _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+          try {
+            sendOscMessage('/ack', []);
+          } catch (_) {}
+        });
+        // If this ACK finalized an auto-reconnect, issue a full sync now
+        if (_pendingSyncAfterAutoReconnect) {
+          try {
+            sendOscMessage('/sync', []);
+          } catch (_) {}
+          _pendingSyncAfterAutoReconnect = false;
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint(
+          'Error parsing packet ($e) from ${dg.address.address}:${dg.port}');
+    }
+  }
+
+  void _scheduleDatagramDrain() {
+    _drainResumeTimer ??= Timer(Duration.zero, () {
+      _drainResumeTimer = null;
+      _drainIncomingDatagrams();
+    });
   }
 
   void _scheduleReconnect() {

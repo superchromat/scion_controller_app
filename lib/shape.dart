@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'numeric_slider.dart';
+// import 'osc_radiolist.dart';
 
 class LinkableSliderPair extends StatefulWidget {
   final String label;
@@ -146,8 +147,7 @@ class Shape extends StatefulWidget {
 
 class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<NumericSliderState>();
-  final _pitchKey    = GlobalKey<NumericSliderState>();
-  final _yawKey      = GlobalKey<NumericSliderState>();
+  // Pitch/Yaw removed
 
   Widget _labeledSlider({
     required String label,
@@ -217,39 +217,23 @@ class ShapeState extends State<Shape> {
             label: 'Position',
             xKey: 'posX',
             yKey: 'posY',
-            xValue: 0.0,
-            yValue: 0.0,
-            range: const RangeValues(-1000, 1000),
-            detents: [0.0],
-            precision: 0,
+            xValue: 0.5,
+            yValue: 0.5,
+            range: const RangeValues(0, 1),
+            detents: [0, 0.5, 1.0],
+            precision: 3,
           )),
+          // Zoom Mode removed
           _row(_labeledSlider(
             label: "Rotation",
             paramKey: "rotation",
             sliderKey: _rotationKey,
             value: 0.0,
-            range: const RangeValues(-180.0, 180.0),
-            detents: const [0.0, 90.0, 180.0, -90.0, -180.0],
+            range: const RangeValues(0.0, 360.0),
+            detents: const [0.0, 90.0, 180.0, 270.0, 360.0],
             precision: 3,
           )),
-          _row(_labeledSlider(
-            label: "Pitch",
-            paramKey: "pitch",
-            sliderKey: _pitchKey,
-            value: 0.0,
-            range: const RangeValues(-90.0, 90.0),
-            detents: const [0.0],
-            precision: 3,
-          )),
-          _row(_labeledSlider(
-            label: "Yaw",
-            paramKey: "yaw",
-            sliderKey: _yawKey,
-            value: 0.0,
-            range: const RangeValues(-180.0, 180.0),
-            detents: const [0.0],
-            precision: 3,
-          )),
+          // Pitch/Yaw removed
         ],
       ),
     );
