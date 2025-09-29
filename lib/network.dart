@@ -32,10 +32,13 @@ class Network extends ChangeNotifier {
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   Timer? _drainResumeTimer;
+  bool _manualConnectInProgress = false;
   // When true, send a full "/sync" right after a successful auto-reconnect
   bool _pendingSyncAfterAutoReconnect = false;
   DateTime? _lastMsgReceived;
   bool _hasSynced = false;
+
+  bool get _handshakeInProgress => _socket != null && !_hasSynced;
 
   static const int _maxDatagramsPerDrain = 64;
 
@@ -45,86 +48,100 @@ class Network extends ChangeNotifier {
   bool get isConnected =>
       _socket != null && _destination != null && _port != null && _hasSynced;
 
-  bool get isConnecting => _socket != null && !_hasSynced;
+  bool get isConnecting => _manualConnectInProgress && _handshakeInProgress;
 
   /// Binds a UDP socket on an ephemeral port and sets the remote host/port.
   /// Prefers IPv4 but falls back to IPv6 if necessary, and binds a socket that
   /// matches the destination address family.
   Future<void> connect(String host, int txPort,
-      {Duration timeout = const Duration(seconds: 5)}) async {
+      {Duration timeout = const Duration(seconds: 5),
+      bool userInitiated = true}) async {
     // remember target for auto-reconnect attempts
     _lastHost = host;
     _lastPort = txPort;
-    // resolve remote address; prefer IPv4, fall back to IPv6
-    InternetAddress dest;
-    final parsed = InternetAddress.tryParse(host);
-    if (parsed != null) {
-      dest = parsed;
-    } else {
-      List<InternetAddress> addrs = [];
-      try {
-        addrs =
-            await InternetAddress.lookup(host, type: InternetAddressType.IPv4);
-      } catch (_) {
-        addrs = const [];
-      }
-      if (addrs.isEmpty) {
-        // fall back to IPv6 lookup
-        addrs =
-            await InternetAddress.lookup(host, type: InternetAddressType.IPv6);
-      }
-      if (addrs.isEmpty) {
-        throw SocketException('No IP address found for $host');
-      }
-      dest = addrs.first;
+    if (userInitiated) {
+      _manualConnectInProgress = true;
+      notifyListeners();
     }
-    _destination = dest;
-    _port = txPort;
 
-    // bind locally on port 0 (ephemeral), matching destination IP family
-    final bindAddr = (dest.type == InternetAddressType.IPv6)
-        ? InternetAddress.anyIPv6
-        : InternetAddress.anyIPv4;
-    _socket = await RawDatagramSocket.bind(bindAddr, 0).timeout(timeout);
-
-    final localPort = _socket!.port;
-    if (kDebugMode) debugPrint('Network bound locally on port $localPort');
-
-    _socket!
-      ..writeEventsEnabled = false
-      ..listen((event) {
+    try {
+      // resolve remote address; prefer IPv4, fall back to IPv6
+      InternetAddress dest;
+      final parsed = InternetAddress.tryParse(host);
+      if (parsed != null) {
+        dest = parsed;
+      } else {
+        List<InternetAddress> addrs = [];
         try {
-          _onSocketEvent(event);
+          addrs = await InternetAddress.lookup(host,
+              type: InternetAddressType.IPv4);
+        } catch (_) {
+          addrs = const [];
+        }
+        if (addrs.isEmpty) {
+          // fall back to IPv6 lookup
+          addrs = await InternetAddress.lookup(host,
+              type: InternetAddressType.IPv6);
+        }
+        if (addrs.isEmpty) {
+          throw SocketException('No IP address found for $host');
+        }
+        dest = addrs.first;
+      }
+      _destination = dest;
+      _port = txPort;
+
+      // bind locally on port 0 (ephemeral), matching destination IP family
+      final bindAddr = (dest.type == InternetAddressType.IPv6)
+          ? InternetAddress.anyIPv6
+          : InternetAddress.anyIPv4;
+      _socket = await RawDatagramSocket.bind(bindAddr, 0).timeout(timeout);
+
+      final localPort = _socket!.port;
+      if (kDebugMode) debugPrint('Network bound locally on port $localPort');
+
+      _socket!
+        ..writeEventsEnabled = false
+        ..listen((event) {
+          try {
+            _onSocketEvent(event);
+          } catch (e, st) {
+            debugPrint('⚠️ _onSocketEvent error: $e\n$st');
+          }
+        });
+
+      // initialize response tracking
+      _lastMsgReceived = DateTime.now();
+      // send an immediate sync
+      sendOscMessage('/sync', []);
+      // While waiting for /ack, ping with /ack (lightweight) to elicit a reply
+      _ackTimer?.cancel();
+      _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        try {
+          sendOscMessage('/ack', []);
         } catch (e, st) {
-          debugPrint('⚠️ _onSocketEvent error: $e\n$st');
+          debugPrint('Periodic /sync send error: $e\n$st');
+          // Do not force disconnect here; monitor handles timeouts.
+        }
+      });
+      // Monitor timeout
+      _monitorTimer?.cancel();
+      _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_lastMsgReceived != null &&
+            DateTime.now().difference(_lastMsgReceived!).inSeconds > 10) {
+          debugPrint('No msg received in 10s; disconnecting');
+          disconnect();
         }
       });
 
-    // initialize response tracking
-    _lastMsgReceived = DateTime.now();
-    // send an immediate sync
-    sendOscMessage('/sync', []);
-    // While waiting for /ack, ping with /ack (lightweight) to elicit a reply
-    _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      try {
-        sendOscMessage('/ack', []);
-      } catch (e, st) {
-        debugPrint('Periodic /sync send error: $e\n$st');
-        // Do not force disconnect here; monitor handles timeouts.
+      notifyListeners();
+    } catch (e) {
+      if (userInitiated) {
+        _manualConnectInProgress = false;
+        notifyListeners();
       }
-    });
-    // Monitor timeout
-    _monitorTimer?.cancel();
-    _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_lastMsgReceived != null &&
-          DateTime.now().difference(_lastMsgReceived!).inSeconds > 10) {
-        debugPrint('No msg received in 10s; disconnecting');
-        disconnect();
-      }
-    });
-
-    notifyListeners();
+      rethrow;
+    }
   }
 
   /// Closes the socket, stops timers, and clears queued messages.
@@ -134,6 +151,7 @@ class Network extends ChangeNotifier {
     _heartbeatTimer?.cancel();
     _drainResumeTimer?.cancel();
     _drainResumeTimer = null;
+    _manualConnectInProgress = false;
     _socket?.close();
     _socket = null;
     _destination = null;
@@ -293,6 +311,7 @@ class Network extends ChangeNotifier {
         OscRegistry().dispatch(msg.address, msg.arguments);
       } else {
         _hasSynced = true;
+        _manualConnectInProgress = false;
         // on successful sync, stop any reconnect attempts
         _reconnectTimer?.cancel();
         // stop waiting-for-ack timer
@@ -331,14 +350,14 @@ class Network extends ChangeNotifier {
     // prevent multiple timers
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (isConnected || isConnecting) return;
+      if (isConnected || _handshakeInProgress) return;
       try {
         if (kDebugMode) {
           debugPrint('Attempting auto-reconnect to $_lastHost:$_lastPort');
         }
         // Mark that we should perform a full sync after this auto-reconnect
         _pendingSyncAfterAutoReconnect = true;
-        await connect(_lastHost!, _lastPort!);
+        await connect(_lastHost!, _lastPort!, userInitiated: false);
       } catch (e, st) {
         if (kDebugMode) debugPrint('Auto-reconnect failed: $e\n$st');
         // keep timer running; will retry on next tick
