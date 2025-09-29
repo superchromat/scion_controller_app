@@ -79,40 +79,40 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
-    _resColor =
-        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_resController);
+    _resColor = ColorTween(begin: Colors.yellow, end: Colors.green)
+        .animate(_resController);
 
     _fpsController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
-    _fpsColor =
-        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_fpsController);
+    _fpsColor = ColorTween(begin: Colors.yellow, end: Colors.green)
+        .animate(_fpsController);
 
     _bppController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
-    _bppColor =
-        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_bppController);
+    _bppColor = ColorTween(begin: Colors.yellow, end: Colors.green)
+        .animate(_bppController);
 
     _csController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
-    _csColor =
-        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_csController);
+    _csColor = ColorTween(begin: Colors.yellow, end: Colors.green)
+        .animate(_csController);
 
     _subController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: flashTime),
       value: 1,
     );
-    _subColor =
-        ColorTween(begin: Colors.yellow, end: Colors.green).animate(_subController);
+    _subColor = ColorTween(begin: Colors.yellow, end: Colors.green)
+        .animate(_subController);
   }
 
   @override
@@ -177,7 +177,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         registry.registerAddress(src);
         final param = registry.allParams[src];
         if (param != null && param.currentValue.isNotEmpty) {
-          final newVal = double.tryParse(param.currentValue.first.toString()) ?? 0.0;
+          final newVal =
+              double.tryParse(param.currentValue.first.toString()) ?? 0.0;
           if (getOld() != newVal) {
             setState(() => setter(newVal));
             ctl.forward(from: 0);
@@ -261,7 +262,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
     bindDouble(widget.framerate, () => _fps, (v) => _fps = v, _fpsController);
     bindInt(widget.bitDepth, () => _bpp, (v) => _bpp = v, _bppController);
     bindString(widget.colorSpace, () => _cs, (v) => _cs = v, _csController);
-    bindString(widget.chromaSubsampling, () => _sub, (v) => _sub = v, _subController);
+    bindString(
+        widget.chromaSubsampling, () => _sub, (v) => _sub = v, _subController);
   }
 
   @override
@@ -284,7 +286,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                       animation: _resColor,
                       builder: (ctx, _) => Text(
                         _res,
-                        style: _systemTextStyle.copyWith(color: _resColor.value),
+                        style:
+                            _systemTextStyle.copyWith(color: _resColor.value),
                       ),
                     ),
                   if (widget.framerate != null)
@@ -292,7 +295,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                       animation: _fpsColor,
                       builder: (ctx, _) => Text(
                         _fps.toStringAsFixed(2),
-                        style: _systemTextStyle.copyWith(color: _fpsColor.value),
+                        style:
+                            _systemTextStyle.copyWith(color: _fpsColor.value),
                       ),
                     ),
                   AnimatedBuilder(
@@ -308,7 +312,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                         animation: _csColor,
                         builder: (ctx, _) => Text(
                           _cs,
-                          style: _systemTextStyle.copyWith(color: _csColor.value),
+                          style:
+                              _systemTextStyle.copyWith(color: _csColor.value),
                         ),
                       ),
                       if (widget.chromaSubsampling != null) ...[
@@ -317,7 +322,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                           animation: _subColor,
                           builder: (ctx, _) => Text(
                             _sub,
-                            style: _systemTextStyle.copyWith(color: _subColor.value),
+                            style: _systemTextStyle.copyWith(
+                                color: _subColor.value),
                           ),
                         ),
                       ],

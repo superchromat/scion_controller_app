@@ -33,6 +33,8 @@ class Network extends ChangeNotifier {
   Timer? _reconnectTimer;
   Timer? _drainResumeTimer;
   bool _manualConnectInProgress = false;
+  bool _connectInFlight = false;
+  int _connectGeneration = 0;
   // When true, send a full "/sync" right after a successful auto-reconnect
   bool _pendingSyncAfterAutoReconnect = false;
   DateTime? _lastMsgReceived;
@@ -56,13 +58,26 @@ class Network extends ChangeNotifier {
   Future<void> connect(String host, int txPort,
       {Duration timeout = const Duration(seconds: 5),
       bool userInitiated = true}) async {
+    final int generation = ++_connectGeneration;
+    _connectInFlight = true;
     // remember target for auto-reconnect attempts
     _lastHost = host;
     _lastPort = txPort;
     if (userInitiated) {
       _manualConnectInProgress = true;
+      _reconnectTimer?.cancel();
       notifyListeners();
     }
+
+    _ackTimer?.cancel();
+    _monitorTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    _drainResumeTimer?.cancel();
+    _drainResumeTimer = null;
+    _pending.clear();
+    _hasSynced = false;
+
+    _closeCurrentSocket();
 
     try {
       // resolve remote address; prefer IPv4, fall back to IPv6
@@ -88,6 +103,10 @@ class Network extends ChangeNotifier {
         }
         dest = addrs.first;
       }
+      if (generation != _connectGeneration) {
+        return;
+      }
+
       _destination = dest;
       _port = txPort;
 
@@ -95,16 +114,23 @@ class Network extends ChangeNotifier {
       final bindAddr = (dest.type == InternetAddressType.IPv6)
           ? InternetAddress.anyIPv6
           : InternetAddress.anyIPv4;
-      _socket = await RawDatagramSocket.bind(bindAddr, 0).timeout(timeout);
+      final socket = await RawDatagramSocket.bind(bindAddr, 0).timeout(timeout);
 
-      final localPort = _socket!.port;
+      if (generation != _connectGeneration) {
+        socket.close();
+        return;
+      }
+
+      _socket = socket;
+
+      final localPort = socket.port;
       if (kDebugMode) debugPrint('Network bound locally on port $localPort');
 
-      _socket!
+      socket
         ..writeEventsEnabled = false
         ..listen((event) {
           try {
-            _onSocketEvent(event);
+            _onSocketEvent(socket, event);
           } catch (e, st) {
             debugPrint('⚠️ _onSocketEvent error: $e\n$st');
           }
@@ -136,11 +162,15 @@ class Network extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      if (userInitiated) {
+      if (userInitiated && generation == _connectGeneration) {
         _manualConnectInProgress = false;
         notifyListeners();
       }
       rethrow;
+    } finally {
+      if (generation == _connectGeneration) {
+        _connectInFlight = false;
+      }
     }
   }
 
@@ -152,12 +182,13 @@ class Network extends ChangeNotifier {
     _drainResumeTimer?.cancel();
     _drainResumeTimer = null;
     _manualConnectInProgress = false;
-    _socket?.close();
-    _socket = null;
+    _connectGeneration++;
+    _closeCurrentSocket();
     _destination = null;
     _port = null;
     _pending.clear();
     _hasSynced = false;
+    _connectInFlight = false;
 
     notifyListeners();
 
@@ -252,10 +283,17 @@ class Network extends ChangeNotifier {
     }
   }
 
-  void _onSocketEvent(RawSocketEvent event) {
-    if (_socket == null) return;
+  void _onSocketEvent(RawDatagramSocket socket, RawSocketEvent event) {
+    if (!identical(_socket, socket)) {
+      if (event == RawSocketEvent.read) {
+        while (socket.receive() != null) {
+          // drain stale socket
+        }
+      }
+      return;
+    }
     if (event == RawSocketEvent.read) {
-      _drainIncomingDatagrams();
+      _drainIncomingDatagrams(socket);
     } else if (event == RawSocketEvent.write && _pending.isNotEmpty) {
       final p = _pending.first;
       try {
@@ -280,21 +318,16 @@ class Network extends ChangeNotifier {
     }
   }
 
-  void _drainIncomingDatagrams() {
-    var socket = _socket;
-    if (socket == null) return;
-
+  void _drainIncomingDatagrams(RawDatagramSocket socket) {
+    if (!identical(_socket, socket)) return;
     var processed = 0;
     Datagram? dg = socket.receive();
     while (dg != null) {
       _handleDatagram(dg);
       processed++;
 
-      socket = _socket;
-      if (socket == null) return;
-
       if (processed >= _maxDatagramsPerDrain) {
-        _scheduleDatagramDrain();
+        _scheduleDatagramDrain(socket);
         return;
       }
 
@@ -338,10 +371,11 @@ class Network extends ChangeNotifier {
     }
   }
 
-  void _scheduleDatagramDrain() {
+  void _scheduleDatagramDrain(RawDatagramSocket socket) {
     _drainResumeTimer ??= Timer(Duration.zero, () {
       _drainResumeTimer = null;
-      _drainIncomingDatagrams();
+      if (!identical(_socket, socket)) return;
+      _drainIncomingDatagrams(socket);
     });
   }
 
@@ -350,7 +384,7 @@ class Network extends ChangeNotifier {
     // prevent multiple timers
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (isConnected || _handshakeInProgress) return;
+      if (isConnected || _handshakeInProgress || _connectInFlight) return;
       try {
         if (kDebugMode) {
           debugPrint('Attempting auto-reconnect to $_lastHost:$_lastPort');
@@ -363,5 +397,10 @@ class Network extends ChangeNotifier {
         // keep timer running; will retry on next tick
       }
     });
+  }
+
+  void _closeCurrentSocket() {
+    _socket?.close();
+    _socket = null;
   }
 }
