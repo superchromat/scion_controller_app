@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'labeled_card.dart';
+import 'lut_editor.dart';
 import 'osc_dropdown.dart';
 import 'osc_value_label.dart';
 import 'osc_widget_binding.dart';
@@ -30,6 +31,8 @@ class _ReturnPageBody extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: const [
         _ReturnOutputFormatCard(),
+        SizedBox(height: 16),
+        _ReturnOutputLutCard(),
       ],
     );
   }
@@ -79,6 +82,34 @@ class _ReturnOutputControls extends StatelessWidget {
         _ChromaSubsamplingDropdown(),
         _BitDepthDropdown(),
       ],
+    );
+  }
+}
+
+class _ReturnOutputLutCard extends StatelessWidget {
+  const _ReturnOutputLutCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const LabeledCard(
+      title: 'Output LUT',
+      child: SizedBox(
+        height: 400,
+        child: Card(
+          color: Color(0xFF1F1F1F),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: OscPathSegment(
+              segment: 'lut',
+              child: LUTEditor(),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
