@@ -15,6 +15,7 @@ import 'send_page.dart';
 import 'osc_log.dart';
 import 'osc_registry_viewer.dart';
 import 'return_page.dart';
+import 'key_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -163,17 +164,19 @@ class _MyHomePageState extends State<MyHomePage> {
     return [
       // 0 → Setup
       const SetupPage(),
-      // 1–3 → Send 1–3
+      // 1 → Key
+      const KeyPage(),
+      // 2–4 → Send 1–3
       for (var i = 1; i <= 3; i++) SendPage(key: ValueKey(i), pageNumber: i),
-      // 4 → Return
+      // 5 → Return
       const ReturnPage(),
-      // 5 → OSC Log
+      // 6 → OSC Log
       OscLogTable(
         key: oscLogKey,
         onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 5,
+        isActive: selectedIndex == 6,
       ),
-      // 6 → Registry Viewer
+      // 7 → Registry Viewer
       const OscRegistryViewer(),
     ];
   }
@@ -228,6 +231,10 @@ class _MyHomePageState extends State<MyHomePage> {
                         NavigationRailDestination(
                           icon: Icon(Icons.settings),
                           label: Text('Setup'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.merge_type),
+                          label: Text('Key'),
                         ),
                         NavigationRailDestination(
                           icon: Icon(Icons.output),
