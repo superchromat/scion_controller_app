@@ -89,7 +89,7 @@ class Network extends ChangeNotifier {
     sendOscMessage('/sync', []);
     // Send /sync frequently while waiting for /ack
     _ackTimer?.cancel();
-    _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _ackTimer = Timer.periodic(const Duration(seconds: 10), (t) {
       try {
         sendOscMessage('/sync', []);
       } catch (e, st) {
