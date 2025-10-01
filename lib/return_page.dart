@@ -5,6 +5,7 @@ import 'lut_editor.dart';
 import 'osc_dropdown.dart';
 import 'osc_value_label.dart';
 import 'osc_widget_binding.dart';
+import 'numeric_slider.dart';
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});
@@ -31,6 +32,8 @@ class _ReturnPageBody extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: const [
         _ReturnOutputFormatCard(),
+        SizedBox(height: 16),
+        _ReturnOutputPictureCard(),
         SizedBox(height: 16),
         _ReturnOutputLutCard(),
       ],
@@ -82,6 +85,146 @@ class _ReturnOutputControls extends StatelessWidget {
         _ChromaSubsamplingDropdown(),
         _BitDepthDropdown(),
       ],
+    );
+  }
+}
+
+class _ReturnOutputPictureCard extends StatelessWidget {
+  const _ReturnOutputPictureCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const LabeledCard(
+      title: 'Output Picture',
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: _ReturnOutputPictureControls(),
+      ),
+    );
+  }
+}
+
+class _ReturnOutputPictureControls extends StatefulWidget {
+  const _ReturnOutputPictureControls();
+
+  @override
+  State<_ReturnOutputPictureControls> createState() =>
+      _ReturnOutputPictureControlsState();
+}
+
+class _ReturnOutputPictureControlsState
+    extends State<_ReturnOutputPictureControls> {
+  final _brightnessKey = GlobalKey<NumericSliderState>();
+  final _contrastKey = GlobalKey<NumericSliderState>();
+  final _saturationKey = GlobalKey<NumericSliderState>();
+  final _hueKey = GlobalKey<NumericSliderState>();
+
+  static const double _initialBrightness = 0.5;
+  static const double _initialContrast = 0.5;
+  static const double _initialSaturation = 0.5;
+  static const double _initialHue = 0.0;
+
+  Widget _buildRow({required Widget child}) {
+    return SizedBox(
+      height: 32,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildSlider({
+    required String label,
+    required String segment,
+    required GlobalKey<NumericSliderState> sliderKey,
+    required double initialValue,
+    required RangeValues range,
+    List<double>? detents,
+    required int precision,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(width: 90, child: Text(label)),
+        SizedBox(
+          height: 24,
+          width: 72,
+          child: OscPathSegment(
+            segment: segment,
+            child: NumericSlider(
+              key: sliderKey,
+              value: initialValue,
+              range: range,
+              detents: detents,
+              precision: precision,
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () {
+            sliderKey.currentState?.setValue(initialValue, immediate: true);
+          },
+          child: const Icon(Icons.refresh, size: 16),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildRow(
+            child: _buildSlider(
+              label: 'Brightness',
+              segment: 'brightness',
+              sliderKey: _brightnessKey,
+              initialValue: _initialBrightness,
+              range: const RangeValues(0, 1),
+              detents: const [0.0, 0.5, 1.0],
+              precision: 3,
+            ),
+          ),
+          _buildRow(
+            child: _buildSlider(
+              label: 'Contrast',
+              segment: 'contrast',
+              sliderKey: _contrastKey,
+              initialValue: _initialContrast,
+              range: const RangeValues(0, 1),
+              detents: const [0.0, 0.5, 1.0],
+              precision: 3,
+            ),
+          ),
+          _buildRow(
+            child: _buildSlider(
+              label: 'Saturation',
+              segment: 'saturation',
+              sliderKey: _saturationKey,
+              initialValue: _initialSaturation,
+              range: const RangeValues(0, 1),
+              detents: const [0.0, 0.5, 1.0],
+              precision: 3,
+            ),
+          ),
+          _buildRow(
+            child: _buildSlider(
+              label: 'Hue',
+              segment: 'hue',
+              sliderKey: _hueKey,
+              initialValue: _initialHue,
+              range: const RangeValues(-180, 180),
+              detents: const [0.0],
+              precision: 3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
