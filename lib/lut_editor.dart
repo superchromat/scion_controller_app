@@ -1,6 +1,10 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:osc/osc.dart';
+import 'network.dart';
 import 'monotonic_spline.dart';
 import 'osc_widget_binding.dart';
 import 'lut_painter.dart';
@@ -21,6 +25,7 @@ class LUTEditor extends StatefulWidget {
 
 class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   static const List<String> channels = ['Y', 'R', 'G', 'B'];
+  static const double _eqEps = 1e-6;
 
   /// Control points per channel, fixed length with placeholders at (-1,-1).
   late final Map<String, List<Offset>> controlPoints;
@@ -84,16 +89,22 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
               pts[i] = const Offset(-1, -1);
             }
           }
+          // If all RGB LUTs are identical after this update, mirror to Y
+          if (c != 'Y') {
+            _maybeMirrorRgbToY();
+          }
           _rebuildSplines();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            oscLogKey.currentState?.logOscMessage(
-              address: path,
-              arg: args,
-              status: OscStatus.ok,
-              direction: Direction.received,
-              binary: Uint8List(0),
-            );
-          });
+          if (!OscRegistry().isLogSuppressed(path)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              oscLogKey.currentState?.logOscMessage(
+                address: path,
+                arg: args,
+                status: OscStatus.ok,
+                direction: Direction.received,
+                binary: Uint8List(0),
+              );
+            });
+          }
         });
       }
 
@@ -103,37 +114,74 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     }
   }
 
+  bool _offsetEq(Offset a, Offset b) {
+    return (a.dx - b.dx).abs() <= _eqEps && (a.dy - b.dy).abs() <= _eqEps;
+  }
+
+  bool _listEq(List<Offset> a, List<Offset> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (!_offsetEq(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  /// If R, G, and B are equal, copy that LUT into Y.
+  void _maybeMirrorRgbToY() {
+    final r = controlPoints['R']!;
+    final g = controlPoints['G']!;
+    final b = controlPoints['B']!;
+    if (_listEq(r, g) && _listEq(g, b)) {
+      // Replace Y with a copy so downstream equality checks don't alias
+      controlPoints['Y'] = List<Offset>.from(r);
+    }
+  }
+
   /// Recompute splines without network send.
   void _rebuildSplines() {
     setState(() {
       for (var c in channels) {
-        final active = controlPoints[c]!.where((pt) => pt.dx >= 0).toList()
+        final active = controlPoints[c]!
+            .where((pt) => pt.dx >= 0 && pt.dy >= 0)
+            .toList()
           ..sort((a, b) => a.dx.compareTo(b.dx));
-        splines[c] = MonotonicSpline(active);
+        // MonotonicSpline requires at least two points; if not available, skip.
+        splines[c] = active.length >= 2 ? MonotonicSpline(active) : null;
       }
     });
   }
 
-/// Send current channel data over OSC network only.
-/// When locked (and editing Y), broadcast the same data to R, G & B.
-void _sendCurrentChannel() {
-  // Pick the points from the selected channel
-  final pts = List<Offset>.from(controlPoints[selectedChannel]!);
-  pts.sort((a, b) => a.dx.compareTo(b.dx));
-  final flat = pts.expand((pt) => [pt.dx, pt.dy]).toList();
+  /// Send current channel data over OSC network only.
+  /// Note: Do not transmit the Y channel LUT over the network.
+  /// When locked (and editing Y), mirror the curve to R/G/B and send only those.
+  void _sendCurrentChannel() {
+    // Determine channels to send (skip Y)
+    if (selectedChannel == 'Y' && !locked) return;
 
-  if (locked && selectedChannel == 'Y') {
-    // Broadcast Y edits to all channels when locked
-    for (var c in channels) {
-      final path = '$oscAddress/$c';
-      sendOsc(flat, address: path);
+    // Helper to flatten points for a channel
+    List<Object> flatFor(String c) {
+      final pts = List<Offset>.from(controlPoints[c]!);
+      pts.sort((a, b) => a.dx.compareTo(b.dx));
+      final active = pts.where((pt) => pt.dx >= 0 && pt.dy >= 0);
+      return active.expand((pt) => [pt.dx, pt.dy]).toList();
     }
-  } else {
-    // Normal single-channel send
-    final path = '$oscAddress/$selectedChannel';
-      sendOsc(flat, address: path);
+
+    if (locked && selectedChannel == 'Y') {
+      // Bundle R,G,B into one OSC bundle for atomic apply on device
+      final messages = <OSCMessage>[
+        OSCMessage('$oscAddress/R', arguments: flatFor('R')),
+        OSCMessage('$oscAddress/G', arguments: flatFor('G')),
+        OSCMessage('$oscAddress/B', arguments: flatFor('B')),
+      ];
+      // Send via Network directly to ensure single datagram
+      final net = context.read<Network>();
+      net.sendOscBundle(messages);
+    } else {
+      // Single channel update
+      final flat = flatFor(selectedChannel);
+      sendOsc(flat, address: '$oscAddress/$selectedChannel');
+    }
   }
-}
 
 
   void resetControlPoints() {

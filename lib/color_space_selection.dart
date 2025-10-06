@@ -73,7 +73,7 @@ class _ColorSpaceSelectionSectionState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Colourspace Selection',
+              'Colorspace Selection',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),

@@ -11,6 +11,8 @@ class OscDropdown<T> extends StatelessWidget {
   final List<T> items;
   final T? defaultValue;
   final OnChangedCallback<T>? onChanged;
+  final String? pathSegment;
+  final String? displayLabel;
 
   const OscDropdown({
     super.key,
@@ -18,14 +20,18 @@ class OscDropdown<T> extends StatelessWidget {
     required this.items,
     this.defaultValue,
     this.onChanged,
+    this.pathSegment,
+    this.displayLabel,
   });
 
   @override
   Widget build(BuildContext context) {
+    final segment = (pathSegment ?? label).toLowerCase();
+    final uiLabel = displayLabel ?? label;
     return OscPathSegment(
-      segment: label.toLowerCase(),
+      segment: segment,
       child: _OscDropdownInner<T>(
-        label: label,
+        label: uiLabel,
         items: items,
         defaultValue: defaultValue,
         onChanged: onChanged,
@@ -76,6 +82,14 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
       setState(() => _selected = incoming);
       return OscStatus.ok;
     }
+    if (incoming is double) {
+      for (final item in widget.items) {
+        if (item is double && (item - incoming).abs() < 0.01) {
+          setState(() => _selected = item as T);
+          return OscStatus.ok;
+        }
+      }
+    }
     return OscStatus.error;
   }
 
@@ -90,7 +104,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
         items: widget.items
             .map((item) => DropdownMenuItem<T>(
                   value: item,
-                  child: Text(item.toString()),
+                  child: Text(_formatLabel(item)),
                 ))
             .toList(),
         onChanged: (value) {
@@ -103,5 +117,17 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
         },
       ),
     );
+  }
+
+  String _formatLabel(T item) {
+    if (item is double) {
+      // Ensure consistent formatting for fractional frame rates
+      final value = item;
+      if ((value - value.roundToDouble()).abs() < 1e-6) {
+        return value.toStringAsFixed(0);
+      }
+      return value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    }
+    return item.toString();
   }
 }

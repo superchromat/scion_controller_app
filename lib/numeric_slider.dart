@@ -104,7 +104,10 @@ class NumericSliderState extends State<NumericSlider>
     );
   }
 
-  Future<void> setValue(double newValue, {bool immediate = false}) {
+  // Updates the slider's value programmatically.
+  // - immediate: jump directly (no animation)
+  // - emit: when true, calls onChanged/sendOsc; when false, updates UI only
+  Future<void> setValue(double newValue, {bool immediate = false, bool emit = true}) {
     final clamped = newValue.clamp(_range.start, _range.end);
     if ((clamped - _value).abs() >= 0.0001) {
       if (immediate) {
@@ -112,7 +115,7 @@ class NumericSliderState extends State<NumericSlider>
         _displayValue = clamped;
         _externallySet = false;
         setState(() {}); // Trigger rebuild with new displayValue
-        _onChanged(_value);
+        if (emit) _onChanged(_value);
         return Future.value();
       }
 
@@ -131,7 +134,7 @@ class NumericSliderState extends State<NumericSlider>
       return _animController.forward(from: 0).whenComplete(() {
         _externallySet = false;
         _value = _animTarget;
-        _onChanged(_value);
+        if (emit) _onChanged(_value);
       });
     }
     return Future.value();
@@ -141,7 +144,8 @@ class NumericSliderState extends State<NumericSlider>
   OscStatus onOscMessage(List<Object?> args) {
     OscStatus status = OscStatus.ok;
     if (args.isNotEmpty && args.first is num) {
-      setValue((args.first as num).toDouble(), immediate: true);
+      // Apply incoming OSC value without re-emitting it back to the device
+      setValue((args.first as num).toDouble(), immediate: true, emit: false);
     } else {
       status = OscStatus.error;
     }

@@ -17,28 +17,20 @@ class VideoFormatSelectionSection extends StatefulWidget {
 }
 
 class _VideoFormatSelectionSectionState
-    extends State<VideoFormatSelectionSection> with OscAddressMixin {
+    extends State<VideoFormatSelectionSection>
+    with OscAddressMixin {
   late ColorSpaceMatrix matrixModel;
 
   final List<String> resolutions = [
     '1920x1080',
-    '1600x1200',
     '1280x720',
-    '800x600',
     '720x576',
     '720x480',
-    '640x480',
   ];
 
-  final List<double> framerates = [
-    60.0,
-    50.0,
-    30.0,
-    25.0,
-    24.0,
-  ];
+  final List<double> framerates = [60.0, 50.0, 30.0, 25.0, 24.0];
 
-  final List<String> colourspaces = [
+  final List<String> colorspaces = [
     'RGB',
     'YUV',
     'Custom',
@@ -46,7 +38,7 @@ class _VideoFormatSelectionSectionState
 
   String selectedResolution = '1920x1080';
   double selectedFramerate = 30.0;
-  String selectedColourspace = 'YUV';
+  String selectedColorspace = 'YUV';
 
   final List<List<GlobalKey<NumericSliderState>>> sliderKeys = List.generate(
     3,
@@ -66,7 +58,7 @@ class _VideoFormatSelectionSectionState
     ]);
   }
 
-  List<List<double>> getMatrixForColourspace(String space) {
+  List<List<double>> getMatrixForColorspace(String space) {
     if (space == 'YUV') {
       return [
         [1.0, 0.0, 0.0],
@@ -86,6 +78,13 @@ class _VideoFormatSelectionSectionState
         [0.0, 0.0, 1.0],
       ];
     }
+  }
+
+  void _sendColorMatrix() {
+    final flatMatrix = matrixModel.matrix
+        .expand((row) => row)
+        .toList(growable: false);
+    sendOsc(flatMatrix, address: '/analog_format/color_matrix');
   }
 
   Widget _matrixWidget() {
@@ -108,15 +107,17 @@ class _VideoFormatSelectionSectionState
                     child: NumericSlider(
                       key: sliderKeys[row][col],
                       value: matrixModel.getCell(row, col),
+                      sendOsc: false,
                       onChanged: (newValue) {
                         if (_updatingFromPreset) return;
                         setState(() {
                           matrixModel.updateCell(row, col, newValue);
                           matrixModel.correctMatrix(row, col);
-                          if (selectedColourspace != 'Custom') {
-                            selectedColourspace = 'Custom';
+                          if (selectedColorspace != 'Custom') {
+                            selectedColorspace = 'Custom';
                           }
                         });
+                        _sendColorMatrix();
                       },
                     ),
                   ),
@@ -148,9 +149,16 @@ class _VideoFormatSelectionSectionState
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OscDropdown<String>(
-                        label: 'Resolution', items: resolutions, defaultValue: resolutions[0],),
+                      label: 'Resolution',
+                      items: resolutions,
+                      defaultValue: resolutions[0],
+                    ),
                     const SizedBox(height: 16),
-                    OscDropdown<double>(label: 'Framerate', items: framerates, defaultValue: framerates[0],),
+                    OscDropdown<double>(
+                      label: 'Framerate',
+                      items: framerates,
+                      defaultValue: framerates[0],
+                    ),
                     const SizedBox(height: 16),
                     Transform.translate(
                       offset: const Offset(-8, 0),
@@ -163,36 +171,35 @@ class _VideoFormatSelectionSectionState
                         child: SizedBox(
                           width: 180,
                           child: OscDropdown<String>(
-                            label: 'Colourspace',
-                            items: colourspaces,
-                            defaultValue: colourspaces[0],
+                            label: 'Colorspace',
+                            items: colorspaces,
+                            defaultValue: colorspaces[0],
                             onChanged: (value) {
                               setState(() {
-                                selectedColourspace = value;
+                                selectedColorspace = value;
                                 setState(() {
-                                  selectedColourspace = value;
+                                  selectedColorspace = value;
                                   _updatingFromPreset = true;
                                   matrixModel = ColorSpaceMatrix(
-                                      getMatrixForColourspace(value));
+                                      getMatrixForColorspace(value));
                                 });
 
-                                final matrix = getMatrixForColourspace(value);
+                                final matrix = getMatrixForColorspace(value);
                                 final futures = <Future<void>>[];
 
                                 for (int i = 0; i < 3; i++) {
                                   for (int j = 0; j < 3; j++) {
-                                    final future = sliderKeys[i][j]
-                                        .currentState
+                                    final future = sliderKeys[i][j].currentState
                                         ?.setValue(matrix[i][j]);
                                     if (future != null) futures.add(future);
                                   }
-
-                                  Future.wait(futures).then((_) {
-                                    setState(() {
-                                      _updatingFromPreset = false;
-                                    });
-                                  });
                                 }
+
+                                Future.wait(futures).then((_) {
+                                  setState(() {
+                                    _updatingFromPreset = false;
+                                  });
+                                });
                               });
                             },
                           ),
