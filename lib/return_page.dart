@@ -6,6 +6,7 @@ import 'osc_dropdown.dart';
 import 'osc_value_label.dart';
 import 'osc_widget_binding.dart';
 import 'numeric_slider.dart';
+import 'adv_tuning.dart';
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});
@@ -34,6 +35,8 @@ class _ReturnPageBody extends StatelessWidget {
         _ReturnOutputFormatCard(),
         SizedBox(height: 16),
         _ReturnOutputPictureCard(),
+/*        SizedBox(height: 16),
+        AdvTuningCard(), */
         SizedBox(height: 16),
         _ReturnOutputLutCard(),
       ],

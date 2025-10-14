@@ -25,7 +25,7 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
   @override
   Widget build(BuildContext context) {
-    RangeValues pixelClockShiftRange = RangeValues(-16, 17);
+    RangeValues pixelClockShiftRange = RangeValues(-100, 100);
     List<double> pcsri = List.generate(
         (pixelClockShiftRange.end - pixelClockShiftRange.start).toInt(),
         (i) => (pixelClockShiftRange.start.toInt() + i).toDouble());

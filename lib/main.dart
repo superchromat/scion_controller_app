@@ -21,6 +21,7 @@ final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 void _showGlobalErrorSnack(Object error, StackTrace stack) {
+  return; // JOSH TODO
   if (!kDebugMode) return;
   // Keep the snack concise; full details are printed to the console.
   final msg = error.toString().split('\n').first;
