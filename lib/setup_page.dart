@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
+import 'firmware_update.dart';
 
 class SetupPage extends StatefulWidget {
   const SetupPage({super.key});
@@ -36,6 +37,8 @@ class _SetupPageState extends State<SetupPage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              const FirmwareUpdateSection(),
             ],
           ),
         ),

@@ -32,6 +32,8 @@ class Network extends ChangeNotifier {
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   Timer? _drainResumeTimer;
+  DateTime? _suppressUntil; // suppress inactivity disconnect until this time
+  DateTime? _lastAckTime;   // last time we received an /ack
   bool _manualConnectInProgress = false;
   bool _connectInFlight = false;
   int _connectGeneration = 0;
@@ -49,6 +51,14 @@ class Network extends ChangeNotifier {
 
   bool get isConnected =>
       _socket != null && _destination != null && _port != null && _hasSynced;
+
+  /// When true, the inactivity monitor will not disconnect even if no
+  /// messages are received. Useful while waiting for a controlled reboot
+  /// during firmware upgrade.
+  bool get _timeoutsSuppressed =>
+      _suppressUntil != null && DateTime.now().isBefore(_suppressUntil!);
+
+  DateTime? get lastAckTime => _lastAckTime;
 
   bool get isConnecting => _manualConnectInProgress && _handshakeInProgress;
 
@@ -153,6 +163,7 @@ class Network extends ChangeNotifier {
       // Monitor timeout
       _monitorTimer?.cancel();
       _monitorTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_timeoutsSuppressed) return;
         if (_lastMsgReceived != null &&
             DateTime.now().difference(_lastMsgReceived!).inSeconds > 10) {
           debugPrint('No msg received in 10s; disconnecting');
@@ -344,6 +355,7 @@ class Network extends ChangeNotifier {
         OscRegistry().dispatch(msg.address, msg.arguments);
       } else {
         _hasSynced = true;
+        _lastAckTime = DateTime.now();
         _manualConnectInProgress = false;
         // on successful sync, stop any reconnect attempts
         _reconnectTimer?.cancel();
@@ -402,5 +414,12 @@ class Network extends ChangeNotifier {
   void _closeCurrentSocket() {
     _socket?.close();
     _socket = null;
+  }
+
+  /// Suppress inactivity-based disconnects for [duration]. Use when a device
+  /// is expected to reboot (e.g., after firmware upgrade), so we don't tear
+  /// down the connection preemptively.
+  void suppressTimeoutsFor(Duration duration) {
+    _suppressUntil = DateTime.now().add(duration);
   }
 }
