@@ -292,8 +292,7 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Firmware Upgrade'),
-          content: const Text('Upgrade completed and device is back online.'
-              ' If this was a test upgrade, remember to confirm it.'),
+          content: const Text('Upgrade completed and device is back online.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
