@@ -9,7 +9,6 @@ import 'package:window_size/window_size.dart';
 import 'network.dart';
 import 'network_selection.dart';
 import 'file_selection.dart';
-import 'status_bar.dart';
 import 'setup_page.dart';
 import 'send_page.dart';
 import 'osc_log.dart';
@@ -267,12 +266,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ),
                 ],
-              ),
-            ),
-            Container(
-              color: Theme.of(context).colorScheme.onTertiaryContainer,
-              child: const StatusBarRow(
-                rightText: "Status Right",
               ),
             ),
           ],

@@ -304,7 +304,7 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     } else {
       setState(() {
         _stage = FirmwareStage.error;
-        _statusText = 'Device did not reconnect after upgrade';
+        _statusText = 'Device did not reconnect after upgrade. Please reboot.';
       });
       await showDialog(
         context: context,

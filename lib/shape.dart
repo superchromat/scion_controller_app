@@ -139,7 +139,9 @@ class _LinkableSliderPairState extends State<LinkableSliderPair> {
 }
 
 class Shape extends StatefulWidget {
-  const Shape({super.key});
+  final int? pageNumber;
+
+  const Shape({super.key, this.pageNumber});
 
   @override
   ShapeState createState() => ShapeState();
@@ -197,6 +199,9 @@ class ShapeState extends State<Shape> {
 
   @override
   Widget build(BuildContext context) {
+    // Only show rotation for Send 1 (pageNumber == 1)
+    final showRotation = widget.pageNumber == null || widget.pageNumber == 1;
+
     return ConstrainedBox(
       constraints:
           const BoxConstraints(minHeight: 0, maxHeight: double.infinity),
@@ -224,15 +229,17 @@ class ShapeState extends State<Shape> {
             precision: 3,
           )),
           // Zoom Mode removed
-          _row(_labeledSlider(
-            label: "Rotation",
-            paramKey: "rotation",
-            sliderKey: _rotationKey,
-            value: 0.0,
-            range: const RangeValues(0.0, 360.0),
-            detents: const [0.0, 90.0, 180.0, 270.0, 360.0],
-            precision: 3,
-          )),
+          // Only show rotation for Send 1
+          if (showRotation)
+            _row(_labeledSlider(
+              label: "Rotation",
+              paramKey: "rotation",
+              sliderKey: _rotationKey,
+              value: 180.0,
+              range: const RangeValues(0.0, 360.0),
+              detents: const [0.0, 90.0, 180.0, 270.0, 360.0],
+              precision: 3,
+            )),
           // Pitch/Yaw removed
         ],
       ),
