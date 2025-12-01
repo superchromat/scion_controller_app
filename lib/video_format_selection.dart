@@ -39,6 +39,7 @@ class _VideoFormatSelectionSectionState
   String selectedResolution = '1920x1080';
   double selectedFramerate = 30.0;
   String selectedColorspace = 'YUV';
+  bool fullRange = true; // true = Full range (0-255), false = Legal (16-235)
 
   final List<List<GlobalKey<NumericSliderState>>> sliderKeys = List.generate(
     3,
@@ -202,6 +203,71 @@ class _VideoFormatSelectionSectionState
                                 });
                               });
                             },
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Quantization range radio buttons
+                    Transform.translate(
+                      offset: const Offset(-8, 0),
+                      child: SizedBox(
+                        width: 196, // Match dropdown width + padding
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[700],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: OscPathSegment(
+                            segment: 'full_range',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Quantization Range',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                RadioListTile<bool>(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  title: const Text(
+                                    'Full range (0-255)',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: true,
+                                  groupValue: fullRange,
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => fullRange = value);
+                                      sendOsc(true, address: '/analog_format/full_range');
+                                    }
+                                  },
+                                ),
+                                RadioListTile<bool>(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  title: const Text(
+                                    'Legal (16-235)',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: false,
+                                  groupValue: fullRange,
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => fullRange = value);
+                                      sendOsc(false, address: '/analog_format/full_range');
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
