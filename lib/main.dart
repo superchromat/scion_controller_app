@@ -14,6 +14,7 @@ import 'send_page.dart';
 import 'osc_log.dart';
 import 'osc_registry_viewer.dart';
 import 'return_page.dart';
+import 'knob_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -175,6 +176,8 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       // 6 → Registry Viewer
       const OscRegistryViewer(),
+      // 7 → Knob Test
+      const KnobPage(),
     ];
   }
 
@@ -252,6 +255,10 @@ class _MyHomePageState extends State<MyHomePage> {
                         NavigationRailDestination(
                           icon: Icon(Icons.storage),
                           label: Text('Registry'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.tune),
+                          label: Text('Knob'),
                         ),
                       ],
                     ),
