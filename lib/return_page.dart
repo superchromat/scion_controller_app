@@ -6,6 +6,12 @@ import 'osc_dropdown.dart';
 import 'osc_value_label.dart';
 import 'osc_widget_binding.dart';
 import 'numeric_slider.dart';
+import 'adv_tuning.dart';
+import 'package:provider/provider.dart';
+import 'network.dart';
+import 'osc_registry.dart';
+import 'adv_de_window.dart';
+import 'adv_sync_adjust.dart';
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});
@@ -34,6 +40,12 @@ class _ReturnPageBody extends StatelessWidget {
         _ReturnOutputFormatCard(),
         SizedBox(height: 16),
         _ReturnOutputPictureCard(),
+        SizedBox(height: 16),
+        _AdvPhaseCard(),
+        SizedBox(height: 16),
+        AdvDeWindowCard(),
+        SizedBox(height: 16),
+        AdvSyncAdjustCard(),
         SizedBox(height: 16),
         _ReturnOutputLutCard(),
       ],
@@ -251,6 +263,114 @@ class _ReturnOutputLutCard extends StatelessWidget {
               child: LUTEditor(),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdvPhaseCard extends StatefulWidget {
+  const _AdvPhaseCard();
+
+  @override
+  State<_AdvPhaseCard> createState() => _AdvPhaseCardState();
+}
+
+class _AdvPhaseCardState extends State<_AdvPhaseCard> {
+  bool _dllEnabled = false;
+  int _phase = 0; // 0..63
+  final _phaseKey = GlobalKey<NumericSliderState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final reg = OscRegistry();
+    reg.registerAddress('/adv/dll');
+    reg.registerListener('/adv/dll', _onDllMsg);
+    reg.registerAddress('/adv/phase');
+    reg.registerListener('/adv/phase', _onPhaseMsg);
+  }
+
+  @override
+  void dispose() {
+    final reg = OscRegistry();
+    reg.unregisterListener('/adv/dll', _onDllMsg);
+    reg.unregisterListener('/adv/phase', _onPhaseMsg);
+    super.dispose();
+  }
+
+  void _onDllMsg(List<Object?> args) {
+    if (args.isEmpty || args.first is! num) return;
+    final v = (args.first as num).toInt() != 0;
+    if (!mounted) return;
+    setState(() => _dllEnabled = v);
+  }
+
+  void _onPhaseMsg(List<Object?> args) {
+    if (args.isEmpty || args.first is! num) return;
+    final v = (args.first as num).toInt().clamp(0, 63);
+    if (!mounted) return;
+    setState(() => _phase = v);
+    _phaseKey.currentState?.setValue(v.toDouble(), immediate: true, emit: false);
+  }
+
+  void _sendPhase(int v) {
+    context.read<Network>().sendOscMessage('/adv/phase', [v]);
+    // local echo so UI reflects immediately
+    OscRegistry().dispatchLocal('/adv/phase', [v]);
+  }
+
+  void _sendDll(bool v) {
+    context.read<Network>().sendOscMessage('/adv/dll', [v ? 1 : 0]);
+    OscRegistry().dispatchLocal('/adv/dll', [v ? 1 : 0]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFF1F1F1F),
+      elevation: 0,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Text('ADV7842 LLC Phase',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            const Text('DLL'),
+            const SizedBox(width: 8),
+            Switch(
+              value: _dllEnabled,
+              onChanged: (v) {
+                setState(() => _dllEnabled = v);
+                _sendDll(v);
+              },
+            ),
+            const SizedBox(width: 16),
+            const Text('Phase'),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 200,
+              height: 24,
+              child: NumericSlider(
+                key: _phaseKey,
+                value: _phase.toDouble(),
+                range: const RangeValues(0, 63),
+                detents: const [],
+                precision: 0,
+                hardDetents: false,
+                sendOsc: false,
+                onChanged: (v) {
+                  final iv = v.round().clamp(0, 63);
+                  _phase = iv;
+                  _sendPhase(iv);
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

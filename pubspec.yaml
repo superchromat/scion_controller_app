@@ -15,6 +15,7 @@ dependencies:
   provider: ^6.1.2
   file_picker: ^6.1.1
   intl: ^0.20.2
+  crypto: ^3.0.3
   osc:
     path: ../osc/
   material_symbols_icons: ^4.2815.0

@@ -13,6 +13,7 @@ class OscDropdown<T> extends StatelessWidget {
   final OnChangedCallback<T>? onChanged;
   final String? pathSegment;
   final String? displayLabel;
+  final bool enabled;
 
   const OscDropdown({
     super.key,
@@ -22,6 +23,7 @@ class OscDropdown<T> extends StatelessWidget {
     this.onChanged,
     this.pathSegment,
     this.displayLabel,
+    this.enabled = true,
   });
 
   @override
@@ -35,6 +37,7 @@ class OscDropdown<T> extends StatelessWidget {
         items: items,
         defaultValue: defaultValue,
         onChanged: onChanged,
+        enabled: enabled,
       ),
     );
   }
@@ -45,6 +48,7 @@ class _OscDropdownInner<T> extends StatefulWidget {
   final List<T> items;
   final T? defaultValue;
   final OnChangedCallback<T>? onChanged;
+  final bool enabled;
 
   const _OscDropdownInner({
     super.key,
@@ -52,6 +56,7 @@ class _OscDropdownInner<T> extends StatefulWidget {
     required this.items,
     this.defaultValue,
     this.onChanged,
+    this.enabled = true,
   });
 
   @override
@@ -98,8 +103,14 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
     return SizedBox(
       width: 180,
       child: DropdownButtonFormField<T>(
-        decoration: InputDecoration(labelText: widget.label),
-        style: const TextStyle(fontFamily: 'monospace'),
+        decoration: InputDecoration(
+          labelText: widget.label,
+          enabled: widget.enabled,
+        ),
+        style: TextStyle(
+          fontFamily: 'monospace',
+          color: widget.enabled ? null : Colors.grey,
+        ),
         value: _selected,
         items: widget.items
             .map((item) => DropdownMenuItem<T>(
@@ -107,14 +118,16 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
                   child: Text(_formatLabel(item)),
                 ))
             .toList(),
-        onChanged: (value) {
-          if (value == null) return;
-          setState(() => _selected = value);
-          // send OSC and update registry
-          sendOsc(value);
-          // invoke custom handler if provided
-          widget.onChanged?.call(value);
-        },
+        onChanged: widget.enabled
+            ? (value) {
+                if (value == null) return;
+                setState(() => _selected = value);
+                // send OSC and update registry
+                sendOsc(value);
+                // invoke custom handler if provided
+                widget.onChanged?.call(value);
+              }
+            : null,
       ),
     );
   }

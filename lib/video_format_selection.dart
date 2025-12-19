@@ -2,11 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
+import 'osc_registry.dart';
 
 import 'color_space_matrix.dart';
 import 'numeric_slider.dart';
 import 'labeled_card.dart';
 import 'osc_dropdown.dart';
+import 'osc_checkbox.dart';
 
 class VideoFormatSelectionSection extends StatefulWidget {
   const VideoFormatSelectionSection({super.key});
@@ -20,6 +22,8 @@ class _VideoFormatSelectionSectionState
     extends State<VideoFormatSelectionSection>
     with OscAddressMixin {
   late ColorSpaceMatrix matrixModel;
+  String _syncMode = 'locked';  // Track current sync mode
+  bool _dacGenlock = false;     // Track DAC genlock state
 
   final List<String> resolutions = [
     '1920x1080',
@@ -39,6 +43,8 @@ class _VideoFormatSelectionSectionState
   String selectedResolution = '1920x1080';
   double selectedFramerate = 30.0;
   String selectedColorspace = 'YUV';
+  bool fullRange = true; // true = Full range (0-255), false = Legal (16-235)
+  bool interlaced = false; // true = Interlaced, false = Progressive
 
   final List<List<GlobalKey<NumericSliderState>>> sliderKeys = List.generate(
     3,
@@ -56,6 +62,44 @@ class _VideoFormatSelectionSectionState
       [0.0, 1.0, 0.0],
       [0.0, 0.0, 1.0],
     ]);
+
+    // Listen to sync_mode changes to enable/disable format controls
+    OscRegistry().registerAddress('/sync_mode');
+    OscRegistry().registerListener('/sync_mode', _onSyncModeChanged);
+    // Listen to dac_genlock changes
+    OscRegistry().registerAddress('/dac_genlock');
+    OscRegistry().registerListener('/dac_genlock', _onDacGenlockChanged);
+  }
+
+  @override
+  void dispose() {
+    OscRegistry().unregisterListener('/sync_mode', _onSyncModeChanged);
+    OscRegistry().unregisterListener('/dac_genlock', _onDacGenlockChanged);
+    super.dispose();
+  }
+
+  void _onSyncModeChanged(List<Object?> args) {
+    if (args.isNotEmpty && args.first is String) {
+      setState(() {
+        _syncMode = (args.first as String).toLowerCase();
+      });
+    }
+  }
+
+  void _onDacGenlockChanged(List<Object?> args) {
+    if (args.isNotEmpty && args.first is bool) {
+      setState(() {
+        _dacGenlock = args.first as bool;
+      });
+    }
+  }
+
+  /// Returns true if format controls should be enabled
+  /// - In 'locked' mode: always enabled
+  /// - In 'component'/'external' mode: enabled only if dac_genlock is OFF
+  bool get _formatControlsEnabled {
+    if (_syncMode == 'locked') return true;
+    return !_dacGenlock;  // Enabled when dac_genlock is OFF
   }
 
   List<List<double>> getMatrixForColorspace(String space) {
@@ -152,13 +196,29 @@ class _VideoFormatSelectionSectionState
                       label: 'Resolution',
                       items: resolutions,
                       defaultValue: resolutions[0],
+                      enabled: _formatControlsEnabled,
                     ),
                     const SizedBox(height: 16),
                     OscDropdown<double>(
                       label: 'Framerate',
                       items: framerates,
                       defaultValue: framerates[0],
+                      enabled: _formatControlsEnabled,
                     ),
+                    if (!_formatControlsEnabled) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 180,
+                        child: Text(
+                          'Autodetecting from external source',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[400],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Transform.translate(
                       offset: const Offset(-8, 0),
@@ -206,6 +266,106 @@ class _VideoFormatSelectionSectionState
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    // Quantization range radio buttons
+                    Transform.translate(
+                      offset: const Offset(-8, 0),
+                      child: SizedBox(
+                        width: 196, // Match dropdown width + padding
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[700],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: OscPathSegment(
+                            segment: 'full_range',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Quantization Range',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                RadioListTile<bool>(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  title: const Text(
+                                    'Full range (0-255)',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: true,
+                                  groupValue: fullRange,
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => fullRange = value);
+                                      sendOsc(true, address: '/analog_format/full_range');
+                                    }
+                                  },
+                                ),
+                                RadioListTile<bool>(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  title: const Text(
+                                    'Legal (16-235)',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: false,
+                                  groupValue: fullRange,
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => fullRange = value);
+                                      sendOsc(false, address: '/analog_format/full_range');
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Interlaced checkbox
+/*                    Transform.translate(
+                      offset: const Offset(-8, 0),
+                      child: SizedBox(
+                        width: 196,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[700],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: OscPathSegment(
+                            segment: 'interlaced',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                OscCheckbox(
+                                  initialValue: interlaced,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Interlaced\n(Experimental)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    */
                   ],
                 ),
                 // Matrix second
