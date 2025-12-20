@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// A segment for piecewise value mapping between normalized [0,1] and value space.
 class MappingSegment {
@@ -142,13 +143,19 @@ class _RotaryKnobState extends State<RotaryKnob>
   double _lastValue = 0;
   DateTime _lastUpdateTime = DateTime.now();
 
-  // Overlay for drag bar
+  // Overlay for drag bar and background
   OverlayEntry? _dragBarOverlay;
   final GlobalKey _knobKey = GlobalKey();
 
   // Animation for settling
   late AnimationController _settleController;
   late Animation<double> _settleAnimation;
+
+  // Text editing state
+  bool _isHovering = false;
+  bool _isEditing = false;
+  late TextEditingController _textController;
+  late FocusNode _textFocusNode;
 
   @override
   void initState() {
@@ -160,6 +167,10 @@ class _RotaryKnobState extends State<RotaryKnob>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+
+    _textController = TextEditingController();
+    _textFocusNode = FocusNode();
+    _textFocusNode.addListener(_onFocusChange);
   }
 
   @override
@@ -174,7 +185,71 @@ class _RotaryKnobState extends State<RotaryKnob>
   void dispose() {
     _removeDragBar();
     _settleController.dispose();
+    _textFocusNode.removeListener(_onFocusChange);
+    _textFocusNode.dispose();
+    _textController.dispose();
     super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_textFocusNode.hasFocus && _isEditing) {
+      _commitEditing();
+    }
+  }
+
+  void _startEditing() {
+    if (_isEditing) return;
+    setState(() {
+      _isEditing = true;
+      _textController.text = _formatValue(_currentValue);
+      _textController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _textController.text.length,
+      );
+    });
+    _textFocusNode.requestFocus();
+  }
+
+  void _commitEditing() {
+    if (!_isEditing) return;
+    final text = _textController.text.replaceAll(RegExp(r'[^\d.\-+]'), '');
+    final parsed = double.tryParse(text);
+    if (parsed != null) {
+      final clamped = parsed.clamp(widget.minValue, widget.maxValue);
+      setState(() {
+        _currentValue = clamped;
+        _isEditing = false;
+      });
+      widget.onChanged?.call(_currentValue);
+    } else {
+      setState(() {
+        _isEditing = false;
+      });
+    }
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _isEditing = false;
+    });
+  }
+
+  int _getMaxInputLength() {
+    // Determine max length based on format string and value range
+    final format = widget.format;
+    final match = RegExp(r'%[+]?(\d*)\.?(\d*)f').firstMatch(format);
+    final precision = match != null ? int.tryParse(match.group(2) ?? '') ?? 2 : 2;
+
+    // Calculate max integer digits needed
+    final maxAbs = [widget.minValue.abs(), widget.maxValue.abs()]
+        .reduce((a, b) => a > b ? a : b);
+    final intDigits = maxAbs < 1 ? 1 : (maxAbs.floor().toString().length);
+
+    // Total: sign + integer digits + decimal point + precision
+    final needsSign = widget.minValue < 0;
+    final hasDecimal = precision > 0;
+
+    return (needsSign ? 1 : 0) + intDigits + (hasDecimal ? 1 : 0) + precision;
   }
 
   // Value mapping functions
@@ -274,16 +349,38 @@ class _RotaryKnobState extends State<RotaryKnob>
   }
 
   String _formatValue(double value) {
-    // Simple printf-style format implementation
+    // Printf-style format with fixed-width output for stable decimal alignment
     final format = widget.format;
-    if (format.contains('%')) {
-      final match = RegExp(r'%(\d*)\.?(\d*)f').firstMatch(format);
-      if (match != null) {
-        final precision = int.tryParse(match.group(2) ?? '') ?? 2;
-        return value.toStringAsFixed(precision);
-      }
+    final match = RegExp(r'%(\+)?(\d*)\.?(\d*)f').firstMatch(format);
+    final showPlus = match?.group(1) == '+';
+    final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
+
+    // Calculate width needed for integer part based on value range
+    final maxAbsInt = [widget.minValue.abs(), widget.maxValue.abs()]
+        .reduce((a, b) => a > b ? a : b)
+        .truncate();
+    final intWidth = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
+
+    // Format the number
+    final formatted = value.toStringAsFixed(precision);
+    final parts = formatted.split('.');
+    var intPart = parts[0];
+    final decPart = parts.length > 1 ? '.${parts[1]}' : '';
+
+    // Handle sign and padding
+    final isNegative = intPart.startsWith('-');
+    if (isNegative) {
+      intPart = intPart.substring(1);
     }
-    return value.toStringAsFixed(2);
+
+    // Pad integer part to consistent width
+    intPart = intPart.padLeft(intWidth, ' ');
+
+    // Add sign (or space for positive if range includes negatives or showPlus)
+    final needsSignSpace = widget.minValue < 0 || showPlus;
+    final sign = isNegative ? '-' : (showPlus ? '+' : (needsSignSpace ? ' ' : ''));
+
+    return '$sign$intPart$decPart';
   }
 
   void _onPanStart(DragStartDetails details) {
@@ -367,35 +464,112 @@ class _RotaryKnobState extends State<RotaryKnob>
     final knobSize = renderBox.size;
     final screenSize = MediaQuery.of(context).size;
 
+    // Calculate knob center position (accounting for label if present)
+    final labelHeight = widget.label.isNotEmpty ? 19.0 : 0.0;
+    final knobCenterX = knobPosition.dx + knobSize.width / 2;
+    final knobCenterY = knobPosition.dy + labelHeight + widget.size / 2;
+    final knobRadius = widget.size / 2;
+
     // Calculate ideal position centered below the knob
+    // Position so the bar's center text overlaps the knob's value text
     double barX = knobPosition.dx + knobSize.width / 2 - widget.dragBarWidth / 2;
-    double barY = knobPosition.dy + knobSize.height + 16;
+    double barY = knobPosition.dy + knobSize.height - 20;
 
     // Clamp to viewport
     barX = barX.clamp(8.0, screenSize.width - widget.dragBarWidth - 8);
 
     // If not enough space below, try above
-    if (barY + 48 > screenSize.height) {
-      barY = knobPosition.dy - 48 - 16;
+    final barHeight = 60.0;
+    bool barBelow = true;
+    if (barY + barHeight > screenSize.height) {
+      barY = knobPosition.dy - barHeight - 4;
+      barBelow = false;
     }
-    barY = barY.clamp(8.0, screenSize.height - 48 - 8);
+    barY = barY.clamp(8.0, screenSize.height - barHeight - 8);
 
+    // Single overlay entry with background, knob copy, and drag bar all layered correctly
     _dragBarOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        left: barX,
-        top: barY,
-        child: _DragBar(
-          width: widget.dragBarWidth,
-          value: _currentValue,
-          minValue: widget.minValue,
-          maxValue: widget.maxValue,
-          normalizedValue: _normalizedFromValue(_currentValue),
-          startNormalized: _startNormalized,
-          isBipolar: widget.isBipolar,
-          neutralValue: widget.neutralValue,
-          format: widget.format,
-          snapPoints: widget.snapConfig.snapPoints,
-        ),
+      builder: (context) => Stack(
+        children: [
+          // Background shape (bottom layer)
+          _KnobDragBackground(
+            knobCenterX: knobCenterX,
+            knobCenterY: knobCenterY,
+            knobRadius: knobRadius,
+            barX: barX,
+            barY: barY,
+            barWidth: widget.dragBarWidth,
+            barHeight: barHeight,
+            barBelow: barBelow,
+          ),
+          // Knob visuals (middle layer) - positioned over the original knob
+          Positioned(
+            left: knobPosition.dx,
+            top: knobPosition.dy,
+            child: IgnorePointer(
+              child: Material(
+                type: MaterialType.transparency,
+                child: SizedBox(
+                  width: knobSize.width,
+                  height: knobSize.height,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.label.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            widget.label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[400],
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      SizedBox(
+                        width: widget.size,
+                        height: widget.size,
+                        child: CustomPaint(
+                          painter: _KnobPainter(
+                            normalized: _normalizedFromValue(_currentValue),
+                            isBipolar: widget.isBipolar,
+                            neutralNormalized: widget.isBipolar
+                                ? _normalizedFromValue(widget.neutralValue ?? 0)
+                                : null,
+                            isActive: true,
+                            snapPoints: widget.snapConfig.snapPoints
+                                .map((v) => _normalizedFromValue(v))
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                      // Value text - hidden here since drag bar shows it
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Drag bar (top layer)
+          Positioned(
+            left: barX,
+            top: barY,
+            child: _DragBar(
+              width: widget.dragBarWidth,
+              value: _currentValue,
+              minValue: widget.minValue,
+              maxValue: widget.maxValue,
+              normalizedValue: _normalizedFromValue(_currentValue),
+              startNormalized: _startNormalized,
+              isBipolar: widget.isBipolar,
+              neutralValue: widget.neutralValue,
+              format: widget.format,
+              snapPoints: widget.snapConfig.snapPoints,
+            ),
+          ),
+        ],
       ),
     );
 
@@ -454,15 +628,74 @@ class _RotaryKnobState extends State<RotaryKnob>
               ),
             ),
           ),
-          // Value display
+          // Value display (editable)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              _formatValue(_currentValue),
-              style: TextStyle(
-                fontSize: 12,
-                fontFamily: 'Courier',
-                color: _snappedTo != null ? Colors.yellow : Colors.white,
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _isHovering = true),
+              onExit: (_) => setState(() => _isHovering = false),
+              child: GestureDetector(
+                onTap: _startEditing,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: _isEditing
+                          ? Colors.yellow
+                          : _isHovering
+                              ? Colors.grey[500]!
+                              : Colors.transparent,
+                      width: 1,
+                    ),
+                    color: _isEditing ? Colors.grey[900] : Colors.transparent,
+                  ),
+                  child: _isEditing
+                      ? IntrinsicWidth(
+                          child: Focus(
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent &&
+                                  event.logicalKey == LogicalKeyboardKey.escape) {
+                                _cancelEditing();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: TextField(
+                              controller: _textController,
+                              focusNode: _textFocusNode,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'Courier',
+                                color: Colors.white,
+                              ),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                                border: InputBorder.none,
+                              ),
+                              textAlign: TextAlign.center,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
+                                signed: true,
+                              ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
+                                LengthLimitingTextInputFormatter(_getMaxInputLength()),
+                              ],
+                              onSubmitted: (_) => _commitEditing(),
+                            ),
+                          ),
+                        )
+                      : Text(
+                          _formatValue(_currentValue),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'Courier',
+                            color: _snappedTo != null ? Colors.yellow : Colors.white,
+                          ),
+                        ),
+                ),
               ),
             ),
           ),
@@ -638,56 +871,90 @@ class _DragBar extends StatelessWidget {
   });
 
   String _formatValue(double value) {
-    final match = RegExp(r'%(\d*)\.?(\d*)f').firstMatch(format);
-    if (match != null) {
-      final precision = int.tryParse(match.group(2) ?? '') ?? 2;
-      return value.toStringAsFixed(precision);
+    // Printf-style format with fixed-width output for stable decimal alignment
+    final match = RegExp(r'%(\+)?(\d*)\.?(\d*)f').firstMatch(format);
+    final showPlus = match?.group(1) == '+';
+    final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
+
+    // Calculate width needed for integer part based on value range
+    final maxAbsInt = [minValue.abs(), maxValue.abs()]
+        .reduce((a, b) => a > b ? a : b)
+        .truncate();
+    final intWidth = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
+
+    // Format the number
+    final formatted = value.toStringAsFixed(precision);
+    final parts = formatted.split('.');
+    var intPart = parts[0];
+    final decPart = parts.length > 1 ? '.${parts[1]}' : '';
+
+    // Handle sign and padding
+    final isNegative = intPart.startsWith('-');
+    if (isNegative) {
+      intPart = intPart.substring(1);
     }
-    return value.toStringAsFixed(2);
+
+    // Pad integer part to consistent width
+    intPart = intPart.padLeft(intWidth, ' ');
+
+    // Add sign (or space for positive if range includes negatives or showPlus)
+    final needsSignSpace = minValue < 0 || showPlus;
+    final sign = isNegative ? '-' : (showPlus ? '+' : (needsSignSpace ? ' ' : ''));
+
+    return '$sign$intPart$decPart';
   }
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      elevation: 8,
+      elevation: 0,
       borderRadius: BorderRadius.circular(8),
-      color: const Color(0xFF2C2C2E),
+      color: const Color(0xFF535355),  // 25% darker than 50% lighter
       child: Container(
         width: width,
-        height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: CustomPaint(
-          painter: _DragBarPainter(
-            normalizedValue: normalizedValue,
-            startNormalized: startNormalized,
-            isBipolar: isBipolar,
-            neutralValue: neutralValue,
-            minValue: minValue,
-            maxValue: maxValue,
-            snapPoints: snapPoints,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _formatValue(minValue),
-                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-              ),
-              Text(
-                _formatValue(value),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontFamily: 'Courier',
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatValue(minValue),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                ),
+                Text(
+                  _formatValue(value),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontFamily: 'Courier',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _formatValue(maxValue),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 16,
+              child: CustomPaint(
+                size: Size(width - 24, 16),
+                painter: _DragBarPainter(
+                  normalizedValue: normalizedValue,
+                  startNormalized: startNormalized,
+                  isBipolar: isBipolar,
+                  neutralValue: neutralValue,
+                  minValue: minValue,
+                  maxValue: maxValue,
+                  snapPoints: snapPoints,
                 ),
               ),
-              Text(
-                _formatValue(maxValue),
-                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -716,8 +983,8 @@ class _DragBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final barY = size.height - 6;
-    final barHeight = 4.0;
+    final barHeight = size.height;
+    final barY = 0.0;
 
     // Background track
     final trackPaint = Paint()
@@ -766,26 +1033,340 @@ class _DragBarPainter extends CustomPainter {
       }
     }
 
-    // Value indicator
+    // Value bar (filled bar from start/neutral to current value)
     final valueX = normalizedValue * size.width;
     final valuePaint = Paint()
       ..color = Colors.yellow
       ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(Offset(valueX, barY + barHeight / 2), 6, valuePaint);
-
-    // Value indicator border
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    canvas.drawCircle(Offset(valueX, barY + barHeight / 2), 6, borderPaint);
+    if (isBipolar) {
+      // Draw bar from neutral point to current value
+      final neutral = neutralValue ?? 0;
+      final neutralNorm = (neutral - minValue) / (maxValue - minValue);
+      final neutralX = neutralNorm * size.width;
+      final barLeft = valueX < neutralX ? valueX : neutralX;
+      final barWidth = (valueX - neutralX).abs();
+      if (barWidth > 0.5) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(barLeft, barY, barWidth, barHeight),
+            const Radius.circular(2),
+          ),
+          valuePaint,
+        );
+      }
+    } else {
+      // Draw bar from left edge to current value
+      if (valueX > 0.5) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(0, barY, valueX, barHeight),
+            const Radius.circular(2),
+          ),
+          valuePaint,
+        );
+      }
+    }
   }
 
   @override
   bool shouldRepaint(covariant _DragBarPainter oldDelegate) {
     return oldDelegate.normalizedValue != normalizedValue ||
         oldDelegate.startNormalized != startNormalized;
+  }
+}
+
+/// Background shape that connects the knob circle to the drag bar
+class _KnobDragBackground extends StatelessWidget {
+  final double knobCenterX;
+  final double knobCenterY;
+  final double knobRadius;
+  final double barX;
+  final double barY;
+  final double barWidth;
+  final double barHeight;
+  final bool barBelow;
+
+  const _KnobDragBackground({
+    required this.knobCenterX,
+    required this.knobCenterY,
+    required this.knobRadius,
+    required this.barX,
+    required this.barY,
+    required this.barWidth,
+    required this.barHeight,
+    required this.barBelow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(
+        size: MediaQuery.of(context).size,
+        painter: _KnobDragBackgroundPainter(
+          knobCenterX: knobCenterX,
+          knobCenterY: knobCenterY,
+          knobRadius: knobRadius,
+          barX: barX,
+          barY: barY,
+          barWidth: barWidth,
+          barHeight: barHeight,
+          barBelow: barBelow,
+        ),
+      ),
+    );
+  }
+}
+
+/// Painter for the combined knob circle + drag bar background shape
+class _KnobDragBackgroundPainter extends CustomPainter {
+  final double knobCenterX;
+  final double knobCenterY;
+  final double knobRadius;
+  final double barX;
+  final double barY;
+  final double barWidth;
+  final double barHeight;
+  final bool barBelow;
+
+  // Padding around the content
+  static const double padding = 16.0;
+  // Corner radius for the bar portion
+  static const double cornerRadius = 20.0;
+  // Fillet radius for inside corners where circle meets bar
+  static const double filletRadius = 24.0;
+
+  _KnobDragBackgroundPainter({
+    required this.knobCenterX,
+    required this.knobCenterY,
+    required this.knobRadius,
+    required this.barX,
+    required this.barY,
+    required this.barWidth,
+    required this.barHeight,
+    required this.barBelow,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF5A5A5E)  // Light grey
+      ..style = PaintingStyle.fill;
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.4)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+
+    // Expanded dimensions with padding
+    final barLeft = barX - padding;
+    final barRight = barX + barWidth + padding;
+    final barTop = barY - padding;
+    final barBottom = barY + barHeight + padding;
+
+    // Circle radius should be large enough that the circle's diameter
+    // extends to where it can smoothly connect to the bar with fillets
+    // The circle's edge at its widest should be at the fillet connection points
+    final circleRadius = knobRadius + padding + 8;  // Extra padding for the circle
+
+    // Create the combined path
+    final path = Path();
+
+    if (barBelow) {
+      _drawCircleWithBarBelow(path, circleRadius, barLeft, barRight, barTop, barBottom);
+    } else {
+      _drawCircleWithBarAbove(path, circleRadius, barLeft, barRight, barTop, barBottom);
+    }
+
+    // Draw shadow first (offset down and slightly larger blur)
+    canvas.drawPath(path.shift(const Offset(0, 6)), shadowPaint);
+
+    // Draw the shape
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawCircleWithBarBelow(Path path, double circleRadius,
+      double barLeft, double barRight, double barTop, double barBottom) {
+
+    // The connection points where circle meets the bar (at circle's diameter level)
+    // These are at the circle's horizontal extremes
+    final connectLeft = knobCenterX - circleRadius;
+    final connectRight = knobCenterX + circleRadius;
+
+    // Start at top of circle
+    path.moveTo(knobCenterX, knobCenterY - circleRadius);
+
+    // Draw right half of circle (top to right side at horizontal diameter)
+    path.arcTo(
+      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      -math.pi / 2,
+      math.pi / 2,
+      false,
+    );
+
+    // Now at (knobCenterX + circleRadius, knobCenterY) - rightmost point
+    // Draw fillet curve down and out to bar top
+    path.quadraticBezierTo(
+      connectRight, barTop,  // Control point - straight down then curve
+      connectRight + filletRadius, barTop,  // End on bar top edge
+    );
+
+    // Bar top edge to right corner
+    path.lineTo(barRight - cornerRadius, barTop);
+
+    // Bar top-right corner
+    path.arcTo(
+      Rect.fromLTWH(barRight - cornerRadius * 2, barTop, cornerRadius * 2, cornerRadius * 2),
+      -math.pi / 2,
+      math.pi / 2,
+      false,
+    );
+
+    // Bar right edge
+    path.lineTo(barRight, barBottom - cornerRadius);
+
+    // Bar bottom-right corner
+    path.arcTo(
+      Rect.fromLTWH(barRight - cornerRadius * 2, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      0,
+      math.pi / 2,
+      false,
+    );
+
+    // Bar bottom edge
+    path.lineTo(barLeft + cornerRadius, barBottom);
+
+    // Bar bottom-left corner
+    path.arcTo(
+      Rect.fromLTWH(barLeft, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      math.pi / 2,
+      math.pi / 2,
+      false,
+    );
+
+    // Bar left edge
+    path.lineTo(barLeft, barTop + cornerRadius);
+
+    // Bar top-left corner
+    path.arcTo(
+      Rect.fromLTWH(barLeft, barTop, cornerRadius * 2, cornerRadius * 2),
+      math.pi,
+      math.pi / 2,
+      false,
+    );
+
+    // Bar top edge to left fillet
+    path.lineTo(connectLeft - filletRadius, barTop);
+
+    // Left fillet: curve up and in to circle's left edge
+    path.quadraticBezierTo(
+      connectLeft, barTop,  // Control point
+      connectLeft, knobCenterY,  // End at circle's leftmost point
+    );
+
+    // Complete left half of circle back to top
+    path.arcTo(
+      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      math.pi,
+      math.pi / 2,
+      false,
+    );
+
+    path.close();
+  }
+
+  void _drawCircleWithBarAbove(Path path, double circleRadius,
+      double barLeft, double barRight, double barTop, double barBottom) {
+
+    final connectLeft = knobCenterX - circleRadius;
+    final connectRight = knobCenterX + circleRadius;
+
+    // Start at bottom of circle
+    path.moveTo(knobCenterX, knobCenterY + circleRadius);
+
+    // Draw right half of circle (bottom to right side)
+    path.arcTo(
+      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      math.pi / 2,
+      -math.pi / 2,
+      false,
+    );
+
+    // Fillet up to bar bottom
+    path.quadraticBezierTo(
+      connectRight, barBottom,
+      connectRight + filletRadius, barBottom,
+    );
+
+    // Bar bottom edge to right
+    path.lineTo(barRight - cornerRadius, barBottom);
+
+    // Bar bottom-right corner
+    path.arcTo(
+      Rect.fromLTWH(barRight - cornerRadius * 2, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      math.pi / 2,
+      -math.pi / 2,
+      false,
+    );
+
+    // Bar right edge
+    path.lineTo(barRight, barTop + cornerRadius);
+
+    // Bar top-right corner
+    path.arcTo(
+      Rect.fromLTWH(barRight - cornerRadius * 2, barTop, cornerRadius * 2, cornerRadius * 2),
+      0,
+      -math.pi / 2,
+      false,
+    );
+
+    // Bar top edge
+    path.lineTo(barLeft + cornerRadius, barTop);
+
+    // Bar top-left corner
+    path.arcTo(
+      Rect.fromLTWH(barLeft, barTop, cornerRadius * 2, cornerRadius * 2),
+      -math.pi / 2,
+      -math.pi / 2,
+      false,
+    );
+
+    // Bar left edge
+    path.lineTo(barLeft, barBottom - cornerRadius);
+
+    // Bar bottom-left corner
+    path.arcTo(
+      Rect.fromLTWH(barLeft, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      math.pi,
+      -math.pi / 2,
+      false,
+    );
+
+    // Left fillet
+    path.lineTo(connectLeft - filletRadius, barBottom);
+    path.quadraticBezierTo(
+      connectLeft, barBottom,
+      connectLeft, knobCenterY,
+    );
+
+    // Complete left half of circle
+    path.arcTo(
+      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      math.pi,
+      -math.pi / 2,
+      false,
+    );
+
+    path.close();
+  }
+
+  @override
+  bool shouldRepaint(covariant _KnobDragBackgroundPainter oldDelegate) {
+    return oldDelegate.knobCenterX != knobCenterX ||
+        oldDelegate.knobCenterY != knobCenterY ||
+        oldDelegate.knobRadius != knobRadius ||
+        oldDelegate.barX != barX ||
+        oldDelegate.barY != barY ||
+        oldDelegate.barWidth != barWidth ||
+        oldDelegate.barHeight != barHeight;
   }
 }
