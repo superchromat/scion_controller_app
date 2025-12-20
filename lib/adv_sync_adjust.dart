@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'network.dart';
-import 'numeric_slider.dart';
+import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 import 'osc_registry.dart';
 
 class AdvSyncAdjustCard extends StatefulWidget {
@@ -19,10 +20,10 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
   int _vsStart = 0;
   int _vsEnd = 0;
 
-  final _hsStartKey = GlobalKey<NumericSliderState>();
-  final _hsEndKey = GlobalKey<NumericSliderState>();
-  final _vsStartKey = GlobalKey<NumericSliderState>();
-  final _vsEndKey = GlobalKey<NumericSliderState>();
+  final _hsStartKey = GlobalKey<OscRotaryKnobState>();
+  final _hsEndKey = GlobalKey<OscRotaryKnobState>();
+  final _vsStartKey = GlobalKey<OscRotaryKnobState>();
+  final _vsEndKey = GlobalKey<OscRotaryKnobState>();
 
   @override
   void initState() {
@@ -52,10 +53,10 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
       _vsStart = vs;
       _vsEnd = ve;
     });
-    _hsStartKey.currentState?.setValue(hs.toDouble(), immediate: true, emit: false);
-    _hsEndKey.currentState?.setValue(he.toDouble(), immediate: true, emit: false);
-    _vsStartKey.currentState?.setValue(vs.toDouble(), immediate: true, emit: false);
-    _vsEndKey.currentState?.setValue(ve.toDouble(), immediate: true, emit: false);
+    _hsStartKey.currentState?.setValue(hs.toDouble(), emit: false);
+    _hsEndKey.currentState?.setValue(he.toDouble(), emit: false);
+    _vsStartKey.currentState?.setValue(vs.toDouble(), emit: false);
+    _vsEndKey.currentState?.setValue(ve.toDouble(), emit: false);
   }
 
   void _sendSync() {
@@ -84,10 +85,10 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _syncSlider('HS Start', _hsStartKey, -512, 511, (v) { _hsStart = v; _sendSync(); }),
-                _syncSlider('HS End', _hsEndKey, -512, 511, (v) { _hsEnd = v; _sendSync(); }),
-                _syncSlider('VS Start', _vsStartKey, -8, 7, (v) { _vsStart = v; _sendSync(); }),
-                _syncSlider('VS End', _vsEndKey, -8, 7, (v) { _vsEnd = v; _sendSync(); }),
+                _syncKnob('HS Start', _hsStartKey, -512, 511, (v) { _hsStart = v; _sendSync(); }),
+                _syncKnob('HS End', _hsEndKey, -512, 511, (v) { _hsEnd = v; _sendSync(); }),
+                _syncKnob('VS Start', _vsStartKey, -8, 7, (v) { _vsStart = v; _sendSync(); }),
+                _syncKnob('VS End', _vsEndKey, -8, 7, (v) { _vsEnd = v; _sendSync(); }),
               ],
             ),
           ],
@@ -96,27 +97,26 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
     );
   }
 
-  Widget _syncSlider(String label, GlobalKey<NumericSliderState> key,
+  Widget _syncKnob(String label, GlobalKey<OscRotaryKnobState> key,
       double min, double max, void Function(int) onCommit) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(width: 70, child: Text(label)),
-        SizedBox(
-          width: 200,
-          height: 24,
-          child: NumericSlider(
-            key: key,
-            value: 0,
-            range: RangeValues(min, max),
-            detents: const [],
-            precision: 0,
-            hardDetents: false,
-            sendOsc: false,
-            onChanged: (v) { onCommit(v.round()); },
-          ),
-        ),
-      ],
+    return OscRotaryKnob(
+      key: key,
+      initialValue: 0,
+      minValue: min,
+      maxValue: max,
+      format: '%.0f',
+      label: label,
+      defaultValue: 0,
+      size: 55,
+      sendOsc: false,
+      preferInteger: true,
+      isBipolar: min < 0,
+      snapConfig: SnapConfig(
+        snapPoints: const [0.0],
+        snapRegionHalfWidth: (max - min) * 0.02,
+        snapBehavior: SnapBehavior.hard,
+      ),
+      onChanged: (v) { onCommit(v.round()); },
     );
   }
 }

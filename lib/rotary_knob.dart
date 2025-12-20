@@ -490,10 +490,9 @@ class _RotaryKnobState extends State<RotaryKnob>
     final knobSize = renderBox.size;
     final screenSize = MediaQuery.of(context).size;
 
-    // Calculate knob center position (accounting for label if present)
-    final labelHeight = widget.label.isNotEmpty ? 19.0 : 0.0;
+    // Calculate knob center position (knob is at top, label below)
     final knobCenterX = knobPosition.dx + knobSize.width / 2;
-    final knobCenterY = knobPosition.dy + labelHeight + widget.size / 2;
+    final knobCenterY = knobPosition.dy + widget.size / 2;
     final knobRadius = widget.size / 2;
 
     // Calculate ideal position centered below the knob
@@ -541,18 +540,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.label.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            widget.label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[400],
-                              decoration: TextDecoration.none,
-                            ),
-                          ),
-                        ),
+                      // Knob with centered value (value hidden, shown in drag bar)
                       SizedBox(
                         width: widget.size,
                         height: widget.size,
@@ -570,8 +558,19 @@ class _RotaryKnobState extends State<RotaryKnob>
                           ),
                         ),
                       ),
-                      // Value text - hidden here since drag bar shows it
-                      const SizedBox(height: 20),
+                      // Label (below knob)
+                      if (widget.label.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Text(
+                            widget.label,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -614,6 +613,8 @@ class _RotaryKnobState extends State<RotaryKnob>
   @override
   Widget build(BuildContext context) {
     final normalized = _normalizedFromValue(_currentValue);
+    // Scale font size based on knob size
+    final valueFontSize = widget.size * 0.14;
 
     return GestureDetector(
       key: _knobKey,
@@ -624,107 +625,111 @@ class _RotaryKnobState extends State<RotaryKnob>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Label
-          if (widget.label.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ),
-          // Knob
+          // Knob with centered value
           SizedBox(
             width: widget.size,
             height: widget.size,
-            child: CustomPaint(
-              painter: _KnobPainter(
-                normalized: normalized,
-                isBipolar: widget.isBipolar,
-                neutralNormalized: widget.isBipolar
-                    ? _normalizedFromValue(widget.neutralValue ?? 0)
-                    : null,
-                isActive: _state != _KnobState.idle,
-                snapPoints: widget.snapConfig.snapPoints
-                    .map((v) => _normalizedFromValue(v))
-                    .toList(),
-              ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Knob arc
+                CustomPaint(
+                  size: Size(widget.size, widget.size),
+                  painter: _KnobPainter(
+                    normalized: normalized,
+                    isBipolar: widget.isBipolar,
+                    neutralNormalized: widget.isBipolar
+                        ? _normalizedFromValue(widget.neutralValue ?? 0)
+                        : null,
+                    isActive: _state != _KnobState.idle,
+                    snapPoints: widget.snapConfig.snapPoints
+                        .map((v) => _normalizedFromValue(v))
+                        .toList(),
+                  ),
+                ),
+                // Centered value display (editable)
+                MouseRegion(
+                  onEnter: (_) => setState(() => _isHovering = true),
+                  onExit: (_) => setState(() => _isHovering = false),
+                  child: GestureDetector(
+                    onTap: _startEditing,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: _isEditing
+                              ? Colors.yellow
+                              : _isHovering
+                                  ? Colors.grey[500]!
+                                  : Colors.transparent,
+                          width: 1,
+                        ),
+                        color: _isEditing ? Colors.grey[900] : Colors.transparent,
+                      ),
+                      child: _isEditing
+                          ? IntrinsicWidth(
+                              child: Focus(
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent &&
+                                      event.logicalKey == LogicalKeyboardKey.escape) {
+                                    _cancelEditing();
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
+                                child: TextField(
+                                  controller: _textController,
+                                  focusNode: _textFocusNode,
+                                  style: TextStyle(
+                                    fontSize: valueFontSize,
+                                    fontFamily: 'Courier',
+                                    color: Colors.white,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  keyboardType: const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                    signed: true,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
+                                    LengthLimitingTextInputFormatter(_getMaxInputLength()),
+                                  ],
+                                  onSubmitted: (_) => _commitEditing(),
+                                ),
+                              ),
+                            )
+                          : Text(
+                              _formatValue(_currentValue),
+                              style: TextStyle(
+                                fontSize: valueFontSize,
+                                fontFamily: 'Courier',
+                                color: _snappedTo != null ? Colors.yellow : Colors.grey[400],
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          // Value display (editable)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _isHovering = true),
-              onExit: (_) => setState(() => _isHovering = false),
-              child: GestureDetector(
-                onTap: _startEditing,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: _isEditing
-                          ? Colors.yellow
-                          : _isHovering
-                              ? Colors.grey[500]!
-                              : Colors.transparent,
-                      width: 1,
-                    ),
-                    color: _isEditing ? Colors.grey[900] : Colors.transparent,
-                  ),
-                  child: _isEditing
-                      ? IntrinsicWidth(
-                          child: Focus(
-                            onKeyEvent: (node, event) {
-                              if (event is KeyDownEvent &&
-                                  event.logicalKey == LogicalKeyboardKey.escape) {
-                                _cancelEditing();
-                                return KeyEventResult.handled;
-                              }
-                              return KeyEventResult.ignored;
-                            },
-                            child: TextField(
-                              controller: _textController,
-                              focusNode: _textFocusNode,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontFamily: 'Courier',
-                                color: Colors.white,
-                              ),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                                border: InputBorder.none,
-                              ),
-                              textAlign: TextAlign.center,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true,
-                                signed: true,
-                              ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
-                                LengthLimitingTextInputFormatter(_getMaxInputLength()),
-                              ],
-                              onSubmitted: (_) => _commitEditing(),
-                            ),
-                          ),
-                        )
-                      : Text(
-                          _formatValue(_currentValue),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'Courier',
-                            color: _snappedTo != null ? Colors.yellow : Colors.white,
-                          ),
-                        ),
+          // Label (below knob, larger white font)
+          if (widget.label.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                widget.label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.white,
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -754,14 +759,30 @@ class _KnobPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 4;
+    final radius = math.min(size.width, size.height) / 2 - 6;
+    const arcWidth = 8.0;
 
-    // Background arc
-    final bgPaint = Paint()
-      ..color = Colors.grey[800]!
+    // Border around background arc
+    final borderPaint = Paint()
+      ..color = const Color(0xFF888888)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = arcWidth + 1
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      borderPaint,
+    );
+
+    // Background arc (darker than section background)
+    final bgPaint = Paint()
+      ..color = const Color(0xFF252525)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = arcWidth
+      ..strokeCap = StrokeCap.butt;
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -770,13 +791,6 @@ class _KnobPainter extends CustomPainter {
       false,
       bgPaint,
     );
-
-    // Value arc
-    final valuePaint = Paint()
-      ..color = isActive ? Colors.yellow : Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
 
     if (isBipolar && neutralNormalized != null) {
       // Draw from neutral point to current value
@@ -790,7 +804,7 @@ class _KnobPainter extends CustomPainter {
         final bipolarPaint = Paint()
           ..color = isActive ? Colors.yellow : Colors.white
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 4
+          ..strokeWidth = arcWidth
           ..strokeCap = StrokeCap.butt;
 
         canvas.drawArc(
@@ -807,7 +821,7 @@ class _KnobPainter extends CustomPainter {
         final capPaint = Paint()
           ..color = isActive ? Colors.yellow : Colors.white
           ..style = PaintingStyle.fill;
-        canvas.drawCircle(Offset(valueX, valueY), 2, capPaint);
+        canvas.drawCircle(Offset(valueX, valueY), arcWidth / 2, capPaint);
       }
 
       // Neutral marker
@@ -825,13 +839,29 @@ class _KnobPainter extends CustomPainter {
       // Draw from start to current value
       final valueSweep = normalized * sweepAngle;
       if (valueSweep > 0.01) {
+        // Use butt cap so the start is square against the grid line
+        final unipolarPaint = Paint()
+          ..color = isActive ? Colors.yellow : Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = arcWidth
+          ..strokeCap = StrokeCap.butt;
+
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: radius),
           startAngle,
           valueSweep,
           false,
-          valuePaint,
+          unipolarPaint,
         );
+
+        // Add round cap at the value end only
+        final valueAngle = startAngle + valueSweep;
+        final valueX = center.dx + radius * math.cos(valueAngle);
+        final valueY = center.dy + radius * math.sin(valueAngle);
+        final capPaint = Paint()
+          ..color = isActive ? Colors.yellow : Colors.white
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(valueX, valueY), arcWidth / 2, capPaint);
       }
     }
 
@@ -853,31 +883,6 @@ class _KnobPainter extends CustomPainter {
       final y2 = center.dy + (radius + 2) * math.sin(snapAngle);
       canvas.drawLine(Offset(x1, y1), Offset(x2, y2), snapPaint);
     }
-
-    // Value indicator dot
-    final indicatorAngle = startAngle + normalized * sweepAngle;
-    final indicatorX = center.dx + (radius - 12) * math.cos(indicatorAngle);
-    final indicatorY = center.dy + (radius - 12) * math.sin(indicatorAngle);
-
-    final indicatorPaint = Paint()
-      ..color = isActive ? Colors.yellow : Colors.white
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(Offset(indicatorX, indicatorY), 4, indicatorPaint);
-
-    // Center circle
-    final centerPaint = Paint()
-      ..color = Colors.grey[700]!
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(center, radius * 0.3, centerPaint);
-
-    final centerBorderPaint = Paint()
-      ..color = Colors.grey[600]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    canvas.drawCircle(center, radius * 0.3, centerBorderPaint);
   }
 
   @override

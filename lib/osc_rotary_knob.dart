@@ -1,0 +1,190 @@
+import 'package:flutter/material.dart';
+
+import 'rotary_knob.dart';
+import 'osc_widget_binding.dart';
+
+/// OSC-enabled wrapper for RotaryKnob.
+///
+/// This widget manages its own internal state and syncs with OSC:
+/// - Sends values when user changes them (unless [sendOsc] is false)
+/// - Receives values from OSC and updates the knob
+///
+/// Wrap with [OscPathSegment] to set the OSC address path.
+class OscRotaryKnob extends StatefulWidget {
+  /// Minimum value
+  final double minValue;
+
+  /// Maximum value
+  final double maxValue;
+
+  /// Initial value
+  final double initialValue;
+
+  /// Printf-style format string for displaying value
+  final String format;
+
+  /// Label text
+  final String label;
+
+  /// Default value for double-tap reset
+  final double? defaultValue;
+
+  /// Whether this is a bipolar knob
+  final bool isBipolar;
+
+  /// Custom neutral value for bipolar display
+  final double? neutralValue;
+
+  /// Callback when value changes (called for both user and OSC changes)
+  final ValueChanged<double>? onChanged;
+
+  /// Snap configuration
+  final SnapConfig snapConfig;
+
+  /// Mapping segments for non-linear value mapping
+  final List<MappingSegment>? mappingSegments;
+
+  /// Size of the knob
+  final double size;
+
+  /// Width of the drag bar
+  final double dragBarWidth;
+
+  /// Whether to send OSC messages when value changes
+  final bool sendOsc;
+
+  /// If true, send integers when value is a whole number
+  final bool preferInteger;
+
+  const OscRotaryKnob({
+    super.key,
+    required this.minValue,
+    required this.maxValue,
+    this.initialValue = 0,
+    this.format = '%.2f',
+    this.label = '',
+    this.defaultValue,
+    this.isBipolar = false,
+    this.neutralValue,
+    this.onChanged,
+    this.snapConfig = const SnapConfig(),
+    this.mappingSegments,
+    this.size = 80,
+    this.dragBarWidth = 400,
+    this.sendOsc = true,
+    this.preferInteger = false,
+  });
+
+  @override
+  State<OscRotaryKnob> createState() => OscRotaryKnobState();
+}
+
+class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
+  late double _value;
+
+  /// Track the last value we sent to ignore local echo
+  double? _lastSentValue;
+
+  /// Track when we're actively dragging
+  bool _isDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialValue.clamp(widget.minValue, widget.maxValue);
+  }
+
+  @override
+  void didUpdateWidget(OscRotaryKnob oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clamp value if range changed
+    if (widget.minValue != oldWidget.minValue ||
+        widget.maxValue != oldWidget.maxValue) {
+      _value = _value.clamp(widget.minValue, widget.maxValue);
+    }
+  }
+
+  /// Current value (read-only access for external use)
+  double get value => _value;
+
+  /// Programmatically set the value
+  ///
+  /// [emit] - whether to call onChanged callback
+  /// [sendOscNow] - whether to immediately send OSC message
+  void setValue(double newValue, {bool emit = true, bool sendOscNow = false}) {
+    final clamped = newValue.clamp(widget.minValue, widget.maxValue);
+    if ((clamped - _value).abs() > 0.0001) {
+      setState(() => _value = clamped);
+      if (emit) {
+        widget.onChanged?.call(_value);
+      }
+      if (sendOscNow && widget.sendOsc) {
+        _doSendOsc();
+      }
+    }
+  }
+
+  void _doSendOsc() {
+    _lastSentValue = _value;
+    if (widget.preferInteger && _value == _value.roundToDouble()) {
+      sendOsc(_value.toInt());
+    } else {
+      sendOsc(_value);
+    }
+  }
+
+  @override
+  OscStatus onOscMessage(List<Object?> args) {
+    if (args.isNotEmpty && args.first is num) {
+      final newValue = (args.first as num).toDouble();
+
+      // Ignore if we're dragging - user input takes priority
+      if (_isDragging) {
+        return OscStatus.ok;
+      }
+
+      // Ignore local echo (value we just sent)
+      if (_lastSentValue != null && (newValue - _lastSentValue!).abs() < 0.0001) {
+        return OscStatus.ok;
+      }
+
+      setValue(newValue, emit: true);
+      return OscStatus.ok;
+    }
+    return OscStatus.error;
+  }
+
+  void _onChanged(double newValue) {
+    _isDragging = true;
+    setState(() => _value = newValue);
+    widget.onChanged?.call(_value);
+
+    if (widget.sendOsc) {
+      _doSendOsc();
+    }
+
+    // Reset dragging flag after a short delay to allow any echo to be ignored
+    Future.delayed(const Duration(milliseconds: 50), () {
+      _isDragging = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RotaryKnob(
+      minValue: widget.minValue,
+      maxValue: widget.maxValue,
+      value: _value,
+      format: widget.format,
+      label: widget.label,
+      defaultValue: widget.defaultValue,
+      isBipolar: widget.isBipolar,
+      neutralValue: widget.neutralValue,
+      onChanged: _onChanged,
+      snapConfig: widget.snapConfig,
+      mappingSegments: widget.mappingSegments,
+      size: widget.size,
+      dragBarWidth: widget.dragBarWidth,
+    );
+  }
+}

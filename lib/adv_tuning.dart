@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'network.dart';
 import 'osc_registry.dart';
-import 'numeric_slider.dart';
+import 'osc_rotary_knob.dart';
 
 class AdvTuningCard extends StatefulWidget {
   const AdvTuningCard({super.key});
@@ -22,11 +22,11 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
   int _vStart = 0;
   int _vHeight = 0;
 
-  final _phaseKey = GlobalKey<NumericSliderState>();
-  final _hStartKey = GlobalKey<NumericSliderState>();
-  final _hWidthKey = GlobalKey<NumericSliderState>();
-  final _vStartKey = GlobalKey<NumericSliderState>();
-  final _vHeightKey = GlobalKey<NumericSliderState>();
+  final _phaseKey = GlobalKey<OscRotaryKnobState>();
+  final _hStartKey = GlobalKey<OscRotaryKnobState>();
+  final _hWidthKey = GlobalKey<OscRotaryKnobState>();
+  final _vStartKey = GlobalKey<OscRotaryKnobState>();
+  final _vHeightKey = GlobalKey<OscRotaryKnobState>();
 
   @override
   void initState() {
@@ -67,7 +67,7 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
     final v = (args.first as num).toInt().clamp(0, 63);
     if (mounted) {
       setState(() => _phase = v);
-      _phaseKey.currentState?.setValue(v.toDouble(), immediate: true, emit: false);
+      _phaseKey.currentState?.setValue(v.toDouble(), emit: false);
     }
   }
 
@@ -81,10 +81,10 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
       setState(() {
         _hStart = hs; _hWidth = hw; _vStart = vs; _vHeight = vh;
       });
-      _hStartKey.currentState?.setValue(hs.toDouble(), immediate: true, emit: false);
-      _hWidthKey.currentState?.setValue(hw.toDouble(), immediate: true, emit: false);
-      _vStartKey.currentState?.setValue(vs.toDouble(), immediate: true, emit: false);
-      _vHeightKey.currentState?.setValue(vh.toDouble(), immediate: true, emit: false);
+      _hStartKey.currentState?.setValue(hs.toDouble(), emit: false);
+      _hWidthKey.currentState?.setValue(hw.toDouble(), emit: false);
+      _vStartKey.currentState?.setValue(vs.toDouble(), emit: false);
+      _vHeightKey.currentState?.setValue(vh.toDouble(), emit: false);
     }
   }
 
@@ -108,38 +108,42 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
             const Text('ADC / ADV7842 Tuning',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Switch(
-                  value: _dllEnabled,
-                  onChanged: (v) {
-                    _dllEnabled = v;
-                    setState(() {});
-                    _send('/adv/dll', [v ? 1 : 0]);
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Switch(
+                      value: _dllEnabled,
+                      onChanged: (v) {
+                        _dllEnabled = v;
+                        setState(() {});
+                        _send('/adv/dll', [v ? 1 : 0]);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('LLC DLL Enable'),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Text('LLC DLL Enable'),
-                const Spacer(),
-                const Text('Phase'),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 200,
-                  height: 24,
-                  child: NumericSlider(
-                    key: _phaseKey,
-                    value: _phase.toDouble(),
-                    range: const RangeValues(0, 63),
-                    detents: const [],
-                    precision: 0,
-                    hardDetents: false,
-                    sendOsc: false,
-                    onChanged: (v) {
-                      final iv = v.round().clamp(0, 63);
-                      _phase = iv;
-                      _send('/adv/phase', [iv]);
-                    },
-                  ),
+                OscRotaryKnob(
+                  key: _phaseKey,
+                  initialValue: _phase.toDouble(),
+                  minValue: 0,
+                  maxValue: 63,
+                  format: '%.0f',
+                  label: 'Phase',
+                  defaultValue: 0,
+                  size: 55,
+                  sendOsc: false,
+                  preferInteger: true,
+                  onChanged: (v) {
+                    final iv = v.round().clamp(0, 63);
+                    _phase = iv;
+                    _send('/adv/phase', [iv]);
+                  },
                 ),
               ],
             ),
@@ -151,10 +155,10 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _deSlider('H Start', _hStartKey, 0, 2200, (v){ _hStart = v; _sendDe(); }),
-                _deSlider('H Width', _hWidthKey, 0, 2200, (v){ _hWidth = v; _sendDe(); }),
-                _deSlider('V Start', _vStartKey, 0, 200, (v){ _vStart = v; _sendDe(); }),
-                _deSlider('V Height', _vHeightKey, 0, 1080, (v){ _vHeight = v; _sendDe(); }),
+                _deKnob('H Start', _hStartKey, 0, 2200, (v){ _hStart = v; _sendDe(); }),
+                _deKnob('H Width', _hWidthKey, 0, 2200, (v){ _hWidth = v; _sendDe(); }),
+                _deKnob('V Start', _vStartKey, 0, 200, (v){ _vStart = v; _sendDe(); }),
+                _deKnob('V Height', _vHeightKey, 0, 1080, (v){ _vHeight = v; _sendDe(); }),
               ],
             ),
           ],
@@ -163,29 +167,22 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
     );
   }
 
-  Widget _deSlider(String label, GlobalKey<NumericSliderState> key,
+  Widget _deKnob(String label, GlobalKey<OscRotaryKnobState> key,
       double min, double max, void Function(int) onCommit) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(width: 70, child: Text(label)),
-        SizedBox(
-          width: 200,
-          height: 24,
-          child: NumericSlider(
-            key: key,
-            value: 0,
-            range: RangeValues(min, max),
-            detents: const [],
-            precision: 0,
-            hardDetents: false,
-            sendOsc: false,
-            onChanged: (v) {
-              onCommit(v.round());
-            },
-          ),
-        ),
-      ],
+    return OscRotaryKnob(
+      key: key,
+      initialValue: 0,
+      minValue: min,
+      maxValue: max,
+      format: '%.0f',
+      label: label,
+      defaultValue: 0,
+      size: 55,
+      sendOsc: false,
+      preferInteger: true,
+      onChanged: (v) {
+        onCommit(v.round());
+      },
     );
   }
 }

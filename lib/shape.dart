@@ -2,102 +2,117 @@
 
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
-import 'numeric_slider.dart';
-// import 'osc_radiolist.dart';
+import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 
-class LinkableSliderPair extends StatefulWidget {
+class LinkableKnobPair extends StatefulWidget {
   final String label;
   final String xKey;
   final String yKey;
   final double xValue;
   final double yValue;
-  final RangeValues range;
-  final List<double>? detents;
+  final double minValue;
+  final double maxValue;
+  final List<double>? snapPoints;
   final int precision;
   /// If true, starts linked and shows the link icon
   final bool defaultLinked;
 
-  const LinkableSliderPair({
+  const LinkableKnobPair({
     super.key,
     required this.label,
     required this.xKey,
     required this.yKey,
     required this.xValue,
     required this.yValue,
-    required this.range,
+    required this.minValue,
+    required this.maxValue,
     required this.precision,
-    this.detents,
+    this.snapPoints,
     this.defaultLinked = false,
   });
 
   @override
-  State<LinkableSliderPair> createState() => _LinkableSliderPairState();
+  State<LinkableKnobPair> createState() => _LinkableKnobPairState();
 }
 
-class _LinkableSliderPairState extends State<LinkableSliderPair> {
+class _LinkableKnobPairState extends State<LinkableKnobPair> {
   late bool _linked = widget.defaultLinked;
-  final _xSliderKey = GlobalKey<NumericSliderState>();
-  final _ySliderKey = GlobalKey<NumericSliderState>();
+  final _xKnobKey = GlobalKey<OscRotaryKnobState>();
+  final _yKnobKey = GlobalKey<OscRotaryKnobState>();
   String? _lastEditedKey;
-  late final double _initialX = widget.xValue;
-  late final double _initialY = widget.yValue;
 
   void _toggleLink() {
     setState(() => _linked = !_linked);
     if (_linked && _lastEditedKey != null) {
-      final sourceKey = _lastEditedKey == widget.xKey ? _xSliderKey : _ySliderKey;
-      final targetKey = _lastEditedKey == widget.xKey ? _ySliderKey : _xSliderKey;
+      final sourceKey = _lastEditedKey == widget.xKey ? _xKnobKey : _yKnobKey;
+      final targetKey = _lastEditedKey == widget.xKey ? _yKnobKey : _xKnobKey;
       final sourceVal = sourceKey.currentState?.value;
       if (sourceVal != null) {
-        targetKey.currentState?.setValue(sourceVal, immediate: true);
+        targetKey.currentState?.setValue(sourceVal, sendOscNow: true);
       }
     }
   }
 
-  void _resetValues() {
-    _xSliderKey.currentState?.setValue(_initialX, immediate: true);
-    _ySliderKey.currentState?.setValue(_initialY, immediate: true);
-  }
-
-  void _onSliderChanged({
+  void _onKnobChanged({
     required String changedKey,
     required double value,
-    required String otherKey,
-    required GlobalKey<NumericSliderState> otherSliderKey,
+    required GlobalKey<OscRotaryKnobState> otherKnobKey,
   }) {
     _lastEditedKey = changedKey;
     if (_linked) {
-      otherSliderKey.currentState?.setValue(value, immediate: true);
+      otherKnobKey.currentState?.setValue(value, sendOscNow: true);
     }
+  }
+
+  Widget _buildKnob({
+    required String label,
+    required String segment,
+    required GlobalKey<OscRotaryKnobState> knobKey,
+    required double initialValue,
+    required void Function(double) onChanged,
+  }) {
+    final format = '%.${widget.precision}f';
+    return OscPathSegment(
+      segment: segment,
+      child: OscRotaryKnob(
+        key: knobKey,
+        initialValue: initialValue,
+        minValue: widget.minValue,
+        maxValue: widget.maxValue,
+        format: format,
+        label: label,
+        defaultValue: initialValue,
+        size: 55,
+        snapConfig: SnapConfig(
+          snapPoints: widget.snapPoints ?? [],
+          snapRegionHalfWidth: (widget.maxValue - widget.minValue) * 0.02,
+          snapBehavior: SnapBehavior.hard,
+        ),
+        onChanged: onChanged,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(width: 80, child: Text(widget.label)),
-        SizedBox(
-          height: 24, width: 60,
-          child: OscPathSegment(
-            segment: widget.xKey,
-            child: NumericSlider(
-              key: _xSliderKey,
-              value: widget.xValue,
-              range: widget.range,
-              detents: widget.detents,
-              precision: widget.precision,
-              onChanged: (v) => _onSliderChanged(
-                changedKey: widget.xKey,
-                value: v,
-                otherKey: widget.yKey,
-                otherSliderKey: _ySliderKey,
-              ),
-            ),
+        SizedBox(width: 70, child: Text(widget.label)),
+        _buildKnob(
+          label: 'X',
+          segment: widget.xKey,
+          knobKey: _xKnobKey,
+          initialValue: widget.xValue,
+          onChanged: (v) => _onKnobChanged(
+            changedKey: widget.xKey,
+            value: v,
+            otherKnobKey: _yKnobKey,
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: widget.defaultLinked
               ? GestureDetector(
                   onTap: _toggleLink,
@@ -109,29 +124,16 @@ class _LinkableSliderPairState extends State<LinkableSliderPair> {
                 )
               : const SizedBox(width: 16),
         ),
-        SizedBox(
-          height: 24, width: 60,
-          child: OscPathSegment(
-            segment: widget.yKey,
-            child: NumericSlider(
-              key: _ySliderKey,
-              value: widget.yValue,
-              range: widget.range,
-              detents: widget.detents,
-              precision: widget.precision,
-              onChanged: (v) => _onSliderChanged(
-                changedKey: widget.yKey,
-                value: v,
-                otherKey: widget.xKey,
-                otherSliderKey: _xSliderKey,
-              ),
-            ),
+        _buildKnob(
+          label: 'Y',
+          segment: widget.yKey,
+          knobKey: _yKnobKey,
+          initialValue: widget.yValue,
+          onChanged: (v) => _onKnobChanged(
+            changedKey: widget.yKey,
+            value: v,
+            otherKnobKey: _xKnobKey,
           ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _resetValues,
-          child: const Icon(Icons.refresh, size: 16),
         ),
       ],
     );
@@ -148,101 +150,60 @@ class Shape extends StatefulWidget {
 }
 
 class ShapeState extends State<Shape> {
-  final _rotationKey = GlobalKey<NumericSliderState>();
-  // Pitch/Yaw removed
-
-  Widget _labeledSlider({
-    required String label,
-    required String paramKey,
-    required GlobalKey<NumericSliderState> sliderKey,
-    required double value,
-    required RangeValues range,
-    List<double>? detents,
-    required int precision,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(width: 80, child: Text(label)),
-        SizedBox(
-          height: 24, width: 60,
-          child: OscPathSegment(
-            segment: paramKey,
-            child: NumericSlider(
-              key: sliderKey,
-              value: value,
-              range: range,
-              detents: detents,
-              precision: precision,
-              onChanged: (v) {},
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () {
-            sliderKey.currentState?.setValue(value, immediate: true);
-          },
-          child: const Icon(Icons.refresh, size: 16),
-        ),
-      ],
-    );
-  }
-
-  Widget _row(Widget child) => SizedBox(
-        height: 25,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Align(alignment: Alignment.centerLeft, child: child),
-        ),
-      );
+  final _rotationKey = GlobalKey<OscRotaryKnobState>();
 
   @override
   Widget build(BuildContext context) {
     // Only show rotation for Send 1 (pageNumber == 1)
     final showRotation = widget.pageNumber == null || widget.pageNumber == 1;
 
-    return ConstrainedBox(
-      constraints:
-          const BoxConstraints(minHeight: 0, maxHeight: double.infinity),
-      child: Column(
-        children: [
-          _row(LinkableSliderPair(
-            label: 'Scale',
-            xKey: 'scaleX',
-            yKey: 'scaleY',
-            xValue: 1.0,
-            yValue: 1.0,
-            range: const RangeValues(0.0, 4.0),
-            detents: [0.0, 0.5, 1.0, 2.0, 4.0],
-            precision: 3,
-            defaultLinked: true,
-          )),
-          _row(LinkableSliderPair(
-            label: 'Position',
-            xKey: 'posX',
-            yKey: 'posY',
-            xValue: 0.5,
-            yValue: 0.5,
-            range: const RangeValues(0, 1),
-            detents: [0, 0.5, 1.0],
-            precision: 3,
-          )),
-          // Zoom Mode removed
-          // Only show rotation for Send 1
-          if (showRotation)
-            _row(_labeledSlider(
-              label: "Rotation",
-              paramKey: "rotation",
-              sliderKey: _rotationKey,
-              value: 180.0,
-              range: const RangeValues(0.0, 360.0),
-              detents: const [0.0, 90.0, 180.0, 270.0, 360.0],
-              precision: 3,
-            )),
-          // Pitch/Yaw removed
-        ],
-      ),
+    return Wrap(
+      spacing: 24,
+      runSpacing: 16,
+      children: [
+        LinkableKnobPair(
+          label: 'Scale',
+          xKey: 'scaleX',
+          yKey: 'scaleY',
+          xValue: 1.0,
+          yValue: 1.0,
+          minValue: 0.0,
+          maxValue: 4.0,
+          snapPoints: const [0.0, 0.5, 1.0, 2.0, 4.0],
+          precision: 3,
+          defaultLinked: true,
+        ),
+        LinkableKnobPair(
+          label: 'Position',
+          xKey: 'posX',
+          yKey: 'posY',
+          xValue: 0.5,
+          yValue: 0.5,
+          minValue: 0.0,
+          maxValue: 1.0,
+          snapPoints: const [0.0, 0.5, 1.0],
+          precision: 3,
+        ),
+        if (showRotation)
+          OscPathSegment(
+            segment: 'rotation',
+            child: OscRotaryKnob(
+              key: _rotationKey,
+              initialValue: 180.0,
+              minValue: 0.0,
+              maxValue: 360.0,
+              format: '%.1f',
+              label: 'Rotation',
+              defaultValue: 180.0,
+              size: 55,
+              snapConfig: SnapConfig(
+                snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
+                snapRegionHalfWidth: 7.2, // 2% of 360
+                snapBehavior: SnapBehavior.hard,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

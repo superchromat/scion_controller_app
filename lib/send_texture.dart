@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'dart:math' as math;
 
 import 'osc_checkbox.dart';
-import 'numeric_slider.dart';
+import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
 import 'network.dart';
@@ -90,37 +91,45 @@ class _AbsoluteOscCheckboxState extends State<AbsoluteOscCheckbox> {
   }
 }
 
-class _IndexedSliders extends StatelessWidget {
+class _IndexedKnobs extends StatelessWidget {
   final String segment;
   final int length;
-  final RangeValues range;
+  final double minValue;
+  final double maxValue;
   final int precision;
 
-  const _IndexedSliders({
+  const _IndexedKnobs({
     required this.segment,
     required this.length,
-    this.range = const RangeValues(-1, 1),
+    this.minValue = -1,
+    this.maxValue = 1,
     this.precision = 3,
   });
 
   @override
   Widget build(BuildContext context) {
+    final format = '%.${precision}f';
     return OscPathSegment(
       segment: segment,
       child: Wrap(
-        spacing: 4,
-        runSpacing: 4,
+        spacing: 8,
+        runSpacing: 8,
         children: List.generate(length, (i) {
-          return SizedBox(
-            width: 60,
-            height: 24,
-            child: OscPathSegment(
-              segment: '$i',
-              child: NumericSlider(
-                value: range.start,
-                range: range,
-                precision: precision,
-                onChanged: (v) {},
+          return OscPathSegment(
+            segment: '$i',
+            child: OscRotaryKnob(
+              initialValue: 0,
+              minValue: minValue,
+              maxValue: maxValue,
+              format: format,
+              label: '$i',
+              defaultValue: 0,
+              size: 45,
+              isBipolar: minValue < 0,
+              snapConfig: SnapConfig(
+                snapPoints: const [0.0],
+                snapRegionHalfWidth: (maxValue - minValue) * 0.02,
+                snapBehavior: SnapBehavior.hard,
               ),
             ),
           );
@@ -142,37 +151,40 @@ class SendTexture extends StatelessWidget {
     );
   }
 
-  Widget _floatSliderRow(
+  Widget _floatKnobRow(
     String label,
     String segment, {
-    RangeValues range = const RangeValues(0, 1),
+    double minValue = 0,
+    double maxValue = 1,
     int precision = 3,
   }) {
+    final format = '%.${precision}f';
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(width: 120, child: Text(label)),
-        SizedBox(
-          width: 60,
-          height: 24,
-          child: OscPathSegment(
-            segment: segment,
-            child: NumericSlider(
-              value: range.start,
-              range: range,
-              precision: precision,
-              onChanged: (v) {},
-            ),
+        OscPathSegment(
+          segment: segment,
+          child: OscRotaryKnob(
+            initialValue: minValue,
+            minValue: minValue,
+            maxValue: maxValue,
+            format: format,
+            label: label,
+            defaultValue: minValue,
+            size: 50,
+            isBipolar: minValue < 0,
           ),
         ),
       ],
     );
   }
 
-  Widget _intSliderRow(
+  Widget _intKnobRow(
     String label,
     String segment, {
-    RangeValues range = const RangeValues(0, 255),
-  }) => _floatSliderRow(label, segment, range: range, precision: 0);
+    double minValue = 0,
+    double maxValue = 255,
+  }) => _floatKnobRow(label, segment, minValue: minValue, maxValue: maxValue, precision: 0);
 
   Widget _frontNrSection() {
     return OscPathSegment(
@@ -222,22 +234,35 @@ class SendTexture extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Coefficients'),
-          const _IndexedSliders(segment: 'coef', length: 8),
+          const _IndexedKnobs(segment: 'coef', length: 8),
           const SizedBox(height: 8),
-          _floatSliderRow('Gain', 'gain'),
-          _checkboxRow('Gain Level En', 'gain_level_en'),
-          _checkboxRow('Hact Sep', 'hact_sep'),
-          _checkboxRow('No Add', 'no_add'),
-          _checkboxRow('Reverse', 'reverse'),
-          _intSliderRow('Cor Val', 'cor_val'),
-          _intSliderRow('Sat Val', 'sat_val'),
-          _checkboxRow('Cor Half', 'cor_half'),
-          _checkboxRow('Cor En', 'cor_en'),
-          _checkboxRow('Sat En', 'sat_en'),
-          _checkboxRow('Enable', 'enable'),
-          _intSliderRow('Gain Slope', 'gain_slope'),
-          _intSliderRow('Gain Thres', 'gain_thres'),
-          _intSliderRow('Gain Offset', 'gain_offset'),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _floatKnobRow('Gain', 'gain'),
+              _intKnobRow('Cor Val', 'cor_val'),
+              _intKnobRow('Sat Val', 'sat_val'),
+              _intKnobRow('Gain Slope', 'gain_slope'),
+              _intKnobRow('Gain Thres', 'gain_thres'),
+              _intKnobRow('Gain Offset', 'gain_offset'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _checkboxRow('Enable', 'enable'),
+              _checkboxRow('Gain Level En', 'gain_level_en'),
+              _checkboxRow('Hact Sep', 'hact_sep'),
+              _checkboxRow('No Add', 'no_add'),
+              _checkboxRow('Reverse', 'reverse'),
+              _checkboxRow('Cor Half', 'cor_half'),
+              _checkboxRow('Cor En', 'cor_en'),
+              _checkboxRow('Sat En', 'sat_en'),
+            ],
+          ),
         ],
       ),
     );
@@ -250,14 +275,21 @@ class SendTexture extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _checkboxRow('Enable', 'enable'),
-          _floatSliderRow('Gain', 'gain'),
-          _intSliderRow('Gain Div', 'gain_div'),
-          _intSliderRow('V Delay', 'v_dly'),
-          _intSliderRow('H Delay', 'h_dly'),
-          _floatSliderRow('Gain Clip Low', 'gain_clip_low'),
-          _floatSliderRow('Gain Clip High', 'gain_clip_high'),
-          _floatSliderRow('Out Clip Low', 'out_clip_low'),
-          _floatSliderRow('Out Clip High', 'out_clip_high'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _floatKnobRow('Gain', 'gain'),
+              _intKnobRow('Gain Div', 'gain_div'),
+              _intKnobRow('V Delay', 'v_dly'),
+              _intKnobRow('H Delay', 'h_dly'),
+              _floatKnobRow('Gain Clip Low', 'gain_clip_low'),
+              _floatKnobRow('Gain Clip High', 'gain_clip_high'),
+              _floatKnobRow('Out Clip Low', 'out_clip_low'),
+              _floatKnobRow('Out Clip High', 'out_clip_high'),
+            ],
+          ),
         ],
       ),
     );
@@ -460,28 +492,26 @@ class _FrontNrDesignerState extends State<_FrontNrDesigner> with OscAddressMixin
     );
   }
 
-  Widget _labelledSlider({
+  Widget _labelledKnob({
     required String label,
     required double value,
-    required RangeValues range,
+    required double minValue,
+    required double maxValue,
     required int precision,
     required ValueChanged<double> onChanged,
   }) {
-    return Row(
-      children: [
-        SizedBox(width: 120, child: Text(label)),
-        SizedBox(
-          width: 100,
-          height: 24,
-          child: NumericSlider(
-            value: value,
-            range: range,
-            precision: precision,
-            sendOsc: false,
-            onChanged: (v) => onChanged(v),
-          ),
-        ),
-      ],
+    final format = '%.${precision}f';
+    return OscRotaryKnob(
+      initialValue: value,
+      minValue: minValue,
+      maxValue: maxValue,
+      format: format,
+      label: label,
+      defaultValue: value,
+      size: 50,
+      sendOsc: false,
+      isBipolar: minValue < 0,
+      onChanged: onChanged,
     );
   }
 
@@ -498,52 +528,58 @@ class _FrontNrDesignerState extends State<_FrontNrDesigner> with OscAddressMixin
             _radioChoice(_FilterType.bandpass, 'Band Pass'),
           ],
         ),
-        const SizedBox(height: 4),
-        _labelledSlider(
-          label: 'Frequency',
-          value: _freq,
-          range: const RangeValues(0.0, 0.49),
-          precision: 3,
-          onChanged: (v) {
-            setState(() => _freq = v);
-            _computeAndSend();
-          },
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            _labelledKnob(
+              label: 'Frequency',
+              value: _freq,
+              minValue: 0.0,
+              maxValue: 0.49,
+              precision: 3,
+              onChanged: (v) {
+                setState(() => _freq = v);
+                _computeAndSend();
+              },
+            ),
+            _labelledKnob(
+              label: 'Amount',
+              value: _amount,
+              minValue: 0.0,
+              maxValue: 3.0,
+              precision: 2,
+              onChanged: (v) {
+                setState(() => _amount = v);
+                _computeAndSend();
+              },
+            ),
+            _labelledKnob(
+              label: 'Q',
+              value: _q,
+              minValue: 0.5,
+              maxValue: 10.0,
+              precision: 2,
+              onChanged: (v) {
+                setState(() => _q = v);
+                _computeAndSend();
+              },
+            ),
+            if (_type != _FilterType.lowpass)
+              _labelledKnob(
+                label: 'DC Pass',
+                value: _dc,
+                minValue: 0.0,
+                maxValue: 1.5,
+                precision: 2,
+                onChanged: (v) {
+                  setState(() => _dc = v);
+                  _computeAndSend();
+                },
+              ),
+          ],
         ),
-        const SizedBox(height: 4),
-        _labelledSlider(
-          label: 'Amount',
-          value: _amount,
-          range: const RangeValues(0.0, 3.0),
-          precision: 2,
-          onChanged: (v) {
-            setState(() => _amount = v);
-            _computeAndSend();
-          },
-        ),
-        const SizedBox(height: 4),
-        _labelledSlider(
-          label: 'Q',
-          value: _q,
-          range: const RangeValues(0.5, 10.0),
-          precision: 2,
-          onChanged: (v) {
-            setState(() => _q = v);
-            _computeAndSend();
-          },
-        ),
-        if (_type != _FilterType.lowpass) ...[
-          const SizedBox(height: 4),
-          _labelledSlider(
-            label: 'DC Pass',
-            value: _dc,
-            range: const RangeValues(0.0, 1.5),
-            precision: 2,
-            onChanged: (v) {
-              setState(() => _dc = v);
-              _computeAndSend();
-            },
-          ),
-        ],
       ],
     );
   }

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'network.dart';
-import 'numeric_slider.dart';
+import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 import 'osc_registry.dart';
 
 class AdvDeWindowCard extends StatefulWidget {
@@ -19,10 +20,10 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
   int _vStart = 0;
   int _vEnd = 0;
 
-  final _hStartKey = GlobalKey<NumericSliderState>();
-  final _hEndKey = GlobalKey<NumericSliderState>();
-  final _vStartKey = GlobalKey<NumericSliderState>();
-  final _vEndKey = GlobalKey<NumericSliderState>();
+  final _hStartKey = GlobalKey<OscRotaryKnobState>();
+  final _hEndKey = GlobalKey<OscRotaryKnobState>();
+  final _vStartKey = GlobalKey<OscRotaryKnobState>();
+  final _vEndKey = GlobalKey<OscRotaryKnobState>();
 
   @override
   void initState() {
@@ -52,10 +53,10 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
       _vStart = vs;
       _vEnd = ve;
     });
-    _hStartKey.currentState?.setValue(hs.toDouble(), immediate: true, emit: false);
-    _hEndKey.currentState?.setValue(he.toDouble(), immediate: true, emit: false);
-    _vStartKey.currentState?.setValue(vs.toDouble(), immediate: true, emit: false);
-    _vEndKey.currentState?.setValue(ve.toDouble(), immediate: true, emit: false);
+    _hStartKey.currentState?.setValue(hs.toDouble(), emit: false);
+    _hEndKey.currentState?.setValue(he.toDouble(), emit: false);
+    _vStartKey.currentState?.setValue(vs.toDouble(), emit: false);
+    _vEndKey.currentState?.setValue(ve.toDouble(), emit: false);
   }
 
   void _sendDe() {
@@ -84,10 +85,10 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _deSlider('H Start', _hStartKey, -512, 511, (v) { _hStart = v; _sendDe(); }),
-                _deSlider('H End', _hEndKey, -512, 511, (v) { _hEnd = v; _sendDe(); }),
-                _deSlider('V Start', _vStartKey, -8, 7, (v) { _vStart = v; _sendDe(); }),
-                _deSlider('V End', _vEndKey, -8, 7, (v) { _vEnd = v; _sendDe(); }),
+                _deKnob('H Start', _hStartKey, -512, 511, (v) { _hStart = v; _sendDe(); }),
+                _deKnob('H End', _hEndKey, -512, 511, (v) { _hEnd = v; _sendDe(); }),
+                _deKnob('V Start', _vStartKey, -8, 7, (v) { _vStart = v; _sendDe(); }),
+                _deKnob('V End', _vEndKey, -8, 7, (v) { _vEnd = v; _sendDe(); }),
               ],
             ),
           ],
@@ -96,27 +97,26 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
     );
   }
 
-  Widget _deSlider(String label, GlobalKey<NumericSliderState> key,
+  Widget _deKnob(String label, GlobalKey<OscRotaryKnobState> key,
       double min, double max, void Function(int) onCommit) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(width: 70, child: Text(label)),
-        SizedBox(
-          width: 200,
-          height: 24,
-          child: NumericSlider(
-            key: key,
-            value: 0,
-            range: RangeValues(min, max),
-            detents: const [],
-            precision: 0,
-            hardDetents: false,
-            sendOsc: false,
-            onChanged: (v) { onCommit(v.round()); },
-          ),
-        ),
-      ],
+    return OscRotaryKnob(
+      key: key,
+      initialValue: 0,
+      minValue: min,
+      maxValue: max,
+      format: '%.0f',
+      label: label,
+      defaultValue: 0,
+      size: 55,
+      sendOsc: false,
+      preferInteger: true,
+      isBipolar: min < 0,
+      snapConfig: SnapConfig(
+        snapPoints: const [0.0],
+        snapRegionHalfWidth: (max - min) * 0.02,
+        snapBehavior: SnapBehavior.hard,
+      ),
+      onChanged: (v) { onCommit(v.round()); },
     );
   }
 }

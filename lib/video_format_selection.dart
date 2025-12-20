@@ -5,10 +5,10 @@ import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
 
 import 'color_space_matrix.dart';
-import 'numeric_slider.dart';
+import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 import 'labeled_card.dart';
 import 'osc_dropdown.dart';
-import 'osc_checkbox.dart';
 
 class VideoFormatSelectionSection extends StatefulWidget {
   const VideoFormatSelectionSection({super.key});
@@ -46,9 +46,9 @@ class _VideoFormatSelectionSectionState
   bool fullRange = true; // true = Full range (0-255), false = Legal (16-235)
   bool interlaced = false; // true = Interlaced, false = Progressive
 
-  final List<List<GlobalKey<NumericSliderState>>> sliderKeys = List.generate(
+  final List<List<GlobalKey<OscRotaryKnobState>>> knobKeys = List.generate(
     3,
-    (_) => List.generate(3, (_) => GlobalKey<NumericSliderState>()),
+    (_) => List.generate(3, (_) => GlobalKey<OscRotaryKnobState>()),
   );
 
   bool _updatingFromPreset = false;
@@ -134,36 +134,43 @@ class _VideoFormatSelectionSectionState
   Widget _matrixWidget() {
     return OscPathSegment(
       segment: 'color_matrix',
-      child: Table(
-        defaultColumnWidth: const FixedColumnWidth(80),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: List.generate(3, (row) {
-          return TableRow(
+          return Row(
+            mainAxisSize: MainAxisSize.min,
             children: List.generate(3, (col) {
-              final top = row == 0 ? 0.0 : 4.0;
-              final bottom = row == 2 ? 0.0 : 4.0;
               return Padding(
-                padding: EdgeInsets.fromLTRB(4, top, 4, bottom),
-                child: SizedBox(
-                  width: 45,
-                  height: 20,
-                  child: OscPathSegment(
-                    segment: '$row/$col',
-                    child: NumericSlider(
-                      key: sliderKeys[row][col],
-                      value: matrixModel.getCell(row, col),
-                      sendOsc: false,
-                      onChanged: (newValue) {
-                        if (_updatingFromPreset) return;
-                        setState(() {
-                          matrixModel.updateCell(row, col, newValue);
-                          matrixModel.correctMatrix(row, col);
-                          if (selectedColorspace != 'Custom') {
-                            selectedColorspace = 'Custom';
-                          }
-                        });
-                        _sendColorMatrix();
-                      },
+                padding: const EdgeInsets.all(2),
+                child: OscPathSegment(
+                  segment: '$row/$col',
+                  child: OscRotaryKnob(
+                    key: knobKeys[row][col],
+                    initialValue: matrixModel.getCell(row, col),
+                    minValue: -2.0,
+                    maxValue: 2.0,
+                    format: '%.3f',
+                    label: '',
+                    defaultValue: row == col ? 1.0 : 0.0,
+                    size: 45,
+                    sendOsc: false,
+                    isBipolar: true,
+                    snapConfig: SnapConfig(
+                      snapPoints: const [0.0, 1.0, -1.0],
+                      snapRegionHalfWidth: 0.08,
+                      snapBehavior: SnapBehavior.hard,
                     ),
+                    onChanged: (newValue) {
+                      if (_updatingFromPreset) return;
+                      setState(() {
+                        matrixModel.updateCell(row, col, newValue);
+                        matrixModel.correctMatrix(row, col);
+                        if (selectedColorspace != 'Custom') {
+                          selectedColorspace = 'Custom';
+                        }
+                      });
+                      _sendColorMatrix();
+                    },
                   ),
                 ),
               );
@@ -237,29 +244,18 @@ class _VideoFormatSelectionSectionState
                             onChanged: (value) {
                               setState(() {
                                 selectedColorspace = value;
-                                setState(() {
-                                  selectedColorspace = value;
-                                  _updatingFromPreset = true;
-                                  matrixModel = ColorSpaceMatrix(
-                                      getMatrixForColorspace(value));
-                                });
+                                _updatingFromPreset = true;
+                                matrixModel = ColorSpaceMatrix(
+                                    getMatrixForColorspace(value));
 
                                 final matrix = getMatrixForColorspace(value);
-                                final futures = <Future<void>>[];
-
                                 for (int i = 0; i < 3; i++) {
                                   for (int j = 0; j < 3; j++) {
-                                    final future = sliderKeys[i][j].currentState
-                                        ?.setValue(matrix[i][j]);
-                                    if (future != null) futures.add(future);
+                                    knobKeys[i][j].currentState
+                                        ?.setValue(matrix[i][j], emit: false);
                                   }
                                 }
-
-                                Future.wait(futures).then((_) {
-                                  setState(() {
-                                    _updatingFromPreset = false;
-                                  });
-                                });
+                                _updatingFromPreset = false;
                               });
                             },
                           ),

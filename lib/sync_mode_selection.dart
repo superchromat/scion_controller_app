@@ -3,7 +3,8 @@
 import 'package:flutter/material.dart';
 import 'osc_radiolist.dart';
 import 'osc_checkbox.dart';
-import 'numeric_slider.dart';
+import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 import 'labeled_card.dart';
 import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
@@ -65,10 +66,8 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
   @override
   Widget build(BuildContext context) {
-    RangeValues pixelClockShiftRange = RangeValues(-20, 20);
-    List<double> pcsri = List.generate(
-        (pixelClockShiftRange.end - pixelClockShiftRange.start).toInt(),
-        (i) => (pixelClockShiftRange.start.toInt() + i).toDouble());
+    // Generate snap points for integer values from -20 to 20
+    final snapPoints = List.generate(41, (i) => (i - 20).toDouble());
 
     return LabeledCard(
       title: 'Return Sync',
@@ -105,21 +104,25 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
             ),
           ),
           const SizedBox(height: 16),
-          Text('Pixel clock offset',
-              style: Theme.of(context).textTheme.titleMedium),
           OscPathSegment(
-              segment: 'clock_offset',
-              child: SizedBox(
-                  width: 80,
-                  height: 24,
-                  child: NumericSlider(
-                    value: 0,
-                    onChanged: (_) {},
-                    range: pixelClockShiftRange,
-                    detents: pcsri,
-                    hardDetents: true,
-                    precision: 0,
-                  ))),
+            segment: 'clock_offset',
+            child: OscRotaryKnob(
+              initialValue: 0,
+              minValue: -20,
+              maxValue: 20,
+              format: '%.0f',
+              label: 'Clock Offset',
+              defaultValue: 0,
+              size: 55,
+              isBipolar: true,
+              preferInteger: true,
+              snapConfig: SnapConfig(
+                snapPoints: snapPoints,
+                snapRegionHalfWidth: 0.5,
+                snapBehavior: SnapBehavior.hard,
+              ),
+            ),
+          ),
         ],
       ),
     );

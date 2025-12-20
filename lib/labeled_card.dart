@@ -18,8 +18,9 @@ class LabeledCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // rebuild on network status
-    final connected = context.watch<Network>().isConnected;
-    final disabled = !networkIndependent && !connected;
+    // ignore for now final connected = context.watch<Network>().isConnected;
+    // TODO: Re-enable connection check when device is back online
+    const disabled = false; // !networkIndependent && !connected;
 
     // compute OSC namespace prefix for this card
     final prefix = '/${OscPathSegment.resolvePath(context).join('/')}';
