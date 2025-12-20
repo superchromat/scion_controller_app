@@ -35,7 +35,12 @@ class MappingSegment {
 }
 
 /// Snap behavior modes
-enum SnapBehavior { hard, soft }
+enum SnapBehavior {
+  /// Locks exactly to snap point until hysteresis threshold exceeded
+  hard,
+  /// Biases toward snap point with smooth weighting
+  soft,
+}
 
 /// Snap point configuration
 class SnapConfig {
@@ -46,13 +51,21 @@ class SnapConfig {
   final int snapBriefHoldTimeMs;
   final SnapBehavior snapBehavior;
 
+  /// Exponent for soft snap weight curve.
+  /// - 1.0 = linear (strongest effect)
+  /// - 2.0 = quadratic (default, moderate)
+  /// - 3.0 = cubic (gentler, snappier at center)
+  /// Lower values = stronger magnetic pull throughout the region
+  final double softSnapExponent;
+
   const SnapConfig({
     this.snapPoints = const [],
     this.snapRegionHalfWidth = 0.05,
     this.snapHysteresisMultiplier = 1.5,
-    this.snapAvoidanceSpeedThreshold = 0.01,
+    this.snapAvoidanceSpeedThreshold = 0.25,  // normalized range per second (0.25 = 4 sec to traverse full range)
     this.snapBriefHoldTimeMs = 100,
     this.snapBehavior = SnapBehavior.hard,
+    this.softSnapExponent = 2.0,
   });
 }
 
@@ -286,8 +299,12 @@ class _RotaryKnobState extends State<RotaryKnob>
   }
 
   // Snapping logic
-  double _applySnapping(double vProposed, double speed) {
+  double _applySnapping(double vProposed, {required bool bypassSnap}) {
     if (widget.snapConfig.snapPoints.isEmpty) return vProposed;
+    if (bypassSnap) {
+      _snappedTo = null;
+      return vProposed;
+    }
 
     // Find nearest snap point
     double? nearestSnap;
@@ -307,34 +324,42 @@ class _RotaryKnobState extends State<RotaryKnob>
 
     // Check if we're in snap region
     final inSnapRegion = nearestDist <= widget.snapConfig.snapRegionHalfWidth;
+    final behavior = widget.snapConfig.snapBehavior;
 
-    // Snap avoidance - slow motion bypasses snapping
-    if (speed < widget.snapConfig.snapAvoidanceSpeedThreshold) {
-      _snappedTo = null;
+    // Hard snap: simple on/off behavior
+    if (behavior == SnapBehavior.hard) {
+      if (_snappedTo != null) {
+        final releaseThreshold = widget.snapConfig.snapRegionHalfWidth *
+            widget.snapConfig.snapHysteresisMultiplier;
+        if ((vProposed - _snappedTo!).abs() > releaseThreshold) {
+          _snappedTo = null;
+        } else {
+          return _snappedTo!;
+        }
+      }
+      if (inSnapRegion) {
+        _snappedTo = nearestSnap;
+        return nearestSnap;
+      }
       return vProposed;
     }
 
-    // Hysteresis logic
-    if (_snappedTo != null) {
-      final releaseThreshold = widget.snapConfig.snapRegionHalfWidth *
-          widget.snapConfig.snapHysteresisMultiplier;
-      if ((vProposed - _snappedTo!).abs() > releaseThreshold) {
-        _snappedTo = null;
-      } else {
-        // Still snapped
-        return widget.snapConfig.snapBehavior == SnapBehavior.hard
-            ? _snappedTo!
-            : _softSnap(vProposed, _snappedTo!);
+    // Soft snap: weighted pull toward snap point
+    if (behavior == SnapBehavior.soft) {
+      if (_snappedTo != null) {
+        final releaseThreshold = widget.snapConfig.snapRegionHalfWidth *
+            widget.snapConfig.snapHysteresisMultiplier;
+        if ((vProposed - _snappedTo!).abs() > releaseThreshold) {
+          _snappedTo = null;
+        } else {
+          return _softSnap(vProposed, _snappedTo!);
+        }
       }
-    }
-
-    // Capture condition
-    if (inSnapRegion) {
-      _snappedTo = nearestSnap;
-      _snapTime = DateTime.now();
-      return widget.snapConfig.snapBehavior == SnapBehavior.hard
-          ? nearestSnap
-          : _softSnap(vProposed, nearestSnap);
+      if (inSnapRegion) {
+        _snappedTo = nearestSnap;
+        return _softSnap(vProposed, nearestSnap);
+      }
+      return vProposed;
     }
 
     return vProposed;
@@ -345,7 +370,9 @@ class _RotaryKnobState extends State<RotaryKnob>
     final dist = (vProposed - snapPoint).abs();
     final weight = 1.0 -
         (dist / widget.snapConfig.snapRegionHalfWidth).clamp(0.0, 1.0);
-    return vProposed + (snapPoint - vProposed) * weight * weight;
+    // Apply exponent: lower = stronger pull, higher = gentler
+    final adjustedWeight = math.pow(weight, widget.snapConfig.softSnapExponent);
+    return vProposed + (snapPoint - vProposed) * adjustedWeight;
   }
 
   String _formatValue(double value) {
@@ -355,11 +382,13 @@ class _RotaryKnobState extends State<RotaryKnob>
     final showPlus = match?.group(1) == '+';
     final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
 
-    // Calculate width needed for integer part based on value range
+    // Calculate total width needed for integer part + sign
     final maxAbsInt = [widget.minValue.abs(), widget.maxValue.abs()]
         .reduce((a, b) => a > b ? a : b)
         .truncate();
-    final intWidth = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
+    final intDigits = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
+    final needsSign = widget.minValue < 0 || showPlus;
+    final totalIntWidth = intDigits + (needsSign ? 1 : 0);
 
     // Format the number
     final formatted = value.toStringAsFixed(precision);
@@ -367,20 +396,18 @@ class _RotaryKnobState extends State<RotaryKnob>
     var intPart = parts[0];
     final decPart = parts.length > 1 ? '.${parts[1]}' : '';
 
-    // Handle sign and padding
+    // Handle sign
     final isNegative = intPart.startsWith('-');
     if (isNegative) {
       intPart = intPart.substring(1);
     }
+    final sign = isNegative ? '-' : (showPlus ? '+' : '');
 
-    // Pad integer part to consistent width
-    intPart = intPart.padLeft(intWidth, ' ');
+    // Combine sign and integer, then pad the whole thing on the left
+    final signedInt = '$sign$intPart';
+    final paddedSignedInt = signedInt.padLeft(totalIntWidth, ' ');
 
-    // Add sign (or space for positive if range includes negatives or showPlus)
-    final needsSignSpace = widget.minValue < 0 || showPlus;
-    final sign = isNegative ? '-' : (showPlus ? '+' : (needsSignSpace ? ' ' : ''));
-
-    return '$sign$intPart$decPart';
+    return '$paddedSignedInt$decPart';
   }
 
   void _onPanStart(DragStartDetails details) {
@@ -413,17 +440,16 @@ class _RotaryKnobState extends State<RotaryKnob>
       final tProposed = (_startNormalized + dt).clamp(0.0, 1.0);
       final vProposed = _valueFromNormalized(tProposed);
 
-      // Calculate speed for snap avoidance
-      final now = DateTime.now();
-      final timeDelta =
-          now.difference(_lastUpdateTime).inMilliseconds / 1000.0;
-      final speed =
-          timeDelta > 0 ? (vProposed - _lastValue).abs() / timeDelta : 0.0;
+      // Check if Ctrl key is held to bypass snapping
+      final ctrlHeld = HardwareKeyboard.instance.logicalKeysPressed.any(
+        (key) => key == LogicalKeyboardKey.controlLeft ||
+                 key == LogicalKeyboardKey.controlRight,
+      );
 
-      final vFinal = _applySnapping(vProposed, speed);
+      final vFinal = _applySnapping(vProposed, bypassSnap: ctrlHeld);
 
       _lastValue = _currentValue;
-      _lastUpdateTime = now;
+      _lastUpdateTime = DateTime.now();
 
       setState(() {
         _currentValue = vFinal.clamp(widget.minValue, widget.maxValue);
@@ -760,13 +786,28 @@ class _KnobPainter extends CustomPainter {
       final arcSweep = (valueAngle - neutralAngle).abs();
 
       if (arcSweep > 0.01) {
+        // Use butt cap so the end at neutral is square
+        final bipolarPaint = Paint()
+          ..color = isActive ? Colors.yellow : Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..strokeCap = StrokeCap.butt;
+
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: radius),
           arcStart,
           arcSweep,
           false,
-          valuePaint,
+          bipolarPaint,
         );
+
+        // Add round cap at the value end only
+        final valueX = center.dx + radius * math.cos(valueAngle);
+        final valueY = center.dy + radius * math.sin(valueAngle);
+        final capPaint = Paint()
+          ..color = isActive ? Colors.yellow : Colors.white
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(valueX, valueY), 2, capPaint);
       }
 
       // Neutral marker
@@ -801,7 +842,11 @@ class _KnobPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     for (final snapNorm in snapPoints) {
-      final snapAngle = startAngle + snapNorm * sweepAngle;
+      // Clamp to valid range and skip if outside
+      final clampedNorm = snapNorm.clamp(0.0, 1.0);
+      if ((snapNorm - clampedNorm).abs() > 0.001) continue;
+
+      final snapAngle = startAngle + clampedNorm * sweepAngle;
       final x1 = center.dx + (radius - 6) * math.cos(snapAngle);
       final y1 = center.dy + (radius - 6) * math.sin(snapAngle);
       final x2 = center.dx + (radius + 2) * math.cos(snapAngle);
@@ -876,11 +921,13 @@ class _DragBar extends StatelessWidget {
     final showPlus = match?.group(1) == '+';
     final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
 
-    // Calculate width needed for integer part based on value range
+    // Calculate total width needed for integer part + sign
     final maxAbsInt = [minValue.abs(), maxValue.abs()]
         .reduce((a, b) => a > b ? a : b)
         .truncate();
-    final intWidth = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
+    final intDigits = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
+    final needsSign = minValue < 0 || showPlus;
+    final totalIntWidth = intDigits + (needsSign ? 1 : 0);
 
     // Format the number
     final formatted = value.toStringAsFixed(precision);
@@ -888,20 +935,18 @@ class _DragBar extends StatelessWidget {
     var intPart = parts[0];
     final decPart = parts.length > 1 ? '.${parts[1]}' : '';
 
-    // Handle sign and padding
+    // Handle sign
     final isNegative = intPart.startsWith('-');
     if (isNegative) {
       intPart = intPart.substring(1);
     }
+    final sign = isNegative ? '-' : (showPlus ? '+' : '');
 
-    // Pad integer part to consistent width
-    intPart = intPart.padLeft(intWidth, ' ');
+    // Combine sign and integer, then pad the whole thing on the left
+    final signedInt = '$sign$intPart';
+    final paddedSignedInt = signedInt.padLeft(totalIntWidth, ' ');
 
-    // Add sign (or space for positive if range includes negatives or showPlus)
-    final needsSignSpace = minValue < 0 || showPlus;
-    final sign = isNegative ? '-' : (showPlus ? '+' : (needsSignSpace ? ' ' : ''));
-
-    return '$sign$intPart$decPart';
+    return '$paddedSignedInt$decPart';
   }
 
   @override
@@ -1182,6 +1227,13 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Draw the shape
     canvas.drawPath(path, paint);
+
+    // Draw thin white border for separation
+    final borderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.5;
+    canvas.drawPath(path, borderPaint);
   }
 
   void _drawCircleWithBarBelow(Path path, double circleRadius,

@@ -24,6 +24,11 @@ class _KnobPageState extends State<KnobPage> {
   double _expValue = 0.0;    // exponential curve
   double _logFreqValue = 1000.0;  // log frequency
 
+  // Soft snap tuning values
+  double _softSnapDemoValue = 0.0;
+  double _softSnapExponent = 2.0;  // 0.5 to 4.0
+  double _softSnapRegionWidth = 0.3;  // 0.1 to 1.0
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -218,6 +223,94 @@ class _KnobPageState extends State<KnobPage> {
                   snapBehavior: SnapBehavior.hard,
                 ),
                 onChanged: (v) => setState(() => _snappingValue = v - 6),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Soft Snap Tuning Section
+        LabeledCard(
+          title: 'Soft Snap Tuning',
+          networkIndependent: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 32,
+                runSpacing: 24,
+                alignment: WrapAlignment.start,
+                crossAxisAlignment: WrapCrossAlignment.end,
+                children: [
+                  // Exponent control
+                  RotaryKnob(
+                    minValue: 0.25,
+                    maxValue: 4,
+                    value: _softSnapExponent,
+                    format: '%.2f',
+                    label: 'Exponent',
+                    defaultValue: 2.0,
+                    size: 80,
+                    mappingSegments: [
+                      MappingSegment.linear(t0: 0.0, t1: 0.5, v0: 0.25, v1: 2.0),
+                      MappingSegment.linear(t0: 0.5, t1: 1.0, v0: 2.0, v1: 4.0),
+                    ],
+                    snapConfig: const SnapConfig(
+                      snapPoints: [0.5, 1.0, 2.0, 3.0],
+                      snapRegionHalfWidth: 0.1,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _softSnapExponent = v),
+                  ),
+
+                  // Region width control
+                  RotaryKnob(
+                    minValue: 0.1,
+                    maxValue: 1.0,
+                    value: _softSnapRegionWidth,
+                    format: '%.2f',
+                    label: 'Region',
+                    defaultValue: 0.3,
+                    size: 80,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [0.25, 0.5, 0.75],
+                      snapRegionHalfWidth: 0.05,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _softSnapRegionWidth = v),
+                  ),
+
+                  // Demo knob with soft snap
+                  RotaryKnob(
+                    minValue: -2,
+                    maxValue: 2,
+                    value: _softSnapDemoValue,
+                    format: '%+.2f',
+                    label: 'Demo',
+                    isBipolar: true,
+                    defaultValue: 0,
+                    size: 100,
+                    snapConfig: SnapConfig(
+                      snapPoints: const [-1, 0, 1],
+                      snapRegionHalfWidth: _softSnapRegionWidth,
+                      snapBehavior: SnapBehavior.soft,
+                      softSnapExponent: _softSnapExponent,
+                      snapHysteresisMultiplier: 1.5,
+                    ),
+                    onChanged: (v) => setState(() => _softSnapDemoValue = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Exponent: 0.5=strong pull, 1.0=linear, 2.0=quadratic (default), 3.0+=gentle\n'
+                  'Region: width of snap zone in value units\n'
+                  'Tip: Hold Ctrl while dragging to bypass snapping entirely',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
               ),
             ],
           ),
