@@ -77,10 +77,35 @@ class LightingSettings extends ChangeNotifier {
     const size = 256;
     final random = math.Random(12345);
 
-    // Create raw RGBA pixel data for crisp noise
+    // Create raw greyscale noise values
+    final rawNoise = Uint8List(size * size);
+    for (int i = 0; i < size * size; i++) {
+      rawNoise[i] = 128 + random.nextInt(20);
+    }
+
+    // Apply 3x3 convolution: [[1,1,1],[1,8,1],[1,1,1]] / 16
+    // This is a mild blur that preserves detail while softening harsh edges
+    final blurredNoise = Uint8List(size * size);
+    for (int y = 0; y < size; y++) {
+      for (int x = 0; x < size; x++) {
+        int sum = 0;
+        // Sample 3x3 neighborhood with wrap-around for seamless tiling
+        for (int dy = -1; dy <= 1; dy++) {
+          for (int dx = -1; dx <= 1; dx++) {
+            final nx = (x + dx) % size;
+            final ny = (y + dy) % size;
+            final weight = (dx == 0 && dy == 0) ? 8 : 1;
+            sum += rawNoise[ny * size + nx] * weight;
+          }
+        }
+        blurredNoise[y * size + x] = (sum ~/ 16).clamp(0, 255);
+      }
+    }
+
+    // Create RGBA pixel data from blurred noise
     final pixels = Uint8List(size * size * 4);
     for (int i = 0; i < size * size; i++) {
-      final grey = 128 + random.nextInt(20);
+      final grey = blurredNoise[i];
       pixels[i * 4 + 0] = grey; // R
       pixels[i * 4 + 1] = grey; // G
       pixels[i * 4 + 2] = grey; // B
