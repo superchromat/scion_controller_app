@@ -814,96 +814,90 @@ class _RotaryKnobState extends State<RotaryKnob>
                             // Fixed width based on formatted value (with leading zeros)
                             final fullText = _formatValue(_currentValue);
                             final charWidth = _measureTextWidth('0', valueFontSize);
-                            final fixedWidth = charWidth * fullText.length + 4; // +4 for cursor
+                            final fixedWidth = charWidth * fullText.length;
+
+                            final style = TextStyle(
+                              fontSize: valueFontSize,
+                              fontFamily: 'Courier',
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontWeight: FontWeight.normal,
+                              letterSpacing: 0,
+                              height: 1.0,
+                            );
 
                             return SizedBox(
                               width: fixedWidth,
                               child: Stack(
+                                clipBehavior: Clip.none,
+                                alignment: Alignment.centerRight,
                                 children: [
                                   // TextField - always present for interaction
                                   TextField(
-                                controller: _textController,
-                                focusNode: _textFocusNode,
-                                style: TextStyle(
-                                  fontSize: valueFontSize,
-                                  fontFamily: 'Courier',
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                  fontWeight: FontWeight.normal,
-                                  // Transparent when not editing so overlay shows
-                                  color: _isEditing ? Colors.white : Colors.transparent,
-                                ),
-                                cursorColor: Colors.white,
-                                cursorWidth: 1.5,
-                                textAlign: TextAlign.right,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  isCollapsed: true,
-                                ),
-                                keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true,
-                                  signed: true,
-                                ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
-                                  LengthLimitingTextInputFormatter(_getMaxInputLength()),
-                                ],
-                                onSubmitted: (_) => _commitEditing(),
-                              ),
-                              // Colored text overlay when not editing
-                              // Positioned identically to TextField (no Align wrapper)
-                              if (!_isEditing)
-                                IgnorePointer(
-                                  child: Builder(
-                                    builder: (context) {
-                                      final text = _textController.text;
-                                      // Find leading zeros (after optional sign)
-                                      int signEnd = 0;
-                                      if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
-                                        signEnd = 1;
-                                      }
-                                      int zerosEnd = signEnd;
-                                      // Only count zeros followed by digit (not decimal)
-                                      while (zerosEnd < text.length - 1 &&
-                                             text[zerosEnd] == '0' &&
-                                             zerosEnd + 1 < text.length &&
-                                             text[zerosEnd + 1] != '.') {
-                                        zerosEnd++;
-                                      }
-                                      final style = TextStyle(
-                                        fontSize: valueFontSize,
-                                        fontFamily: 'Courier',
-                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                        fontWeight: FontWeight.normal,
-                                      );
-                                      return Text.rich(
-                                        TextSpan(
-                                          children: [
-                                            // Sign in main color
-                                            if (signEnd > 0)
-                                              TextSpan(
-                                                text: text.substring(0, signEnd),
-                                                style: style.copyWith(color: mainColor),
-                                              ),
-                                            // Leading zeros in dark grey
-                                            if (zerosEnd > signEnd)
-                                              TextSpan(
-                                                text: text.substring(signEnd, zerosEnd),
-                                                style: style.copyWith(color: Colors.grey[700]),
-                                              ),
-                                            // Rest in main color
-                                            TextSpan(
-                                              text: text.substring(zerosEnd),
-                                              style: style.copyWith(color: mainColor),
-                                            ),
-                                          ],
-                                        ),
-                                        textAlign: TextAlign.right,
-                                      );
-                                    },
+                                    controller: _textController,
+                                    focusNode: _textFocusNode,
+                                    style: style.copyWith(
+                                      color: _isEditing ? Colors.white : Colors.transparent,
+                                    ),
+                                    cursorColor: Colors.white,
+                                    cursorWidth: 1.5,
+                                    textAlign: TextAlign.right,
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      isCollapsed: true,
+                                    ),
+                                    keyboardType: const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                      signed: true,
+                                    ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
+                                      LengthLimitingTextInputFormatter(_getMaxInputLength()),
+                                    ],
+                                    onSubmitted: (_) => _commitEditing(),
                                   ),
-                                ),
+                                  // Colored text overlay when not editing
+                                  if (!_isEditing)
+                                    IgnorePointer(
+                                      child: Builder(
+                                        builder: (context) {
+                                          final text = _textController.text;
+                                          int signEnd = 0;
+                                          if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
+                                            signEnd = 1;
+                                          }
+                                          int zerosEnd = signEnd;
+                                          while (zerosEnd < text.length - 1 &&
+                                                 text[zerosEnd] == '0' &&
+                                                 zerosEnd + 1 < text.length &&
+                                                 text[zerosEnd + 1] != '.') {
+                                            zerosEnd++;
+                                          }
+                                          return RichText(
+                                            textAlign: TextAlign.right,
+                                            text: TextSpan(
+                                              children: [
+                                                if (signEnd > 0)
+                                                  TextSpan(
+                                                    text: text.substring(0, signEnd),
+                                                    style: style.copyWith(color: mainColor),
+                                                  ),
+                                                if (zerosEnd > signEnd)
+                                                  TextSpan(
+                                                    text: text.substring(signEnd, zerosEnd),
+                                                    style: style.copyWith(color: Colors.grey[700]),
+                                                  ),
+                                                TextSpan(
+                                                  text: text.substring(zerosEnd),
+                                                  style: style.copyWith(color: mainColor),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
                                 ],
                               ),
                             );
