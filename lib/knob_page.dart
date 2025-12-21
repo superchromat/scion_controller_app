@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'rotary_knob.dart';
@@ -28,6 +29,10 @@ class _KnobPageState extends State<KnobPage> {
   double _softSnapDemoValue = 0.0;
   double _softSnapExponent = 2.0;  // 0.5 to 4.0
   double _softSnapRegionWidth = 0.3;  // 0.1 to 1.0
+
+  // Light direction controls (spherical coordinates)
+  double _lightPhi = 90.0;    // Azimuthal angle in degrees (0 = right, 90 = top)
+  double _lightTheta = 30.0;  // Polar angle from vertical in degrees (0 = above, 90 = horizontal)
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +80,88 @@ class _KnobPageState extends State<KnobPage> {
                 defaultValue: 100,
                 size: 100,
                 onChanged: (v) => setState(() => _wideRangeValue = v),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Lighting Controls Section
+        LabeledCard(
+          title: 'Lighting Controls',
+          networkIndependent: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 32,
+                runSpacing: 24,
+                alignment: WrapAlignment.start,
+                crossAxisAlignment: WrapCrossAlignment.end,
+                children: [
+                  // Phi control (azimuthal angle)
+                  RotaryKnob(
+                    minValue: 0,
+                    maxValue: 360,
+                    value: _lightPhi,
+                    format: '%.0f°',
+                    label: 'Phi (φ)',
+                    defaultValue: 90,
+                    size: 80,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [0, 90, 180, 270, 360],
+                      snapRegionHalfWidth: 10,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _lightPhi = v),
+                  ),
+
+                  // Theta control (polar angle)
+                  RotaryKnob(
+                    minValue: 0,
+                    maxValue: 90,
+                    value: _lightTheta,
+                    format: '%.0f°',
+                    label: 'Theta (θ)',
+                    defaultValue: 30,
+                    size: 80,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [0, 30, 45, 60, 90],
+                      snapRegionHalfWidth: 5,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _lightTheta = v),
+                  ),
+
+                  // Demo knob with dynamic lighting
+                  RotaryKnob(
+                    minValue: 0,
+                    maxValue: 1,
+                    value: _basicValue,
+                    format: '%.2f',
+                    label: 'Demo',
+                    defaultValue: 0.5,
+                    size: 100,
+                    lightPhi: _lightPhi * math.pi / 180,
+                    lightTheta: _lightTheta * math.pi / 180,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [0, 0.25, 0.5, 0.75, 1.0],
+                      snapRegionHalfWidth: 0.03,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _basicValue = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Phi (φ): Azimuthal angle, 0° = right, 90° = top, 180° = left, 270° = bottom\n'
+                  'Theta (θ): Polar angle from vertical, 0° = directly above, 90° = horizontal',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
               ),
             ],
           ),
