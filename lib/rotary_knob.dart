@@ -124,6 +124,15 @@ class RotaryKnob extends StatefulWidget {
   /// Light polar angle from vertical in radians (0 = above, pi/2 = horizontal)
   final double lightTheta;
 
+  /// Arc/slot width in pixels
+  final double arcWidth;
+
+  /// Notch depth in pixels
+  final double notchDepth;
+
+  /// Notch half-width angle in radians (for arc notches)
+  final double notchHalfAngle;
+
   const RotaryKnob({
     super.key,
     required this.minValue,
@@ -141,6 +150,9 @@ class RotaryKnob extends StatefulWidget {
     this.dragBarWidth = 400,
     this.lightPhi = math.pi / 2,    // Default: light from top
     this.lightTheta = math.pi / 6,  // Default: 30° from vertical
+    this.arcWidth = 8.0,
+    this.notchDepth = 4.0,
+    this.notchHalfAngle = 0.055,    // ~3.15 degrees
   });
 
   @override
@@ -189,8 +201,17 @@ class _RotaryKnobState extends State<RotaryKnob>
       duration: const Duration(milliseconds: 200),
     );
 
-    _textController = TextEditingController();
-    _textFocusNode = FocusNode();
+    _textController = TextEditingController(text: _formatValue(_currentValue));
+    _textFocusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          _cancelEditing();
+          _textFocusNode.unfocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     _textFocusNode.addListener(_onFocusChange);
   }
 
@@ -199,6 +220,9 @@ class _RotaryKnobState extends State<RotaryKnob>
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value && _state == _KnobState.idle) {
       _currentValue = widget.value.clamp(widget.minValue, widget.maxValue);
+      if (!_isEditing) {
+        _textController.text = _formatValue(_currentValue);
+      }
     }
   }
 
@@ -213,22 +237,32 @@ class _RotaryKnobState extends State<RotaryKnob>
   }
 
   void _onFocusChange() {
-    if (!_textFocusNode.hasFocus && _isEditing) {
-      _commitEditing();
+    if (_textFocusNode.hasFocus) {
+      // Gained focus - start editing, strip leading zeros
+      if (!_isEditing) {
+        final text = _textController.text;
+        int start = 0;
+        if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
+          start = 1;
+        }
+        int zerosEnd = start;
+        while (zerosEnd < text.length - 1 &&
+               text[zerosEnd] == '0' &&
+               text[zerosEnd + 1] != '.') {
+          zerosEnd++;
+        }
+        final editText = text.substring(0, start) + text.substring(zerosEnd);
+        _textController.text = editText;
+        // Put cursor at end
+        _textController.selection = TextSelection.collapsed(offset: editText.length);
+        setState(() => _isEditing = true);
+      }
+    } else {
+      // Lost focus - commit editing
+      if (_isEditing) {
+        _commitEditing();
+      }
     }
-  }
-
-  void _startEditing() {
-    if (_isEditing) return;
-    setState(() {
-      _isEditing = true;
-      _textController.text = _formatValue(_currentValue);
-      _textController.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _textController.text.length,
-      );
-    });
-    _textFocusNode.requestFocus();
   }
 
   void _commitEditing() {
@@ -240,11 +274,13 @@ class _RotaryKnobState extends State<RotaryKnob>
       setState(() {
         _currentValue = clamped;
         _isEditing = false;
+        _textController.text = _formatValue(_currentValue);
       });
       widget.onChanged?.call(_currentValue);
     } else {
       setState(() {
         _isEditing = false;
+        _textController.text = _formatValue(_currentValue);
       });
     }
   }
@@ -252,6 +288,7 @@ class _RotaryKnobState extends State<RotaryKnob>
   void _cancelEditing() {
     setState(() {
       _isEditing = false;
+      _textController.text = _formatValue(_currentValue);
     });
   }
 
@@ -383,20 +420,19 @@ class _RotaryKnobState extends State<RotaryKnob>
     return vProposed + (snapPoint - vProposed) * adjustedWeight;
   }
 
-  String _formatValue(double value) {
-    // Printf-style format with fixed-width output for stable decimal alignment
+  /// Returns (prefix, mainValue) for display with different colors
+  /// Prefix includes sign and leading zeros, main is the significant digits
+  (String, String) _formatValueWithLeading(double value) {
     final format = widget.format;
     final match = RegExp(r'%(\+)?(\d*)\.?(\d*)f').firstMatch(format);
     final showPlus = match?.group(1) == '+';
     final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
 
-    // Calculate total width needed for integer part + sign
+    // Calculate total width needed for integer part
     final maxAbsInt = [widget.minValue.abs(), widget.maxValue.abs()]
         .reduce((a, b) => a > b ? a : b)
         .truncate();
     final intDigits = maxAbsInt == 0 ? 1 : maxAbsInt.toString().length;
-    final needsSign = widget.minValue < 0 || showPlus;
-    final totalIntWidth = intDigits + (needsSign ? 1 : 0);
 
     // Format the number
     final formatted = value.toStringAsFixed(precision);
@@ -409,13 +445,48 @@ class _RotaryKnobState extends State<RotaryKnob>
     if (isNegative) {
       intPart = intPart.substring(1);
     }
+
+    // Pad integer part with zeros
+    final paddedInt = intPart.padLeft(intDigits, '0');
+
+    // Find where leading zeros end
+    int leadingZeroCount = 0;
+    for (int i = 0; i < paddedInt.length - 1; i++) {
+      if (paddedInt[i] == '0') {
+        leadingZeroCount++;
+      } else {
+        break;
+      }
+    }
+
+    // Build sign prefix (sign comes BEFORE leading zeros)
     final sign = isNegative ? '-' : (showPlus ? '+' : '');
 
-    // Combine sign and integer, then pad the whole thing on the left
-    final signedInt = '$sign$intPart';
-    final paddedSignedInt = signedInt.padLeft(totalIntWidth, ' ');
+    // Split into prefix (sign + leading zeros) and main value
+    final leadingZeros = paddedInt.substring(0, leadingZeroCount);
+    final mainInt = paddedInt.substring(leadingZeroCount);
 
-    return '$paddedSignedInt$decPart';
+    return ('$sign$leadingZeros', '$mainInt$decPart');
+  }
+
+  String _formatValue(double value) {
+    final (leading, main) = _formatValueWithLeading(value);
+    return '$leading$main';
+  }
+
+  double _measureTextWidth(String text, double fontSize) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontFamily: 'Courier',
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return textPainter.width;
   }
 
   void _onPanStart(DragStartDetails details) {
@@ -473,6 +544,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     setState(() {
       _state = _KnobState.idle;
       _snappedTo = null;
+      _textController.text = _formatValue(_currentValue);
     });
   }
 
@@ -481,6 +553,7 @@ class _RotaryKnobState extends State<RotaryKnob>
       setState(() {
         _currentValue =
             widget.defaultValue!.clamp(widget.minValue, widget.maxValue);
+        _textController.text = _formatValue(_currentValue);
       });
       widget.onChanged?.call(_currentValue);
     }
@@ -547,24 +620,69 @@ class _RotaryKnobState extends State<RotaryKnob>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Knob with centered value (value hidden, shown in drag bar)
+                      // Knob with centered value
                       SizedBox(
                         width: widget.size,
                         height: widget.size,
-                        child: CustomPaint(
-                          painter: _KnobPainter(
-                            normalized: _normalizedFromValue(_currentValue),
-                            isBipolar: widget.isBipolar,
-                            neutralNormalized: widget.isBipolar
-                                ? _normalizedFromValue(widget.neutralValue ?? 0)
-                                : null,
-                            isActive: true,
-                            snapPoints: widget.snapConfig.snapPoints
-                                .map((v) => _normalizedFromValue(v))
-                                .toList(),
-                            lightPhi: widget.lightPhi,
-                            lightTheta: widget.lightTheta,
-                          ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CustomPaint(
+                              size: Size(widget.size, widget.size),
+                              painter: _KnobPainter(
+                                normalized: _normalizedFromValue(_currentValue),
+                                isBipolar: widget.isBipolar,
+                                neutralNormalized: widget.isBipolar
+                                    ? _normalizedFromValue(widget.neutralValue ?? 0)
+                                    : null,
+                                isActive: true,
+                                snapPoints: widget.snapConfig.snapPoints
+                                    .map((v) => _normalizedFromValue(v))
+                                    .toList(),
+                                lightPhi: widget.lightPhi,
+                                lightTheta: widget.lightTheta,
+                                arcWidth: widget.arcWidth,
+                                notchDepth: widget.notchDepth,
+                                notchHalfAngle: widget.notchHalfAngle,
+                              ),
+                            ),
+                            // Value display in knob center
+                            Builder(
+                              builder: (context) {
+                                final (leading, main) = _formatValueWithLeading(_currentValue);
+                                final fontSize = widget.size * 0.18;
+                                return Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      if (leading.isNotEmpty)
+                                        TextSpan(
+                                          text: leading,
+                                          style: TextStyle(
+                                            fontSize: fontSize,
+                                            fontFamily: 'Courier',
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.grey[600],
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                      TextSpan(
+                                        text: main,
+                                        style: TextStyle(
+                                          fontSize: fontSize,
+                                          fontFamily: 'Courier',
+                                          fontFeatures: const [FontFeature.tabularFigures()],
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ),
                       // Label (below knob)
@@ -658,75 +776,142 @@ class _RotaryKnobState extends State<RotaryKnob>
                         .toList(),
                     lightPhi: widget.lightPhi,
                     lightTheta: widget.lightTheta,
+                    arcWidth: widget.arcWidth,
+                    notchDepth: widget.notchDepth,
+                    notchHalfAngle: widget.notchHalfAngle,
                   ),
                 ),
                 // Centered value display (editable)
-                MouseRegion(
-                  onEnter: (_) => setState(() => _isHovering = true),
-                  onExit: (_) => setState(() => _isHovering = false),
-                  child: GestureDetector(
-                    onTap: _startEditing,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        border: Border.all(
-                          color: _isEditing
-                              ? Colors.yellow
-                              : _isHovering
-                                  ? Colors.grey[500]!
-                                  : Colors.transparent,
-                          width: 1,
+                Builder(
+                  builder: (context) {
+                    final mainColor = _snappedTo != null
+                        ? const Color(0xFFF0B830)
+                        : Colors.grey[400]!;
+
+                    // Border color: transparent normally, grey on hover, yellow on focus
+                    Color borderColor;
+                    if (_isEditing) {
+                      borderColor = Colors.yellow;
+                    } else if (_isHovering) {
+                      borderColor = Colors.grey[600]!;
+                    } else {
+                      borderColor = Colors.transparent;
+                    }
+
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.text,
+                      onEnter: (_) => setState(() => _isHovering = true),
+                      onExit: (_) => setState(() => _isHovering = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          // Always have a border to prevent layout shift
+                          border: Border.all(color: borderColor, width: 1),
                         ),
-                        color: _isEditing ? Colors.grey[900] : Colors.transparent,
-                      ),
-                      child: _isEditing
-                          ? IntrinsicWidth(
-                              child: Focus(
-                                onKeyEvent: (node, event) {
-                                  if (event is KeyDownEvent &&
-                                      event.logicalKey == LogicalKeyboardKey.escape) {
-                                    _cancelEditing();
-                                    return KeyEventResult.handled;
-                                  }
-                                  return KeyEventResult.ignored;
-                                },
-                                child: TextField(
-                                  controller: _textController,
-                                  focusNode: _textFocusNode,
-                                  style: TextStyle(
-                                    fontSize: valueFontSize,
-                                    fontFamily: 'Courier',
-                                    color: Colors.white,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    border: InputBorder.none,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  keyboardType: const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
-                                    LengthLimitingTextInputFormatter(_getMaxInputLength()),
-                                  ],
-                                  onSubmitted: (_) => _commitEditing(),
+                        child: Builder(
+                          builder: (context) {
+                            // Fixed width based on formatted value (with leading zeros)
+                            final fullText = _formatValue(_currentValue);
+                            final charWidth = _measureTextWidth('0', valueFontSize);
+                            final fixedWidth = charWidth * fullText.length + 4; // +4 for cursor
+
+                            return SizedBox(
+                              width: fixedWidth,
+                              child: Stack(
+                                children: [
+                                  // TextField - always present for interaction
+                                  TextField(
+                                controller: _textController,
+                                focusNode: _textFocusNode,
+                                style: TextStyle(
+                                  fontSize: valueFontSize,
+                                  fontFamily: 'Courier',
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                  fontWeight: FontWeight.normal,
+                                  // Transparent when not editing so overlay shows
+                                  color: _isEditing ? Colors.white : Colors.transparent,
                                 ),
+                                cursorColor: Colors.white,
+                                cursorWidth: 1.5,
+                                textAlign: TextAlign.right,
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  isCollapsed: true,
+                                ),
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                  signed: true,
+                                ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
+                                  LengthLimitingTextInputFormatter(_getMaxInputLength()),
+                                ],
+                                onSubmitted: (_) => _commitEditing(),
                               ),
-                            )
-                          : Text(
-                              _formatValue(_currentValue),
-                              style: TextStyle(
-                                fontSize: valueFontSize,
-                                fontFamily: 'Courier',
-                                color: _snappedTo != null ? const Color(0xFFF0B830) : Colors.grey[400],
+                              // Colored text overlay when not editing
+                              // Positioned identically to TextField (no Align wrapper)
+                              if (!_isEditing)
+                                IgnorePointer(
+                                  child: Builder(
+                                    builder: (context) {
+                                      final text = _textController.text;
+                                      // Find leading zeros (after optional sign)
+                                      int signEnd = 0;
+                                      if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
+                                        signEnd = 1;
+                                      }
+                                      int zerosEnd = signEnd;
+                                      // Only count zeros followed by digit (not decimal)
+                                      while (zerosEnd < text.length - 1 &&
+                                             text[zerosEnd] == '0' &&
+                                             zerosEnd + 1 < text.length &&
+                                             text[zerosEnd + 1] != '.') {
+                                        zerosEnd++;
+                                      }
+                                      final style = TextStyle(
+                                        fontSize: valueFontSize,
+                                        fontFamily: 'Courier',
+                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                        fontWeight: FontWeight.normal,
+                                      );
+                                      return Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            // Sign in main color
+                                            if (signEnd > 0)
+                                              TextSpan(
+                                                text: text.substring(0, signEnd),
+                                                style: style.copyWith(color: mainColor),
+                                              ),
+                                            // Leading zeros in dark grey
+                                            if (zerosEnd > signEnd)
+                                              TextSpan(
+                                                text: text.substring(signEnd, zerosEnd),
+                                                style: style.copyWith(color: Colors.grey[700]),
+                                              ),
+                                            // Rest in main color
+                                            TextSpan(
+                                              text: text.substring(zerosEnd),
+                                              style: style.copyWith(color: mainColor),
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      );
+                                    },
+                                  ),
+                                ),
+                                ],
                               ),
-                            ),
-                    ),
-                  ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -775,7 +960,14 @@ class _KnobPainter extends CustomPainter {
     required this.snapPoints,
     this.lightPhi = math.pi / 2,    // Default: light from top
     this.lightTheta = math.pi / 6,  // Default: 30° from vertical
+    this.arcWidth = 8.0,
+    this.notchDepth = 4.0,
+    this.notchHalfAngle = 0.055,
   });
+
+  final double arcWidth;
+  final double notchDepth;
+  final double notchHalfAngle;
 
   /// Compute 2D light direction from spherical coordinates
   /// Returns (Lx, Ly) where positive Ly is down (screen coords)
@@ -853,12 +1045,9 @@ class _KnobPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 6;
-    const arcWidth = 8.0;
-    const slotWidth = arcWidth;
+    final slotWidth = arcWidth;
     final slotOuterRadius = radius + slotWidth / 2;
     final slotInnerRadius = radius - slotWidth / 2;
-    const notchDepth = 4.0;
-    const notchHalfAngle = 0.055;
     final notchOuterRadius = slotOuterRadius + notchDepth;
 
     // === NEUMORPHIC SLOT (drawn normally, no clipping) ===
@@ -1004,56 +1193,53 @@ class _KnobPainter extends CustomPainter {
       stops: const [0.0, 0.3, 0.7],
     );
 
-    if (arcSweep > 0.01) {
-      // Draw value arc directly at slot width (no clipping needed)
-      final valueArcPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = slotWidth - 2  // Slightly narrower to fit in slot
-        ..strokeCap = StrokeCap.butt
-        ..shader = valueArcGradient.createShader(
-          Rect.fromCircle(center: center, radius: radius + slotWidth),
-        );
+    // Minimum arc width for visibility (about 6 degrees)
+    const minArcSweep = 0.10;
+    final valueAngle = startAngle + normalized * sweepAngle;
 
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        arcStartAngle,
-        arcSweep,
-        false,
-        valueArcPaint,
-      );
+    // Calculate effective arc for drawing
+    double drawArcStart = arcStartAngle;
+    double drawArcSweep = arcSweep;
 
-      // Top highlight on the value arc
-      final highlightPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = slotWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = highlightGradient.createShader(
-          Rect.fromCircle(center: center, radius: radius + slotWidth),
-        );
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        arcStartAngle,
-        arcSweep,
-        false,
-        highlightPaint,
-      );
+    if (arcSweep < minArcSweep) {
+      // Center minimum arc on value position
+      drawArcStart = valueAngle - minArcSweep / 2;
+      drawArcSweep = minArcSweep;
     }
 
-    // Neutral marker for bipolar
-    if (isBipolar && neutralNormalized != null) {
-      final neutralAngle = startAngle + neutralNormalized! * sweepAngle;
-      final neutralMarkerPaint = Paint()
-        ..color = Colors.grey[500]!
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
+    // Draw value arc
+    final valueArcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = slotWidth - 2
+      ..strokeCap = StrokeCap.butt
+      ..shader = valueArcGradient.createShader(
+        Rect.fromCircle(center: center, radius: radius + slotWidth),
+      );
 
-      final neutralX = center.dx + (radius - 8) * math.cos(neutralAngle);
-      final neutralY = center.dy + (radius - 8) * math.sin(neutralAngle);
-      final neutralX2 = center.dx + (radius + 4) * math.cos(neutralAngle);
-      final neutralY2 = center.dy + (radius + 4) * math.sin(neutralAngle);
-      canvas.drawLine(Offset(neutralX, neutralY), Offset(neutralX2, neutralY2), neutralMarkerPaint);
-    }
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      drawArcStart,
+      drawArcSweep,
+      false,
+      valueArcPaint,
+    );
+
+    // Top highlight on the value arc
+    final highlightPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = slotWidth - 2
+      ..strokeCap = StrokeCap.butt
+      ..shader = highlightGradient.createShader(
+        Rect.fromCircle(center: center, radius: radius + slotWidth),
+      );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      drawArcStart,
+      drawArcSweep,
+      false,
+      highlightPaint,
+    );
 
     // === NOTCHES ===
     final lightDir = lightDir2D;
@@ -1113,10 +1299,11 @@ class _KnobPainter extends CustomPainter {
         notchPath.close();
       }
 
-      // Check if value arc covers this notch
-      final notchInArc = arcEndAngle > leftAngle && arcStartAngle < rightAngle;
+      // Check if DRAWN value arc covers this notch (use effective draw bounds)
+      final drawArcEnd = drawArcStart + drawArcSweep;
+      final notchInArc = drawArcEnd > leftAngle && drawArcStart < rightAngle;
 
-      if (notchInArc && arcSweep > 0.01) {
+      if (notchInArc) {
         // Lit - fill with arc color
         canvas.save();
         canvas.clipPath(notchPath);
@@ -1124,13 +1311,13 @@ class _KnobPainter extends CustomPainter {
         final arcWedgePath = Path()
           ..moveTo(center.dx, center.dy)
           ..lineTo(
-            center.dx + (notchOuterRadius + 10) * math.cos(arcStartAngle),
-            center.dy + (notchOuterRadius + 10) * math.sin(arcStartAngle),
+            center.dx + (notchOuterRadius + 10) * math.cos(drawArcStart),
+            center.dy + (notchOuterRadius + 10) * math.sin(drawArcStart),
           )
           ..arcTo(
             Rect.fromCircle(center: center, radius: notchOuterRadius + 10),
-            arcStartAngle,
-            arcSweep,
+            drawArcStart,
+            drawArcSweep,
             false,
           )
           ..close();
@@ -1159,9 +1346,9 @@ class _KnobPainter extends CustomPainter {
         canvas.drawPath(notchPath, darkPaint);
       }
 
-      // === EDGE HIGHLIGHTS ===
-      // Edge highlights start at slot outer edge (not inside the slot!)
-      // For half-V at endpoints, use the arc boundary angle
+      // === EDGE LIGHTING WITH DEPTH ===
+      // Each edge gets both a highlight (facing light) and shadow (away from light)
+      // to match the depth appearance of the arc slot
       final leftEdgeStart = Offset(
         center.dx + slotOuterRadius * math.cos(atArcStart ? startAngle : leftAngle),
         center.dy + slotOuterRadius * math.sin(atArcStart ? startAngle : leftAngle),
@@ -1171,43 +1358,59 @@ class _KnobPainter extends CustomPainter {
         center.dy + slotOuterRadius * math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
       );
 
-      // Left edge: from slot outer edge to tip
-      // Only draw if not at arc start (where left edge would extend before arc)
+      // Left edge
       if (!atArcStart) {
-        // Use RADIAL normal at edge midpoint angle (same as arc edge lighting)
         final leftMidAngle = (leftAngle + snapAngle) / 2;
         final leftNormal = Offset(math.cos(leftMidAngle), math.sin(leftMidAngle));
+        final leftDot = leftNormal.dx * lightDir.dx + leftNormal.dy * lightDir.dy;
 
-        final leftDot = (leftNormal.dx * lightDir.dx + leftNormal.dy * lightDir.dy).clamp(0.0, 1.0);
-        final leftAlpha = (0.5 * leftDot * 255).round();
-
-        if (leftAlpha > 5) {
+        // Highlight on lit side
+        if (leftDot > 0.05) {
+          final leftAlpha = (0.5 * leftDot.clamp(0.0, 1.0) * 255).round();
           final leftPaint = Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 0.75
+            ..strokeWidth = 1.0
             ..strokeCap = StrokeCap.butt
             ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
           canvas.drawLine(leftEdgeStart, tip, leftPaint);
         }
+        // Shadow on dark side
+        if (leftDot < -0.05) {
+          final shadowAlpha = (0.4 * (-leftDot).clamp(0.0, 1.0) * 255).round();
+          final shadowPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..strokeCap = StrokeCap.butt
+            ..color = Color.fromARGB(shadowAlpha, 0, 0, 0);
+          canvas.drawLine(leftEdgeStart, tip, shadowPaint);
+        }
       }
 
-      // Right edge: from tip to slot outer edge
-      // Only draw if not at arc end (where right edge would extend past arc)
+      // Right edge
       if (!atArcEnd) {
-        // Use RADIAL normal at edge midpoint angle (same as arc edge lighting)
         final rightMidAngle = (snapAngle + rightAngle) / 2;
         final rightNormal = Offset(math.cos(rightMidAngle), math.sin(rightMidAngle));
+        final rightDot = rightNormal.dx * lightDir.dx + rightNormal.dy * lightDir.dy;
 
-        final rightDot = (rightNormal.dx * lightDir.dx + rightNormal.dy * lightDir.dy).clamp(0.0, 1.0);
-        final rightAlpha = (0.5 * rightDot * 255).round();
-
-        if (rightAlpha > 5) {
+        // Highlight on lit side
+        if (rightDot > 0.05) {
+          final rightAlpha = (0.5 * rightDot.clamp(0.0, 1.0) * 255).round();
           final rightPaint = Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 0.75
+            ..strokeWidth = 1.0
             ..strokeCap = StrokeCap.butt
             ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
           canvas.drawLine(tip, rightEdgeEnd, rightPaint);
+        }
+        // Shadow on dark side
+        if (rightDot < -0.05) {
+          final shadowAlpha = (0.4 * (-rightDot).clamp(0.0, 1.0) * 255).round();
+          final shadowPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..strokeCap = StrokeCap.butt
+            ..color = Color.fromARGB(shadowAlpha, 0, 0, 0);
+          canvas.drawLine(tip, rightEdgeEnd, shadowPaint);
         }
       }
     }
@@ -1220,7 +1423,10 @@ class _KnobPainter extends CustomPainter {
         oldDelegate.neutralNormalized != neutralNormalized ||
         oldDelegate.isActive != isActive ||
         oldDelegate.lightPhi != lightPhi ||
-        oldDelegate.lightTheta != lightTheta;
+        oldDelegate.lightTheta != lightTheta ||
+        oldDelegate.arcWidth != arcWidth ||
+        oldDelegate.notchDepth != notchDepth ||
+        oldDelegate.notchHalfAngle != notchHalfAngle;
   }
 }
 
@@ -1306,15 +1512,6 @@ class _DragBar extends StatelessWidget {
                 Text(
                   _formatValue(minValue),
                   style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                ),
-                Text(
-                  _formatValue(value),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontFamily: 'Courier',
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
                 ),
                 Text(
                   _formatValue(maxValue),
@@ -1601,60 +1798,68 @@ class _DragBarPainter extends CustomPainter {
       final snapNorm = (snap - minValue) / (maxValue - minValue);
       if (snapNorm < 0 || snapNorm > 1) continue;
 
+      // Check if at bar boundaries
+      final atBarStart = snapNorm < 0.001;
+      final atBarEnd = snapNorm > 0.999;
+
       final snapX = snapNorm * size.width;
       final leftBaseX = snapX - notchHalfWidth;
       final rightBaseX = snapX + notchHalfWidth;
       final tipY = barY - notchDepth;
-
-      // Left edge: from corner to tip
-      final leftStart = Offset(leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
       final tip = Offset(snapX, tipY);
-      final leftEdgeVec = Offset(tip.dx - leftStart.dx, tip.dy - leftStart.dy);
-      final leftNorm = Offset(leftEdgeVec.dy, -leftEdgeVec.dx);
-      final leftLen = math.sqrt(leftNorm.dx * leftNorm.dx + leftNorm.dy * leftNorm.dy);
-      final leftUnit = Offset(leftNorm.dx / leftLen, leftNorm.dy / leftLen);
 
-      // Right edge: from tip to corner
-      final rightEnd = Offset(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
-      final rightEdgeVec = Offset(rightEnd.dx - tip.dx, rightEnd.dy - tip.dy);
-      final rightNorm = Offset(-rightEdgeVec.dy, rightEdgeVec.dx);
-      final rightLen = math.sqrt(rightNorm.dx * rightNorm.dx + rightNorm.dy * rightNorm.dy);
-      final rightUnit = Offset(rightNorm.dx / rightLen, rightNorm.dy / rightLen);
+      // Left edge: only draw if not at bar start
+      if (!atBarStart) {
+        final leftStart = Offset(leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
+        final leftEdgeVec = Offset(tip.dx - leftStart.dx, tip.dy - leftStart.dy);
+        final leftNorm = Offset(leftEdgeVec.dy, -leftEdgeVec.dx);
+        final leftLen = math.sqrt(leftNorm.dx * leftNorm.dx + leftNorm.dy * leftNorm.dy);
+        final leftUnit = Offset(leftNorm.dx / leftLen, leftNorm.dy / leftLen);
 
-      final leftDot = (leftUnit.dx * lightDir.dx + leftUnit.dy * lightDir.dy).clamp(0.0, 1.0);
-      final rightDot = (rightUnit.dx * lightDir.dx + rightUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+        final leftDot = (leftUnit.dx * lightDir.dx + leftUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+        final leftAlpha = (0.5 * leftDot * 255).round();
 
-      final leftAlpha = (0.5 * leftDot * 255).round();
-      final rightAlpha = (0.5 * rightDot * 255).round();
+        if (leftAlpha > 5) {
+          final leftPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.75
+            ..strokeCap = StrokeCap.round
+            ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
+          canvas.drawLine(leftStart, tip, leftPaint);
 
-      if (leftAlpha > 5) {
-        final leftPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.75
-          ..strokeCap = StrokeCap.round
-          ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
-        canvas.drawLine(leftStart, tip, leftPaint);
-
-        // Left corner fillet
-        final cornerPath = Path()
-          ..moveTo(leftBaseX - cornerRadius, barY)
-          ..quadraticBezierTo(leftBaseX, barY, leftStart.dx, leftStart.dy);
-        canvas.drawPath(cornerPath, leftPaint);
+          // Left corner fillet
+          final cornerPath = Path()
+            ..moveTo(leftBaseX - cornerRadius, barY)
+            ..quadraticBezierTo(leftBaseX, barY, leftStart.dx, leftStart.dy);
+          canvas.drawPath(cornerPath, leftPaint);
+        }
       }
 
-      if (rightAlpha > 5) {
-        final rightPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.75
-          ..strokeCap = StrokeCap.round
-          ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
-        canvas.drawLine(tip, rightEnd, rightPaint);
+      // Right edge: only draw if not at bar end
+      if (!atBarEnd) {
+        final rightEnd = Offset(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
+        final rightEdgeVec = Offset(rightEnd.dx - tip.dx, rightEnd.dy - tip.dy);
+        final rightNorm = Offset(-rightEdgeVec.dy, rightEdgeVec.dx);
+        final rightLen = math.sqrt(rightNorm.dx * rightNorm.dx + rightNorm.dy * rightNorm.dy);
+        final rightUnit = Offset(rightNorm.dx / rightLen, rightNorm.dy / rightLen);
 
-        // Right corner fillet
-        final cornerPath = Path()
-          ..moveTo(rightEnd.dx, rightEnd.dy)
-          ..quadraticBezierTo(rightBaseX, barY, rightBaseX + cornerRadius, barY);
-        canvas.drawPath(cornerPath, rightPaint);
+        final rightDot = (rightUnit.dx * lightDir.dx + rightUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+        final rightAlpha = (0.5 * rightDot * 255).round();
+
+        if (rightAlpha > 5) {
+          final rightPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.75
+            ..strokeCap = StrokeCap.round
+            ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
+          canvas.drawLine(tip, rightEnd, rightPaint);
+
+          // Right corner fillet
+          final cornerPath = Path()
+            ..moveTo(rightEnd.dx, rightEnd.dy)
+            ..quadraticBezierTo(rightBaseX, barY, rightBaseX + cornerRadius, barY);
+          canvas.drawPath(cornerPath, rightPaint);
+        }
       }
     }
   }

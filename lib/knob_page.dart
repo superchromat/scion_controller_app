@@ -34,6 +34,11 @@ class _KnobPageState extends State<KnobPage> {
   double _lightPhi = 90.0;    // Azimuthal angle in degrees (0 = right, 90 = top)
   double _lightTheta = 30.0;  // Polar angle from vertical in degrees (0 = above, 90 = horizontal)
 
+  // Arc geometry controls
+  double _arcWidth = 8.0;     // Arc/slot width in pixels
+  double _notchDepth = 4.0;   // Notch depth in pixels
+  double _notchAngle = 3.15;  // Notch half-angle in degrees
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -89,7 +94,7 @@ class _KnobPageState extends State<KnobPage> {
 
         // Lighting Controls Section
         LabeledCard(
-          title: 'Lighting Controls',
+          title: 'Lighting & Geometry Controls',
           networkIndependent: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,7 +113,7 @@ class _KnobPageState extends State<KnobPage> {
                     format: '%.0f°',
                     label: 'Phi (φ)',
                     defaultValue: 90,
-                    size: 80,
+                    size: 70,
                     snapConfig: const SnapConfig(
                       snapPoints: [0, 90, 180, 270, 360],
                       snapRegionHalfWidth: 10,
@@ -125,7 +130,7 @@ class _KnobPageState extends State<KnobPage> {
                     format: '%.0f°',
                     label: 'Theta (θ)',
                     defaultValue: 30,
-                    size: 80,
+                    size: 70,
                     snapConfig: const SnapConfig(
                       snapPoints: [0, 30, 45, 60, 90],
                       snapRegionHalfWidth: 5,
@@ -134,7 +139,58 @@ class _KnobPageState extends State<KnobPage> {
                     onChanged: (v) => setState(() => _lightTheta = v),
                   ),
 
-                  // Demo knob with dynamic lighting
+                  // Arc width control
+                  RotaryKnob(
+                    minValue: 2,
+                    maxValue: 20,
+                    value: _arcWidth,
+                    format: '%.1f',
+                    label: 'Arc Width',
+                    defaultValue: 8,
+                    size: 70,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [4, 8, 12, 16],
+                      snapRegionHalfWidth: 1,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _arcWidth = v),
+                  ),
+
+                  // Notch depth control
+                  RotaryKnob(
+                    minValue: 0,
+                    maxValue: 10,
+                    value: _notchDepth,
+                    format: '%.1f',
+                    label: 'Notch Depth',
+                    defaultValue: 4,
+                    size: 70,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [0, 2, 4, 6, 8],
+                      snapRegionHalfWidth: 0.5,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _notchDepth = v),
+                  ),
+
+                  // Notch angle control
+                  RotaryKnob(
+                    minValue: 1,
+                    maxValue: 10,
+                    value: _notchAngle,
+                    format: '%.1f°',
+                    label: 'Notch Angle',
+                    defaultValue: 3.15,
+                    size: 70,
+                    snapConfig: const SnapConfig(
+                      snapPoints: [2, 3, 4, 5, 6],
+                      snapRegionHalfWidth: 0.3,
+                      snapBehavior: SnapBehavior.hard,
+                    ),
+                    onChanged: (v) => setState(() => _notchAngle = v),
+                  ),
+
+                  // Demo knob with dynamic lighting and geometry
                   RotaryKnob(
                     minValue: 0,
                     maxValue: 1,
@@ -145,6 +201,9 @@ class _KnobPageState extends State<KnobPage> {
                     size: 100,
                     lightPhi: _lightPhi * math.pi / 180,
                     lightTheta: _lightTheta * math.pi / 180,
+                    arcWidth: _arcWidth,
+                    notchDepth: _notchDepth,
+                    notchHalfAngle: _notchAngle * math.pi / 180,
                     snapConfig: const SnapConfig(
                       snapPoints: [0, 0.25, 0.5, 0.75, 1.0],
                       snapRegionHalfWidth: 0.03,
@@ -158,8 +217,11 @@ class _KnobPageState extends State<KnobPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Phi (φ): Azimuthal angle, 0° = right, 90° = top, 180° = left, 270° = bottom\n'
-                  'Theta (θ): Polar angle from vertical, 0° = directly above, 90° = horizontal',
+                  'Phi (φ): Azimuthal angle, 0° = right, 90° = top\n'
+                  'Theta (θ): Polar angle from vertical, 0° = above, 90° = horizontal\n'
+                  'Arc Width: Thickness of the slot/arc in pixels\n'
+                  'Notch Depth: Height of V-notches in pixels\n'
+                  'Notch Angle: Half-width of V-notches in degrees',
                   style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               ),
