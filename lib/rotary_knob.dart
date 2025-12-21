@@ -601,6 +601,8 @@ class _RotaryKnobState extends State<RotaryKnob>
               neutralValue: widget.neutralValue,
               format: widget.format,
               snapPoints: widget.snapConfig.snapPoints,
+              lightPhi: widget.lightPhi,
+              lightTheta: widget.lightTheta,
             ),
           ),
         ],
@@ -1064,24 +1066,52 @@ class _KnobPainter extends CustomPainter {
       final leftAngle = snapAngle - notchHalfAngle;
       final rightAngle = snapAngle + notchHalfAngle;
 
+      // Check if this notch is at the arc endpoints
+      final atArcStart = clampedNorm < 0.001;
+      final atArcEnd = clampedNorm > 0.999;
+
       final leftBase = Offset(
-        center.dx + notchBaseRadius * math.cos(leftAngle),
-        center.dy + notchBaseRadius * math.sin(leftAngle),
+        center.dx + notchBaseRadius * math.cos(atArcStart ? startAngle : leftAngle),
+        center.dy + notchBaseRadius * math.sin(atArcStart ? startAngle : leftAngle),
       );
       final rightBase = Offset(
-        center.dx + notchBaseRadius * math.cos(rightAngle),
-        center.dy + notchBaseRadius * math.sin(rightAngle),
+        center.dx + notchBaseRadius * math.cos(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+        center.dy + notchBaseRadius * math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
       );
       final tip = Offset(
         center.dx + notchOuterRadius * math.cos(snapAngle),
         center.dy + notchOuterRadius * math.sin(snapAngle),
       );
 
-      final notchPath = Path()
-        ..moveTo(leftBase.dx, leftBase.dy)
-        ..lineTo(tip.dx, tip.dy)
-        ..lineTo(rightBase.dx, rightBase.dy)
-        ..close();
+      // Build notch path - half-V at endpoints, full V otherwise
+      final notchPath = Path();
+      if (atArcStart) {
+        // Half-V at start: perpendicular left edge (radial), angled right edge
+        final radialBase = Offset(
+          center.dx + notchBaseRadius * math.cos(startAngle),
+          center.dy + notchBaseRadius * math.sin(startAngle),
+        );
+        notchPath.moveTo(radialBase.dx, radialBase.dy);
+        notchPath.lineTo(tip.dx, tip.dy);
+        notchPath.lineTo(rightBase.dx, rightBase.dy);
+        notchPath.close();
+      } else if (atArcEnd) {
+        // Half-V at end: angled left edge, perpendicular right edge (radial)
+        final radialBase = Offset(
+          center.dx + notchBaseRadius * math.cos(startAngle + sweepAngle),
+          center.dy + notchBaseRadius * math.sin(startAngle + sweepAngle),
+        );
+        notchPath.moveTo(leftBase.dx, leftBase.dy);
+        notchPath.lineTo(tip.dx, tip.dy);
+        notchPath.lineTo(radialBase.dx, radialBase.dy);
+        notchPath.close();
+      } else {
+        // Full V
+        notchPath.moveTo(leftBase.dx, leftBase.dy);
+        notchPath.lineTo(tip.dx, tip.dy);
+        notchPath.lineTo(rightBase.dx, rightBase.dy);
+        notchPath.close();
+      }
 
       // Check if value arc covers this notch
       final notchInArc = arcEndAngle > leftAngle && arcStartAngle < rightAngle;
@@ -1129,127 +1159,56 @@ class _KnobPainter extends CustomPainter {
         canvas.drawPath(notchPath, darkPaint);
       }
 
-      // Edge highlights
-      final leftEdgeVec = Offset(tip.dx - leftBase.dx, tip.dy - leftBase.dy);
-      final leftNorm = Offset(-leftEdgeVec.dy, leftEdgeVec.dx);
-      final leftLen = math.sqrt(leftNorm.dx * leftNorm.dx + leftNorm.dy * leftNorm.dy);
-      final leftUnit = Offset(leftNorm.dx / leftLen, leftNorm.dy / leftLen);
+      // === EDGE HIGHLIGHTS ===
+      // Edge highlights start at slot outer edge (not inside the slot!)
+      // For half-V at endpoints, use the arc boundary angle
+      final leftEdgeStart = Offset(
+        center.dx + slotOuterRadius * math.cos(atArcStart ? startAngle : leftAngle),
+        center.dy + slotOuterRadius * math.sin(atArcStart ? startAngle : leftAngle),
+      );
+      final rightEdgeEnd = Offset(
+        center.dx + slotOuterRadius * math.cos(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+        center.dy + slotOuterRadius * math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+      );
 
-      final rightEdgeVec = Offset(rightBase.dx - tip.dx, rightBase.dy - tip.dy);
-      final rightNorm = Offset(rightEdgeVec.dy, -rightEdgeVec.dx);
-      final rightLen = math.sqrt(rightNorm.dx * rightNorm.dx + rightNorm.dy * rightNorm.dy);
-      final rightUnit = Offset(rightNorm.dx / rightLen, rightNorm.dy / rightLen);
+      // Left edge: from slot outer edge to tip
+      // Only draw if not at arc start (where left edge would extend before arc)
+      if (!atArcStart) {
+        // Use RADIAL normal at edge midpoint angle (same as arc edge lighting)
+        final leftMidAngle = (leftAngle + snapAngle) / 2;
+        final leftNormal = Offset(math.cos(leftMidAngle), math.sin(leftMidAngle));
 
-      final leftDot = (leftUnit.dx * lightDir.dx + leftUnit.dy * lightDir.dy).clamp(0.0, 1.0);
-      final rightDot = (rightUnit.dx * lightDir.dx + rightUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+        final leftDot = (leftNormal.dx * lightDir.dx + leftNormal.dy * lightDir.dy).clamp(0.0, 1.0);
+        final leftAlpha = (0.5 * leftDot * 255).round();
 
-      final leftAlpha = (0.4 * leftDot * 255).round();
-      final rightAlpha = (0.4 * rightDot * 255).round();
-
-      if (leftAlpha > 5) {
-        final leftPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.75
-          ..strokeCap = StrokeCap.butt
-          ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
-        canvas.drawLine(leftBase, tip, leftPaint);
+        if (leftAlpha > 5) {
+          final leftPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.75
+            ..strokeCap = StrokeCap.butt
+            ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
+          canvas.drawLine(leftEdgeStart, tip, leftPaint);
+        }
       }
 
-      if (rightAlpha > 5) {
-        final rightPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.75
-          ..strokeCap = StrokeCap.butt
-          ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
-        canvas.drawLine(tip, rightBase, rightPaint);
-      }
+      // Right edge: from tip to slot outer edge
+      // Only draw if not at arc end (where right edge would extend past arc)
+      if (!atArcEnd) {
+        // Use RADIAL normal at edge midpoint angle (same as arc edge lighting)
+        final rightMidAngle = (snapAngle + rightAngle) / 2;
+        final rightNormal = Offset(math.cos(rightMidAngle), math.sin(rightMidAngle));
 
-      // === CORNER FILLETS at arc-notch junctions ===
-      // Arc normal at left junction (pointing outward from center)
-      final arcNormalLeft = Offset(math.cos(leftAngle), math.sin(leftAngle));
+        final rightDot = (rightNormal.dx * lightDir.dx + rightNormal.dy * lightDir.dy).clamp(0.0, 1.0);
+        final rightAlpha = (0.5 * rightDot * 255).round();
 
-      // Arc normal at right junction
-      final arcNormalRight = Offset(math.cos(rightAngle), math.sin(rightAngle));
-
-      // Draw left fillet arc with lighting
-      // Normal at fillet transitions from arc normal to notch edge normal
-      final leftFilletNormal = Offset(
-        (arcNormalLeft.dx + leftUnit.dx) / 2,
-        (arcNormalLeft.dy + leftUnit.dy) / 2,
-      );
-      final leftFilletLen = math.sqrt(
-        leftFilletNormal.dx * leftFilletNormal.dx +
-        leftFilletNormal.dy * leftFilletNormal.dy
-      );
-      final leftFilletUnit = leftFilletLen > 0.001
-        ? Offset(leftFilletNormal.dx / leftFilletLen, leftFilletNormal.dy / leftFilletLen)
-        : arcNormalLeft;
-
-      final leftFilletDot = (leftFilletUnit.dx * lightDir.dx + leftFilletUnit.dy * lightDir.dy).clamp(0.0, 1.0);
-      final leftFilletAlpha = (0.5 * leftFilletDot * 255).round();
-
-      if (leftFilletAlpha > 5) {
-        final leftFilletPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.75
-          ..strokeCap = StrokeCap.butt
-          ..color = Color.fromARGB(leftFilletAlpha, 255, 255, 255);
-
-        // Draw small arc at the corner
-        final startPoint = Offset(
-          leftBase.dx + 0.8 * (leftBase.dx - center.dx) / notchBaseRadius,
-          leftBase.dy + 0.8 * (leftBase.dy - center.dy) / notchBaseRadius,
-        );
-        final midPoint = leftBase;
-        final endPoint = Offset(
-          leftBase.dx + 0.8 * leftUnit.dx,
-          leftBase.dy + 0.8 * leftUnit.dy,
-        );
-
-        final filletPath = Path()
-          ..moveTo(startPoint.dx, startPoint.dy)
-          ..quadraticBezierTo(midPoint.dx, midPoint.dy, endPoint.dx, endPoint.dy);
-        canvas.drawPath(filletPath, leftFilletPaint);
-      }
-
-      // Right fillet: transition from right notch edge normal to arc normal
-      final rightFilletNormal = Offset(
-        (arcNormalRight.dx + rightUnit.dx) / 2,
-        (arcNormalRight.dy + rightUnit.dy) / 2,
-      );
-      final rightFilletLen = math.sqrt(
-        rightFilletNormal.dx * rightFilletNormal.dx +
-        rightFilletNormal.dy * rightFilletNormal.dy
-      );
-      final rightFilletUnit = rightFilletLen > 0.001
-        ? Offset(rightFilletNormal.dx / rightFilletLen, rightFilletNormal.dy / rightFilletLen)
-        : arcNormalRight;
-
-      final rightFilletDot = (rightFilletUnit.dx * lightDir.dx + rightFilletUnit.dy * lightDir.dy).clamp(0.0, 1.0);
-      final rightFilletAlpha = (0.5 * rightFilletDot * 255).round();
-
-      if (rightFilletAlpha > 5) {
-        final rightFilletPaint = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.75
-          ..strokeCap = StrokeCap.butt
-          ..color = Color.fromARGB(rightFilletAlpha, 255, 255, 255);
-
-        // Draw small arc at the corner
-        final startPoint = Offset(
-          rightBase.dx + 0.8 * rightUnit.dx,
-          rightBase.dy + 0.8 * rightUnit.dy,
-        );
-        final midPoint = rightBase;
-        final endPoint = Offset(
-          rightBase.dx + 0.8 * (rightBase.dx - center.dx) / notchBaseRadius,
-          rightBase.dy + 0.8 * (rightBase.dy - center.dy) / notchBaseRadius,
-        );
-
-        final filletPath = Path()
-          ..moveTo(startPoint.dx, startPoint.dy)
-          ..quadraticBezierTo(midPoint.dx, midPoint.dy, endPoint.dx, endPoint.dy);
-        canvas.drawPath(filletPath, rightFilletPaint);
+        if (rightAlpha > 5) {
+          final rightPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.75
+            ..strokeCap = StrokeCap.butt
+            ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
+          canvas.drawLine(tip, rightEdgeEnd, rightPaint);
+        }
       }
     }
   }
@@ -1277,6 +1236,8 @@ class _DragBar extends StatelessWidget {
   final double? neutralValue;
   final String format;
   final List<double> snapPoints;
+  final double lightPhi;
+  final double lightTheta;
 
   const _DragBar({
     required this.width,
@@ -1289,6 +1250,8 @@ class _DragBar extends StatelessWidget {
     this.neutralValue,
     required this.format,
     required this.snapPoints,
+    this.lightPhi = math.pi / 2,
+    this.lightTheta = math.pi / 6,
   });
 
   String _formatValue(double value) {
@@ -1372,6 +1335,8 @@ class _DragBar extends StatelessWidget {
                   minValue: minValue,
                   maxValue: maxValue,
                   snapPoints: snapPoints,
+                  lightPhi: lightPhi,
+                  lightTheta: lightTheta,
                 ),
               ),
             ),
@@ -1391,6 +1356,8 @@ class _DragBarPainter extends CustomPainter {
   final double minValue;
   final double maxValue;
   final List<double> snapPoints;
+  final double lightPhi;
+  final double lightTheta;
 
   // Same saturated amber as knob
   static const Color _activeColor = Color(0xFFF0B830);  // Vivid amber/gold
@@ -1403,16 +1370,70 @@ class _DragBarPainter extends CustomPainter {
     required this.minValue,
     required this.maxValue,
     required this.snapPoints,
+    this.lightPhi = math.pi / 2,
+    this.lightTheta = math.pi / 6,
   });
+
+  /// Compute 2D light direction from spherical coordinates
+  Offset get lightDir2D {
+    final lx = math.sin(lightTheta) * math.cos(lightPhi);
+    final ly = -math.sin(lightTheta) * math.sin(lightPhi);
+    return Offset(lx, ly);
+  }
+
+  /// Compute edge brightness from normal direction
+  double edgeBrightness(Offset normal) {
+    final light = lightDir2D;
+    final dot = normal.dx * light.dx + normal.dy * light.dy;
+    return dot.clamp(0.0, 1.0);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final barHeight = size.height;
     final barY = 0.0;
-    final barRect = Rect.fromLTWH(0, barY, size.width, barHeight);
+    final lightDir = lightDir2D;
 
-    // === NEUMORPHIC SLOT (recessed track) ===
-    // Outer border/lip with vertical gradient (darker at top)
+    // Notch geometry constants
+    const notchDepth = 4.0;
+    const notchHalfWidth = 3.0;
+    const cornerRadius = 1.5;
+
+    // === BUILD COMBINED SLOT + NOTCHES PATH ===
+    // This is the "cutout" shape - slot rectangle with V notches extending upward
+    final combinedPath = Path();
+
+    // Start with slot rectangle
+    combinedPath.addRect(Rect.fromLTWH(0, barY, size.width, barHeight));
+
+    // Add each notch as a separate shape (union)
+    for (final snap in snapPoints) {
+      final snapNorm = (snap - minValue) / (maxValue - minValue);
+      if (snapNorm < 0 || snapNorm > 1) continue;
+
+      final snapX = snapNorm * size.width;
+      final leftBaseX = snapX - notchHalfWidth;
+      final rightBaseX = snapX + notchHalfWidth;
+      final tipY = barY - notchDepth;
+
+      // Notch path with corner radii where it meets the slot top edge
+      final notchPath = Path();
+      // Start at left corner radius start point
+      notchPath.moveTo(leftBaseX - cornerRadius, barY);
+      // Corner radius at left junction
+      notchPath.quadraticBezierTo(leftBaseX, barY, leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
+      // Left edge to tip
+      notchPath.lineTo(snapX, tipY);
+      // Right edge from tip
+      notchPath.lineTo(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
+      // Corner radius at right junction
+      notchPath.quadraticBezierTo(rightBaseX, barY, rightBaseX + cornerRadius, barY);
+      notchPath.close();
+
+      combinedPath.addPath(notchPath, Offset.zero);
+    }
+
+    // === LAYER 0: OUTER BORDER/LIP ===
     final borderGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -1421,7 +1442,7 @@ class _DragBarPainter extends CustomPainter {
     final borderPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = borderGradient.createShader(
-        Rect.fromLTWH(-1, barY - 1, size.width + 2, barHeight + 2),
+        Rect.fromLTWH(-1, barY - notchDepth - 1, size.width + 2, barHeight + notchDepth + 2),
       );
 
     canvas.drawRRect(
@@ -1432,53 +1453,85 @@ class _DragBarPainter extends CustomPainter {
       borderPaint,
     );
 
-    // Inner shadow gradient on top edge (fades down into slot)
-    final topShadowGradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [const Color(0xFF0A0A0A), Colors.transparent],
-      stops: const [0.0, 1.0],
-    );
-    final topShadowPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = topShadowGradient.createShader(
-        Rect.fromLTWH(1, barY, size.width - 2, 3),
-      );
-
-    canvas.drawRect(Rect.fromLTWH(1, barY, size.width - 2, 3), topShadowPaint);
-
-    // Ambient bounce gradient on bottom edge (fades up)
-    final bottomHighlightGradient = LinearGradient(
-      begin: Alignment.bottomCenter,
-      end: Alignment.topCenter,
-      colors: [const Color(0xFF2A2A2A), Colors.transparent],
-      stops: const [0.0, 1.0],
-    );
-    final bottomHighlightPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = bottomHighlightGradient.createShader(
-        Rect.fromLTWH(1, barY + barHeight - 2, size.width - 2, 2),
-      );
-
-    canvas.drawRect(
-      Rect.fromLTWH(1, barY + barHeight - 2, size.width - 2, 2),
-      bottomHighlightPaint,
-    );
-
-    // Background track floor with subtle gradient
-    final trackGradient = LinearGradient(
+    // === LAYER 1: DARK FLOOR (fills combined slot + notches shape) ===
+    final floorGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: const [Color(0xFF141414), Color(0xFF1C1C1C)],
     );
-    final trackPaint = Paint()
+    final floorPaint = Paint()
       ..style = PaintingStyle.fill
-      ..shader = trackGradient.createShader(barRect);
+      ..shader = floorGradient.createShader(
+        Rect.fromLTWH(0, barY - notchDepth, size.width, barHeight + notchDepth),
+      );
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(barRect, const Radius.circular(2)),
-      trackPaint,
+    canvas.save();
+    canvas.clipPath(combinedPath);
+    canvas.drawRect(
+      Rect.fromLTWH(0, barY - notchDepth, size.width, barHeight + notchDepth),
+      floorPaint,
     );
+    canvas.restore();
+
+    // === LAYER 2: VALUE INDICATOR (clipped to combined shape) ===
+    final valueX = normalizedValue * size.width;
+    double valueLeft, valueWidth;
+    if (isBipolar) {
+      final neutral = neutralValue ?? 0;
+      final neutralNorm = (neutral - minValue) / (maxValue - minValue);
+      final neutralX = neutralNorm * size.width;
+      valueLeft = math.min(valueX, neutralX);
+      valueWidth = (valueX - neutralX).abs();
+    } else {
+      valueLeft = 0;
+      valueWidth = valueX;
+    }
+
+    if (valueWidth > 0.5) {
+      canvas.save();
+      canvas.clipPath(combinedPath);
+
+      // Value bar fill
+      final valueGradient = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          _activeColor,
+          Color.lerp(_activeColor, Colors.black, 0.15)!,
+        ],
+      );
+      final valuePaint = Paint()
+        ..style = PaintingStyle.fill
+        ..shader = valueGradient.createShader(
+          Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
+        );
+
+      canvas.drawRect(
+        Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
+        valuePaint,
+      );
+
+      // Top highlight on value bar
+      final highlightGradient = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.35),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+      );
+      final highlightPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..shader = highlightGradient.createShader(
+          Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, 3),
+        );
+      canvas.drawRect(
+        Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, 3),
+        highlightPaint,
+      );
+
+      canvas.restore();
+    }
 
     // Neutral marker for bipolar
     if (isBipolar) {
@@ -1497,172 +1550,121 @@ class _DragBarPainter extends CustomPainter {
       }
     }
 
-    // Snap point markers
-    final snapPaint = Paint()
-      ..color = Colors.grey[600]!
-      ..strokeWidth = 1;
+    // === LAYER 3: EDGE HIGHLIGHTS ===
+    // Top edge of slot (between notches)
+    final topEdgeBrightness = edgeBrightness(const Offset(0, -1));
+    if (topEdgeBrightness > 0.05) {
+      final topEdgeAlpha = (topEdgeBrightness * 0.5 * 255).round();
+      final topEdgePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.75
+        ..color = Color.fromARGB(topEdgeAlpha, 255, 255, 255);
 
-    for (final snap in snapPoints) {
-      final snapNorm = (snap - minValue) / (maxValue - minValue);
-      if (snapNorm >= 0 && snapNorm <= 1) {
+      // Draw top edge segments between notches
+      double lastX = 0;
+      final sortedSnaps = snapPoints
+          .map((s) => (s - minValue) / (maxValue - minValue))
+          .where((n) => n >= 0 && n <= 1)
+          .toList()
+        ..sort();
+
+      for (final snapNorm in sortedSnaps) {
         final snapX = snapNorm * size.width;
-        canvas.drawLine(
-          Offset(snapX, barY - 1),
-          Offset(snapX, barY + barHeight + 1),
-          snapPaint,
-        );
+        final leftEdge = snapX - notchHalfWidth - cornerRadius;
+        if (leftEdge > lastX) {
+          canvas.drawLine(Offset(lastX, barY), Offset(leftEdge, barY), topEdgePaint);
+        }
+        lastX = snapX + notchHalfWidth + cornerRadius;
+      }
+      if (lastX < size.width) {
+        canvas.drawLine(Offset(lastX, barY), Offset(size.width, barY), topEdgePaint);
       }
     }
 
-    // === VALUE INDICATOR (near surface, matte plastic) ===
-    final valueX = normalizedValue * size.width;
-    const indicatorInset = 1.0;
-    final indicatorHeight = barHeight - indicatorInset * 2;
-
-    void drawValueIndicator(double left, double width) {
-      if (width < 1) return;
-
-      final rect = Rect.fromLTWH(left, barY + indicatorInset, width, indicatorHeight);
-
-      // Diffuse glow gradient on top lip (fades upward - photon scatter)
-      final topGlowGradient = LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-        colors: [
-          _activeColor.withOpacity(0.40),
-          _activeColor.withOpacity(0.15),
-          _activeColor.withOpacity(0.0),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      );
-      final topGlowPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = topGlowGradient.createShader(
-          Rect.fromLTWH(left, barY - 3, width, 3),
-        );
-
-      canvas.drawRect(Rect.fromLTWH(left, barY - 3, width, 3), topGlowPaint);
-
-      // Diffuse glow gradient on bottom lip (fades downward)
-      final bottomGlowGradient = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          _activeColor.withOpacity(0.35),
-          _activeColor.withOpacity(0.12),
-          _activeColor.withOpacity(0.0),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      );
-      final bottomGlowPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = bottomGlowGradient.createShader(
-          Rect.fromLTWH(left, barY + barHeight, width, 3),
-        );
-
-      canvas.drawRect(
-        Rect.fromLTWH(left, barY + barHeight, width, 3),
-        bottomGlowPaint,
-      );
-
-      // Main value bar with vertical gradient (matte surface - top-lit)
-      final indicatorGradient = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          _activeColor.withOpacity(0.98),
-          _activeColor.withOpacity(0.85),
-        ],
-      );
-      final basePaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = indicatorGradient.createShader(rect);
-
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(1)),
-        basePaint,
-      );
-
-      // Matte texture: gradient grain overlay
-      final grainGradient = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.transparent,
-          Colors.black.withOpacity(0.10),
-        ],
-        stops: const [0.3, 1.0],
-      );
-      final grainPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = grainGradient.createShader(rect);
-
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(1)),
-        grainPaint,
-      );
-
-      // Top edge highlight with falloff
-      final highlightGradient = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withOpacity(0.35),
-          Colors.white.withOpacity(0.0),
-        ],
-        stops: const [0.0, 1.0],
-      );
-      final highlightPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = highlightGradient.createShader(
-          Rect.fromLTWH(left + 1, barY + indicatorInset, width - 2, 2),
-        );
-
-      canvas.drawRect(
-        Rect.fromLTWH(left + 1, barY + indicatorInset, width - 2, 2),
-        highlightPaint,
-      );
-
-      // Bottom edge shadow
-      final shadowGradient = LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-        colors: [
-          Colors.black.withOpacity(0.18),
-          Colors.black.withOpacity(0.0),
-        ],
-        stops: const [0.0, 1.0],
-      );
-      final shadowPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = shadowGradient.createShader(
-          Rect.fromLTWH(left, barY + indicatorInset + indicatorHeight - 1.5, width, 1.5),
-        );
-
-      canvas.drawRect(
-        Rect.fromLTWH(left, barY + indicatorInset + indicatorHeight - 1.5, width, 1.5),
-        shadowPaint,
+    // Bottom edge of slot
+    final bottomEdgeBrightness = edgeBrightness(const Offset(0, 1));
+    if (bottomEdgeBrightness > 0.05) {
+      final bottomEdgeAlpha = (bottomEdgeBrightness * 0.5 * 255).round();
+      final bottomEdgePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.75
+        ..color = Color.fromARGB(bottomEdgeAlpha, 255, 255, 255);
+      canvas.drawLine(
+        Offset(0, barY + barHeight),
+        Offset(size.width, barY + barHeight),
+        bottomEdgePaint,
       );
     }
 
-    if (isBipolar) {
-      // Draw bar from neutral point to current value
-      final neutral = neutralValue ?? 0;
-      final neutralNorm = (neutral - minValue) / (maxValue - minValue);
-      final neutralX = neutralNorm * size.width;
-      final barLeft = valueX < neutralX ? valueX : neutralX;
-      final barWidth = (valueX - neutralX).abs();
-      drawValueIndicator(barLeft, barWidth);
-    } else {
-      // Draw bar from left edge to current value
-      drawValueIndicator(0, valueX);
+    // Notch edge highlights with corner fillets
+    for (final snap in snapPoints) {
+      final snapNorm = (snap - minValue) / (maxValue - minValue);
+      if (snapNorm < 0 || snapNorm > 1) continue;
+
+      final snapX = snapNorm * size.width;
+      final leftBaseX = snapX - notchHalfWidth;
+      final rightBaseX = snapX + notchHalfWidth;
+      final tipY = barY - notchDepth;
+
+      // Left edge: from corner to tip
+      final leftStart = Offset(leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
+      final tip = Offset(snapX, tipY);
+      final leftEdgeVec = Offset(tip.dx - leftStart.dx, tip.dy - leftStart.dy);
+      final leftNorm = Offset(leftEdgeVec.dy, -leftEdgeVec.dx);
+      final leftLen = math.sqrt(leftNorm.dx * leftNorm.dx + leftNorm.dy * leftNorm.dy);
+      final leftUnit = Offset(leftNorm.dx / leftLen, leftNorm.dy / leftLen);
+
+      // Right edge: from tip to corner
+      final rightEnd = Offset(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
+      final rightEdgeVec = Offset(rightEnd.dx - tip.dx, rightEnd.dy - tip.dy);
+      final rightNorm = Offset(-rightEdgeVec.dy, rightEdgeVec.dx);
+      final rightLen = math.sqrt(rightNorm.dx * rightNorm.dx + rightNorm.dy * rightNorm.dy);
+      final rightUnit = Offset(rightNorm.dx / rightLen, rightNorm.dy / rightLen);
+
+      final leftDot = (leftUnit.dx * lightDir.dx + leftUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+      final rightDot = (rightUnit.dx * lightDir.dx + rightUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+
+      final leftAlpha = (0.5 * leftDot * 255).round();
+      final rightAlpha = (0.5 * rightDot * 255).round();
+
+      if (leftAlpha > 5) {
+        final leftPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.75
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
+        canvas.drawLine(leftStart, tip, leftPaint);
+
+        // Left corner fillet
+        final cornerPath = Path()
+          ..moveTo(leftBaseX - cornerRadius, barY)
+          ..quadraticBezierTo(leftBaseX, barY, leftStart.dx, leftStart.dy);
+        canvas.drawPath(cornerPath, leftPaint);
+      }
+
+      if (rightAlpha > 5) {
+        final rightPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.75
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
+        canvas.drawLine(tip, rightEnd, rightPaint);
+
+        // Right corner fillet
+        final cornerPath = Path()
+          ..moveTo(rightEnd.dx, rightEnd.dy)
+          ..quadraticBezierTo(rightBaseX, barY, rightBaseX + cornerRadius, barY);
+        canvas.drawPath(cornerPath, rightPaint);
+      }
     }
   }
 
   @override
   bool shouldRepaint(covariant _DragBarPainter oldDelegate) {
     return oldDelegate.normalizedValue != normalizedValue ||
-        oldDelegate.startNormalized != startNormalized;
+        oldDelegate.startNormalized != startNormalized ||
+        oldDelegate.lightPhi != lightPhi ||
+        oldDelegate.lightTheta != lightTheta;
   }
 }
 
