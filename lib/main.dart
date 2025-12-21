@@ -15,6 +15,7 @@ import 'osc_log.dart';
 import 'osc_registry_viewer.dart';
 import 'return_page.dart';
 import 'knob_page.dart';
+import 'lighting_settings.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -96,8 +97,11 @@ void main() {
     _installGlobalErrorHooks();
 
     runApp(
-      ChangeNotifierProvider<Network>.value(
-        value: Network(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<Network>.value(value: Network()),
+          ChangeNotifierProvider<LightingSettings>(create: (_) => LightingSettings()),
+        ],
         child: const MyApp(),
       ),
     );
@@ -151,6 +155,89 @@ class MyAppState extends ChangeNotifier {
   void notifyListeners() => super.notifyListeners();
 }
 
+/// Neumorphic styled navigation rail wrapper
+class _NeumorphicNavRail extends StatelessWidget {
+  final LightingSettings lighting;
+  final Widget child;
+
+  const _NeumorphicNavRail({
+    required this.lighting,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _NavRailPainter(lighting: lighting),
+      child: child,
+    );
+  }
+}
+
+class _NavRailPainter extends CustomPainter {
+  final LightingSettings lighting;
+
+  _NavRailPainter({required this.lighting});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+
+    // Base gradient fill
+    const baseColor = Color(0xFF404044);
+    final gradient = lighting.createLinearSurfaceGradient(
+      baseColor: baseColor,
+      intensity: 0.08,
+    );
+    final gradientPaint = Paint()
+      ..shader = gradient.createShader(rect);
+
+    canvas.drawRect(rect, gradientPaint);
+
+    // Right edge shadow/highlight for depth
+    final light = lighting.lightDir2D;
+    final edgePaint = Paint()
+      ..strokeWidth = 1.5
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.08),
+          Colors.white.withValues(alpha: 0.04),
+          Colors.black.withValues(alpha: 0.15),
+        ],
+        stops: const [0.0, 0.3, 1.0],
+      ).createShader(rect);
+
+    canvas.drawLine(
+      Offset(size.width - 0.5, 0),
+      Offset(size.width - 0.5, size.height),
+      edgePaint,
+    );
+
+    // Noise texture overlay
+    if (lighting.noiseImage != null) {
+      final noisePaint = Paint()
+        ..shader = ImageShader(
+          lighting.noiseImage!,
+          TileMode.repeated,
+          TileMode.repeated,
+          Matrix4.identity().storage,
+        )
+        ..blendMode = BlendMode.overlay;
+
+      canvas.drawRect(rect, noisePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NavRailPainter oldDelegate) {
+    return oldDelegate.lighting.lightPhi != lighting.lightPhi ||
+        oldDelegate.lighting.lightTheta != lighting.lightTheta ||
+        oldDelegate.lighting.noiseImage != lighting.noiseImage;
+  }
+}
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
   @override
@@ -191,6 +278,8 @@ class _MyHomePageState extends State<MyHomePage> {
       const double railCollapsedWidth = 100;
       const double railExtendedWidth = 222;
 
+      final lighting = context.watch<LightingSettings>();
+
       return Scaffold(
         body: Column(
           children: [
@@ -198,69 +287,72 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Row(
                 children: [
                   SafeArea(
-                    child: NavigationRail(
-                      backgroundColor: const Color.fromARGB(255, 88, 88, 92),
-                      minWidth: railCollapsedWidth,
-                      minExtendedWidth: railExtendedWidth,
-                      extended: isRailExtended,
-                      // Precisely constrain the leading section to the rail width:
-                      leading: SizedBox(
-                        width: isRailExtended
-                            ? railExtendedWidth
-                            : railCollapsedWidth,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(9, 0, 9, 0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              SizedBox(height: 8),
-                              NetworkConnectionSection(),
-                              SizedBox(height: 16),
-                              FileManagementSection(),
-                              SizedBox(height: 8),
-                              Divider(color: Colors.grey),
-                            ],
+                    child: _NeumorphicNavRail(
+                      lighting: lighting,
+                      child: NavigationRail(
+                        backgroundColor: Colors.transparent,
+                        minWidth: railCollapsedWidth,
+                        minExtendedWidth: railExtendedWidth,
+                        extended: isRailExtended,
+                        // Precisely constrain the leading section to the rail width:
+                        leading: SizedBox(
+                          width: isRailExtended
+                              ? railExtendedWidth
+                              : railCollapsedWidth,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(9, 0, 9, 0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                SizedBox(height: 8),
+                                NetworkConnectionSection(),
+                                SizedBox(height: 16),
+                                FileManagementSection(),
+                                SizedBox(height: 8),
+                                Divider(color: Colors.grey),
+                              ],
+                            ),
                           ),
                         ),
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected: (value) {
+                          setState(() => selectedIndex = value);
+                        },
+                        destinations: const [
+                          NavigationRailDestination(
+                            icon: Icon(Icons.settings),
+                            label: Text('Setup'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.output),
+                            label: Text('Send 1'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.output),
+                            label: Text('Send 2'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.output),
+                            label: Text('Send 3'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.input),
+                            label: Text('Return'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.view_list),
+                            label: Text('OSC Log'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.storage),
+                            label: Text('Registry'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.tune),
+                            label: Text('Knob'),
+                          ),
+                        ],
                       ),
-                      selectedIndex: selectedIndex,
-                      onDestinationSelected: (value) {
-                        setState(() => selectedIndex = value);
-                      },
-                      destinations: const [
-                        NavigationRailDestination(
-                          icon: Icon(Icons.settings),
-                          label: Text('Setup'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.output),
-                          label: Text('Send 1'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.output),
-                          label: Text('Send 2'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.output),
-                          label: Text('Send 3'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.input),
-                          label: Text('Return'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.view_list),
-                          label: Text('OSC Log'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.storage),
-                          label: Text('Registry'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.tune),
-                          label: Text('Knob'),
-                        ),
-                      ],
                     ),
                   ),
                   Expanded(

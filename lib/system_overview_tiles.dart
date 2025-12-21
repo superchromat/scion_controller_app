@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'system_overview.dart'; // for TileLayout
 import 'osc_registry.dart';
+import 'labeled_card.dart'; // for NeumorphicInset
 
 const TextStyle _systemTextStyle = TextStyle(
   color: Colors.green,
@@ -270,73 +271,76 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.all(TileLayout.tileOuterMargin),
-      color: Colors.grey[900],
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(widget.overlayLabel, style: kOverlayTextStyle),
-          if (_connected)
-            Padding(
-              padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (widget.resolution != null)
-                    AnimatedBuilder(
-                      animation: _resColor,
-                      builder: (ctx, _) => Text(
-                        _res,
-                        style:
-                            _systemTextStyle.copyWith(color: _resColor.value),
-                      ),
-                    ),
-                  if (widget.framerate != null)
-                    AnimatedBuilder(
-                      animation: _fpsColor,
-                      builder: (ctx, _) => Text(
-                        _fps.toStringAsFixed(2),
-                        style:
-                            _systemTextStyle.copyWith(color: _fpsColor.value),
-                      ),
-                    ),
-                  AnimatedBuilder(
-                    animation: _bppColor,
-                    builder: (ctx, _) => Text(
-                      '$_bpp bpp',
-                      style: _systemTextStyle.copyWith(color: _bppColor.value),
-                    ),
-                  ),
-                  Row(
-                    children: [
+      child: NeumorphicInset(
+        baseColor: const Color(0xFF262628),
+        borderRadius: 4.0,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(widget.overlayLabel, style: kOverlayTextStyle),
+            if (_connected)
+              Padding(
+                padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.resolution != null)
                       AnimatedBuilder(
-                        animation: _csColor,
+                        animation: _resColor,
                         builder: (ctx, _) => Text(
-                          _cs,
+                          _res,
                           style:
-                              _systemTextStyle.copyWith(color: _csColor.value),
+                              _systemTextStyle.copyWith(color: _resColor.value),
                         ),
                       ),
-                      if (widget.chromaSubsampling != null) ...[
-                        const SizedBox(width: 8),
+                    if (widget.framerate != null)
+                      AnimatedBuilder(
+                        animation: _fpsColor,
+                        builder: (ctx, _) => Text(
+                          _fps.toStringAsFixed(2),
+                          style:
+                              _systemTextStyle.copyWith(color: _fpsColor.value),
+                        ),
+                      ),
+                    AnimatedBuilder(
+                      animation: _bppColor,
+                      builder: (ctx, _) => Text(
+                        '$_bpp bpp',
+                        style: _systemTextStyle.copyWith(color: _bppColor.value),
+                      ),
+                    ),
+                    Row(
+                      children: [
                         AnimatedBuilder(
-                          animation: _subColor,
+                          animation: _csColor,
                           builder: (ctx, _) => Text(
-                            _sub,
-                            style: _systemTextStyle.copyWith(
-                                color: _subColor.value),
+                            _cs,
+                            style:
+                                _systemTextStyle.copyWith(color: _csColor.value),
                           ),
                         ),
+                        if (widget.chromaSubsampling != null) ...[
+                          const SizedBox(width: 8),
+                          AnimatedBuilder(
+                            animation: _subColor,
+                            builder: (ctx, _) => Text(
+                              _sub,
+                              style: _systemTextStyle.copyWith(
+                                  color: _subColor.value),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
+              )
+            else
+              Center(
+                child: Text('Disconnected', style: _systemTextStyleRed),
               ),
-            )
-          else
-            Center(
-              child: Text('Disconnected', style: _systemTextStyleRed),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -502,33 +506,36 @@ class __InputTileInnerState extends State<_InputTileInner> {
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.all(TileLayout.tileOuterMargin),
-      color: Colors.grey[900],
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(widget.index.toString(), style: kOverlayTextStyle),
-          if (_connected)
-            Padding(
-              padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_res, style: _systemTextStyle),
-                  Text(_fps.toStringAsFixed(2), style: _systemTextStyle),
-                  Text('$_bpp bpp', style: _systemTextStyle),
-                  Row(children: [
-                    Text(_cs, style: _systemTextStyle),
-                    const SizedBox(width: 8),
-                    Text(_sub, style: _systemTextStyle),
-                  ]),
-                ],
+      child: NeumorphicInset(
+        baseColor: const Color(0xFF262628),
+        borderRadius: 4.0,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(widget.index.toString(), style: kOverlayTextStyle),
+            if (_connected)
+              Padding(
+                padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_res, style: _systemTextStyle),
+                    Text(_fps.toStringAsFixed(2), style: _systemTextStyle),
+                    Text('$_bpp bpp', style: _systemTextStyle),
+                    Row(children: [
+                      Text(_cs, style: _systemTextStyle),
+                      const SizedBox(width: 8),
+                      Text(_sub, style: _systemTextStyle),
+                    ]),
+                  ],
+                ),
+              )
+            else
+              Center(
+                child: Text('Disconnected', style: _systemTextStyleRed),
               ),
-            )
-          else
-            Center(
-              child: Text('Disconnected', style: _systemTextStyleRed),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

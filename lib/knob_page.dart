@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'rotary_knob.dart';
 import 'labeled_card.dart';
+import 'lighting_settings.dart';
 
 class KnobPage extends StatefulWidget {
   const KnobPage({super.key});
@@ -30,11 +32,7 @@ class _KnobPageState extends State<KnobPage> {
   double _softSnapExponent = 2.0;  // 0.5 to 4.0
   double _softSnapRegionWidth = 0.3;  // 0.1 to 1.0
 
-  // Light direction controls (spherical coordinates)
-  double _lightPhi = 90.0;    // Azimuthal angle in degrees (0 = right, 90 = top)
-  double _lightTheta = 30.0;  // Polar angle from vertical in degrees (0 = above, 90 = horizontal)
-
-  // Arc geometry controls
+  // Arc geometry controls (local to demo knob)
   double _arcWidth = 8.0;     // Arc/slot width in pixels
   double _notchDepth = 4.0;   // Notch depth in pixels
   double _notchAngle = 3.15;  // Notch half-angle in degrees
@@ -92,9 +90,102 @@ class _KnobPageState extends State<KnobPage> {
 
         const SizedBox(height: 16),
 
-        // Lighting Controls Section
+        // Global Lighting Controls Section
         LabeledCard(
-          title: 'Lighting & Geometry Controls',
+          title: 'Global Lighting Controls',
+          networkIndependent: true,
+          child: Builder(
+            builder: (context) {
+              final lighting = context.watch<LightingSettings>();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'These controls adjust the global lighting direction for all neumorphic UI elements.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 32,
+                    runSpacing: 24,
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    children: [
+                      // Phi control (azimuthal angle) - global
+                      RotaryKnob(
+                        minValue: 0,
+                        maxValue: 360,
+                        value: lighting.lightPhiDegrees,
+                        format: '%.0f°',
+                        label: 'Phi (φ)',
+                        defaultValue: 90,
+                        size: 70,
+                        snapConfig: const SnapConfig(
+                          snapPoints: [0, 90, 180, 270, 360],
+                          snapRegionHalfWidth: 10,
+                          snapBehavior: SnapBehavior.hard,
+                        ),
+                        onChanged: (v) => lighting.setLightPhiDegrees(v),
+                      ),
+
+                      // Theta control (polar angle) - global
+                      RotaryKnob(
+                        minValue: 0,
+                        maxValue: 360,
+                        value: lighting.lightThetaDegrees,
+                        format: '%.0f°',
+                        label: 'Theta (θ)',
+                        defaultValue: 320,
+                        size: 70,
+                        snapConfig: const SnapConfig(
+                          snapPoints: [0, 90, 180, 270, 320, 360],
+                          snapRegionHalfWidth: 10,
+                          snapBehavior: SnapBehavior.hard,
+                        ),
+                        onChanged: (v) => lighting.setLightThetaDegrees(v),
+                      ),
+
+                      // Demo knob with global lighting
+                      RotaryKnob(
+                        minValue: 0,
+                        maxValue: 1,
+                        value: _basicValue,
+                        format: '%.2f',
+                        label: 'Demo',
+                        defaultValue: 0.5,
+                        size: 100,
+                        lightPhi: lighting.lightPhi,
+                        lightTheta: lighting.lightTheta,
+                        snapConfig: const SnapConfig(
+                          snapPoints: [0, 0.25, 0.5, 0.75, 1.0],
+                          snapRegionHalfWidth: 0.03,
+                          snapBehavior: SnapBehavior.hard,
+                        ),
+                        onChanged: (v) => setState(() => _basicValue = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      'Phi (φ): Azimuthal angle, 0° = right, 90° = top, 180° = left, 270° = bottom\n'
+                      'Theta (θ): Light direction angle (320° is default)\n'
+                      'These settings affect all cards, knobs, and neumorphic elements.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Knob Geometry Controls Section (local to demo)
+        LabeledCard(
+          title: 'Knob Geometry Controls',
           networkIndependent: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,40 +196,6 @@ class _KnobPageState extends State<KnobPage> {
                 alignment: WrapAlignment.start,
                 crossAxisAlignment: WrapCrossAlignment.end,
                 children: [
-                  // Phi control (azimuthal angle)
-                  RotaryKnob(
-                    minValue: 0,
-                    maxValue: 360,
-                    value: _lightPhi,
-                    format: '%.0f°',
-                    label: 'Phi (φ)',
-                    defaultValue: 90,
-                    size: 70,
-                    snapConfig: const SnapConfig(
-                      snapPoints: [0, 90, 180, 270, 360],
-                      snapRegionHalfWidth: 10,
-                      snapBehavior: SnapBehavior.hard,
-                    ),
-                    onChanged: (v) => setState(() => _lightPhi = v),
-                  ),
-
-                  // Theta control (polar angle)
-                  RotaryKnob(
-                    minValue: 0,
-                    maxValue: 90,
-                    value: _lightTheta,
-                    format: '%.0f°',
-                    label: 'Theta (θ)',
-                    defaultValue: 30,
-                    size: 70,
-                    snapConfig: const SnapConfig(
-                      snapPoints: [0, 30, 45, 60, 90],
-                      snapRegionHalfWidth: 5,
-                      snapBehavior: SnapBehavior.hard,
-                    ),
-                    onChanged: (v) => setState(() => _lightTheta = v),
-                  ),
-
                   // Arc width control
                   RotaryKnob(
                     minValue: 2,
@@ -190,17 +247,15 @@ class _KnobPageState extends State<KnobPage> {
                     onChanged: (v) => setState(() => _notchAngle = v),
                   ),
 
-                  // Demo knob with dynamic lighting and geometry
+                  // Demo knob with dynamic geometry
                   RotaryKnob(
                     minValue: 0,
                     maxValue: 1,
                     value: _basicValue,
                     format: '%.2f',
-                    label: 'Demo',
+                    label: 'Geometry Demo',
                     defaultValue: 0.5,
                     size: 100,
-                    lightPhi: _lightPhi * math.pi / 180,
-                    lightTheta: _lightTheta * math.pi / 180,
                     arcWidth: _arcWidth,
                     notchDepth: _notchDepth,
                     notchHalfAngle: _notchAngle * math.pi / 180,
@@ -217,8 +272,6 @@ class _KnobPageState extends State<KnobPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Phi (φ): Azimuthal angle, 0° = right, 90° = top\n'
-                  'Theta (θ): Polar angle from vertical, 0° = above, 90° = horizontal\n'
                   'Arc Width: Thickness of the slot/arc in pixels\n'
                   'Notch Depth: Height of V-notches in pixels\n'
                   'Notch Angle: Half-width of V-notches in degrees',

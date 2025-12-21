@@ -81,17 +81,18 @@ class _SystemOverviewState extends State<SystemOverview>
     );
     return Container(
       margin: EdgeInsets.all(TileLayout.tileOuterMargin),
-      padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[700]!),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: labelPosition == LabelPosition.top
-            ? [label, const SizedBox(height: 4), child]
-            : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
+      child: NeumorphicContainer(
+        baseColor: const Color(0xFF323234),
+        borderRadius: 6.0,
+        elevation: 3.0,
+        padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: labelPosition == LabelPosition.top
+              ? [label, const SizedBox(height: 4), child]
+              : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
+        ),
       ),
     );
   }

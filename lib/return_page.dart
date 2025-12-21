@@ -226,22 +226,16 @@ class _ReturnOutputLutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LabeledCard(
+    return LabeledCard(
       title: 'Output LUT',
       child: SizedBox(
         height: 400,
-        child: Card(
-          color: Color(0xFF1F1F1F),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: OscPathSegment(
-              segment: 'lut',
-              child: LUTEditor(),
-            ),
+        child: NeumorphicInset(
+          baseColor: const Color(0xFF252527),
+          padding: const EdgeInsets.all(16),
+          child: const OscPathSegment(
+            segment: 'lut',
+            child: LUTEditor(),
           ),
         ),
       ),
@@ -307,48 +301,42 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF1F1F1F),
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Text('ADV7842 LLC Phase',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const Spacer(),
-            const Text('DLL'),
-            const SizedBox(width: 8),
-            Switch(
-              value: _dllEnabled,
-              onChanged: (v) {
-                setState(() => _dllEnabled = v);
-                _sendDll(v);
-              },
-            ),
-            const SizedBox(width: 16),
-            OscRotaryKnob(
-              key: _phaseKey,
-              initialValue: _phase.toDouble(),
-              minValue: 0,
-              maxValue: 63,
-              format: '%.0f',
-              label: 'Phase',
-              defaultValue: 0,
-              size: 60,
-              sendOsc: false,  // Manual OSC handling
-              preferInteger: true,
-              onChanged: (v) {
-                final iv = v.round().clamp(0, 63);
-                _phase = iv;
-                _sendPhase(iv);
-              },
-            ),
-          ],
-        ),
+    return NeumorphicContainer(
+      baseColor: const Color(0xFF2A2A2C),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const Text('ADV7842 LLC Phase',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Spacer(),
+          const Text('DLL'),
+          const SizedBox(width: 8),
+          Switch(
+            value: _dllEnabled,
+            onChanged: (v) {
+              setState(() => _dllEnabled = v);
+              _sendDll(v);
+            },
+          ),
+          const SizedBox(width: 16),
+          OscRotaryKnob(
+            key: _phaseKey,
+            initialValue: _phase.toDouble(),
+            minValue: 0,
+            maxValue: 63,
+            format: '%.0f',
+            label: 'Phase',
+            defaultValue: 0,
+            size: 60,
+            sendOsc: false,  // Manual OSC handling
+            preferInteger: true,
+            onChanged: (v) {
+              final iv = v.round().clamp(0, 63);
+              _phase = iv;
+              _sendPhase(iv);
+            },
+          ),
+        ],
       ),
     );
   }

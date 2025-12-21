@@ -5,6 +5,7 @@ import 'network.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'osc_registry.dart';
+import 'labeled_card.dart';
 
 class AdvDeWindowCard extends StatefulWidget {
   const AdvDeWindowCard({super.key});
@@ -66,33 +67,27 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF1F1F1F),
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('ADV7842 DE Window',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 24,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _deKnob('H Start', _hStartKey, -512, 511, (v) { _hStart = v; _sendDe(); }),
-                _deKnob('H End', _hEndKey, -512, 511, (v) { _hEnd = v; _sendDe(); }),
-                _deKnob('V Start', _vStartKey, -8, 7, (v) { _vStart = v; _sendDe(); }),
-                _deKnob('V End', _vEndKey, -8, 7, (v) { _vEnd = v; _sendDe(); }),
-              ],
-            ),
-          ],
-        ),
+    return NeumorphicContainer(
+      baseColor: const Color(0xFF2A2A2C),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('ADV7842 DE Window',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _deKnob('H Start', _hStartKey, -512, 511, (v) { _hStart = v; _sendDe(); }),
+              _deKnob('H End', _hEndKey, -512, 511, (v) { _hEnd = v; _sendDe(); }),
+              _deKnob('V Start', _vStartKey, -8, 7, (v) { _vStart = v; _sendDe(); }),
+              _deKnob('V End', _vEndKey, -8, 7, (v) { _vEnd = v; _sendDe(); }),
+            ],
+          ),
+        ],
       ),
     );
   }

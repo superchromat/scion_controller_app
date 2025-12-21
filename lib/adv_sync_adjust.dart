@@ -5,6 +5,7 @@ import 'network.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'osc_registry.dart';
+import 'labeled_card.dart';
 
 class AdvSyncAdjustCard extends StatefulWidget {
   const AdvSyncAdjustCard({super.key});
@@ -66,33 +67,27 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF1F1F1F),
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('ADV7842 Sync Adjust',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 24,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _syncKnob('HS Start', _hsStartKey, -512, 511, (v) { _hsStart = v; _sendSync(); }),
-                _syncKnob('HS End', _hsEndKey, -512, 511, (v) { _hsEnd = v; _sendSync(); }),
-                _syncKnob('VS Start', _vsStartKey, -8, 7, (v) { _vsStart = v; _sendSync(); }),
-                _syncKnob('VS End', _vsEndKey, -8, 7, (v) { _vsEnd = v; _sendSync(); }),
-              ],
-            ),
-          ],
-        ),
+    return NeumorphicContainer(
+      baseColor: const Color(0xFF2A2A2C),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('ADV7842 Sync Adjust',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _syncKnob('HS Start', _hsStartKey, -512, 511, (v) { _hsStart = v; _sendSync(); }),
+              _syncKnob('HS End', _hsEndKey, -512, 511, (v) { _hsEnd = v; _sendSync(); }),
+              _syncKnob('VS Start', _vsStartKey, -8, 7, (v) { _vsStart = v; _sendSync(); }),
+              _syncKnob('VS End', _vsEndKey, -8, 7, (v) { _vsEnd = v; _sendSync(); }),
+            ],
+          ),
+        ],
       ),
     );
   }
