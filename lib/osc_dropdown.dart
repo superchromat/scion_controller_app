@@ -284,7 +284,7 @@ class _DropdownButtonPainter extends CustomPainter {
     // Gradient fill
     final gradient = lighting.createLinearSurfaceGradient(
       baseColor: baseColor,
-      intensity: enabled ? 0.08 : 0.03,
+      intensity: enabled ? 0.04 : 0.02,
     );
     final gradientPaint = Paint()..shader = gradient.createShader(rect);
     canvas.drawRRect(rrect, gradientPaint);
@@ -544,7 +544,7 @@ class _MenuContainerPainter extends CustomPainter {
     const baseColor = Color(0xFF2E2E30);
     final gradient = lighting.createLinearSurfaceGradient(
       baseColor: baseColor,
-      intensity: 0.06,
+      intensity: 0.03,
     );
     final paint = Paint()..shader = gradient.createShader(rect);
     canvas.drawRRect(rrect, paint);

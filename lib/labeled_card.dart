@@ -124,7 +124,7 @@ class _NeumorphicCardPainter extends CustomPainter {
     // Base gradient fill
     final gradient = lighting.createLinearSurfaceGradient(
       baseColor: baseColor,
-      intensity: 0.06,
+      intensity: 0.03,
     );
     final gradientPaint = Paint()
       ..shader = gradient.createShader(rect);
@@ -140,9 +140,9 @@ class _NeumorphicCardPainter extends CustomPainter {
         begin: Alignment(light.dx, light.dy),
         end: Alignment(-light.dx, -light.dy),
         colors: [
-          Colors.white.withValues(alpha: 0.12),
+          Colors.white.withValues(alpha: 0.06),
           Colors.transparent,
-          Colors.black.withValues(alpha: 0.15),
+          Colors.black.withValues(alpha: 0.08),
         ],
         stops: const [0.0, 0.5, 1.0],
       ).createShader(rect);
@@ -295,7 +295,7 @@ class _NeumorphicInsetPainter extends CustomPainter {
     // Darker base for inset
     final gradient = lighting.createLinearSurfaceGradient(
       baseColor: baseColor,
-      intensity: 0.08,
+      intensity: 0.04,
     );
     final gradientPaint = Paint()
       ..shader = gradient.createShader(rect);
@@ -311,9 +311,9 @@ class _NeumorphicInsetPainter extends CustomPainter {
         begin: Alignment(light.dx, light.dy),
         end: Alignment(-light.dx, -light.dy),
         colors: [
-          Colors.black.withValues(alpha: 0.25),
+          Colors.black.withValues(alpha: 0.15),
           Colors.transparent,
-          Colors.white.withValues(alpha: 0.06),
+          Colors.white.withValues(alpha: 0.03),
         ],
         stops: const [0.0, 0.5, 1.0],
       ).createShader(rect);

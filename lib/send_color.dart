@@ -5,6 +5,7 @@ import 'lut_editor.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
+import 'labeled_card.dart';
 
 class SendColor extends StatefulWidget {
   const SendColor({super.key});
@@ -121,18 +122,12 @@ class _SendColorState extends State<SendColor> {
             ),
             const SizedBox(width: 48),
             Expanded(
-              child: Card(
-                color: Colors.grey[900],
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: OscPathSegment(
-                    segment: 'lut',
-                    child: LUTEditor(),
-                  ),
+              child: NeumorphicInset(
+                baseColor: const Color(0xFF252527),
+                padding: const EdgeInsets.all(16),
+                child: OscPathSegment(
+                  segment: 'lut',
+                  child: LUTEditor(),
                 ),
               ),
             ),

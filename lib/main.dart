@@ -187,7 +187,7 @@ class _NavRailPainter extends CustomPainter {
     const baseColor = Color(0xFF404044);
     final gradient = lighting.createLinearSurfaceGradient(
       baseColor: baseColor,
-      intensity: 0.08,
+      intensity: 0.04,
     );
     final gradientPaint = Paint()
       ..shader = gradient.createShader(rect);
@@ -202,9 +202,9 @@ class _NavRailPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.white.withValues(alpha: 0.08),
           Colors.white.withValues(alpha: 0.04),
-          Colors.black.withValues(alpha: 0.15),
+          Colors.white.withValues(alpha: 0.02),
+          Colors.black.withValues(alpha: 0.08),
         ],
         stops: const [0.0, 0.3, 1.0],
       ).createShader(rect);

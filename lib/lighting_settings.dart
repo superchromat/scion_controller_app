@@ -94,11 +94,11 @@ class LightingSettings extends ChangeNotifier {
           for (int dx = -1; dx <= 1; dx++) {
             final nx = (x + dx) % size;
             final ny = (y + dy) % size;
-            final weight = (dx == 0 && dy == 0) ? 8 : 1;
+            final weight = (dx == 0 && dy == 0) ? 4 : 1;
             sum += rawNoise[ny * size + nx] * weight;
           }
         }
-        blurredNoise[y * size + x] = (sum ~/ 16).clamp(0, 255);
+        blurredNoise[y * size + x] = (sum ~/ 12).clamp(0, 255);
       }
     }
 
@@ -188,7 +188,7 @@ class LightingSettings extends ChangeNotifier {
   /// Get a linear gradient for a surface based on light direction
   LinearGradient createLinearSurfaceGradient({
     Color baseColor = const Color(0xFF3A3A3C),
-    double intensity = 0.1,
+    double intensity = 0.04,
   }) {
     final light = lightDir2D;
     // Convert light direction to alignment

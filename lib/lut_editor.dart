@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'osc_widget_binding.dart';
 import 'lut_painter.dart';
 import 'osc_registry.dart';
 import 'osc_log.dart';
+import 'lighting_settings.dart';
 
 
 /// A LUT editor widget with two-way OSC binding per channel.
@@ -297,16 +299,16 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     required bool selected,
     required VoidCallback onPressed,
     Color? color,
-  }) =>
-      OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          backgroundColor: selected ? (color ?? Colors.white) : null,
-          side: BorderSide(color: (color ?? Colors.white)),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        onPressed: onPressed,
-        child: child,
-      );
+  }) {
+    final lighting = context.watch<LightingSettings>();
+    return _NeumorphicLutButton(
+      lighting: lighting,
+      selected: selected,
+      accentColor: color,
+      onPressed: onPressed,
+      child: child,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -325,9 +327,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
               builder: (_, flashing, __) => _buildButton(
                 child: Icon(
                   locked ? Icons.lock : Icons.lock_open,
-                  color: flashing
-                      ? Colors.amber
-                      : (locked ? Colors.grey[900] : Colors.white),
+                  color: flashing ? Colors.amber : Colors.white,
                 ),
                 selected: locked,
                 onPressed: () {
@@ -403,5 +403,174 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
         ),
       ],
     );
+  }
+}
+
+/// Neumorphic button for LUT editor controls.
+class _NeumorphicLutButton extends StatefulWidget {
+  final LightingSettings lighting;
+  final bool selected;
+  final Color? accentColor;
+  final VoidCallback onPressed;
+  final Widget child;
+
+  const _NeumorphicLutButton({
+    required this.lighting,
+    required this.selected,
+    this.accentColor,
+    required this.onPressed,
+    required this.child,
+  });
+
+  @override
+  State<_NeumorphicLutButton> createState() => _NeumorphicLutButtonState();
+}
+
+class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPressed = widget.selected || _isPressed;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          widget.onPressed();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: widget.lighting.createNeumorphicShadows(
+              elevation: 3.0,
+              inset: isPressed,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: CustomPaint(
+              painter: _LutButtonPainter(
+                lighting: widget.lighting,
+                isPressed: isPressed,
+                isHovered: _isHovered,
+                accentColor: widget.accentColor,
+                selected: widget.selected,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LutButtonPainter extends CustomPainter {
+  final LightingSettings lighting;
+  final bool isPressed;
+  final bool isHovered;
+  final Color? accentColor;
+  final bool selected;
+
+  _LutButtonPainter({
+    required this.lighting,
+    required this.isPressed,
+    required this.isHovered,
+    this.accentColor,
+    required this.selected,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6));
+
+    // Base color - darker when pressed, accent tint when selected
+    Color baseColor;
+    if (selected && accentColor != null) {
+      baseColor = Color.lerp(const Color(0xFF3A3A3C), accentColor!, 0.3)!;
+    } else if (isPressed) {
+      baseColor = const Color(0xFF2A2A2C);
+    } else if (isHovered) {
+      baseColor = const Color(0xFF424246);
+    } else {
+      baseColor = const Color(0xFF3A3A3C);
+    }
+
+    // Gradient fill
+    final gradient = lighting.createLinearSurfaceGradient(
+      baseColor: baseColor,
+      intensity: isPressed ? 0.02 : 0.04,
+    );
+    final gradientPaint = Paint()..shader = gradient.createShader(rect);
+    canvas.drawRRect(rrect, gradientPaint);
+
+    // Edge highlight/shadow
+    final light = lighting.lightDir2D;
+    final edgePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..shader = LinearGradient(
+        begin: Alignment(light.dx, light.dy),
+        end: Alignment(-light.dx, -light.dy),
+        colors: isPressed
+            ? [
+                Colors.black.withValues(alpha: 0.12),
+                Colors.transparent,
+                Colors.white.withValues(alpha: 0.02),
+              ]
+            : [
+                Colors.white.withValues(alpha: 0.06),
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.1),
+              ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(rrect.deflate(0.5), edgePaint);
+
+    // Accent color border when selected
+    if (selected && accentColor != null) {
+      final accentPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = accentColor!.withValues(alpha: 0.6);
+      canvas.drawRRect(rrect.deflate(0.5), accentPaint);
+    }
+
+    // Noise texture
+    if (lighting.noiseImage != null) {
+      final noisePaint = Paint()
+        ..shader = ui.ImageShader(
+          lighting.noiseImage!,
+          ui.TileMode.repeated,
+          ui.TileMode.repeated,
+          Matrix4.identity().storage,
+        )
+        ..blendMode = ui.BlendMode.overlay;
+
+      canvas.save();
+      canvas.clipRRect(rrect);
+      canvas.drawRect(rect, noisePaint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LutButtonPainter oldDelegate) {
+    return oldDelegate.isPressed != isPressed ||
+        oldDelegate.isHovered != isHovered ||
+        oldDelegate.selected != selected ||
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }
