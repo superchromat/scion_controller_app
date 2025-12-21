@@ -155,8 +155,8 @@ class MyAppState extends ChangeNotifier {
   void notifyListeners() => super.notifyListeners();
 }
 
-/// Neumorphic styled navigation rail wrapper
-class _NeumorphicNavRail extends StatelessWidget {
+/// Neumorphic styled navigation rail wrapper with global position tracking
+class _NeumorphicNavRail extends StatefulWidget {
   final LightingSettings lighting;
   final Widget child;
 
@@ -166,28 +166,64 @@ class _NeumorphicNavRail extends StatelessWidget {
   });
 
   @override
+  State<_NeumorphicNavRail> createState() => _NeumorphicNavRailState();
+}
+
+class _NeumorphicNavRailState extends State<_NeumorphicNavRail> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+
     return CustomPaint(
-      painter: _NavRailPainter(lighting: lighting),
-      child: child,
+      key: _key,
+      painter: _NavRailPainter(
+        lighting: widget.lighting,
+        globalRect: _globalRect,
+      ),
+      child: widget.child,
     );
   }
 }
 
 class _NavRailPainter extends CustomPainter {
   final LightingSettings lighting;
+  final Rect? globalRect;
 
-  _NavRailPainter({required this.lighting});
+  _NavRailPainter({
+    required this.lighting,
+    this.globalRect,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // Base gradient fill
+    // Base gradient fill using Phong diffuse shading with global position
     const baseColor = Color(0xFF404044);
-    final gradient = lighting.createLinearSurfaceGradient(
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.04,
+      globalRect: globalRect,
     );
     final gradientPaint = Paint()
       ..shader = gradient.createShader(rect);
@@ -195,7 +231,6 @@ class _NavRailPainter extends CustomPainter {
     canvas.drawRect(rect, gradientPaint);
 
     // Right edge shadow/highlight for depth
-    final light = lighting.lightDir2D;
     final edgePaint = Paint()
       ..strokeWidth = 1.5
       ..shader = LinearGradient(
@@ -234,6 +269,8 @@ class _NavRailPainter extends CustomPainter {
   bool shouldRepaint(covariant _NavRailPainter oldDelegate) {
     return oldDelegate.lighting.lightPhi != lighting.lightPhi ||
         oldDelegate.lighting.lightTheta != lighting.lightTheta ||
+        oldDelegate.lighting.lightDistance != lighting.lightDistance ||
+        oldDelegate.globalRect != globalRect ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }

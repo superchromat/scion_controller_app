@@ -145,6 +145,23 @@ class _KnobPageState extends State<KnobPage> {
                         onChanged: (v) => lighting.setLightThetaDegrees(v),
                       ),
 
+                      // Distance control - affects Phong shading falloff
+                      RotaryKnob(
+                        minValue: 0.5,
+                        maxValue: 5.0,
+                        value: lighting.lightDistance,
+                        format: '%.1f',
+                        label: 'Distance',
+                        defaultValue: 2.0,
+                        size: 70,
+                        snapConfig: const SnapConfig(
+                          snapPoints: [0.5, 1.0, 2.0, 3.0, 5.0],
+                          snapRegionHalfWidth: 0.15,
+                          snapBehavior: SnapBehavior.hard,
+                        ),
+                        onChanged: (v) => lighting.setLightDistance(v),
+                      ),
+
                       // Demo knob with global lighting
                       RotaryKnob(
                         minValue: 0,
@@ -170,7 +187,8 @@ class _KnobPageState extends State<KnobPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
                       'Phi (φ): Azimuthal angle, 0° = right, 90° = top, 180° = left, 270° = bottom\n'
-                      'Theta (θ): Light direction angle (320° is default)\n'
+                      'Theta (θ): Polar angle from vertical (320° is default)\n'
+                      'Distance: Light distance for Phong shading (smaller = more dramatic falloff)\n'
                       'These settings affect all cards, knobs, and neumorphic elements.',
                       style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                     ),

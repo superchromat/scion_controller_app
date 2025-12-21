@@ -155,7 +155,7 @@ class _NeumorphicRadioOptionState extends State<_NeumorphicRadioOption> {
   }
 }
 
-class _NeumorphicRadioButton extends StatelessWidget {
+class _NeumorphicRadioButton extends StatefulWidget {
   final LightingSettings lighting;
   final bool isSelected;
   final double size;
@@ -169,13 +169,41 @@ class _NeumorphicRadioButton extends StatelessWidget {
   });
 
   @override
+  State<_NeumorphicRadioButton> createState() => _NeumorphicRadioButtonState();
+}
+
+class _NeumorphicRadioButtonState extends State<_NeumorphicRadioButton> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+
     return Container(
-      width: size,
-      height: size,
+      key: _key,
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: lighting.createNeumorphicShadows(
+        boxShadow: widget.lighting.createNeumorphicShadows(
           elevation: 2.0,
           inset: true,
         ),
@@ -183,11 +211,12 @@ class _NeumorphicRadioButton extends StatelessWidget {
       child: ClipOval(
         child: CustomPaint(
           painter: _RadioButtonPainter(
-            lighting: lighting,
-            isSelected: isSelected,
-            isHovered: isHovered,
+            lighting: widget.lighting,
+            isSelected: widget.isSelected,
+            isHovered: widget.isHovered,
+            globalRect: _globalRect,
           ),
-          size: Size(size, size),
+          size: Size(widget.size, widget.size),
         ),
       ),
     );
@@ -198,11 +227,13 @@ class _RadioButtonPainter extends CustomPainter {
   final LightingSettings lighting;
   final bool isSelected;
   final bool isHovered;
+  final Rect? globalRect;
 
   _RadioButtonPainter({
     required this.lighting,
     required this.isSelected,
     required this.isHovered,
+    this.globalRect,
   });
 
   @override
@@ -211,12 +242,13 @@ class _RadioButtonPainter extends CustomPainter {
     final radius = size.width / 2;
     final rect = Offset.zero & size;
 
-    // Inset background
+    // Inset background with global position for Phong shading
     final baseColor = isHovered ? const Color(0xFF2E2E30) : const Color(0xFF262628);
 
-    final gradient = lighting.createLinearSurfaceGradient(
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.04,
+      globalRect: globalRect,
     );
     final bgPaint = Paint()..shader = gradient.createShader(rect);
     canvas.drawCircle(center, radius, bgPaint);
@@ -275,6 +307,7 @@ class _RadioButtonPainter extends CustomPainter {
   bool shouldRepaint(covariant _RadioButtonPainter oldDelegate) {
     return oldDelegate.isSelected != isSelected ||
         oldDelegate.isHovered != isHovered ||
+        oldDelegate.globalRect != globalRect ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }

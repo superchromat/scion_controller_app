@@ -427,12 +427,32 @@ class _NeumorphicLutButton extends StatefulWidget {
 }
 
 class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isPressed = widget.selected || _isPressed;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -446,6 +466,7 @@ class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
         },
         onTapCancel: () => setState(() => _isPressed = false),
         child: Container(
+          key: _key,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             boxShadow: widget.lighting.createNeumorphicShadows(
@@ -462,6 +483,7 @@ class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
                 isHovered: _isHovered,
                 accentColor: widget.accentColor,
                 selected: widget.selected,
+                globalRect: _globalRect,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -481,6 +503,7 @@ class _LutButtonPainter extends CustomPainter {
   final bool isHovered;
   final Color? accentColor;
   final bool selected;
+  final Rect? globalRect;
 
   _LutButtonPainter({
     required this.lighting,
@@ -488,6 +511,7 @@ class _LutButtonPainter extends CustomPainter {
     required this.isHovered,
     this.accentColor,
     required this.selected,
+    this.globalRect,
   });
 
   @override
@@ -507,10 +531,11 @@ class _LutButtonPainter extends CustomPainter {
       baseColor = const Color(0xFF3A3A3C);
     }
 
-    // Gradient fill
-    final gradient = lighting.createLinearSurfaceGradient(
+    // Gradient fill with global position for Phong shading
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: isPressed ? 0.02 : 0.04,
+      globalRect: globalRect,
     );
     final gradientPaint = Paint()..shader = gradient.createShader(rect);
     canvas.drawRRect(rrect, gradientPaint);
@@ -571,6 +596,8 @@ class _LutButtonPainter extends CustomPainter {
         oldDelegate.isHovered != isHovered ||
         oldDelegate.selected != selected ||
         oldDelegate.accentColor != accentColor ||
+        oldDelegate.globalRect != globalRect ||
+        oldDelegate.lighting.lightDistance != lighting.lightDistance ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }

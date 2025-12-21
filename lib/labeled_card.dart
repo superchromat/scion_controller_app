@@ -67,7 +67,8 @@ class LabeledCard extends StatelessWidget {
 }
 
 /// A neumorphic card widget with subtle gradients, shadows, and noise texture.
-class _NeumorphicCard extends StatelessWidget {
+/// Tracks its global position for physically accurate lighting.
+class _NeumorphicCard extends StatefulWidget {
   final LightingSettings lighting;
   final Widget child;
   final Color baseColor;
@@ -83,21 +84,51 @@ class _NeumorphicCard extends StatelessWidget {
   });
 
   @override
+  State<_NeumorphicCard> createState() => _NeumorphicCardState();
+}
+
+class _NeumorphicCardState extends State<_NeumorphicCard> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Update position on each build in case of scroll/resize
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+
     return Container(
+      key: _key,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: lighting.createNeumorphicShadows(elevation: elevation),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        boxShadow: widget.lighting.createNeumorphicShadows(elevation: widget.elevation),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         child: CustomPaint(
           painter: _NeumorphicCardPainter(
-            lighting: lighting,
-            baseColor: baseColor,
-            borderRadius: borderRadius,
+            lighting: widget.lighting,
+            baseColor: widget.baseColor,
+            borderRadius: widget.borderRadius,
+            globalRect: _globalRect,
           ),
-          child: child,
+          child: widget.child,
         ),
       ),
     );
@@ -109,11 +140,13 @@ class _NeumorphicCardPainter extends CustomPainter {
   final LightingSettings lighting;
   final Color baseColor;
   final double borderRadius;
+  final Rect? globalRect;
 
   _NeumorphicCardPainter({
     required this.lighting,
     required this.baseColor,
     required this.borderRadius,
+    this.globalRect,
   });
 
   @override
@@ -121,10 +154,11 @@ class _NeumorphicCardPainter extends CustomPainter {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
 
-    // Base gradient fill
-    final gradient = lighting.createLinearSurfaceGradient(
+    // Base gradient fill using Phong diffuse shading with global position
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.03,
+      globalRect: globalRect,
     );
     final gradientPaint = Paint()
       ..shader = gradient.createShader(rect);
@@ -174,14 +208,17 @@ class _NeumorphicCardPainter extends CustomPainter {
   bool shouldRepaint(covariant _NeumorphicCardPainter oldDelegate) {
     return oldDelegate.lighting.lightPhi != lighting.lightPhi ||
         oldDelegate.lighting.lightTheta != lighting.lightTheta ||
+        oldDelegate.lighting.lightDistance != lighting.lightDistance ||
         oldDelegate.baseColor != baseColor ||
+        oldDelegate.globalRect != globalRect ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }
 
 /// A standalone neumorphic container that can be used anywhere.
 /// This is a public version of the internal card widget.
-class NeumorphicContainer extends StatelessWidget {
+/// Tracks global position for physically accurate lighting.
+class NeumorphicContainer extends StatefulWidget {
   final Widget child;
   final Color baseColor;
   final double borderRadius;
@@ -198,26 +235,54 @@ class NeumorphicContainer extends StatelessWidget {
   });
 
   @override
+  State<NeumorphicContainer> createState() => _NeumorphicContainerState();
+}
+
+class _NeumorphicContainerState extends State<NeumorphicContainer> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
 
-    Widget content = child;
-    if (padding != null) {
-      content = Padding(padding: padding!, child: content);
+    Widget content = widget.child;
+    if (widget.padding != null) {
+      content = Padding(padding: widget.padding!, child: content);
     }
 
     return Container(
+      key: _key,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: lighting.createNeumorphicShadows(elevation: elevation),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        boxShadow: lighting.createNeumorphicShadows(elevation: widget.elevation),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         child: CustomPaint(
           painter: _NeumorphicCardPainter(
             lighting: lighting,
-            baseColor: baseColor,
-            borderRadius: borderRadius,
+            baseColor: widget.baseColor,
+            borderRadius: widget.borderRadius,
+            globalRect: _globalRect,
           ),
           child: content,
         ),
@@ -227,7 +292,8 @@ class NeumorphicContainer extends StatelessWidget {
 }
 
 /// An inset neumorphic container (appears pressed in).
-class NeumorphicInset extends StatelessWidget {
+/// Tracks global position for physically accurate lighting.
+class NeumorphicInset extends StatefulWidget {
   final Widget child;
   final Color baseColor;
   final double borderRadius;
@@ -244,29 +310,57 @@ class NeumorphicInset extends StatelessWidget {
   });
 
   @override
+  State<NeumorphicInset> createState() => _NeumorphicInsetState();
+}
+
+class _NeumorphicInsetState extends State<NeumorphicInset> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
 
-    Widget content = child;
-    if (padding != null) {
-      content = Padding(padding: padding!, child: content);
+    Widget content = widget.child;
+    if (widget.padding != null) {
+      content = Padding(padding: widget.padding!, child: content);
     }
 
     return Container(
+      key: _key,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         boxShadow: lighting.createNeumorphicShadows(
-          elevation: depth,
+          elevation: widget.depth,
           inset: true,
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         child: CustomPaint(
           painter: _NeumorphicInsetPainter(
             lighting: lighting,
-            baseColor: baseColor,
-            borderRadius: borderRadius,
+            baseColor: widget.baseColor,
+            borderRadius: widget.borderRadius,
+            globalRect: _globalRect,
           ),
           child: content,
         ),
@@ -280,11 +374,13 @@ class _NeumorphicInsetPainter extends CustomPainter {
   final LightingSettings lighting;
   final Color baseColor;
   final double borderRadius;
+  final Rect? globalRect;
 
   _NeumorphicInsetPainter({
     required this.lighting,
     required this.baseColor,
     required this.borderRadius,
+    this.globalRect,
   });
 
   @override
@@ -292,10 +388,11 @@ class _NeumorphicInsetPainter extends CustomPainter {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
 
-    // Darker base for inset
-    final gradient = lighting.createLinearSurfaceGradient(
+    // Darker base for inset using Phong diffuse shading with global position
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.04,
+      globalRect: globalRect,
     );
     final gradientPaint = Paint()
       ..shader = gradient.createShader(rect);
@@ -345,7 +442,9 @@ class _NeumorphicInsetPainter extends CustomPainter {
   bool shouldRepaint(covariant _NeumorphicInsetPainter oldDelegate) {
     return oldDelegate.lighting.lightPhi != lighting.lightPhi ||
         oldDelegate.lighting.lightTheta != lighting.lightTheta ||
+        oldDelegate.lighting.lightDistance != lighting.lightDistance ||
         oldDelegate.baseColor != baseColor ||
+        oldDelegate.globalRect != globalRect ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }

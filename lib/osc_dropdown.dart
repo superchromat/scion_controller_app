@@ -215,8 +215,8 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
   }
 }
 
-/// Neumorphic styled dropdown button
-class _NeumorphicDropdownButton extends StatelessWidget {
+/// Neumorphic styled dropdown button with global position tracking
+class _NeumorphicDropdownButton extends StatefulWidget {
   final LightingSettings lighting;
   final double width;
   final bool enabled;
@@ -232,27 +232,56 @@ class _NeumorphicDropdownButton extends StatelessWidget {
   });
 
   @override
+  State<_NeumorphicDropdownButton> createState() => _NeumorphicDropdownButtonState();
+}
+
+class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+
     return Container(
-      width: width,
+      key: _key,
+      width: widget.width,
       height: 32,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        boxShadow: enabled
-            ? lighting.createNeumorphicShadows(elevation: isHovered ? 3.0 : 2.0)
+        boxShadow: widget.enabled
+            ? widget.lighting.createNeumorphicShadows(elevation: widget.isHovered ? 3.0 : 2.0)
             : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: CustomPaint(
           painter: _DropdownButtonPainter(
-            lighting: lighting,
-            enabled: enabled,
-            isHovered: isHovered,
+            lighting: widget.lighting,
+            enabled: widget.enabled,
+            isHovered: widget.isHovered,
+            globalRect: _globalRect,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: child,
+            child: widget.child,
           ),
         ),
       ),
@@ -264,11 +293,13 @@ class _DropdownButtonPainter extends CustomPainter {
   final LightingSettings lighting;
   final bool enabled;
   final bool isHovered;
+  final Rect? globalRect;
 
   _DropdownButtonPainter({
     required this.lighting,
     required this.enabled,
     required this.isHovered,
+    this.globalRect,
   });
 
   @override
@@ -281,10 +312,11 @@ class _DropdownButtonPainter extends CustomPainter {
         ? (isHovered ? const Color(0xFF454548) : const Color(0xFF3A3A3C))
         : const Color(0xFF2A2A2C);
 
-    // Gradient fill
-    final gradient = lighting.createLinearSurfaceGradient(
+    // Gradient fill with global position for Phong shading
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: enabled ? 0.04 : 0.02,
+      globalRect: globalRect,
     );
     final gradientPaint = Paint()..shader = gradient.createShader(rect);
     canvas.drawRRect(rrect, gradientPaint);
@@ -331,8 +363,10 @@ class _DropdownButtonPainter extends CustomPainter {
   bool shouldRepaint(covariant _DropdownButtonPainter oldDelegate) {
     return oldDelegate.enabled != enabled ||
         oldDelegate.isHovered != isHovered ||
+        oldDelegate.globalRect != globalRect ||
         oldDelegate.lighting.lightPhi != lighting.lightPhi ||
         oldDelegate.lighting.lightTheta != lighting.lightTheta ||
+        oldDelegate.lighting.lightDistance != lighting.lightDistance ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }
@@ -490,8 +524,8 @@ class _ScrollableMenuContentState<T> extends State<_ScrollableMenuContent<T>> {
   }
 }
 
-/// Container for the dropdown menu
-class _NeumorphicMenuContainer extends StatelessWidget {
+/// Container for the dropdown menu with global position tracking
+class _NeumorphicMenuContainer extends StatefulWidget {
   final LightingSettings lighting;
   final double width;
   final Widget child;
@@ -503,9 +537,37 @@ class _NeumorphicMenuContainer extends StatelessWidget {
   });
 
   @override
+  State<_NeumorphicMenuContainer> createState() => _NeumorphicMenuContainerState();
+}
+
+class _NeumorphicMenuContainerState extends State<_NeumorphicMenuContainer> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+
     return Container(
-      width: width,
+      key: _key,
+      width: widget.width,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
@@ -519,10 +581,13 @@ class _NeumorphicMenuContainer extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: CustomPaint(
-          painter: _MenuContainerPainter(lighting: lighting),
+          painter: _MenuContainerPainter(
+            lighting: widget.lighting,
+            globalRect: _globalRect,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            child: child,
+            child: widget.child,
           ),
         ),
       ),
@@ -532,19 +597,24 @@ class _NeumorphicMenuContainer extends StatelessWidget {
 
 class _MenuContainerPainter extends CustomPainter {
   final LightingSettings lighting;
+  final Rect? globalRect;
 
-  _MenuContainerPainter({required this.lighting});
+  _MenuContainerPainter({
+    required this.lighting,
+    this.globalRect,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
 
-    // Solid dark background
+    // Solid dark background with Phong shading and global position
     const baseColor = Color(0xFF2E2E30);
-    final gradient = lighting.createLinearSurfaceGradient(
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.03,
+      globalRect: globalRect,
     );
     final paint = Paint()..shader = gradient.createShader(rect);
     canvas.drawRRect(rrect, paint);
@@ -576,7 +646,11 @@ class _MenuContainerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MenuContainerPainter oldDelegate) {
-    return oldDelegate.lighting.noiseImage != lighting.noiseImage;
+    return oldDelegate.globalRect != globalRect ||
+        oldDelegate.lighting.lightPhi != lighting.lightPhi ||
+        oldDelegate.lighting.lightTheta != lighting.lightTheta ||
+        oldDelegate.lighting.lightDistance != lighting.lightDistance ||
+        oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }
 

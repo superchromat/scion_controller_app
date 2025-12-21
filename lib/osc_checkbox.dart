@@ -96,7 +96,7 @@ class _OscCheckboxState extends State<OscCheckbox> with OscAddressMixin {
   }
 }
 
-class _NeumorphicCheckbox extends StatelessWidget {
+class _NeumorphicCheckbox extends StatefulWidget {
   final LightingSettings lighting;
   final bool value;
   final double size;
@@ -112,13 +112,41 @@ class _NeumorphicCheckbox extends StatelessWidget {
   });
 
   @override
+  State<_NeumorphicCheckbox> createState() => _NeumorphicCheckboxState();
+}
+
+class _NeumorphicCheckboxState extends State<_NeumorphicCheckbox> {
+  final GlobalKey _key = GlobalKey();
+  Rect? _globalRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+  }
+
+  void _updateGlobalRect() {
+    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final newRect = position & renderBox.size;
+      if (_globalRect != newRect) {
+        setState(() => _globalRect = newRect);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
+
     return Container(
-      width: size,
-      height: size,
+      key: _key,
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
-        boxShadow: lighting.createNeumorphicShadows(
+        boxShadow: widget.lighting.createNeumorphicShadows(
           elevation: 2.0,
           inset: true,
         ),
@@ -127,12 +155,13 @@ class _NeumorphicCheckbox extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: CustomPaint(
           painter: _CheckboxPainter(
-            lighting: lighting,
-            value: value,
-            isHovered: isHovered,
-            enabled: enabled,
+            lighting: widget.lighting,
+            value: widget.value,
+            isHovered: widget.isHovered,
+            enabled: widget.enabled,
+            globalRect: _globalRect,
           ),
-          size: Size(size, size),
+          size: Size(widget.size, widget.size),
         ),
       ),
     );
@@ -144,12 +173,14 @@ class _CheckboxPainter extends CustomPainter {
   final bool value;
   final bool isHovered;
   final bool enabled;
+  final Rect? globalRect;
 
   _CheckboxPainter({
     required this.lighting,
     required this.value,
     required this.isHovered,
     required this.enabled,
+    this.globalRect,
   });
 
   @override
@@ -157,14 +188,15 @@ class _CheckboxPainter extends CustomPainter {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
 
-    // Inset background
+    // Inset background with global position for Phong shading
     final baseColor = enabled
         ? (isHovered ? const Color(0xFF2E2E30) : const Color(0xFF262628))
         : const Color(0xFF1E1E20);
 
-    final gradient = lighting.createLinearSurfaceGradient(
+    final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.04,
+      globalRect: globalRect,
     );
     final bgPaint = Paint()..shader = gradient.createShader(rect);
     canvas.drawRRect(rrect, bgPaint);
@@ -230,6 +262,7 @@ class _CheckboxPainter extends CustomPainter {
     return oldDelegate.value != value ||
         oldDelegate.isHovered != isHovered ||
         oldDelegate.enabled != enabled ||
+        oldDelegate.globalRect != globalRect ||
         oldDelegate.lighting.noiseImage != lighting.noiseImage;
   }
 }
