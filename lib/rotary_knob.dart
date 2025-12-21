@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -148,8 +150,8 @@ class RotaryKnob extends StatefulWidget {
     this.mappingSegments,
     this.size = 80,
     this.dragBarWidth = 400,
-    this.lightPhi = math.pi / 2,    // Default: light from top
-    this.lightTheta = math.pi / 6,  // Default: 30° from vertical
+    this.lightPhi = math.pi / 2,    // Default: 90°
+    this.lightTheta = 320 * math.pi / 180,  // Default: 320°
     this.arcWidth = 8.0,
     this.notchDepth = 4.0,
     this.notchHalfAngle = 0.055,    // ~3.15 degrees
@@ -162,6 +164,10 @@ class RotaryKnob extends StatefulWidget {
 class _RotaryKnobState extends State<RotaryKnob>
     with SingleTickerProviderStateMixin {
   _KnobState _state = _KnobState.idle;
+
+  // Static noise image shared by all knobs
+  static ui.Image? _noiseImage;
+  static bool _noiseImageLoading = false;
 
   // Drag tracking
   double _startValue = 0;
@@ -213,6 +219,47 @@ class _RotaryKnobState extends State<RotaryKnob>
       },
     );
     _textFocusNode.addListener(_onFocusChange);
+
+    // Generate noise image if not already done
+    _generateNoiseImage();
+  }
+
+  Future<void> _generateNoiseImage() async {
+    if (_noiseImage != null || _noiseImageLoading) return;
+    _noiseImageLoading = true;
+
+    const size = 256;
+    final random = math.Random(12345);
+
+    // Create raw RGBA pixel data for crisp noise
+    final pixels = Uint8List(size * size * 4);
+    for (int i = 0; i < size * size; i++) {
+      final grey = 128 + random.nextInt(20);
+      pixels[i * 4 + 0] = grey; // R
+      pixels[i * 4 + 1] = grey; // G
+      pixels[i * 4 + 2] = grey; // B
+      pixels[i * 4 + 3] = 255; // A
+    }
+
+    // Decode raw pixels into image
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      pixels,
+      size,
+      size,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
+    );
+    final image = await completer.future;
+
+    if (mounted) {
+      setState(() {
+        _noiseImage = image;
+      });
+    } else {
+      _noiseImage = image;
+    }
+    _noiseImageLoading = false;
   }
 
   @override
@@ -644,6 +691,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                                 arcWidth: widget.arcWidth,
                                 notchDepth: widget.notchDepth,
                                 notchHalfAngle: widget.notchHalfAngle,
+                                noiseImage: _noiseImage,
                               ),
                             ),
                             // Value display in knob center
@@ -721,6 +769,7 @@ class _RotaryKnobState extends State<RotaryKnob>
               snapPoints: widget.snapConfig.snapPoints,
               lightPhi: widget.lightPhi,
               lightTheta: widget.lightTheta,
+              noiseImage: _noiseImage,
             ),
           ),
         ],
@@ -779,6 +828,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                     arcWidth: widget.arcWidth,
                     notchDepth: widget.notchDepth,
                     notchHalfAngle: widget.notchHalfAngle,
+                    noiseImage: _noiseImage,
                   ),
                 ),
                 // Centered value display (editable)
@@ -942,9 +992,9 @@ class _KnobPainter extends CustomPainter {
   static const double sweepAngle = 1.5 * math.pi; // 270 degrees
   static const double deadZone = 0.25 * math.pi; // 45 degrees dead zone at bottom
 
-  // Saturated amber for active state, neutral grey for inactive
+  // Saturated amber for active state, bright white-ish for inactive
   static const Color _activeColor = Color(0xFFF0B830);  // Vivid amber/gold
-  static const Color _inactiveColor = Color(0xFFD0D0D0);  // Neutral light grey
+  static const Color _inactiveColor = Color(0xFFE8E8E8);  // Brighter light grey
 
   _KnobPainter({
     required this.normalized,
@@ -952,16 +1002,18 @@ class _KnobPainter extends CustomPainter {
     this.neutralNormalized,
     required this.isActive,
     required this.snapPoints,
-    this.lightPhi = math.pi / 2,    // Default: light from top
-    this.lightTheta = math.pi / 6,  // Default: 30° from vertical
+    this.lightPhi = math.pi / 2,
+    this.lightTheta = 320 * math.pi / 180,
     this.arcWidth = 8.0,
     this.notchDepth = 4.0,
     this.notchHalfAngle = 0.055,
+    this.noiseImage,
   });
 
   final double arcWidth;
   final double notchDepth;
   final double notchHalfAngle;
+  final ui.Image? noiseImage;
 
   /// Compute 2D light direction from spherical coordinates
   /// Returns (Lx, Ly) where positive Ly is down (screen coords)
@@ -1235,6 +1287,41 @@ class _KnobPainter extends CustomPainter {
       highlightPaint,
     );
 
+    // Grain/noise texture overlay on the value arc
+    final halfSlot = (slotWidth - 2) / 2;
+    if (noiseImage != null) {
+      final noisePaint = Paint()
+        ..shader = ImageShader(
+          noiseImage!,
+          TileMode.repeated,
+          TileMode.repeated,
+          Matrix4.identity().storage,
+        )
+        ..blendMode = BlendMode.overlay;
+
+      // Save canvas state and clip to value arc
+      canvas.save();
+      final arcPath = Path()
+        ..addArc(
+          Rect.fromCircle(center: center, radius: radius + halfSlot),
+          drawArcStart,
+          drawArcSweep,
+        )
+        ..arcTo(
+          Rect.fromCircle(center: center, radius: radius - halfSlot),
+          drawArcStart + drawArcSweep,
+          -drawArcSweep,
+          false,
+        )
+        ..close();
+      canvas.clipPath(arcPath);
+      canvas.drawRect(
+        Rect.fromCircle(center: center, radius: radius + slotWidth),
+        noisePaint,
+      );
+      canvas.restore();
+    }
+
     // === NOTCHES ===
     final lightDir = lightDir2D;
 
@@ -1438,6 +1525,7 @@ class _DragBar extends StatelessWidget {
   final List<double> snapPoints;
   final double lightPhi;
   final double lightTheta;
+  final ui.Image? noiseImage;
 
   const _DragBar({
     required this.width,
@@ -1451,7 +1539,8 @@ class _DragBar extends StatelessWidget {
     required this.format,
     required this.snapPoints,
     this.lightPhi = math.pi / 2,
-    this.lightTheta = math.pi / 6,
+    this.lightTheta = 320 * math.pi / 180,
+    this.noiseImage,
   });
 
   String _formatValue(double value) {
@@ -1528,6 +1617,7 @@ class _DragBar extends StatelessWidget {
                   snapPoints: snapPoints,
                   lightPhi: lightPhi,
                   lightTheta: lightTheta,
+                  noiseImage: noiseImage,
                 ),
               ),
             ),
@@ -1549,6 +1639,7 @@ class _DragBarPainter extends CustomPainter {
   final List<double> snapPoints;
   final double lightPhi;
   final double lightTheta;
+  final ui.Image? noiseImage;
 
   // Same saturated amber as knob
   static const Color _activeColor = Color(0xFFF0B830);  // Vivid amber/gold
@@ -1562,7 +1653,8 @@ class _DragBarPainter extends CustomPainter {
     required this.maxValue,
     required this.snapPoints,
     this.lightPhi = math.pi / 2,
-    this.lightTheta = math.pi / 6,
+    this.lightTheta = 320 * math.pi / 180,
+    this.noiseImage,
   });
 
   /// Compute 2D light direction from spherical coordinates
@@ -1720,6 +1812,23 @@ class _DragBarPainter extends CustomPainter {
         Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, 3),
         highlightPaint,
       );
+
+      // Noise texture overlay
+      if (noiseImage != null) {
+        final noisePaint = Paint()
+          ..shader = ImageShader(
+            noiseImage!,
+            TileMode.repeated,
+            TileMode.repeated,
+            Matrix4.identity().storage,
+          )
+          ..blendMode = BlendMode.overlay;
+
+        canvas.drawRect(
+          Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
+          noisePaint,
+        );
+      }
 
       canvas.restore();
     }
