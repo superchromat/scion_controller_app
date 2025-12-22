@@ -16,6 +16,7 @@ import 'osc_registry_viewer.dart';
 import 'return_page.dart';
 import 'knob_page.dart';
 import 'lighting_settings.dart';
+import 'colorspace_wheel_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -302,6 +303,8 @@ class _MyHomePageState extends State<MyHomePage> {
       const OscRegistryViewer(),
       // 7 → Knob Test
       const KnobPage(),
+      // 8 → Colorspace Wheel Editor
+      const ColorspaceWheelPage(),
     ];
   }
 
@@ -387,6 +390,10 @@ class _MyHomePageState extends State<MyHomePage> {
                           NavigationRailDestination(
                             icon: Icon(Icons.tune),
                             label: Text('Knob'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.palette),
+                            label: Text('Colorspace'),
                           ),
                         ],
                       ),
