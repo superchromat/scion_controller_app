@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
-import 'osc_radiolist.dart';
 
 import 'color_space_matrix.dart';
 import 'color_wheel.dart';
@@ -52,6 +51,11 @@ class _VideoFormatSelectionSectionState
   List<double> _primary1 = [1, 0, 0];
   List<double> _primary2 = [0, 1, 0];
   List<double> _primary3 = [0, 0, 1];
+
+  // Saved custom primaries (remembered when switching away from Custom)
+  List<double> _customPrimary1 = [1, 0, 0];
+  List<double> _customPrimary2 = [0, 1, 0];
+  List<double> _customPrimary3 = [0, 0, 1];
 
   @override
   void initState() {
@@ -146,6 +150,12 @@ class _VideoFormatSelectionSectionState
       matrixModel.updateCell(row, primaryIndex, rgb[row]);
     }
     _sendColorMatrix();
+
+    // Save custom primaries whenever user edits wheels
+    _customPrimary1 = List.from(_primary1);
+    _customPrimary2 = List.from(_primary2);
+    _customPrimary3 = List.from(_primary3);
+
     if (selectedColorspace != 'Custom') {
       selectedColorspace = 'Custom';
     }
@@ -250,7 +260,6 @@ class _VideoFormatSelectionSectionState
                     child: Builder(
                       builder: (context) {
                         final lighting = context.watch<LightingSettings>();
-                        const double greyLeft = 10.0; // Left padding for grey
                         const double vBarTop = 26.0; // Top padding for wheels area
                         final sharedRight = colWidth + gap + wheelsBoxWidth - 16;
                         final sharedBottom = resFrameHeight + colorspaceBoxHeight;
@@ -258,8 +267,8 @@ class _VideoFormatSelectionSectionState
                           painter: _LPainter(
                             color: Colors.grey[700]!,
                             r: r,
-                            // Horizontal bar: wraps colorspace dropdown
-                            hBar: Rect.fromLTRB(greyLeft, resFrameHeight, sharedRight, sharedBottom),
+                            // Horizontal bar: extends past left edge to hide rounded corner
+                            hBar: Rect.fromLTRB(-r, resFrameHeight, sharedRight, sharedBottom),
                             // Vertical bar: wraps wheels, shares corner with hBar
                             vBar: Rect.fromLTRB(colWidth + gap, vBarTop, sharedRight, sharedBottom),
                             lighting: lighting,
@@ -270,8 +279,8 @@ class _VideoFormatSelectionSectionState
                   ),
                   // Resolution (outside grey)
                   Positioned(
-                    left: 20, top: 0,
-                    width: colWidth - 20,
+                    left: 0, top: 0,
+                    width: colWidth,
                     child: OscDropdown<String>(
                       label: 'Resolution',
                       items: resolutions,
@@ -281,8 +290,8 @@ class _VideoFormatSelectionSectionState
                   ),
                   // Framerate (outside grey)
                   Positioned(
-                    left: 20, top: 62,
-                    width: colWidth - 20,
+                    left: 0, top: 62,
+                    width: colWidth,
                     child: OscDropdown<double>(
                       label: 'Framerate',
                       items: framerates,
@@ -292,17 +301,32 @@ class _VideoFormatSelectionSectionState
                   ),
                   // Colorspace (inside grey L, bottom-left) - aligned with dropdowns above
                   Positioned(
-                    left: 20, top: resFrameHeight + 10,
-                    width: colWidth - 20,
+                    left: 0, top: resFrameHeight + 10,
+                    width: colWidth,
                     child: OscDropdown<String>(
+                      key: ValueKey('colorspace_$selectedColorspace'),
                       label: 'Colorspace',
                       items: colorspaces,
-                      defaultValue: colorspaces[0],
+                      defaultValue: selectedColorspace,
                       onChanged: (value) {
                         setState(() {
                           selectedColorspace = value;
-                          matrixModel = ColorSpaceMatrix(getMatrixForColorspace(value));
-                          _syncPrimariesFromMatrix();
+                          if (value == 'Custom') {
+                            // Restore saved custom primaries
+                            _primary1 = List.from(_customPrimary1);
+                            _primary2 = List.from(_customPrimary2);
+                            _primary3 = List.from(_customPrimary3);
+                            // Rebuild matrix from custom primaries
+                            for (int col = 0; col < 3; col++) {
+                              final primary = col == 0 ? _primary1 : (col == 1 ? _primary2 : _primary3);
+                              for (int row = 0; row < 3; row++) {
+                                matrixModel.updateCell(row, col, primary[row]);
+                              }
+                            }
+                          } else {
+                            matrixModel = ColorSpaceMatrix(getMatrixForColorspace(value));
+                            _syncPrimariesFromMatrix();
+                          }
                           _sendColorMatrix();
                         });
                       },
@@ -317,43 +341,19 @@ class _VideoFormatSelectionSectionState
                 ],
               ),
             ),
-            // Quantization range radio buttons - stacked vertically
+            // Quantization range dropdown
             const SizedBox(height: 16),
-            OscPathSegment(
-              segment: 'full_range',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Quantization Range',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  NeumorphicRadio<bool>(
-                    value: true,
-                    groupValue: fullRange,
-                    label: 'Full range (0-255)',
-                    size: 16,
-                    onChanged: (value) {
-                      setState(() => fullRange = value);
-                      sendOsc(true, address: '/analog_format/full_range');
-                    },
-                  ),
-                  const SizedBox(height: 6),
-                  NeumorphicRadio<bool>(
-                    value: false,
-                    groupValue: fullRange,
-                    label: 'Legal (16-235)',
-                    size: 16,
-                    onChanged: (value) {
-                      setState(() => fullRange = value);
-                      sendOsc(false, address: '/analog_format/full_range');
-                    },
-                  ),
-                ],
+            SizedBox(
+              width: colWidth,
+              child: OscDropdown<String>(
+                label: 'Quantization Range',
+                items: const ['Full (0-255)', 'Legal (16-235)'],
+                defaultValue: 'Full (0-255)',
+                onChanged: (value) {
+                  final isFullRange = value == 'Full (0-255)';
+                  setState(() => fullRange = isFullRange);
+                  sendOsc(isFullRange, address: '/analog_format/full_range');
+                },
               ),
             ),
           ],
