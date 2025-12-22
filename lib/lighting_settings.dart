@@ -116,11 +116,10 @@ class LightingSettings extends ChangeNotifier {
     // Create raw greyscale noise values
     final rawNoise = Uint8List(size * size);
     for (int i = 0; i < size * size; i++) {
-      rawNoise[i] = 128 + random.nextInt(20);
+      rawNoise[i] = 128 + random.nextInt(10);
     }
 
-    // Apply 3x3 convolution: [[1,1,1],[1,8,1],[1,1,1]] / 16
-    // This is a mild blur that preserves detail while softening harsh edges
+    // Apply 3x3 convolution: 
     final blurredNoise = Uint8List(size * size);
     for (int y = 0; y < size; y++) {
       for (int x = 0; x < size; x++) {
@@ -130,11 +129,11 @@ class LightingSettings extends ChangeNotifier {
           for (int dx = -1; dx <= 1; dx++) {
             final nx = (x + dx) % size;
             final ny = (y + dy) % size;
-            final weight = (dx == 0 && dy == 0) ? 4 : 1;
+            final weight = (dx == 0 && dy == 0) ? 2 : 1;
             sum += rawNoise[ny * size + nx] * weight;
           }
         }
-        blurredNoise[y * size + x] = (sum ~/ 12).clamp(0, 255);
+        blurredNoise[y * size + x] = (sum ~/ 10).clamp(0, 255);
       }
     }
 

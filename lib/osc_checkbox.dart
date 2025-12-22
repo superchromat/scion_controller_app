@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
@@ -188,37 +187,89 @@ class _CheckboxPainter extends CustomPainter {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
 
-    // Inset background with global position for Phong shading
-    final baseColor = enabled
-        ? (isHovered ? const Color(0xFF2E2E30) : const Color(0xFF262628))
-        : const Color(0xFF1E1E20);
+    // Slot dimensions (like the knob/radio)
+    final borderInset = size.width * 0.12;
 
-    final gradient = lighting.createPhongSurfaceGradient(
-      baseColor: baseColor,
-      intensity: 0.04,
-      globalRect: globalRect,
-    );
-    final bgPaint = Paint()..shader = gradient.createShader(rect);
-    canvas.drawRRect(rrect, bgPaint);
-
-    // Inner shadow border
+    // Light direction from settings
     final light = lighting.lightDir2D;
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..shader = LinearGradient(
-        begin: Alignment(light.dx, light.dy),
-        end: Alignment(-light.dx, -light.dy),
-        colors: [
-          Colors.black.withValues(alpha: 0.3),
-          Colors.transparent,
-          Colors.white.withValues(alpha: 0.05),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(rect);
-    canvas.drawRRect(rrect.deflate(0.5), borderPaint);
+    final lightAlign = Alignment(light.dx * 0.4, light.dy * 0.4);
+    final shadowAlign = Alignment(-light.dx * 0.5, -light.dy * 0.5);
 
-    // Noise texture
+    // === 1. BORDER (grey rim around the hole) ===
+    final borderGradient = RadialGradient(
+      center: lightAlign,
+      radius: 0.7,
+      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    final borderPaint = Paint()..shader = borderGradient.createShader(rect);
+    canvas.drawRRect(rrect, borderPaint);
+
+    // === 2. OUTER SHADOW (shadow on lit side where rim blocks light into hole) ===
+    final innerRRect = rrect.deflate(borderInset);
+    final outerShadowGradient = RadialGradient(
+      center: lightAlign,
+      radius: 0.6,
+      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
+      stops: const [0.0, 0.3, 0.8],
+    );
+    final outerShadowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..shader = outerShadowGradient.createShader(rect);
+    canvas.drawRRect(innerRRect.deflate(-1), outerShadowPaint);
+
+    // === 3. INNER HIGHLIGHT (highlight on shadow side where light hits inner wall) ===
+    final innerHighlightGradient = RadialGradient(
+      center: shadowAlign,
+      radius: 0.6,
+      colors: const [Color(0xFF454545), Color(0xFF353535), Color(0x00000000)],
+      stops: const [0.0, 0.2, 0.5],
+    );
+    final innerHighlightPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..shader = innerHighlightGradient.createShader(rect);
+    canvas.drawRRect(innerRRect.deflate(1), innerHighlightPaint);
+
+    // === 4. FLOOR (the surface behind the hole) ===
+    final floorRRect = rrect.deflate(borderInset + 1);
+    final floorColor = value
+        ? const Color(0xFFFFF176)  // Yellow when checked
+        : const Color(0xFF1A1A1A); // Dark grey when unchecked
+
+    final floorGradient = RadialGradient(
+      center: lightAlign,
+      radius: 0.7,
+      colors: value
+          ? [
+              floorColor,
+              Color.lerp(floorColor, Colors.black, 0.10)!,
+              Color.lerp(floorColor, Colors.black, 0.20)!,
+            ]
+          : const [Color(0xFF1A1A1A), Color(0xFF141414), Color(0xFF0E0E0E)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    final floorPaint = Paint()..shader = floorGradient.createShader(rect);
+    canvas.drawRRect(floorRRect, floorPaint);
+
+    // Highlight on floor when checked
+    if (value) {
+      final highlightGradient = RadialGradient(
+        center: Alignment(light.dx * 0.6, light.dy * 0.6),
+        radius: 0.5,
+        colors: [
+          Colors.white.withValues(alpha: 0.35),
+          Colors.white.withValues(alpha: 0.10),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.3, 0.7],
+      );
+      final highlightPaint = Paint()..shader = highlightGradient.createShader(rect);
+      canvas.drawRRect(floorRRect, highlightPaint);
+    }
+
+    // === NOISE TEXTURE ===
     if (lighting.noiseImage != null) {
       final noisePaint = Paint()
         ..shader = ImageShader(
@@ -235,26 +286,6 @@ class _CheckboxPainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Check mark when selected
-    if (value) {
-      final checkPaint = Paint()
-        ..color = const Color(0xFFFFF176)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-
-      final path = Path();
-      final cx = size.width / 2;
-      final cy = size.height / 2;
-      final s = size.width * 0.25;
-
-      path.moveTo(cx - s, cy);
-      path.lineTo(cx - s * 0.3, cy + s * 0.7);
-      path.lineTo(cx + s, cy - s * 0.6);
-
-      canvas.drawPath(path, checkPaint);
-    }
   }
 
   @override

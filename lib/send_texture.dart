@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'dart:math' as math;
 
 import 'osc_checkbox.dart';
+import 'osc_radiolist.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'osc_widget_binding.dart';
@@ -475,19 +476,18 @@ class _FrontNrDesignerState extends State<_FrontNrDesigner> with OscAddressMixin
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Radio<_FilterType>(
+        NeumorphicRadio<_FilterType>(
           value: value,
           groupValue: _type,
-          visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          size: 18,
           onChanged: (v) {
-            if (v == null) return;
             setState(() => _type = v);
             _computeAndSend();
           },
         ),
+        const SizedBox(width: 6),
         Text(label),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
       ],
     );
   }

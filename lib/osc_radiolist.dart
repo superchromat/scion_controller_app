@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
@@ -239,38 +238,107 @@ class _RadioButtonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
+    final outerRadius = size.width / 2;
     final rect = Offset.zero & size;
 
-    // Inset background with global position for Phong shading
-    final baseColor = isHovered ? const Color(0xFF2E2E30) : const Color(0xFF262628);
+    // Slot dimensions (like the knob)
+    final slotWidth = outerRadius * 0.8;  // Width of the slot/hole
+    final borderWidth = slotWidth + 2;    // Border is slightly wider
+    final floorWidth = slotWidth - 2;     // Floor is slightly smaller
 
-    final gradient = lighting.createPhongSurfaceGradient(
-      baseColor: baseColor,
-      intensity: 0.04,
-      globalRect: globalRect,
-    );
-    final bgPaint = Paint()..shader = gradient.createShader(rect);
-    canvas.drawCircle(center, radius, bgPaint);
-
-    // Inner shadow border
+    // Light direction from settings
     final light = lighting.lightDir2D;
+    final lightAlign = Alignment(light.dx * 0.4, light.dy * 0.4);
+    final shadowAlign = Alignment(-light.dx * 0.5, -light.dy * 0.5);
+
+    // === 1. BORDER (grey rim around the hole) ===
+    final borderGradient = RadialGradient(
+      center: lightAlign,
+      radius: 0.7,
+      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
+      stops: const [0.0, 0.5, 1.0],
+    );
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..shader = LinearGradient(
-        begin: Alignment(light.dx, light.dy),
-        end: Alignment(-light.dx, -light.dy),
+      ..strokeWidth = borderWidth
+      ..shader = borderGradient.createShader(rect);
+    canvas.drawCircle(center, outerRadius - borderWidth / 2, borderPaint);
+
+    // === 2. OUTER SHADOW (shadow on lit side where rim blocks light into hole) ===
+    final outerShadowGradient = RadialGradient(
+      center: lightAlign,
+      radius: 0.6,
+      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
+      stops: const [0.0, 0.3, 0.8],
+    );
+    final outerShadowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..shader = outerShadowGradient.createShader(rect);
+    final outerShadowRadius = outerRadius - borderWidth / 2 + slotWidth / 2 - 1;
+    canvas.drawCircle(center, outerShadowRadius, outerShadowPaint);
+
+    // === 3. INNER HIGHLIGHT (highlight on shadow side where light hits inner wall) ===
+    final innerHighlightGradient = RadialGradient(
+      center: shadowAlign,
+      radius: 0.6,
+      colors: const [Color(0xFF454545), Color(0xFF353535), Color(0x00000000)],
+      stops: const [0.0, 0.2, 0.5],
+    );
+    final innerHighlightPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..shader = innerHighlightGradient.createShader(rect);
+    final innerHighlightRadius = outerRadius - borderWidth / 2 - slotWidth / 2 + 1;
+    canvas.drawCircle(center, innerHighlightRadius, innerHighlightPaint);
+
+    // === 4. FLOOR (dark background of slot) - filled circle ===
+    final floorRadius = outerRadius - borderWidth / 2 + floorWidth / 2;
+    final floorRect = Rect.fromCircle(center: center, radius: floorRadius);
+    final floorGradient = RadialGradient(
+      center: lightAlign,
+      radius: 0.7,
+      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    final floorPaint = Paint()
+      ..shader = floorGradient.createShader(floorRect);
+    canvas.drawCircle(center, floorRadius, floorPaint);
+
+    // === 5. VALUE SURFACE (colored disk when selected) - filled circle ===
+    if (isSelected) {
+      const baseColor = Color(0xFFFFF176);
+      final valueGradient = RadialGradient(
+        center: lightAlign,
+        radius: 0.8,
         colors: [
-          Colors.black.withValues(alpha: 0.3),
-          Colors.transparent,
-          Colors.white.withValues(alpha: 0.05),
+          baseColor,
+          Color.lerp(baseColor, Colors.black, 0.10)!,
+          Color.lerp(baseColor, Colors.black, 0.20)!,
         ],
         stops: const [0.0, 0.5, 1.0],
-      ).createShader(rect);
-    canvas.drawCircle(center, radius - 0.5, borderPaint);
+      );
+      final valuePaint = Paint()
+        ..shader = valueGradient.createShader(floorRect);
+      canvas.drawCircle(center, floorRadius, valuePaint);
 
-    // Noise texture
+      // Highlight on value surface
+      final highlightGradient = RadialGradient(
+        center: Alignment(light.dx * 0.6, light.dy * 0.6),
+        radius: 0.5,
+        colors: [
+          Colors.white.withValues(alpha: 0.35),
+          Colors.white.withValues(alpha: 0.10),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.3, 0.7],
+      );
+      final highlightPaint = Paint()
+        ..shader = highlightGradient.createShader(floorRect);
+      canvas.drawCircle(center, floorRadius, highlightPaint);
+    }
+
+    // === NOISE TEXTURE ===
     if (lighting.noiseImage != null) {
       final noisePaint = Paint()
         ..shader = ImageShader(
@@ -285,21 +353,6 @@ class _RadioButtonPainter extends CustomPainter {
       canvas.clipPath(Path()..addOval(rect));
       canvas.drawRect(rect, noisePaint);
       canvas.restore();
-    }
-
-    // Selected dot
-    if (isSelected) {
-      final dotRadius = radius * 0.4;
-
-      // Glow
-      final glowPaint = Paint()
-        ..color = const Color(0xFFFFF176).withValues(alpha: 0.3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-      canvas.drawCircle(center, dotRadius + 2, glowPaint);
-
-      // Solid dot
-      final dotPaint = Paint()..color = const Color(0xFFFFF176);
-      canvas.drawCircle(center, dotRadius, dotPaint);
     }
   }
 

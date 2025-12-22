@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'osc_radiolist.dart';
 
 class ColorSpaceSelectionSection extends StatefulWidget {
   const ColorSpaceSelectionSection({super.key});
@@ -79,44 +80,34 @@ class _ColorSpaceSelectionSectionState
             const SizedBox(height: 16),
             Row(
               children: [
-                Flexible(
-                  child: RadioListTile<String>(
-                    title: const Text('RGB'),
-                    value: 'RGB',
-                    groupValue: selectedMode,
-                    onChanged: (value) {
-                      if (value != null) {
-                        selectedMode = value;
-                        loadMatrixForMode(value);
-                      }
-                    },
-                  ),
+                NeumorphicRadio<String>(
+                  value: 'RGB',
+                  groupValue: selectedMode,
+                  label: 'RGB',
+                  onChanged: (value) {
+                    selectedMode = value;
+                    loadMatrixForMode(value);
+                  },
                 ),
-                Flexible(
-                  child: RadioListTile<String>(
-                    title: const Text('YUV'),
-                    value: 'YUV',
-                    groupValue: selectedMode,
-                    onChanged: (value) {
-                      if (value != null) {
-                        selectedMode = value;
-                        loadMatrixForMode(value);
-                      }
-                    },
-                  ),
+                const SizedBox(width: 16),
+                NeumorphicRadio<String>(
+                  value: 'YUV',
+                  groupValue: selectedMode,
+                  label: 'YUV',
+                  onChanged: (value) {
+                    selectedMode = value;
+                    loadMatrixForMode(value);
+                  },
                 ),
-                Flexible(
-                  child: RadioListTile<String>(
-                    title: const Text('Custom'),
-                    value: 'Custom',
-                    groupValue: selectedMode,
-                    onChanged: (value) {
-                      if (value != null) {
-                        selectedMode = value;
-                        loadMatrixForMode(value);
-                      }
-                    },
-                  ),
+                const SizedBox(width: 16),
+                NeumorphicRadio<String>(
+                  value: 'Custom',
+                  groupValue: selectedMode,
+                  label: 'Custom',
+                  onChanged: (value) {
+                    selectedMode = value;
+                    loadMatrixForMode(value);
+                  },
                 ),
                 const SizedBox(width: 24),
                 Switch(

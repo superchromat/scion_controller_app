@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
+import 'osc_radiolist.dart';
 
 import 'color_space_matrix.dart';
 import 'osc_rotary_knob.dart';
@@ -219,7 +220,8 @@ class _VideoFormatSelectionSectionState
                         child: Text(
                           'Autodetecting from external source',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 19,
+                            height: 0.9,
                             color: Colors.grey[400],
                             fontStyle: FontStyle.italic,
                           ),
@@ -283,42 +285,31 @@ class _VideoFormatSelectionSectionState
                                 const Text(
                                   'Quantization Range',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 20,
+                                    height: 0.9,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                RadioListTile<bool>(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  title: const Text(
-                                    'Full range (0-255)',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
+                                const SizedBox(height: 8),
+                                NeumorphicRadio<bool>(
                                   value: true,
                                   groupValue: fullRange,
+                                  label: 'Full range (0-255)',
+                                  size: 16,
                                   onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() => fullRange = value);
-                                      sendOsc(true, address: '/analog_format/full_range');
-                                    }
+                                    setState(() => fullRange = value);
+                                    sendOsc(true, address: '/analog_format/full_range');
                                   },
                                 ),
-                                RadioListTile<bool>(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  title: const Text(
-                                    'Legal (16-235)',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
+                                const SizedBox(height: 6),
+                                NeumorphicRadio<bool>(
                                   value: false,
                                   groupValue: fullRange,
+                                  label: 'Legal (16-235)',
+                                  size: 16,
                                   onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() => fullRange = value);
-                                      sendOsc(false, address: '/analog_format/full_range');
-                                    }
+                                    setState(() => fullRange = value);
+                                    sendOsc(false, address: '/analog_format/full_range');
                                   },
                                 ),
                               ],
@@ -351,7 +342,8 @@ class _VideoFormatSelectionSectionState
                                 const Text(
                                   'Interlaced\n(Experimental)',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 20,
+                                    height: 0.9,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
