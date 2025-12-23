@@ -144,6 +144,7 @@ class ColorWheelPainter extends CustomPainter {
   final List<double> otherPrimary2;
   final int wheelIndex;
   final double sliderValue;
+  final bool isCompact;  // For smaller wheels: thinner lines, coarser sampling
 
   ColorWheelPainter(
     this.selected,
@@ -151,6 +152,7 @@ class ColorWheelPainter extends CustomPainter {
     this.otherPrimary2,
     this.wheelIndex, {
     this.sliderValue = 0.0,
+    this.isCompact = false,
   });
 
   @override
@@ -296,7 +298,7 @@ class ColorWheelPainter extends CustomPainter {
     final poly = _computeKappaPolynomial();
 
     // Build grid of κ² values
-    const double step = 3.0;
+    const double step = 2.5;
     final int n = (radius * 2 / step).ceil() + 2;
     final values = List.generate(n, (_) => List.filled(n, 0.0));
 
@@ -310,8 +312,8 @@ class ColorWheelPainter extends CustomPainter {
       }
     }
 
-    // Grid-based fill (correct, just use fine grid)
-    const double fillStep = 1.5;
+    // Grid-based fill (coarser for compact wheels)
+    final double fillStep = isCompact ? 3.0 : 1.5;
     final fillPath = Path();
     for (double x = -radius; x <= radius; x += fillStep) {
       for (double y = -radius; y <= radius; y += fillStep) {
@@ -405,7 +407,7 @@ class ColorWheelPainter extends CustomPainter {
       Paint()
         ..color = const Color(0xFFD32F2F)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
+        ..strokeWidth = isCompact ? 1.5 : 2.5
         ..strokeCap = StrokeCap.round,
     );
 
@@ -417,7 +419,8 @@ class ColorWheelPainter extends CustomPainter {
     return old.selected != selected ||
         old.otherPrimary1 != otherPrimary1 ||
         old.otherPrimary2 != otherPrimary2 ||
-        old.sliderValue != sliderValue;
+        old.sliderValue != sliderValue ||
+        old.isCompact != isCompact;
   }
 }
 
