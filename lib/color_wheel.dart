@@ -217,21 +217,30 @@ class ColorWheelPainter extends CustomPainter {
   }
 
   void _drawHeatmap(Canvas canvas, Offset center, double radius, double srgbRadius) {
-    // Scale step with radius - smaller wheels need finer steps
-    final step = (radius / 75.0) * 2.0; // 2.0 for 150px wheel, ~1.2 for 90px
+    // Clip to circular wheel boundary
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
 
-    for (double x = -radius; x <= radius; x += step) {
-      for (double y = -radius; y <= radius; y += step) {
+    // Finer step for smoother appearance
+    final step = (radius / 100.0).clamp(1.0, 2.0);
+
+    // Extend loop range to ensure full coverage at edges
+    for (double x = -radius - step; x <= radius + step; x += step) {
+      for (double y = -radius - step; y <= radius + step; y += step) {
         final dist = sqrt(x * x + y * y);
         if (dist > radius + step) continue;
-        final clampedDist = dist.clamp(0.0, radius);
 
         final angle = atan2(y, x);
-        final normalizedRadius = clampedDist / radius;
+        final normalizedRadius = (dist / radius).clamp(0.0, 1.0);
         final kappa = _conditionNumberAt(angle, normalizedRadius);
 
         final logKappa = log(kappa.clamp(1, 10000)) / ln10;
-        final opacity = ((logKappa - 0.5) / 2.5).clamp(0.0, 0.6);
+        var opacity = ((logKappa - 0.5) / 2.5).clamp(0.0, 0.6);
+
+        // Fade at edge to match wheel anti-aliasing
+        if (dist > radius - 1.0) {
+          opacity *= (radius + 1.0 - dist).clamp(0.0, 1.0);
+        }
 
         if (opacity > 0.01) {
           canvas.drawRect(
@@ -241,6 +250,8 @@ class ColorWheelPainter extends CustomPainter {
         }
       }
     }
+
+    canvas.restore();
   }
 
   double _conditionNumberAt(double angle, double normalizedRadius) {
