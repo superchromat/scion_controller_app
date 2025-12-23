@@ -60,15 +60,36 @@ class ColorWheelPainter extends CustomPainter {
     // Condition number heatmap
     _drawHeatmap(canvas, center, radius, srgbRadius);
 
-    // sRGB boundary
+    // sRGB boundary (R=1 circle) - white solid
     canvas.drawCircle(
       center,
       srgbRadius,
       Paint()
         ..color = Colors.white.withValues(alpha: 0.6)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+        ..strokeWidth = 1.0,
     );
+
+    // sRGB boundary - yellow dashed overlay
+    final dashPath = Path()..addOval(Rect.fromCircle(center: center, radius: srgbRadius));
+    final dashedPaint = Paint()
+      ..color = const Color(0xFFFFD54F)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    // Create dashed effect
+    const dashLength = 4.0;
+    const gapLength = 4.0;
+    final pathMetrics = dashPath.computeMetrics();
+    for (final metric in pathMetrics) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final nextDistance = distance + dashLength;
+        final extractPath = metric.extractPath(distance, nextDistance.clamp(0, metric.length));
+        canvas.drawPath(extractPath, dashedPaint);
+        distance = nextDistance + gapLength;
+      }
+    }
 
     // Selection indicator
     _drawSelectionIndicator(canvas, center, radius);
@@ -115,7 +136,7 @@ class ColorWheelPainter extends CustomPainter {
       1,
     );
     canvas.drawCircle(selPos, 8, Paint()..color = selColor);
-    canvas.drawCircle(selPos, 8, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2);
+    canvas.drawCircle(selPos, 8, Paint()..color = Colors.grey[600]!..style = PaintingStyle.stroke..strokeWidth = 2);
   }
 
   void _drawHeatmap(Canvas canvas, Offset center, double radius, double srgbRadius) {
@@ -125,7 +146,7 @@ class ColorWheelPainter extends CustomPainter {
     for (double x = -radius; x <= radius; x += step) {
       for (double y = -radius; y <= radius; y += step) {
         final dist = sqrt(x * x + y * y);
-        if (dist > radius + step || dist < 3) continue;
+        if (dist > radius + step) continue;
         final clampedDist = dist.clamp(0.0, radius);
 
         final angle = atan2(y, x);

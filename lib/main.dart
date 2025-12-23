@@ -17,6 +17,7 @@ import 'return_page.dart';
 import 'knob_page.dart';
 import 'lighting_settings.dart';
 import 'colorspace_wheel_page.dart';
+import 'din_cable_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -287,24 +288,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   List<Widget> get pages {
     return [
-      // 0 → Setup
-      const SetupPage(),
+      // 0 → System
+      const SystemPage(),
       // 1–3 → Send 1–3
       for (var i = 1; i <= 3; i++) SendPage(key: ValueKey(i), pageNumber: i),
       // 4 → Return
       const ReturnPage(),
-      // 5 → OSC Log
+      // 5 → Setup
+      const SetupPage(),
+      // 6 → DIN Cable
+      const DinCablePage(),
+      // 7 → OSC Log
       OscLogTable(
         key: oscLogKey,
         onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 5,
+        isActive: selectedIndex == 7,
       ),
-      // 6 → Registry Viewer
-      const OscRegistryViewer(),
-      // 7 → Knob Test
-      const KnobPage(),
-      // 8 → Colorspace Wheel Editor
-      const ColorspaceWheelPage(),
     ];
   }
 
@@ -360,40 +359,36 @@ class _MyHomePageState extends State<MyHomePage> {
                         },
                         destinations: const [
                           NavigationRailDestination(
-                            icon: Icon(Icons.settings),
-                            label: Text('Setup'),
+                            icon: Icon(Icons.memory),
+                            label: Text('System', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.output),
-                            label: Text('Send 1'),
+                            label: Text('Send 1', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.output),
-                            label: Text('Send 2'),
+                            label: Text('Send 2', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.output),
-                            label: Text('Send 3'),
+                            label: Text('Send 3', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.input),
-                            label: Text('Return'),
+                            label: Text('Return', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.settings),
+                            label: Text('Setup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.cable),
+                            label: Text('DIN Cable', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.view_list),
-                            label: Text('OSC Log'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.storage),
-                            label: Text('Registry'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.tune),
-                            label: Text('Knob'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.palette),
-                            label: Text('Colorspace'),
+                            label: Text('OSC Log', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
                           ),
                         ],
                       ),

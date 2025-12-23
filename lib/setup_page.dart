@@ -5,14 +5,15 @@ import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
 import 'firmware_update.dart';
 
-class SetupPage extends StatefulWidget {
-  const SetupPage({super.key});
+/// System page - contains system overview, video format, and sync settings
+class SystemPage extends StatefulWidget {
+  const SystemPage({super.key});
 
   @override
-  State<SetupPage> createState() => _SetupPageState();
+  State<SystemPage> createState() => _SystemPageState();
 }
 
-class _SetupPageState extends State<SetupPage> {
+class _SystemPageState extends State<SystemPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,8 +27,7 @@ class _SetupPageState extends State<SetupPage> {
                   child: SizedBox(height: 490, child: SystemOverview())),
               IntrinsicHeight(
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment
-                      .start, // or stretch, depending on your intent
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: VideoFormatSelectionSection()),
                     SizedBox(
@@ -37,10 +37,26 @@ class _SetupPageState extends State<SetupPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              const FirmwareUpdateSection(),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Setup page - contains firmware update
+class SetupPage extends StatelessWidget {
+  const SetupPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: const Padding(
+        padding: EdgeInsets.all(8),
+        child: SingleChildScrollView(
+          child: FirmwareUpdateSection(),
         ),
       ),
     );
