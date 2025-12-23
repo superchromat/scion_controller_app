@@ -275,122 +275,141 @@ class ColorWheelPainter extends CustomPainter {
     );
   }
 
+  /// Create polynomial evaluator for condition number.
+  _KappaPolynomial _computeKappaPolynomial() {
+    return _KappaPolynomial(
+      fixed1: otherPrimary1,
+      fixed2: otherPrimary2,
+      wheelIndex: wheelIndex,
+      sliderValue: sliderValue,
+    );
+  }
+
   void _drawDangerZone(Canvas canvas, Offset center, double radius) {
     canvas.save();
     canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
 
     const double threshold = 15.0;
+    const double thresholdSq = threshold * threshold;
     const double wheelScale = 2.0;
-    final step = 3.0; // Pixel step for fill
 
-    // First pass: fill danger zone with white
-    final dangerPath = Path();
+    final poly = _computeKappaPolynomial();
 
-    for (double x = -radius; x <= radius; x += step) {
-      for (double y = -radius; y <= radius; y += step) {
-        final dist = sqrt(x * x + y * y);
-        if (dist > radius) continue;
+    // Build grid of κ² values
+    const double step = 3.0;
+    final int n = (radius * 2 / step).ceil() + 2;
+    final values = List.generate(n, (_) => List.filled(n, 0.0));
 
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+        final x = -radius - step + i * step;
+        final y = -radius - step + j * step;
         final a = (x / radius) * wheelScale;
         final b = (-y / radius) * wheelScale;
-        final kappa = _conditionNumberAt(a, b);
+        values[i][j] = poly.evaluateKappaSq(a, b);
+      }
+    }
 
-        if (kappa >= threshold) {
-          dangerPath.addRect(Rect.fromCenter(
+    // Grid-based fill (correct, just use fine grid)
+    const double fillStep = 1.5;
+    final fillPath = Path();
+    for (double x = -radius; x <= radius; x += fillStep) {
+      for (double y = -radius; y <= radius; y += fillStep) {
+        if (x * x + y * y > radius * radius) continue;
+        final a = (x / radius) * wheelScale;
+        final b = (-y / radius) * wheelScale;
+        if (poly.evaluateKappaSq(a, b) >= thresholdSq) {
+          fillPath.addRect(Rect.fromCenter(
             center: Offset(center.dx + x, center.dy + y),
-            width: step + 0.5,
-            height: step + 0.5,
+            width: fillStep + 0.5,
+            height: fillStep + 0.5,
           ));
         }
       }
     }
 
-    // Draw white background for danger zone
-    canvas.drawPath(
-      dangerPath,
-      Paint()..color = Colors.white.withValues(alpha: 0.7),
-    );
+    // Draw white background
+    canvas.drawPath(fillPath, Paint()..color = Colors.white.withValues(alpha: 0.7));
 
-    // Draw red hatch pattern over danger zone
-    canvas.clipPath(dangerPath);
-
+    // Hatch pattern
+    canvas.save();
+    canvas.clipPath(fillPath);
     final hatchPaint = Paint()
       ..color = const Color(0xFFE53935).withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
-
-    // Diagonal lines from bottom-left to top-right
-    const hatchSpacing = 6.0;
-    for (double offset = -radius * 2; offset < radius * 2; offset += hatchSpacing) {
+    for (double offset = -radius * 2; offset < radius * 2; offset += 6.0) {
       canvas.drawLine(
         Offset(center.dx + offset - radius, center.dy + radius),
         Offset(center.dx + offset + radius, center.dy - radius),
         hatchPaint,
       );
     }
+    canvas.restore();
+
+    // Draw boundary using marching squares segments
+    final boundaryPath = Path();
+    for (int i = 0; i < n - 1; i++) {
+      for (int j = 0; j < n - 1; j++) {
+        final v00 = values[i][j];
+        final v10 = values[i + 1][j];
+        final v01 = values[i][j + 1];
+        final v11 = values[i + 1][j + 1];
+
+        final x0 = center.dx - radius - step + i * step;
+        final y0 = center.dy - radius - step + j * step;
+
+        final b00 = v00 >= thresholdSq ? 1 : 0;
+        final b10 = v10 >= thresholdSq ? 2 : 0;
+        final b01 = v01 >= thresholdSq ? 4 : 0;
+        final b11 = v11 >= thresholdSq ? 8 : 0;
+        final caseIndex = b00 | b10 | b01 | b11;
+
+        if (caseIndex == 0 || caseIndex == 15) continue;
+
+        double lerp(double va, double vb) {
+          if ((vb - va).abs() < 1e-10) return 0.5;
+          return (thresholdSq - va) / (vb - va);
+        }
+
+        final bottom = Offset(x0 + lerp(v00, v10) * step, y0);
+        final top = Offset(x0 + lerp(v01, v11) * step, y0 + step);
+        final left = Offset(x0, y0 + lerp(v00, v01) * step);
+        final right = Offset(x0 + step, y0 + lerp(v10, v11) * step);
+
+        void addSeg(Offset a, Offset b) {
+          boundaryPath.moveTo(a.dx, a.dy);
+          boundaryPath.lineTo(b.dx, b.dy);
+        }
+
+        switch (caseIndex) {
+          case 1: addSeg(bottom, left); break;
+          case 2: addSeg(bottom, right); break;
+          case 3: addSeg(left, right); break;
+          case 4: addSeg(left, top); break;
+          case 5: addSeg(bottom, top); break;
+          case 6: addSeg(bottom, left); addSeg(top, right); break;
+          case 7: addSeg(top, right); break;
+          case 8: addSeg(top, right); break;
+          case 9: addSeg(bottom, right); addSeg(left, top); break;
+          case 10: addSeg(bottom, top); break;
+          case 11: addSeg(left, top); break;
+          case 12: addSeg(left, right); break;
+          case 13: addSeg(bottom, right); break;
+          case 14: addSeg(bottom, left); break;
+        }
+      }
+    }
+    canvas.drawPath(
+      boundaryPath,
+      Paint()
+        ..color = const Color(0xFFD32F2F)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
 
     canvas.restore();
-  }
-
-  double _conditionNumberAt(double a, double b) {
-    // Get RGB for this wheel position
-    final rgb = wheelCoordsToRgb(a, b, sliderValue);
-    final testPrimary = rgb;
-
-    List<List<double>> matrix;
-    if (wheelIndex == 0) {
-      matrix = [
-        [testPrimary[0], otherPrimary1[0], otherPrimary2[0]],
-        [testPrimary[1], otherPrimary1[1], otherPrimary2[1]],
-        [testPrimary[2], otherPrimary1[2], otherPrimary2[2]],
-      ];
-    } else if (wheelIndex == 1) {
-      matrix = [
-        [otherPrimary1[0], testPrimary[0], otherPrimary2[0]],
-        [otherPrimary1[1], testPrimary[1], otherPrimary2[1]],
-        [otherPrimary1[2], testPrimary[2], otherPrimary2[2]],
-      ];
-    } else {
-      matrix = [
-        [otherPrimary1[0], otherPrimary2[0], testPrimary[0]],
-        [otherPrimary1[1], otherPrimary2[1], testPrimary[1]],
-        [otherPrimary1[2], otherPrimary2[2], testPrimary[2]],
-      ];
-    }
-
-    return _computeConditionNumber(matrix);
-  }
-
-  double _computeConditionNumber(List<List<double>> m) {
-    double frobM = 0;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        frobM += m[i][j] * m[i][j];
-      }
-    }
-    frobM = sqrt(frobM);
-
-    final det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
-                m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-                m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-
-    if (det.abs() < 1e-10) return double.infinity;
-
-    final adj = [
-      [m[1][1]*m[2][2] - m[1][2]*m[2][1], m[0][2]*m[2][1] - m[0][1]*m[2][2], m[0][1]*m[1][2] - m[0][2]*m[1][1]],
-      [m[1][2]*m[2][0] - m[1][0]*m[2][2], m[0][0]*m[2][2] - m[0][2]*m[2][0], m[0][2]*m[1][0] - m[0][0]*m[1][2]],
-      [m[1][0]*m[2][1] - m[1][1]*m[2][0], m[0][1]*m[2][0] - m[0][0]*m[2][1], m[0][0]*m[1][1] - m[0][1]*m[1][0]],
-    ];
-
-    double frobAdj = 0;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        frobAdj += adj[i][j] * adj[i][j];
-      }
-    }
-    final frobInv = sqrt(frobAdj) / det.abs();
-
-    return frobM * frobInv;
   }
 
   @override
@@ -399,5 +418,93 @@ class ColorWheelPainter extends CustomPainter {
         old.otherPrimary1 != otherPrimary1 ||
         old.otherPrimary2 != otherPrimary2 ||
         old.sliderValue != sliderValue;
+  }
+}
+
+/// Efficient computation of κ² for the color matrix.
+///
+/// The matrix M = [p0, p1, p2] where one column (wheelIndex) is the moving primary
+/// computed from wheel coordinates, and the other two are fixed.
+///
+/// κ² = ||M||_F² × ||adj(M)||_F² / det(M)²
+class _KappaPolynomial {
+  final List<double> fixed1;  // First fixed primary
+  final List<double> fixed2;  // Second fixed primary
+  final int wheelIndex;       // Which column is moving (0, 1, or 2)
+  final double sliderValue;
+
+  // Precomputed values
+  final double fixed1Sq;
+  final double fixed2Sq;
+  final List<double> fixed1CrossFixed2;
+  final double fixed1CrossFixed2Sq;
+
+  _KappaPolynomial({
+    required this.fixed1,
+    required this.fixed2,
+    required this.wheelIndex,
+    required this.sliderValue,
+  }) : fixed1Sq = fixed1[0] * fixed1[0] + fixed1[1] * fixed1[1] + fixed1[2] * fixed1[2],
+       fixed2Sq = fixed2[0] * fixed2[0] + fixed2[1] * fixed2[1] + fixed2[2] * fixed2[2],
+       fixed1CrossFixed2 = [
+         fixed1[1] * fixed2[2] - fixed1[2] * fixed2[1],
+         fixed1[2] * fixed2[0] - fixed1[0] * fixed2[2],
+         fixed1[0] * fixed2[1] - fixed1[1] * fixed2[0],
+       ],
+       fixed1CrossFixed2Sq = _computeCrossProductNormSq(fixed1, fixed2);
+
+  static double _computeCrossProductNormSq(List<double> a, List<double> b) {
+    final cx = a[1] * b[2] - a[2] * b[1];
+    final cy = a[2] * b[0] - a[0] * b[2];
+    final cz = a[0] * b[1] - a[1] * b[0];
+    return cx * cx + cy * cy + cz * cz;
+  }
+
+  static List<double> _cross(List<double> a, List<double> b) {
+    return [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+  }
+
+  static double _dot(List<double> a, List<double> b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  }
+
+  static double _normSq(List<double> a) {
+    return a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
+  }
+
+  /// Evaluate κ² at wheel coordinates (a, b)
+  double evaluateKappaSq(double a, double b) {
+    // Compute moving primary from wheel coordinates
+    final p = wheelCoordsToRgb(a, b, sliderValue);
+
+    // Build the three primaries in correct order
+    List<double> p0, p1, p2;
+    if (wheelIndex == 0) {
+      p0 = p; p1 = fixed1; p2 = fixed2;
+    } else if (wheelIndex == 1) {
+      p0 = fixed1; p1 = p; p2 = fixed2;
+    } else {
+      p0 = fixed1; p1 = fixed2; p2 = p;
+    }
+
+    // ||M||_F² = |p0|² + |p1|² + |p2|²
+    final mFrobSq = _normSq(p0) + _normSq(p1) + _normSq(p2);
+
+    // det(M) = p0 · (p1 × p2)
+    final p1CrossP2 = _cross(p1, p2);
+    final det = _dot(p0, p1CrossP2);
+    if (det.abs() < 1e-10) return double.infinity;
+
+    // ||adj(M)||_F² = |p1 × p2|² + |p2 × p0|² + |p0 × p1|²
+    final p2CrossP0 = _cross(p2, p0);
+    final p0CrossP1 = _cross(p0, p1);
+    final adjFrobSq = _normSq(p1CrossP2) + _normSq(p2CrossP0) + _normSq(p0CrossP1);
+
+    // κ² = ||M||_F² × ||adj(M)||_F² / det²
+    return mFrobSq * adjFrobSq / (det * det);
   }
 }
