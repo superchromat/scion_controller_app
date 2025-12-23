@@ -10,19 +10,28 @@ class TileLayout {
   static const double tileOuterMargin = 4;
   static const double sectionBoxPadding = 8;
   static const double cardPaddingTB = 0;
-  static const double cardPaddingLR = 55;
+  static const double cardPaddingLR = 12;  // Match Analog Format's 12px left padding
   static const double lockColumnWidth = 60;
   static const double rowSpacing = 40;
 
+  // Tile width calculated to make left section width ≈ 500px (matching Analog Format content)
+  // Section width = 3*tileWidth + 3*marginPerTile + 2*(tileOuterMargin + sectionBoxPadding)
+  //              = 3*tileWidth + 24 + 24 = 3*tileWidth + 48
+  // For 500px: tileWidth = (500 - 48) / 3 = 150.67 ≈ 151
+  static const double tileWidth = 151.0;
+  static const double tileHeight = 100.0;  // Keep original height
+
+  // Right offset to align tile center with Return Sync center (200px from card right edge)
+  // Path from Row right edge to LabeledCard outer edge: cardPaddingLR + 24 (LabeledCard internal padding)
+  // Tile center from Row right edge: rightOffset + sectionOverhead + tileWidth/2
+  // where sectionOverhead = tileOuterMargin + sectionBoxPadding = 12
+  // For tile center at 200px from LabeledCard outer edge:
+  // rightOffset + 12 + tileWidth/2 + cardPaddingLR + 24 = 200
+  // rightOffset = 164 - cardPaddingLR - tileWidth/2
+  static double computeRightOffset() => 164 - cardPaddingLR - tileWidth / 2;
+
   static double totalHorizontalPaddingPerTile() =>
       2 * (tileOuterMargin + sectionBoxPadding);
-
-  static double computeTileSize(double maxWidth) {
-    const int tileCount = 5;
-    final double spacing = (tileCount - 1) * marginPerTile;
-    final double outer = tileCount * totalHorizontalPaddingPerTile();
-    return (maxWidth - lockColumnWidth - spacing - outer) / tileCount;
-  }
 }
 
 enum LabelPosition { top, bottom }
@@ -100,7 +109,8 @@ class _SystemOverviewState extends State<SystemOverview>
   void _updateArrows() {
     final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final tileSize = TileLayout.computeTileSize(box.size.width);
+    const tileWidth = TileLayout.tileWidth;
+    const tileHeight = TileLayout.tileHeight;
     final registry = OscRegistry();
     final List<Arrow> newArrows = [];
 
@@ -127,8 +137,8 @@ class _SystemOverviewState extends State<SystemOverview>
           connect(
             _inputKeys[inIdx - 1],
             _sendKeys[i],
-            Offset(tileSize / 2, tileSize),
-            Offset(tileSize / 2, 0),
+            Offset(tileWidth / 2, tileHeight),
+            Offset(tileWidth / 2, 0),
           );
         }
       }
@@ -138,8 +148,8 @@ class _SystemOverviewState extends State<SystemOverview>
     connect(
       _returnKey,
       _outputKey,
-      Offset(tileSize / 2, 0),
-      Offset(tileSize / 2, tileSize),
+      Offset(tileWidth / 2, 0),
+      Offset(tileWidth / 2, tileHeight),
     );
 
     setState(() => _arrows = newArrows);
@@ -159,11 +169,12 @@ class _SystemOverviewState extends State<SystemOverview>
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final tileSize = TileLayout.computeTileSize(constraints.maxWidth);
+            const tileWidth = TileLayout.tileWidth;
+            const tileHeight = TileLayout.tileHeight;
             Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
                   key: key,
-                  width: tileSize,
-                  height: tileSize,
+                  width: tileWidth,
+                  height: tileHeight,
                   child: tile,
                 );
             return Stack(
@@ -191,11 +202,13 @@ class _SystemOverviewState extends State<SystemOverview>
                           ),
                         ),
                         SizedBox(width: TileLayout.lockColumnWidth),
+                        const Spacer(),
                         _sectionBox(
                           title: 'HDMI Out',
                           labelPosition: LabelPosition.top,
                           child: sizedTile(const HDMIOutTile(), _outputKey),
                         ),
+                        SizedBox(width: TileLayout.computeRightOffset()),
                       ],
                     ),
                     SizedBox(height: TileLayout.rowSpacing),
@@ -221,11 +234,13 @@ class _SystemOverviewState extends State<SystemOverview>
                           width: TileLayout.lockColumnWidth,
                           child: Center(child: const SyncLock()),
                         ),
+                        const Spacer(),
                         _sectionBox(
                           title: 'Return',
                           labelPosition: LabelPosition.bottom,
                           child: sizedTile(const ReturnTile(), _returnKey),
                         ),
+                        SizedBox(width: TileLayout.computeRightOffset()),
                       ],
                     ),
                   ],

@@ -31,7 +31,7 @@ class LabeledCard extends StatelessWidget {
     final lighting = context.watch<LightingSettings>();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.all(8),
       child: IgnorePointer(
         ignoring: disabled,
         child: Opacity(
@@ -41,7 +41,7 @@ class LabeledCard extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // title row with reset button
                   Row(

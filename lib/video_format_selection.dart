@@ -61,11 +61,9 @@ class _VideoFormatSelectionSectionState
   void initState() {
     super.initState();
 
-    matrixModel = ColorSpaceMatrix([
-      [1.0, 0.0, 0.0],
-      [0.0, 1.0, 0.0],
-      [0.0, 0.0, 1.0],
-    ]);
+    // Initialize with YUV matrix to match default dropdown selection
+    matrixModel = ColorSpaceMatrix(getMatrixForColorspace('YUV'));
+    _syncPrimariesFromMatrix();
 
     // Listen to sync_mode changes to enable/disable format controls
     OscRegistry().registerAddress('/sync_mode');
@@ -190,25 +188,25 @@ class _VideoFormatSelectionSectionState
             painter: ColorWheelPainter(rgb, other1, other2, primaryIndex),
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
         // Label below wheel, styled to match dropdown labels
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[400], fontWeight: FontWeight.w500)),
-        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[400], fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
         // RGB triplets below label
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               '${rgb[0] >= 0 ? '+' : ''}${rgb[0].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 10, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFFFF6B6B)),
+              style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFFFF6B6B)),
             ),
             Text(
               '${rgb[1] >= 0 ? '+' : ''}${rgb[1].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 10, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF69DB7C)),
+              style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF69DB7C)),
             ),
             Text(
               '${rgb[2] >= 0 ? '+' : ''}${rgb[2].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 10, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF74C0FC)),
+              style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF74C0FC)),
             ),
           ],
         ),
@@ -221,9 +219,9 @@ class _VideoFormatSelectionSectionState
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildColorWheel(context, 'Channel 1', 0, _primary1, _primary2, _primary3),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         _buildColorWheel(context, 'Channel 2', 1, _primary2, _primary1, _primary3),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         _buildColorWheel(context, 'Channel 3', 2, _primary3, _primary1, _primary2),
       ],
     );
@@ -236,23 +234,25 @@ class _VideoFormatSelectionSectionState
     const double resFrameHeight = 124.0; // Resolution + Framerate height (tighter)
     const double colorspaceBoxHeight = 75.0;
     const double colorspaceBoxWidth = 200.0;
-    const double wheelsBoxWidth = 330.0;
+    const double wheelsBoxWidth = 310.0;
     const double wheelsBoxHeight = 170.0;
     const double r = 12.0;
-    const double gap = 10.0;
+    const double gap = 0.0;
 
     return OscPathSegment(
       segment: 'analog_format',
       child: LabeledCard(
         title: 'Analog Send/Return Format',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            SizedBox(
-              width: colWidth + gap + wheelsBoxWidth,
-              height: resFrameHeight + colorspaceBoxHeight,
-              child: Stack(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              SizedBox(
+                width: colWidth + gap + wheelsBoxWidth,
+                height: resFrameHeight + colorspaceBoxHeight,
+                child: Stack(
                 children: [
                   // L-shaped grey background: two overlapping rounded rects
                   // Both share the same bottom-right corner
@@ -260,8 +260,8 @@ class _VideoFormatSelectionSectionState
                     child: Builder(
                       builder: (context) {
                         final lighting = context.watch<LightingSettings>();
-                        const double vBarTop = 26.0; // Top padding for wheels area
-                        final sharedRight = colWidth + gap + wheelsBoxWidth - 16;
+                        const double vBarTop = 0.0; // Top aligns with Resolution dropdown
+                        final sharedRight = colWidth + gap + wheelsBoxWidth;
                         final sharedBottom = resFrameHeight + colorspaceBoxHeight;
                         return CustomPaint(
                           painter: _LPainter(
@@ -332,10 +332,10 @@ class _VideoFormatSelectionSectionState
                       },
                     ),
                   ),
-                  // Wheels (inside grey L, top-right) - Channel labels align with Colorspace
+                  // Wheels (inside grey L, top-right) - 10px padding = wheel gap
                   Positioned(
-                    left: colWidth + gap + 14,
-                    top: 38,
+                    left: colWidth + gap + 10,
+                    top: 12,
                     child: _colorWheelsWidget(context),
                   ),
                 ],
@@ -359,7 +359,8 @@ class _VideoFormatSelectionSectionState
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

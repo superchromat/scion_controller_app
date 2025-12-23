@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'system_overview.dart'; // for TileLayout
 import 'osc_registry.dart';
 import 'labeled_card.dart'; // for NeumorphicInset
+import 'lighting_settings.dart';
 
 const TextStyle _systemTextStyle = TextStyle(
   color: Colors.green,
@@ -17,10 +19,32 @@ const TextStyle _systemTextStyleRed = TextStyle(
 
 // Overlay label style for tile indices and letters
 final TextStyle kOverlayTextStyle = TextStyle(
-  color: Colors.grey[850],
-  fontSize: 96,
+  color: Colors.grey[800],
+  fontSize: 72,
   fontWeight: FontWeight.bold,
 );
+
+/// Overlay text with lighting gradient and noise texture
+class _LitOverlayText extends StatelessWidget {
+  final String label;
+  const _LitOverlayText({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final lighting = context.watch<LightingSettings>();
+
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) {
+        return lighting.createPhongSurfaceGradient(
+          baseColor: const Color(0xFF454548),  // Darker grey matching tile background
+          intensity: 0.12,
+        ).createShader(bounds);
+      },
+      child: Text(label, style: kOverlayTextStyle),
+    );
+  }
+}
 
 /// A generic tile that displays up to five values: resolution (String),
 /// framerate (double), bit depth (int), colorspace (String), and optional chroma subsampling.
@@ -275,9 +299,12 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         baseColor: const Color(0xFF262628),
         borderRadius: 4.0,
         child: Stack(
-          alignment: Alignment.center,
           children: [
-            Text(widget.overlayLabel, style: kOverlayTextStyle),
+            Positioned(
+              right: 4,
+              bottom: -8,
+              child: _LitOverlayText(label: widget.overlayLabel),
+            ),
             if (_connected)
               Padding(
                 padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
@@ -510,9 +537,12 @@ class __InputTileInnerState extends State<_InputTileInner> {
         baseColor: const Color(0xFF262628),
         borderRadius: 4.0,
         child: Stack(
-          alignment: Alignment.center,
           children: [
-            Text(widget.index.toString(), style: kOverlayTextStyle),
+            Positioned(
+              right: 4,
+              bottom: -8,
+              child: _LitOverlayText(label: widget.index.toString()),
+            ),
             if (_connected)
               Padding(
                 padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
