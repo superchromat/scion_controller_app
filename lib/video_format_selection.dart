@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,39 @@ import 'color_wheel.dart';
 import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'osc_dropdown.dart';
+
+/// Compute condition number for a 3x3 matrix using Frobenius norm
+double computeConditionNumber(List<List<double>> m) {
+  double frobM = 0;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      frobM += m[i][j] * m[i][j];
+    }
+  }
+  frobM = sqrt(frobM);
+
+  final det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+              m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+              m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+
+  if (det.abs() < 1e-10) return double.infinity;
+
+  final adj = [
+    [m[1][1]*m[2][2] - m[1][2]*m[2][1], m[0][2]*m[2][1] - m[0][1]*m[2][2], m[0][1]*m[1][2] - m[0][2]*m[1][1]],
+    [m[1][2]*m[2][0] - m[1][0]*m[2][2], m[0][0]*m[2][2] - m[0][2]*m[2][0], m[0][2]*m[1][0] - m[0][0]*m[1][2]],
+    [m[1][0]*m[2][1] - m[1][1]*m[2][0], m[0][1]*m[2][0] - m[0][0]*m[2][1], m[0][0]*m[1][1] - m[0][1]*m[1][0]],
+  ];
+
+  double frobAdj = 0;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      frobAdj += adj[i][j] * adj[i][j];
+    }
+  }
+  final frobInv = sqrt(frobAdj) / det.abs();
+
+  return frobM * frobInv;
+}
 
 class VideoFormatSelectionSection extends StatefulWidget {
   const VideoFormatSelectionSection({super.key});
@@ -56,6 +90,14 @@ class _VideoFormatSelectionSectionState
   List<double> _customPrimary2 = [0, 1, 0];
   List<double> _customPrimary3 = [0, 0, 1];
 
+  // Track which wheel is currently being dragged (-1 = none)
+  int _draggingWheelIndex = -1;
+
+  // Slider values for each wheel (controls position along gray axis)
+  double _slider1 = 0.0;
+  double _slider2 = 0.0;
+  double _slider3 = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +105,7 @@ class _VideoFormatSelectionSectionState
     // Initialize with YUV matrix to match default dropdown selection
     matrixModel = ColorSpaceMatrix(getMatrixForColorspace('YUV'));
     _syncPrimariesFromMatrix();
+    _syncSlidersFromPrimaries();
 
     // Listen to sync_mode changes to enable/disable format controls
     OscRegistry().registerAddress('/sync_mode');
@@ -141,6 +184,33 @@ class _VideoFormatSelectionSectionState
     _primary3 = [matrixModel.matrix[0][2], matrixModel.matrix[1][2], matrixModel.matrix[2][2]];
   }
 
+  void _syncSlidersFromPrimaries() {
+    // Extract slider values from current primaries using rgbToWheelCoords
+    final coords1 = rgbToWheelCoords(_primary1);
+    final coords2 = rgbToWheelCoords(_primary2);
+    final coords3 = rgbToWheelCoords(_primary3);
+    _slider1 = coords1[2];  // The 's' component
+    _slider2 = coords2[2];
+    _slider3 = coords3[2];
+  }
+
+  double _getSliderForPrimary(int index) {
+    switch (index) {
+      case 0: return _slider1;
+      case 1: return _slider2;
+      case 2: return _slider3;
+      default: return 0.0;
+    }
+  }
+
+  void _setSliderForPrimary(int index, double value) {
+    switch (index) {
+      case 0: _slider1 = value; break;
+      case 1: _slider2 = value; break;
+      case 2: _slider3 = value; break;
+    }
+  }
+
   void _updateMatrixFromPrimary(int primaryIndex, List<double> rgb) {
     // Update the column of the matrix
     for (int row = 0; row < 3; row++) {
@@ -159,9 +229,11 @@ class _VideoFormatSelectionSectionState
   }
 
   void _handleWheelDrag(Offset pos, double size, int primaryIndex) {
-    final rgb = wheelPositionToRgb(pos, size);
+    final sliderValue = _getSliderForPrimary(primaryIndex);
+    final rgb = wheelPositionToRgb(pos, size, sliderValue);
 
     setState(() {
+      _draggingWheelIndex = primaryIndex;
       if (primaryIndex == 0) {
         _primary1 = rgb;
       } else if (primaryIndex == 1) {
@@ -173,24 +245,159 @@ class _VideoFormatSelectionSectionState
     });
   }
 
+  void _handleSliderChange(int primaryIndex, double newValue) {
+    // Get current wheel position (a, b) from the primary
+    final primary = primaryIndex == 0 ? _primary1 : (primaryIndex == 1 ? _primary2 : _primary3);
+    final coords = rgbToWheelCoords(primary);
+    final a = coords[0];
+    final b = coords[1];
+
+    // Compute new RGB with updated slider value
+    final rgb = wheelCoordsToRgb(a, b, newValue);
+
+    setState(() {
+      _setSliderForPrimary(primaryIndex, newValue);
+      if (primaryIndex == 0) {
+        _primary1 = rgb;
+      } else if (primaryIndex == 1) {
+        _primary2 = rgb;
+      } else {
+        _primary3 = rgb;
+      }
+      _updateMatrixFromPrimary(primaryIndex, rgb);
+    });
+  }
+
+  void _handleWheelDragEnd() {
+    setState(() {
+      _draggingWheelIndex = -1;
+    });
+  }
+
+  double _getCurrentConditionNumber() {
+    final matrix = [
+      [_primary1[0], _primary2[0], _primary3[0]],
+      [_primary1[1], _primary2[1], _primary3[1]],
+      [_primary1[2], _primary2[2], _primary3[2]],
+    ];
+    return computeConditionNumber(matrix);
+  }
+
+  Widget _buildConditionBar(double kappa) {
+    // Log scale: kappa 1 = 0%, kappa 1000 = 100%
+    final logKappa = log(kappa.clamp(1, 1000)) / log(1000);
+    final percentage = (logKappa * 100).clamp(0.0, 100.0);
+
+    // Color: green (good) -> yellow -> red (bad)
+    Color barColor;
+    if (kappa < 3) {
+      barColor = const Color(0xFF4CAF50); // Green
+    } else if (kappa < 10) {
+      barColor = const Color(0xFFFFC107); // Yellow
+    } else if (kappa < 100) {
+      barColor = const Color(0xFFFF9800); // Orange
+    } else {
+      barColor = const Color(0xFFF44336); // Red
+    }
+
+    return Container(
+      width: 90,
+      height: 16,
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Stack(
+        children: [
+          // Fill bar
+          FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: percentage / 100,
+            child: Container(
+              decoration: BoxDecoration(
+                color: barColor,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          // κ value text
+          Center(
+            child: Text(
+              'κ=${kappa.isFinite ? kappa.toStringAsFixed(1) : '∞'}',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildColorWheel(BuildContext context, String label, int primaryIndex, List<double> rgb, List<double> other1, List<double> other2) {
     const size = 90.0;
+    final isDragging = _draggingWheelIndex == primaryIndex;
+    final kappa = _getCurrentConditionNumber();
+    final sliderValue = _getSliderForPrimary(primaryIndex);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Wheel first
+        // Wheel
         GestureDetector(
+          onPanStart: (d) => _handleWheelDrag(d.localPosition, size, primaryIndex),
           onPanUpdate: (d) => _handleWheelDrag(d.localPosition, size, primaryIndex),
+          onPanEnd: (_) => _handleWheelDragEnd(),
           onTapDown: (d) => _handleWheelDrag(d.localPosition, size, primaryIndex),
+          onTapUp: (_) => _handleWheelDragEnd(),
           child: CustomPaint(
             size: const Size(size, size),
-            painter: ColorWheelPainter(rgb, other1, other2, primaryIndex),
+            painter: ColorWheelPainter(rgb, other1, other2, primaryIndex, sliderValue: sliderValue),
           ),
         ),
-        const SizedBox(height: 10),
-        // Label below wheel, styled to match dropdown labels
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[400], fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
+        // Intensity slider (vertical, compact)
+        SizedBox(
+          width: size,
+          height: 24,
+          child: Row(
+            children: [
+              Text('−', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    activeTrackColor: Colors.grey[400],
+                    inactiveTrackColor: Colors.grey[700],
+                    thumbColor: Colors.grey[300],
+                  ),
+                  child: Slider(
+                    value: sliderValue.clamp(-2.0, 2.0),
+                    min: -2.0,
+                    max: 2.0,
+                    onChanged: (v) => _handleSliderChange(primaryIndex, v),
+                  ),
+                ),
+              ),
+              Text('+', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+            ],
+          ),
+        ),
+        // Condition number bar (shown when dragging this wheel)
+        AnimatedOpacity(
+          opacity: isDragging ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 150),
+          child: _buildConditionBar(kappa),
+        ),
+        const SizedBox(height: 2),
+        // Label below wheel
+        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[400], fontWeight: FontWeight.w500)),
+        const SizedBox(height: 2),
         // RGB triplets below label
         Column(
           mainAxisSize: MainAxisSize.min,
@@ -326,6 +533,7 @@ class _VideoFormatSelectionSectionState
                             matrixModel = ColorSpaceMatrix(getMatrixForColorspace(value));
                             _syncPrimariesFromMatrix();
                           }
+                          _syncSlidersFromPrimaries();
                           _sendColorMatrix();
                         });
                       },

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 // Cached wheel image
 ui.Image? _cachedWheelImage;
 int _cachedWheelSize = 0;
+double _cachedWheelSlider = 0.0;
 
 /// Call this to invalidate the wheel cache (e.g., on hot reload)
 void invalidateWheelCache() {
@@ -12,12 +13,87 @@ void invalidateWheelCache() {
   _cachedWheelSize = 0;
 }
 
-/// Generate HSV color wheel - white center, saturated colors at edge
-ui.Image _generateHsvWheel(int size) {
+// Orthonormal basis for the plane perpendicular to (1,1,1)
+// u = (1, -1, 0) / sqrt(2)  -- red-cyan axis (positive = more red, less green)
+// v = (1, 1, -2) / sqrt(6)  -- yellow-blue axis (positive = more yellow, less blue)
+const double _sqrt2 = 1.4142135623730951;
+const double _sqrt3 = 1.7320508075688772;
+const double _sqrt6 = 2.449489742783178;
+
+// u basis vector components
+const double _ux = 1.0 / _sqrt2;
+const double _uy = -1.0 / _sqrt2;
+const double _uz = 0.0;
+
+// v basis vector components
+const double _vx = 1.0 / _sqrt6;
+const double _vy = 1.0 / _sqrt6;
+const double _vz = -2.0 / _sqrt6;
+
+// w basis vector (along gray axis) components
+const double _wx = 1.0 / _sqrt3;
+const double _wy = 1.0 / _sqrt3;
+const double _wz = 1.0 / _sqrt3;
+
+/// Convert RGB to wheel coordinates (a, b) and slider value s
+/// RGB = (1,1,1) + a*u + b*v + s*w
+List<double> rgbToWheelCoords(List<double> rgb) {
+  final dr = rgb[0] - 1.0;
+  final dg = rgb[1] - 1.0;
+  final db = rgb[2] - 1.0;
+
+  // Project onto each basis vector
+  final a = dr * _ux + dg * _uy + db * _uz;
+  final b = dr * _vx + dg * _vy + db * _vz;
+  final s = dr * _wx + dg * _wy + db * _wz;
+
+  return [a, b, s];
+}
+
+/// Convert wheel coordinates (a, b) and slider value s to RGB
+/// RGB = (1,1,1) + a*u + b*v + s*w
+List<double> wheelCoordsToRgb(double a, double b, double s) {
+  final r = 1.0 + a * _ux + b * _vx + s * _wx;
+  final g = 1.0 + a * _uy + b * _vy + s * _wy;
+  final bl = 1.0 + a * _uz + b * _vz + s * _wz;
+  return [r, g, bl];
+}
+
+/// Convert wheel drag position to RGB values
+/// The wheel represents the chromaticity plane (perpendicular to gray axis)
+/// The slider value controls position along the gray axis
+List<double> wheelPositionToRgb(Offset pos, double size, double sliderValue) {
+  final center = Offset(size / 2, size / 2);
+  var offset = pos - center;
+  final radius = size / 2;
+
+  // Clamp to wheel boundary
+  final dist = offset.distance;
+  if (dist > radius) {
+    offset = offset * (radius / dist);
+  }
+
+  // Scale factor: at wheel edge, we want a reasonable range
+  // Let's say wheel edge = magnitude 2.0 in the (a,b) plane
+  const double wheelScale = 2.0;
+
+  final a = (offset.dx / radius) * wheelScale;
+  final b = (-offset.dy / radius) * wheelScale;  // Flip Y so up = positive
+
+  return wheelCoordsToRgb(a, b, sliderValue);
+}
+
+/// Generate opponent color wheel
+/// Center = gray (exact shade depends on slider)
+/// Moving right = more red, less green (positive a)
+/// Moving up = more yellow, less blue (positive b)
+ui.Image _generateOpponentWheel(int size, double sliderValue) {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   final center = size / 2.0;
-  final radius = center - 0.5; // Slight inset to allow for anti-aliasing
+  final radius = center - 0.5;
+
+  const double wheelScale = 2.0;
 
   for (int y = 0; y < size; y++) {
     for (int x = 0; x < size; x++) {
@@ -25,21 +101,20 @@ ui.Image _generateHsvWheel(int size) {
       final dy = y - center + 0.5;
       final dist = sqrt(dx * dx + dy * dy);
 
-      // Anti-aliasing: fade out pixels near the edge
       if (dist <= radius + 1.0) {
-        final angle = atan2(dy, dx);
-        final hue = (angle * 180.0 / pi + 360.0) % 360.0;
-        final t = (dist / radius).clamp(0.0, 1.0);
+        // Convert screen position to (a, b) coordinates
+        final a = (dx / radius) * wheelScale;
+        final b = (-dy / radius) * wheelScale;  // Flip Y
 
-        // HSV edge color with S=1, V=1
-        final hueColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
+        // Get RGB from wheel coords
+        final rgb = wheelCoordsToRgb(a, b, sliderValue);
 
-        // Linear interpolation from white (1,1,1) to edge color
-        final r = 1.0 - t + t * hueColor.r;
-        final g = 1.0 - t + t * hueColor.g;
-        final b = 1.0 - t + t * hueColor.b;
+        // Clamp for display
+        final r = rgb[0].clamp(0.0, 1.0);
+        final g = rgb[1].clamp(0.0, 1.0);
+        final bl = rgb[2].clamp(0.0, 1.0);
 
-        // Calculate alpha for anti-aliasing at edge
+        // Anti-aliasing at edge
         final alpha = (radius + 1.0 - dist).clamp(0.0, 1.0);
 
         canvas.drawRect(
@@ -47,7 +122,7 @@ ui.Image _generateHsvWheel(int size) {
           Paint()..color = Color.fromRGBO(
             (r * 255).round().clamp(0, 255),
             (g * 255).round().clamp(0, 255),
-            (b * 255).round().clamp(0, 255),
+            (bl * 255).round().clamp(0, 255),
             alpha,
           ),
         );
@@ -60,30 +135,7 @@ ui.Image _generateHsvWheel(int size) {
 
 /// Initialize the color wheel (no-op, kept for API compatibility)
 Future<void> loadWheelAsset() async {
-  // OKLCH wheel is generated on-demand, no assets needed
-}
-
-/// Convert wheel drag position to RGB values using HSV
-List<double> wheelPositionToRgb(Offset pos, double size) {
-  final center = Offset(size / 2, size / 2);
-  final offset = pos - center;
-  final radius = size / 2;
-
-  final angle = atan2(offset.dy, offset.dx);
-  final dist = (offset.distance / radius).clamp(0.0, 1.0);
-
-  // Scale by 2.0 to allow extended gamut beyond sRGB (r=0.5 is sRGB boundary)
-  final scaledDist = dist * 2.0;
-
-  // HSV: angle maps directly to hue
-  final hue = (angle * 180 / pi + 360) % 360;
-  final hueColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
-
-  final r = 1.0 + (hueColor.r - 1.0) * scaledDist;
-  final g = 1.0 + (hueColor.g - 1.0) * scaledDist;
-  final b = 1.0 + (hueColor.b - 1.0) * scaledDist;
-
-  return [r, g, b];
+  // Wheel is generated on-demand, no assets needed
 }
 
 class ColorWheelPainter extends CustomPainter {
@@ -91,56 +143,29 @@ class ColorWheelPainter extends CustomPainter {
   final List<double> otherPrimary1;
   final List<double> otherPrimary2;
   final int wheelIndex;
+  final double sliderValue;
 
   ColorWheelPainter(
     this.selected,
     this.otherPrimary1,
     this.otherPrimary2,
-    this.wheelIndex,
-  );
+    this.wheelIndex, {
+    this.sliderValue = 0.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    final srgbRadius = radius * 0.5;
 
-    // Draw HSV color wheel
+    // Draw color wheel
     _drawCachedWheel(canvas, center, radius);
 
-    // Condition number heatmap overlay
-    _drawHeatmap(canvas, center, radius, srgbRadius);
+    // Always show danger zone
+    _drawDangerZone(canvas, center, radius);
 
-    // sRGB boundary (R=1 circle) - white solid
-    canvas.drawCircle(
-      center,
-      srgbRadius,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.6)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
-
-    // sRGB boundary - yellow dashed overlay
-    final dashPath = Path()..addOval(Rect.fromCircle(center: center, radius: srgbRadius));
-    final dashedPaint = Paint()
-      ..color = const Color(0xFFFFD54F)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
-    // Create dashed effect
-    const dashLength = 4.0;
-    const gapLength = 4.0;
-    final pathMetrics = dashPath.computeMetrics();
-    for (final metric in pathMetrics) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final nextDistance = distance + dashLength;
-        final extractPath = metric.extractPath(distance, nextDistance.clamp(0, metric.length));
-        canvas.drawPath(extractPath, dashedPaint);
-        distance = nextDistance + gapLength;
-      }
-    }
+    // sRGB gamut boundary
+    _drawGamutBoundary(canvas, center, radius);
 
     // Selection indicator
     _drawSelectionIndicator(canvas, center, radius);
@@ -148,40 +173,21 @@ class ColorWheelPainter extends CustomPainter {
 
   void _drawSelectionIndicator(Canvas canvas, Offset center, double radius) {
     final r = selected[0], g = selected[1], b = selected[2];
-    final dr = r - 1.0, dg = g - 1.0, db = b - 1.0;
-    final distFromWhite = sqrt(dr * dr + dg * dg + db * db);
 
-    Offset selPos;
-    if (distFromWhite < 0.001) {
-      selPos = center;
-    } else {
-      final len = distFromWhite;
-      final ndr = dr / len, ndg = dg / len, ndb = db / len;
+    // Convert RGB to wheel coordinates
+    final coords = rgbToWheelCoords(selected);
+    final a = coords[0];
+    final bCoord = coords[1];
+    // Note: coords[2] is the slider component, which we ignore for positioning
 
-      // Find best matching HSV hue
-      double bestHue = 0;
-      double bestDot = -2;
-      for (double h = 0; h < 360; h += 2) {
-        final hc = HSVColor.fromAHSV(1, h, 1, 1).toColor();
-        final hdr = hc.r - 1.0, hdg = hc.g - 1.0, hdb = hc.b - 1.0;
-        final hlen = sqrt(hdr * hdr + hdg * hdg + hdb * hdb);
-        if (hlen < 0.001) continue;
-        final dot = ndr * (hdr / hlen) + ndg * (hdg / hlen) + ndb * (hdb / hlen);
-        if (dot > bestDot) {
-          bestDot = dot;
-          bestHue = h;
-        }
-      }
+    // Convert (a, b) to screen position
+    const double wheelScale = 2.0;
+    final screenX = (a / wheelScale) * radius;
+    final screenY = (-bCoord / wheelScale) * radius;  // Flip Y back
 
-      final angle = bestHue * pi / 180;
-      final hueColor = HSVColor.fromAHSV(1, bestHue, 1, 1).toColor();
-      final hdr = hueColor.r - 1.0, hdg = hueColor.g - 1.0, hdb = hueColor.b - 1.0;
-      final hueDist = sqrt(hdr * hdr + hdg * hdg + hdb * hdb);
-      final wheelDist = hueDist > 0.001 ? (distFromWhite / hueDist / 2.0) * radius : 0.0;
-      selPos = center + Offset(cos(angle) * wheelDist, sin(angle) * wheelDist);
-    }
+    final selPos = center + Offset(screenX, screenY);
 
-    // Use the actual selected color for the indicator
+    // Use the actual selected color for the indicator (clamped for display)
     final selColor = Color.fromRGBO(
       (r.clamp(0, 1) * 255).round(),
       (g.clamp(0, 1) * 255).round(),
@@ -193,21 +199,23 @@ class ColorWheelPainter extends CustomPainter {
     canvas.drawCircle(selPos, 8, Paint()..color = Colors.grey[600]!..style = PaintingStyle.stroke..strokeWidth = 2);
   }
 
-  /// Draw HSV color wheel
   void _drawCachedWheel(Canvas canvas, Offset center, double radius) {
-    // Check if we have a valid cached image
     final size = (radius * 2).round();
-    if (_cachedWheelImage != null && _cachedWheelSize == size) {
-      // Draw cached image
+
+    // Check if we have a valid cached image with matching slider value
+    if (_cachedWheelImage != null &&
+        _cachedWheelSize == size &&
+        (_cachedWheelSlider - sliderValue).abs() < 0.01) {
       final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(), _cachedWheelImage!.height.toDouble());
       final dst = Rect.fromCircle(center: center, radius: radius);
       canvas.drawImageRect(_cachedWheelImage!, src, dst, Paint()..filterQuality = FilterQuality.high);
       return;
     }
 
-    // Generate new HSV wheel
-    _cachedWheelImage = _generateHsvWheel(size);
+    // Generate new wheel
+    _cachedWheelImage = _generateOpponentWheel(size, sliderValue);
     _cachedWheelSize = size;
+    _cachedWheelSlider = sliderValue;
 
     if (_cachedWheelImage != null) {
       final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(), _cachedWheelImage!.height.toDouble());
@@ -216,56 +224,118 @@ class ColorWheelPainter extends CustomPainter {
     }
   }
 
-  void _drawHeatmap(Canvas canvas, Offset center, double radius, double srgbRadius) {
-    // Clip to circular wheel boundary
+  void _drawGamutBoundary(Canvas canvas, Offset center, double radius) {
+    // Draw approximate sRGB gamut boundary
+    // This is the region where all RGB values are in [0, 1]
+    // For a given slider value, this forms a hexagonal region
+
+    const double wheelScale = 2.0;
+    final path = Path();
+
+    // Sample points around the wheel and find where gamut clips
+    bool firstPoint = true;
+    for (double angle = 0; angle < 2 * pi; angle += 0.05) {
+      // Binary search for gamut boundary at this angle
+      double lo = 0, hi = 1.0;
+      for (int i = 0; i < 10; i++) {
+        final mid = (lo + hi) / 2;
+        final a = cos(angle) * mid * wheelScale;
+        final b = sin(angle) * mid * wheelScale;
+        final rgb = wheelCoordsToRgb(a, b, sliderValue);
+        final inGamut = rgb[0] >= 0 && rgb[0] <= 1 &&
+                        rgb[1] >= 0 && rgb[1] <= 1 &&
+                        rgb[2] >= 0 && rgb[2] <= 1;
+        if (inGamut) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+      }
+
+      final boundaryDist = lo;
+      final screenX = cos(angle) * boundaryDist * radius;
+      final screenY = -sin(angle) * boundaryDist * radius;
+
+      if (firstPoint) {
+        path.moveTo(center.dx + screenX, center.dy + screenY);
+        firstPoint = false;
+      } else {
+        path.lineTo(center.dx + screenX, center.dy + screenY);
+      }
+    }
+    path.close();
+
+    // Draw the boundary
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFFFFD54F)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0,
+    );
+  }
+
+  void _drawDangerZone(Canvas canvas, Offset center, double radius) {
     canvas.save();
     canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
 
-    // Finer step for smoother appearance
-    final step = (radius / 100.0).clamp(1.0, 2.0);
+    const double threshold = 15.0;
+    const double wheelScale = 2.0;
+    final step = 3.0; // Pixel step for fill
 
-    // Extend loop range to ensure full coverage at edges
-    for (double x = -radius - step; x <= radius + step; x += step) {
-      for (double y = -radius - step; y <= radius + step; y += step) {
+    // First pass: fill danger zone with white
+    final dangerPath = Path();
+
+    for (double x = -radius; x <= radius; x += step) {
+      for (double y = -radius; y <= radius; y += step) {
         final dist = sqrt(x * x + y * y);
-        if (dist > radius + step) continue;
+        if (dist > radius) continue;
 
-        final angle = atan2(y, x);
-        final normalizedRadius = (dist / radius).clamp(0.0, 1.0);
-        final kappa = _conditionNumberAt(angle, normalizedRadius);
+        final a = (x / radius) * wheelScale;
+        final b = (-y / radius) * wheelScale;
+        final kappa = _conditionNumberAt(a, b);
 
-        final logKappa = log(kappa.clamp(1, 10000)) / ln10;
-        var opacity = ((logKappa - 0.5) / 2.5).clamp(0.0, 0.6);
-
-        // Fade at edge to match wheel anti-aliasing
-        if (dist > radius - 1.0) {
-          opacity *= (radius + 1.0 - dist).clamp(0.0, 1.0);
-        }
-
-        if (opacity > 0.01) {
-          canvas.drawRect(
-            Rect.fromLTWH(center.dx + x - step/2, center.dy + y - step/2, step, step),
-            Paint()..color = Colors.black.withValues(alpha: opacity),
-          );
+        if (kappa >= threshold) {
+          dangerPath.addRect(Rect.fromCenter(
+            center: Offset(center.dx + x, center.dy + y),
+            width: step + 0.5,
+            height: step + 0.5,
+          ));
         }
       }
+    }
+
+    // Draw white background for danger zone
+    canvas.drawPath(
+      dangerPath,
+      Paint()..color = Colors.white.withValues(alpha: 0.7),
+    );
+
+    // Draw red hatch pattern over danger zone
+    canvas.clipPath(dangerPath);
+
+    final hatchPaint = Paint()
+      ..color = const Color(0xFFE53935).withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    // Diagonal lines from bottom-left to top-right
+    const hatchSpacing = 6.0;
+    for (double offset = -radius * 2; offset < radius * 2; offset += hatchSpacing) {
+      canvas.drawLine(
+        Offset(center.dx + offset - radius, center.dy + radius),
+        Offset(center.dx + offset + radius, center.dy - radius),
+        hatchPaint,
+      );
     }
 
     canvas.restore();
   }
 
-  double _conditionNumberAt(double angle, double normalizedRadius) {
-    final scaledDist = normalizedRadius * 2.0;
-
-    // Use HSV to compute test primary
-    final hue = (angle * 180 / pi + 360) % 360;
-    final hueColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
-
-    final r = 1.0 + (hueColor.r - 1.0) * scaledDist;
-    final g = 1.0 + (hueColor.g - 1.0) * scaledDist;
-    final b = 1.0 + (hueColor.b - 1.0) * scaledDist;
-
-    final testPrimary = [r, g, b];
+  double _conditionNumberAt(double a, double b) {
+    // Get RGB for this wheel position
+    final rgb = wheelCoordsToRgb(a, b, sliderValue);
+    final testPrimary = rgb;
 
     List<List<double>> matrix;
     if (wheelIndex == 0) {
@@ -327,6 +397,7 @@ class ColorWheelPainter extends CustomPainter {
   bool shouldRepaint(covariant ColorWheelPainter old) {
     return old.selected != selected ||
         old.otherPrimary1 != otherPrimary1 ||
-        old.otherPrimary2 != otherPrimary2;
+        old.otherPrimary2 != otherPrimary2 ||
+        old.sliderValue != sliderValue;
   }
 }
