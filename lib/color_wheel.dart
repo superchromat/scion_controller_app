@@ -1,7 +1,69 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-/// Convert wheel drag position to RGB values
+// Cached wheel image
+ui.Image? _cachedWheelImage;
+int _cachedWheelSize = 0;
+
+/// Call this to invalidate the wheel cache (e.g., on hot reload)
+void invalidateWheelCache() {
+  _cachedWheelImage = null;
+  _cachedWheelSize = 0;
+}
+
+/// Generate HSV color wheel - white center, saturated colors at edge
+ui.Image _generateHsvWheel(int size) {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final center = size / 2.0;
+  final radius = center - 0.5; // Slight inset to allow for anti-aliasing
+
+  for (int y = 0; y < size; y++) {
+    for (int x = 0; x < size; x++) {
+      final dx = x - center + 0.5;
+      final dy = y - center + 0.5;
+      final dist = sqrt(dx * dx + dy * dy);
+
+      // Anti-aliasing: fade out pixels near the edge
+      if (dist <= radius + 1.0) {
+        final angle = atan2(dy, dx);
+        final hue = (angle * 180.0 / pi + 360.0) % 360.0;
+        final t = (dist / radius).clamp(0.0, 1.0);
+
+        // HSV edge color with S=1, V=1
+        final hueColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
+
+        // Linear interpolation from white (1,1,1) to edge color
+        final r = 1.0 - t + t * hueColor.r;
+        final g = 1.0 - t + t * hueColor.g;
+        final b = 1.0 - t + t * hueColor.b;
+
+        // Calculate alpha for anti-aliasing at edge
+        final alpha = (radius + 1.0 - dist).clamp(0.0, 1.0);
+
+        canvas.drawRect(
+          Rect.fromLTWH(x.toDouble(), y.toDouble(), 1, 1),
+          Paint()..color = Color.fromRGBO(
+            (r * 255).round().clamp(0, 255),
+            (g * 255).round().clamp(0, 255),
+            (b * 255).round().clamp(0, 255),
+            alpha,
+          ),
+        );
+      }
+    }
+  }
+
+  return recorder.endRecording().toImageSync(size, size);
+}
+
+/// Initialize the color wheel (no-op, kept for API compatibility)
+Future<void> loadWheelAsset() async {
+  // OKLCH wheel is generated on-demand, no assets needed
+}
+
+/// Convert wheel drag position to RGB values using HSV
 List<double> wheelPositionToRgb(Offset pos, double size) {
   final center = Offset(size / 2, size / 2);
   final offset = pos - center;
@@ -9,8 +71,11 @@ List<double> wheelPositionToRgb(Offset pos, double size) {
 
   final angle = atan2(offset.dy, offset.dx);
   final dist = (offset.distance / radius).clamp(0.0, 1.0);
+
+  // Scale by 2.0 to allow extended gamut beyond sRGB (r=0.5 is sRGB boundary)
   final scaledDist = dist * 2.0;
 
+  // HSV: angle maps directly to hue
   final hue = (angle * 180 / pi + 360) % 360;
   final hueColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
 
@@ -27,37 +92,23 @@ class ColorWheelPainter extends CustomPainter {
   final List<double> otherPrimary2;
   final int wheelIndex;
 
-  ColorWheelPainter(this.selected, this.otherPrimary1, this.otherPrimary2, this.wheelIndex);
+  ColorWheelPainter(
+    this.selected,
+    this.otherPrimary1,
+    this.otherPrimary2,
+    this.wheelIndex,
+  );
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
     final srgbRadius = radius * 0.5;
-    final rect = Rect.fromCircle(center: center, radius: radius);
 
-    // Sweep gradient for hues
-    final hueColors = [
-      const Color(0xFFFF0000),
-      const Color(0xFFFFFF00),
-      const Color(0xFF00FF00),
-      const Color(0xFF00FFFF),
-      const Color(0xFF0000FF),
-      const Color(0xFFFF00FF),
-      const Color(0xFFFF0000),
-    ];
+    // Draw HSV color wheel
+    _drawCachedWheel(canvas, center, radius);
 
-    final huePaint = Paint()
-      ..shader = SweepGradient(colors: hueColors).createShader(rect);
-    canvas.drawCircle(center, radius, huePaint);
-
-    final satPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [Colors.white, Colors.white.withValues(alpha: 0)],
-      ).createShader(rect);
-    canvas.drawCircle(center, radius, satPaint);
-
-    // Condition number heatmap
+    // Condition number heatmap overlay
     _drawHeatmap(canvas, center, radius, srgbRadius);
 
     // sRGB boundary (R=1 circle) - white solid
@@ -107,6 +158,7 @@ class ColorWheelPainter extends CustomPainter {
       final len = distFromWhite;
       final ndr = dr / len, ndg = dg / len, ndb = db / len;
 
+      // Find best matching HSV hue
       double bestHue = 0;
       double bestDot = -2;
       for (double h = 0; h < 360; h += 2) {
@@ -129,14 +181,39 @@ class ColorWheelPainter extends CustomPainter {
       selPos = center + Offset(cos(angle) * wheelDist, sin(angle) * wheelDist);
     }
 
+    // Use the actual selected color for the indicator
     final selColor = Color.fromRGBO(
       (r.clamp(0, 1) * 255).round(),
       (g.clamp(0, 1) * 255).round(),
       (b.clamp(0, 1) * 255).round(),
       1,
     );
+
     canvas.drawCircle(selPos, 8, Paint()..color = selColor);
     canvas.drawCircle(selPos, 8, Paint()..color = Colors.grey[600]!..style = PaintingStyle.stroke..strokeWidth = 2);
+  }
+
+  /// Draw HSV color wheel
+  void _drawCachedWheel(Canvas canvas, Offset center, double radius) {
+    // Check if we have a valid cached image
+    final size = (radius * 2).round();
+    if (_cachedWheelImage != null && _cachedWheelSize == size) {
+      // Draw cached image
+      final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(), _cachedWheelImage!.height.toDouble());
+      final dst = Rect.fromCircle(center: center, radius: radius);
+      canvas.drawImageRect(_cachedWheelImage!, src, dst, Paint()..filterQuality = FilterQuality.high);
+      return;
+    }
+
+    // Generate new HSV wheel
+    _cachedWheelImage = _generateHsvWheel(size);
+    _cachedWheelSize = size;
+
+    if (_cachedWheelImage != null) {
+      final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(), _cachedWheelImage!.height.toDouble());
+      final dst = Rect.fromCircle(center: center, radius: radius);
+      canvas.drawImageRect(_cachedWheelImage!, src, dst, Paint()..filterQuality = FilterQuality.high);
+    }
   }
 
   void _drawHeatmap(Canvas canvas, Offset center, double radius, double srgbRadius) {
@@ -168,6 +245,8 @@ class ColorWheelPainter extends CustomPainter {
 
   double _conditionNumberAt(double angle, double normalizedRadius) {
     final scaledDist = normalizedRadius * 2.0;
+
+    // Use HSV to compute test primary
     final hue = (angle * 180 / pi + 360) % 360;
     final hueColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
 

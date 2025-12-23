@@ -12,14 +12,27 @@ class TileLayout {
   static const double cardPaddingTB = 0;
   static const double cardPaddingLR = 12;  // Match Analog Format's 12px left padding
   static const double lockColumnWidth = 60;
-  static const double rowSpacing = 40;
+  static const double rowSpacing = 60;
 
   // Tile width calculated to make left section width ≈ 500px (matching Analog Format content)
   // Section width = 3*tileWidth + 3*marginPerTile + 2*(tileOuterMargin + sectionBoxPadding)
   //              = 3*tileWidth + 24 + 24 = 3*tileWidth + 48
   // For 500px: tileWidth = (500 - 48) / 3 = 150.67 ≈ 151
   static const double tileWidth = 151.0;
-  static const double tileHeight = 100.0;  // Keep original height
+  static const double tileHeight = 100.0;
+
+  // Section box label dimensions
+  static const double sectionLabelHeight = 16.0;
+  static const double sectionLabelSpacing = 4.0;
+
+  // LabeledCard dimensions (from labeled_card.dart)
+  static const double labeledCardOuterPadding = 8.0;
+  static const double labeledCardInnerPadding = 16.0;
+  static const double labeledCardTitleHeight = 28.0;  // titleLarge with line height
+  static const double labeledCardTitleSpacing = 12.0;
+
+  // Additional height to balance page margins (top/bottom padding equality)
+  static const double pageMarginBalance = 17.0;
 
   // Right offset to align tile center with Return Sync center (200px from card right edge)
   // Path from Row right edge to LabeledCard outer edge: cardPaddingLR + 24 (LabeledCard internal padding)
@@ -32,6 +45,23 @@ class TileLayout {
 
   static double totalHorizontalPaddingPerTile() =>
       2 * (tileOuterMargin + sectionBoxPadding);
+
+  /// Compute the total height needed for the System Overview card
+  static double computeCardHeight() {
+    // Section inner content: tile + spacing + label
+    const sectionInnerHeight = tileHeight + sectionLabelSpacing + sectionLabelHeight;
+    // Section total: margin + padding + content + padding + margin
+    const sectionHeight = 2 * tileOuterMargin + 2 * sectionBoxPadding + sectionInnerHeight;
+    // Two section rows with spacing between
+    const contentHeight = 2 * sectionHeight + rowSpacing;
+    // LabeledCard overhead: outer padding + inner padding + title + title spacing
+    const labeledCardOverhead = 2 * labeledCardOuterPadding +
+        2 * labeledCardInnerPadding +
+        labeledCardTitleHeight +
+        labeledCardTitleSpacing;
+    // Total card height + margin balance for equal top/bottom page padding
+    return contentHeight + labeledCardOverhead + 2 * cardPaddingTB + pageMarginBalance;
+  }
 }
 
 enum LabelPosition { top, bottom }
@@ -230,10 +260,7 @@ class _SystemOverviewState extends State<SystemOverview>
                             ),
                           ),
                         ),
-                        SizedBox(
-                          width: TileLayout.lockColumnWidth,
-                          child: Center(child: const SyncLock()),
-                        ),
+                        SizedBox(width: TileLayout.lockColumnWidth),
                         const Spacer(),
                         _sectionBox(
                           title: 'Return',

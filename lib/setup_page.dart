@@ -24,7 +24,9 @@ class _SystemPageState extends State<SystemPage> {
           child: Column(
             children: [
               IntrinsicHeight(
-                  child: SizedBox(height: 424, child: SystemOverview())),
+                  child: SizedBox(
+                      height: TileLayout.computeCardHeight(),
+                      child: SystemOverview())),
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

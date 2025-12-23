@@ -186,22 +186,21 @@ class _NeumorphicCardPainter extends CustomPainter {
       highlightPaint,
     );
 
-    // Noise texture overlay
-    if (lighting.noiseImage != null) {
-      final noisePaint = Paint()
-        ..shader = ImageShader(
-          lighting.noiseImage!,
-          TileMode.repeated,
-          TileMode.repeated,
-          Matrix4.identity().storage,
-        )
-        ..blendMode = BlendMode.overlay;
-
-      canvas.save();
-      canvas.clipRRect(rrect);
-      canvas.drawRect(rect, noisePaint);
-      canvas.restore();
-    }
+    // Noise texture overlay - DISABLED FOR DEBUG
+    // if (lighting.noiseImage != null) {
+    //   final noisePaint = Paint()
+    //     ..shader = ImageShader(
+    //       lighting.noiseImage!,
+    //       TileMode.repeated,
+    //       TileMode.repeated,
+    //       Matrix4.identity().storage,
+    //     )
+    //     ..blendMode = BlendMode.overlay;
+    //   canvas.save();
+    //   canvas.clipRRect(rrect);
+    //   canvas.drawRect(rect, noisePaint);
+    //   canvas.restore();
+    // }
   }
 
   @override
@@ -420,22 +419,21 @@ class _NeumorphicInsetPainter extends CustomPainter {
       shadowPaint,
     );
 
-    // Noise texture overlay
-    if (lighting.noiseImage != null) {
-      final noisePaint = Paint()
-        ..shader = ImageShader(
-          lighting.noiseImage!,
-          TileMode.repeated,
-          TileMode.repeated,
-          Matrix4.identity().storage,
-        )
-        ..blendMode = BlendMode.overlay;
-
-      canvas.save();
-      canvas.clipRRect(rrect);
-      canvas.drawRect(rect, noisePaint);
-      canvas.restore();
-    }
+    // Noise texture overlay - DISABLED FOR DEBUG
+    // if (lighting.noiseImage != null) {
+    //   final noisePaint = Paint()
+    //     ..shader = ImageShader(
+    //       lighting.noiseImage!,
+    //       TileMode.repeated,
+    //       TileMode.repeated,
+    //       Matrix4.identity().storage,
+    //     )
+    //     ..blendMode = BlendMode.overlay;
+    //   canvas.save();
+    //   canvas.clipRRect(rrect);
+    //   canvas.drawRect(rect, noisePaint);
+    //   canvas.restore();
+    // }
   }
 
   @override

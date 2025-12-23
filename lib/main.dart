@@ -16,7 +16,6 @@ import 'osc_registry_viewer.dart';
 import 'return_page.dart';
 import 'knob_page.dart';
 import 'lighting_settings.dart';
-import 'colorspace_wheel_page.dart';
 import 'din_cable_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.

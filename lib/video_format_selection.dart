@@ -45,7 +45,6 @@ class _VideoFormatSelectionSectionState
   String selectedResolution = '1920x1080';
   double selectedFramerate = 30.0;
   String selectedColorspace = 'YUV';
-  bool fullRange = true;
 
   // Primaries for color wheels (columns of the matrix)
   List<double> _primary1 = [1, 0, 0];
@@ -341,21 +340,6 @@ class _VideoFormatSelectionSectionState
                 ],
               ),
             ),
-            // Quantization range dropdown
-            const SizedBox(height: 16),
-            SizedBox(
-              width: colWidth,
-              child: OscDropdown<String>(
-                label: 'Quantization Range',
-                items: const ['Full (0-255)', 'Legal (16-235)'],
-                defaultValue: 'Full (0-255)',
-                onChanged: (value) {
-                  final isFullRange = value == 'Full (0-255)';
-                  setState(() => fullRange = isFullRange);
-                  sendOsc(isFullRange, address: '/analog_format/full_range');
-                },
-              ),
-            ),
           ],
         ),
       ),
@@ -405,22 +389,21 @@ class _LPainter extends CustomPainter {
 
     canvas.drawPath(combinedPath, gradientPaint);
 
-    // Noise texture overlay - draw once for combined shape
-    if (lighting.noiseImage != null) {
-      final noisePaint = Paint()
-        ..shader = ImageShader(
-          lighting.noiseImage!,
-          TileMode.repeated,
-          TileMode.repeated,
-          Matrix4.identity().storage,
-        )
-        ..blendMode = BlendMode.overlay;
-
-      canvas.save();
-      canvas.clipPath(combinedPath);
-      canvas.drawRect(combined, noisePaint);
-      canvas.restore();
-    }
+    // Noise texture overlay - DISABLED FOR DEBUG
+    // if (lighting.noiseImage != null) {
+    //   final noisePaint = Paint()
+    //     ..shader = ImageShader(
+    //       lighting.noiseImage!,
+    //       TileMode.repeated,
+    //       TileMode.repeated,
+    //       Matrix4.identity().storage,
+    //     )
+    //     ..blendMode = BlendMode.overlay;
+    //   canvas.save();
+    //   canvas.clipPath(combinedPath);
+    //   canvas.drawRect(combined, noisePaint);
+    //   canvas.restore();
+    // }
   }
 
   @override
