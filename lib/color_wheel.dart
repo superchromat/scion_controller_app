@@ -334,10 +334,11 @@ class ColorWheelPainter extends CustomPainter {
 
     final poly = _computeKappaPolynomial();
 
-    // Build grid of κ² values (used for marching squares boundary)
-    const double step = 2.5;
+    // Build grid of continuous danger values for smooth interpolation
+    // dangerValue > 1.0 means dangerous; we use max(kappa/threshold, bias/biasThreshold)
+    final double step = isCompact ? 2.0 : 1.5;
     final int n = (radius * 2 / step).ceil() + 2;
-    final kappaValues = List.generate(n, (_) => List.filled(n, 0.0));
+    final dangerValues = List.generate(n, (_) => List.filled(n, 0.0));
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
@@ -345,38 +346,41 @@ class ColorWheelPainter extends CustomPainter {
         final y = -radius - step + j * step;
         final a = (x / radius) * wheelScale;
         final b = (-y / radius) * wheelScale;
-        kappaValues[i][j] = poly.evaluateKappaSq(a, b);
+
+        // Compute normalized danger scores (>1 means dangerous)
+        final kappaSq = poly.evaluateKappaSq(a, b);
+        final kappaScore = sqrt(kappaSq) / kappaThreshold;
+
+        // Only compute bias if kappa isn't already very high (optimization)
+        double biasScore = 0.0;
+        if (kappaScore < 2.0) {
+          biasScore = _computeBiasAtPosition(a, b) / biasThreshold;
+        }
+
+        // Use max for combined danger (either condition triggers danger zone)
+        dangerValues[i][j] = max(kappaScore, biasScore);
       }
     }
 
-    // Grid-based fill (coarser for compact wheels)
-    // Check both kappa AND bias thresholds
-    final double fillStep = isCompact ? 3.0 : 1.5;
+    // Build fill path using the danger grid
     final fillPath = Path();
-    for (double x = -radius; x <= radius; x += fillStep) {
-      for (double y = -radius; y <= radius; y += fillStep) {
-        if (x * x + y * y > radius * radius) continue;
-        final a = (x / radius) * wheelScale;
-        final b = (-y / radius) * wheelScale;
-
-        // Check kappa threshold
-        final kappaSq = poly.evaluateKappaSq(a, b);
-        final kappaExceeded = kappaSq >= kappaThresholdSq;
-
-        // Check bias threshold (only compute if kappa didn't already trigger)
-        final biasExceeded = !kappaExceeded && _computeBiasAtPosition(a, b) > biasThreshold;
-
-        if (kappaExceeded || biasExceeded) {
-          fillPath.addRect(Rect.fromCenter(
-            center: Offset(center.dx + x, center.dy + y),
-            width: fillStep + 0.5,
-            height: fillStep + 0.5,
-          ));
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+        if (dangerValues[i][j] >= 1.0) {
+          final x = -radius - step + i * step;
+          final y = -radius - step + j * step;
+          if (x * x + y * y <= radius * radius * 1.1) {
+            fillPath.addRect(Rect.fromCenter(
+              center: Offset(center.dx + x, center.dy + y),
+              width: step + 0.5,
+              height: step + 0.5,
+            ));
+          }
         }
       }
     }
 
-    // Draw white background
+    // Draw white background with slight blur effect
     canvas.drawPath(fillPath, Paint()..color = Colors.white.withValues(alpha: 0.7));
 
     // Hatch pattern
@@ -395,51 +399,38 @@ class ColorWheelPainter extends CustomPainter {
     }
     canvas.restore();
 
-    // Build combined danger grid (kappa OR bias exceeds threshold)
-    // Use binary values: 0 = safe, 1 = dangerous
-    final dangerGrid = List.generate(n, (_) => List.filled(n, 0.0));
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < n; j++) {
-        final x = -radius - step + i * step;
-        final y = -radius - step + j * step;
-        final a = (x / radius) * wheelScale;
-        final b = (-y / radius) * wheelScale;
-
-        final kappaExceeds = kappaValues[i][j] >= kappaThresholdSq;
-        final biasExceeds = !kappaExceeds && _computeBiasAtPosition(a, b) > biasThreshold;
-
-        dangerGrid[i][j] = (kappaExceeds || biasExceeds) ? 1.0 : 0.0;
-      }
-    }
-
-    // Draw boundary using marching squares segments
+    // Draw smooth boundary using marching squares with linear interpolation
+    const double threshold = 1.0;
     final boundaryPath = Path();
-    const double dangerThreshold = 0.5;  // Binary threshold for danger grid
+
     for (int i = 0; i < n - 1; i++) {
       for (int j = 0; j < n - 1; j++) {
-        final v00 = dangerGrid[i][j];
-        final v10 = dangerGrid[i + 1][j];
-        final v01 = dangerGrid[i][j + 1];
-        final v11 = dangerGrid[i + 1][j + 1];
+        final v00 = dangerValues[i][j];
+        final v10 = dangerValues[i + 1][j];
+        final v01 = dangerValues[i][j + 1];
+        final v11 = dangerValues[i + 1][j + 1];
 
         final x0 = center.dx - radius - step + i * step;
         final y0 = center.dy - radius - step + j * step;
 
-        final b00 = v00 >= dangerThreshold ? 1 : 0;
-        final b10 = v10 >= dangerThreshold ? 2 : 0;
-        final b01 = v01 >= dangerThreshold ? 4 : 0;
-        final b11 = v11 >= dangerThreshold ? 8 : 0;
+        final b00 = v00 >= threshold ? 1 : 0;
+        final b10 = v10 >= threshold ? 2 : 0;
+        final b01 = v01 >= threshold ? 4 : 0;
+        final b11 = v11 >= threshold ? 8 : 0;
         final caseIndex = b00 | b10 | b01 | b11;
 
         if (caseIndex == 0 || caseIndex == 15) continue;
 
-        // For binary grid, lerp just gives midpoint
-        const double midpoint = 0.5;
+        // Linear interpolation for smooth boundary
+        double lerp(double va, double vb) {
+          if ((vb - va).abs() < 1e-10) return 0.5;
+          return (threshold - va) / (vb - va);
+        }
 
-        final bottom = Offset(x0 + midpoint * step, y0);
-        final top = Offset(x0 + midpoint * step, y0 + step);
-        final left = Offset(x0, y0 + midpoint * step);
-        final right = Offset(x0 + step, y0 + midpoint * step);
+        final bottom = Offset(x0 + lerp(v00, v10) * step, y0);
+        final top = Offset(x0 + lerp(v01, v11) * step, y0 + step);
+        final left = Offset(x0, y0 + lerp(v00, v01) * step);
+        final right = Offset(x0 + step, y0 + lerp(v10, v11) * step);
 
         void addSeg(Offset a, Offset b) {
           boundaryPath.moveTo(a.dx, a.dy);
@@ -464,13 +455,16 @@ class ColorWheelPainter extends CustomPainter {
         }
       }
     }
+
+    // Draw boundary with rounded joins for smoother appearance
     canvas.drawPath(
       boundaryPath,
       Paint()
         ..color = const Color(0xFFD32F2F)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = isCompact ? 1.5 : 2.5
-        ..strokeCap = StrokeCap.round,
+        ..strokeWidth = isCompact ? 1.5 : 2.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
     );
 
     canvas.restore();
