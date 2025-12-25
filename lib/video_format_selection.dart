@@ -95,6 +95,9 @@ class _VideoFormatSelectionSectionState
   Offset _dragGlobalPosition = Offset.zero;
   OverlayEntry? _kappaOverlayEntry;
 
+  // Track drag mode: 0 = none, 1 = wheel (chromaticity), 2 = arc (intensity)
+  int _dragMode = 0;
+
   // Slider values for each wheel (controls position along gray axis)
   double _slider1 = 0.0;
   double _slider2 = 0.0;
@@ -228,6 +231,8 @@ class _VideoFormatSelectionSectionState
 
     if (selectedColorspace != 'Custom') {
       selectedColorspace = 'Custom';
+      // Send OSC message to update colorspace on device
+      sendOsc('Custom', address: '/analog_format/colorspace');
     }
   }
 
@@ -235,20 +240,9 @@ class _VideoFormatSelectionSectionState
     final sliderValue = _getSliderForPrimary(primaryIndex);
     final rgb = wheelPositionToRgb(pos, size, sliderValue);
 
-    // Clamp the overlay position to the wheel boundary
-    final center = Offset(size / 2, size / 2);
-    var offset = pos - center;
-    final radius = size / 2;
-    final dist = offset.distance;
-    if (dist > radius) {
-      offset = offset * (radius / dist);
-    }
-    final clampedLocal = center + offset;
-    final clampedGlobal = localOrigin + clampedLocal;
-
     setState(() {
       _draggingWheelIndex = primaryIndex;
-      _dragGlobalPosition = clampedGlobal;
+      _dragGlobalPosition = globalPos;  // Use actual mouse position, not clamped
       if (primaryIndex == 0) {
         _primary1 = rgb;
       } else if (primaryIndex == 1) {
@@ -291,14 +285,16 @@ class _VideoFormatSelectionSectionState
             ? _primary2
             : _primary3;
 
-    // Position so the circle is centered on the drag position
-    // Bar height is 28, circle is centered vertically, left padding is 6
+    // Position so the circle CENTER is at the cursor position
+    // Bar layout: [leftPadding][circle 16px][gap][text][gap][bar]
+    // Circle center is at leftPadding + circleRadius from bar's left edge
     const barHeight = 28.0;
     const circleRadius = 8.0;
     const leftPadding = 6.0;
+    const circleCenterFromLeft = leftPadding + circleRadius;  // 14px
 
     return Positioned(
-      left: _dragGlobalPosition.dx - circleRadius - leftPadding,
+      left: _dragGlobalPosition.dx - circleCenterFromLeft,
       top: _dragGlobalPosition.dy - barHeight / 2,
       child: IgnorePointer(
         child: Material(
@@ -336,6 +332,7 @@ class _VideoFormatSelectionSectionState
     _hideKappaOverlay();
     setState(() {
       _draggingWheelIndex = -1;
+      _dragMode = 0;
     });
   }
 
@@ -491,98 +488,183 @@ class _VideoFormatSelectionSectionState
   }
 
   Widget _buildColorWheel(BuildContext context, String label, int primaryIndex, List<double> rgb, List<double> other1, List<double> other2) {
-    const size = 90.0;
+    // With staggered layout and Stack positioning, wheels can overlap horizontally
+    // 105px = 17% larger than original 90px
+    const totalSize = 105.0;
+    const arcWidth = 6.0;
+    const arcGap = 2.0;  // Gap between arc and wheel
     final sliderValue = _getSliderForPrimary(primaryIndex);
 
-    return Column(
+    // Label color matches the primary's RGB value (clamped for display)
+    final labelColor = Color.fromRGBO(
+      (rgb[0].clamp(0, 1) * 255).round(),
+      (rgb[1].clamp(0, 1) * 255).round(),
+      (rgb[2].clamp(0, 1) * 255).round(),
+      1,
+    );
+
+    // Channel 2 (primaryIndex == 1) has flipped layout: RGB on top, wheel on bottom
+    final bool isFlipped = primaryIndex == 1;
+
+    final wheelWidget = GestureDetector(
+      onPanStart: (d) => _handleCombinedDrag(d.localPosition, totalSize, arcWidth, arcGap, primaryIndex, d.globalPosition, d.globalPosition - d.localPosition, isStart: true),
+      onPanUpdate: (d) => _handleCombinedDrag(d.localPosition, totalSize, arcWidth, arcGap, primaryIndex, d.globalPosition, d.globalPosition - d.localPosition, isStart: false),
+      onPanEnd: (_) => _handleWheelDragEnd(),
+      onTapDown: (d) => _handleCombinedDrag(d.localPosition, totalSize, arcWidth, arcGap, primaryIndex, d.globalPosition, d.globalPosition - d.localPosition, isStart: true),
+      onTapUp: (_) => _handleWheelDragEnd(),
+      child: CustomPaint(
+        size: const Size(totalSize, totalSize),
+        painter: _WheelWithArcPainter(
+          rgb: rgb,
+          other1: other1,
+          other2: other2,
+          wheelIndex: primaryIndex,
+          sliderValue: sliderValue,
+          arcWidth: arcWidth,
+          arcGap: arcGap,
+        ),
+      ),
+    );
+
+    final labelWidget = Text(label, style: TextStyle(fontSize: 13, color: labelColor, fontWeight: FontWeight.bold));
+
+    final rgbWidget = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Wheel
-        GestureDetector(
-          onPanStart: (d) {
-            final origin = d.globalPosition - d.localPosition;
-            _handleWheelDrag(d.localPosition, size, primaryIndex, d.globalPosition, origin);
-          },
-          onPanUpdate: (d) {
-            final origin = d.globalPosition - d.localPosition;
-            _handleWheelDrag(d.localPosition, size, primaryIndex, d.globalPosition, origin);
-          },
-          onPanEnd: (_) => _handleWheelDragEnd(),
-          onTapDown: (d) {
-            final origin = d.globalPosition - d.localPosition;
-            _handleWheelDrag(d.localPosition, size, primaryIndex, d.globalPosition, origin);
-          },
-          onTapUp: (_) => _handleWheelDragEnd(),
-          child: CustomPaint(
-            size: const Size(size, size),
-            painter: ColorWheelPainter(rgb, other1, other2, primaryIndex, sliderValue: sliderValue, isCompact: true),
-          ),
+        Text(
+          '${rgb[0] >= 0 ? '+' : ''}${rgb[0].toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFFFF6B6B)),
         ),
-        const SizedBox(height: 4),
-        // Intensity slider - hidden for testing
-        // SizedBox(
-        //   width: size,
-        //   height: 24,
-        //   child: Row(
-        //     children: [
-        //       Text('−', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-        //       Expanded(
-        //         child: SliderTheme(
-        //           data: SliderTheme.of(context).copyWith(
-        //             trackHeight: 3,
-        //             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-        //             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        //             activeTrackColor: Colors.grey[400],
-        //             inactiveTrackColor: Colors.grey[700],
-        //             thumbColor: Colors.grey[300],
-        //           ),
-        //           child: Slider(
-        //             value: sliderValue.clamp(-2.0, 2.0),
-        //             min: -2.0,
-        //             max: 2.0,
-        //             onChanged: (v) => _handleSliderChange(primaryIndex, v),
-        //           ),
-        //         ),
-        //       ),
-        //       Text('+', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-        //     ],
-        //   ),
-        // ),
-        // Label below wheel
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[400], fontWeight: FontWeight.w500)),
-        const SizedBox(height: 2),
-        // RGB triplets below label
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${rgb[0] >= 0 ? '+' : ''}${rgb[0].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFFFF6B6B)),
-            ),
-            Text(
-              '${rgb[1] >= 0 ? '+' : ''}${rgb[1].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF69DB7C)),
-            ),
-            Text(
-              '${rgb[2] >= 0 ? '+' : ''}${rgb[2].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF74C0FC)),
-            ),
-          ],
+        Text(
+          '${rgb[1] >= 0 ? '+' : ''}${rgb[1].toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF69DB7C)),
+        ),
+        Text(
+          '${rgb[2] >= 0 ? '+' : ''}${rgb[2].toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 12, fontFamily: 'Courier', fontFamilyFallback: ['Courier New', 'monospace'], color: Color(0xFF74C0FC)),
         ),
       ],
     );
+
+    if (isFlipped) {
+      // Channel 2: RGB on top, label in middle, wheel on bottom
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          rgbWidget,
+          const SizedBox(height: 2),
+          labelWidget,
+          const SizedBox(height: 4),
+          wheelWidget,
+        ],
+      );
+    } else {
+      // Channels 1 & 3: Wheel on top, label in middle, RGB on bottom
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          wheelWidget,
+          const SizedBox(height: 4),
+          labelWidget,
+          const SizedBox(height: 2),
+          rgbWidget,
+        ],
+      );
+    }
+  }
+
+  void _handleCombinedDrag(Offset pos, double totalSize, double arcWidth, double arcGap, int primaryIndex, Offset globalPos, Offset localOrigin, {required bool isStart}) {
+    final center = Offset(totalSize / 2, totalSize / 2);
+    final offset = pos - center;
+    final dist = offset.distance;
+    final outerRadius = totalSize / 2;
+    final innerRadius = outerRadius - arcWidth - arcGap;  // Arc + gap
+
+    // On drag start, determine and lock the mode
+    if (isStart) {
+      _dragMode = dist > innerRadius ? 2 : 1;  // 2 = arc, 1 = wheel
+    }
+
+    if (_dragMode == 2) {
+      // Dragging on arc - adjust intensity based on angle
+      // Arc uses same convention as rotary knob: startAngle = 0.75π, sweepAngle = 1.5π
+      // This gives 270° arc from 135° to 405° (bottom dead zone)
+      const startAngle = 0.75 * pi;  // 135°
+      const sweepAngle = 1.5 * pi;   // 270°
+
+      // Get angle of drag position (canvas coords: 0 = right, increases clockwise)
+      var angle = atan2(offset.dy, offset.dx);
+
+      // Normalize angle to be relative to startAngle
+      var relAngle = angle - startAngle;
+      // Wrap to [0, 2π)
+      while (relAngle < 0) relAngle += 2 * pi;
+      while (relAngle >= 2 * pi) relAngle -= 2 * pi;
+
+      // Clamp to arc range
+      if (relAngle > sweepAngle) {
+        // In dead zone - snap to nearest end
+        relAngle = relAngle < (sweepAngle + (2 * pi - sweepAngle) / 2) ? sweepAngle : 0;
+      }
+
+      // Map to normalized 0-1, then to slider -2 to +2
+      final normalized = relAngle / sweepAngle;
+      final sliderValue = -2.0 + normalized * 4.0;  // 0 -> -2, 1 -> +2
+
+      _handleSliderChange(primaryIndex, sliderValue.clamp(-2.0, 2.0));
+      // No overlay for arc dragging - only for wheel dragging
+    } else {
+      // Dragging on inner wheel - adjust chromaticity
+      final wheelSize = innerRadius * 2;
+      // Remap position to inner wheel coordinates
+      final wheelPos = Offset(
+        (offset.dx / innerRadius) * (wheelSize / 2) + wheelSize / 2,
+        (offset.dy / innerRadius) * (wheelSize / 2) + wheelSize / 2,
+      );
+      _handleWheelDrag(wheelPos, wheelSize, primaryIndex, globalPos, localOrigin);
+    }
   }
 
   Widget _colorWheelsWidget(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildColorWheel(context, 'Channel 1', 0, _primary1, _primary2, _primary3),
-        const SizedBox(width: 10),
-        _buildColorWheel(context, 'Channel 2', 1, _primary2, _primary1, _primary3),
-        const SizedBox(width: 10),
-        _buildColorWheel(context, 'Channel 3', 2, _primary3, _primary1, _primary2),
-      ],
+    // Use Stack for precise positioning with overlap
+    // Grey box = 310px, want 10px padding each side → 290px available
+    // Wheels can overlap horizontally since Ch1/Ch3 are at top, Ch2 at bottom
+    const double wheelSize = 105.0;
+    const double availableWidth = 290.0;
+
+    // Column heights: wheel(105) + gap(4) + label(18) + gap(2) + rgb(42) ≈ 171
+    const double columnHeight = 171.0;
+
+    // Ch1 left edge, Ch3 right edge, Ch2 centered
+    // Ch1 spans 0-105, Ch2 spans 92.5-197.5, Ch3 spans 185-290
+    // Overlaps are fine due to vertical stagger
+    const double ch1Left = 0;
+    final double ch2Left = (availableWidth - wheelSize) / 2;  // 92.5
+    final double ch3Left = availableWidth - wheelSize;  // 185
+
+    return SizedBox(
+      width: availableWidth,
+      height: columnHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: ch1Left,
+            top: 0,
+            child: _buildColorWheel(context, 'Channel 1', 0, _primary1, _primary2, _primary3),
+          ),
+          Positioned(
+            left: ch2Left,
+            top: 0,
+            child: _buildColorWheel(context, 'Channel 2', 1, _primary2, _primary1, _primary3),
+          ),
+          Positioned(
+            left: ch3Left,
+            top: 0,
+            child: _buildColorWheel(context, 'Channel 3', 2, _primary3, _primary1, _primary2),
+          ),
+        ],
+      ),
     );
   }
 
@@ -986,5 +1068,215 @@ class _KappaBarPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _KappaBarPainter old) =>
       old.barFraction != barFraction || old.kappa != kappa;
+}
+
+/// Painter for color wheel with intensity arc around it (rotary knob style)
+class _WheelWithArcPainter extends CustomPainter {
+  final List<double> rgb;
+  final List<double> other1;
+  final List<double> other2;
+  final int wheelIndex;
+  final double sliderValue;
+  final double arcWidth;
+  final double arcGap;
+
+  // Arc angles matching rotary knob
+  static const double startAngle = 0.75 * pi;  // 135°
+  static const double sweepAngle = 1.5 * pi;   // 270°
+
+  _WheelWithArcPainter({
+    required this.rgb,
+    required this.other1,
+    required this.other2,
+    required this.wheelIndex,
+    required this.sliderValue,
+    required this.arcWidth,
+    required this.arcGap,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = size.width / 2;
+    final arcRadius = outerRadius - arcWidth / 2;
+    final slotOuterRadius = outerRadius;
+    final slotInnerRadius = outerRadius - arcWidth;
+    final wheelRadius = slotInnerRadius - arcGap;
+
+    // === NEUMORPHIC SLOT (matching rotary knob) ===
+    const lightOffset = Alignment(0.0, -0.4);
+
+    // Border gradient
+    final borderGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.7,
+      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth + 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = borderGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Outer shadow
+    final outerShadowGradient = RadialGradient(
+      center: const Alignment(0.0, 0.5),
+      radius: 0.6,
+      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
+      stops: const [0.0, 0.3, 0.8],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: slotOuterRadius - 1),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.butt
+        ..shader = outerShadowGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Inner highlight
+    final innerHighlightGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.6,
+      colors: const [Color(0xFF353535), Color(0xFF252525), Color(0x00000000)],
+      stops: const [0.0, 0.2, 0.5],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.butt
+        ..shader = innerHighlightGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Dark floor
+    final floorGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.7,
+      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth - 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = floorGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // === BIPOLAR VALUE ARC ===
+    // Same amber color as rotary knob
+    const Color activeColor = Color(0xFFF0B830);
+
+    // sliderValue: -2 to +2, neutral at 0
+    // Map to normalized: -2 -> 0, 0 -> 0.5, +2 -> 1
+    final normalized = (sliderValue + 2.0) / 4.0;
+    const neutralNormalized = 0.5;
+
+    final neutralAngle = startAngle + neutralNormalized * sweepAngle;
+    final valueAngle = startAngle + normalized * sweepAngle;
+    final arcStartAngle = min(neutralAngle, valueAngle);
+    final arcEndAngle = max(neutralAngle, valueAngle);
+    var arcSweep = arcEndAngle - arcStartAngle;
+
+    // Minimum arc width for visibility
+    const minArcSweep = 0.10;
+    var drawArcStart = arcStartAngle;
+    var drawArcSweep = arcSweep;
+
+    if (arcSweep < minArcSweep) {
+      drawArcStart = valueAngle - minArcSweep / 2;
+      drawArcSweep = minArcSweep;
+    }
+
+    // Value arc gradient (same as rotary knob)
+    final valueArcGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.8,
+      colors: [
+        activeColor,
+        Color.lerp(activeColor, Colors.black, 0.10)!,
+        Color.lerp(activeColor, Colors.black, 0.20)!,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      drawArcStart,
+      drawArcSweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth - 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = valueArcGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Highlight on value arc
+    final highlightGradient = RadialGradient(
+      center: const Alignment(0.0, -0.6),
+      radius: 0.5,
+      colors: [
+        Colors.white.withValues(alpha: 0.35),
+        Colors.white.withValues(alpha: 0.10),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.3, 0.7],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      drawArcStart,
+      drawArcSweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth - 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = highlightGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // === DRAW INNER WHEEL ===
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: wheelRadius)));
+
+    final wheelPainter = ColorWheelPainter(
+      rgb, other1, other2, wheelIndex,
+      sliderValue: sliderValue,
+      isCompact: true,
+    );
+
+    // Scale and translate to fit in the inner area
+    final wheelDiameter = wheelRadius * 2;
+    final scale = wheelDiameter / size.width;
+    canvas.translate(center.dx - wheelRadius, center.dy - wheelRadius);
+    canvas.scale(scale);
+    wheelPainter.paint(canvas, Size(size.width, size.height));
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _WheelWithArcPainter old) =>
+      old.rgb != rgb ||
+      old.sliderValue != sliderValue;
 }
 
