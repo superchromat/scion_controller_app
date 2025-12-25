@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'color_wheel.dart';
 import 'color_space_matrix.dart';
+import 'video_format_selection.dart' show computeRequiredAdcBias, kMaxAdcBiasNormalized;
 
 class ColorPrimariesPage extends StatefulWidget {
   const ColorPrimariesPage({super.key});
@@ -155,6 +156,15 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
       [_primary1[2], _primary2[2], _primary3[2]],
     ];
     return _computeConditionNumber(matrix);
+  }
+
+  double _getRequiredAdcBias() {
+    final matrix = [
+      [_primary1[0], _primary2[0], _primary3[0]],
+      [_primary1[1], _primary2[1], _primary3[1]],
+      [_primary1[2], _primary2[2], _primary3[2]],
+    ];
+    return computeRequiredAdcBias(matrix);
   }
 
   double _computeConditionNumber(List<List<double>> m) {
@@ -315,6 +325,8 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
   @override
   Widget build(BuildContext context) {
     final kappa = _getConditionNumber();
+    final adcBias = _getRequiredAdcBias();
+    final biasExceedsLimit = adcBias > kMaxAdcBiasNormalized;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -390,6 +402,34 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                     ),
                   ),
                 ),
+
+                // ADC Bias warning (only shown when exceeds hardware limit)
+                if (biasExceedsLimit) ...[
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.warning_amber, color: Colors.red, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'ADC Bias Overflow: ${adcBias.toStringAsFixed(2)} > ${kMaxAdcBiasNormalized.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red[300],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 32),

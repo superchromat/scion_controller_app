@@ -2,6 +2,8 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+import 'video_format_selection.dart' show computeRequiredAdcBias;
+
 // Cached wheel image
 ui.Image? _cachedWheelImage;
 int _cachedWheelSize = 0;
@@ -287,20 +289,55 @@ class ColorWheelPainter extends CustomPainter {
     );
   }
 
+  /// Compute ADC bias for a given wheel position (a, b).
+  /// Returns the max required ADC bias for the matrix formed by placing
+  /// the wheel position's RGB in the appropriate column.
+  double _computeBiasAtPosition(double a, double b) {
+    final rgb = wheelCoordsToRgb(a, b, sliderValue);
+
+    // Build matrix with this primary in the correct column
+    List<List<double>> matrix;
+    switch (wheelIndex) {
+      case 0:
+        matrix = [
+          [rgb[0], otherPrimary1[0], otherPrimary2[0]],
+          [rgb[1], otherPrimary1[1], otherPrimary2[1]],
+          [rgb[2], otherPrimary1[2], otherPrimary2[2]],
+        ];
+        break;
+      case 1:
+        matrix = [
+          [otherPrimary1[0], rgb[0], otherPrimary2[0]],
+          [otherPrimary1[1], rgb[1], otherPrimary2[1]],
+          [otherPrimary1[2], rgb[2], otherPrimary2[2]],
+        ];
+        break;
+      default: // case 2
+        matrix = [
+          [otherPrimary1[0], otherPrimary2[0], rgb[0]],
+          [otherPrimary1[1], otherPrimary2[1], rgb[1]],
+          [otherPrimary1[2], otherPrimary2[2], rgb[2]],
+        ];
+    }
+
+    return computeRequiredAdcBias(matrix);
+  }
+
   void _drawDangerZone(Canvas canvas, Offset center, double radius) {
     canvas.save();
     canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
 
-    const double threshold = 15.0;
-    const double thresholdSq = threshold * threshold;
+    const double kappaThreshold = 15.0;
+    const double kappaThresholdSq = kappaThreshold * kappaThreshold;
+    const double biasThreshold = 1.5;
     const double wheelScale = 2.0;
 
     final poly = _computeKappaPolynomial();
 
-    // Build grid of κ² values
+    // Build grid of κ² values (used for marching squares boundary)
     const double step = 2.5;
     final int n = (radius * 2 / step).ceil() + 2;
-    final values = List.generate(n, (_) => List.filled(n, 0.0));
+    final kappaValues = List.generate(n, (_) => List.filled(n, 0.0));
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
@@ -308,11 +345,12 @@ class ColorWheelPainter extends CustomPainter {
         final y = -radius - step + j * step;
         final a = (x / radius) * wheelScale;
         final b = (-y / radius) * wheelScale;
-        values[i][j] = poly.evaluateKappaSq(a, b);
+        kappaValues[i][j] = poly.evaluateKappaSq(a, b);
       }
     }
 
     // Grid-based fill (coarser for compact wheels)
+    // Check both kappa AND bias thresholds
     final double fillStep = isCompact ? 3.0 : 1.5;
     final fillPath = Path();
     for (double x = -radius; x <= radius; x += fillStep) {
@@ -320,7 +358,15 @@ class ColorWheelPainter extends CustomPainter {
         if (x * x + y * y > radius * radius) continue;
         final a = (x / radius) * wheelScale;
         final b = (-y / radius) * wheelScale;
-        if (poly.evaluateKappaSq(a, b) >= thresholdSq) {
+
+        // Check kappa threshold
+        final kappaSq = poly.evaluateKappaSq(a, b);
+        final kappaExceeded = kappaSq >= kappaThresholdSq;
+
+        // Check bias threshold (only compute if kappa didn't already trigger)
+        final biasExceeded = !kappaExceeded && _computeBiasAtPosition(a, b) > biasThreshold;
+
+        if (kappaExceeded || biasExceeded) {
           fillPath.addRect(Rect.fromCenter(
             center: Offset(center.dx + x, center.dy + y),
             width: fillStep + 0.5,
@@ -349,35 +395,51 @@ class ColorWheelPainter extends CustomPainter {
     }
     canvas.restore();
 
+    // Build combined danger grid (kappa OR bias exceeds threshold)
+    // Use binary values: 0 = safe, 1 = dangerous
+    final dangerGrid = List.generate(n, (_) => List.filled(n, 0.0));
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+        final x = -radius - step + i * step;
+        final y = -radius - step + j * step;
+        final a = (x / radius) * wheelScale;
+        final b = (-y / radius) * wheelScale;
+
+        final kappaExceeds = kappaValues[i][j] >= kappaThresholdSq;
+        final biasExceeds = !kappaExceeds && _computeBiasAtPosition(a, b) > biasThreshold;
+
+        dangerGrid[i][j] = (kappaExceeds || biasExceeds) ? 1.0 : 0.0;
+      }
+    }
+
     // Draw boundary using marching squares segments
     final boundaryPath = Path();
+    const double dangerThreshold = 0.5;  // Binary threshold for danger grid
     for (int i = 0; i < n - 1; i++) {
       for (int j = 0; j < n - 1; j++) {
-        final v00 = values[i][j];
-        final v10 = values[i + 1][j];
-        final v01 = values[i][j + 1];
-        final v11 = values[i + 1][j + 1];
+        final v00 = dangerGrid[i][j];
+        final v10 = dangerGrid[i + 1][j];
+        final v01 = dangerGrid[i][j + 1];
+        final v11 = dangerGrid[i + 1][j + 1];
 
         final x0 = center.dx - radius - step + i * step;
         final y0 = center.dy - radius - step + j * step;
 
-        final b00 = v00 >= thresholdSq ? 1 : 0;
-        final b10 = v10 >= thresholdSq ? 2 : 0;
-        final b01 = v01 >= thresholdSq ? 4 : 0;
-        final b11 = v11 >= thresholdSq ? 8 : 0;
+        final b00 = v00 >= dangerThreshold ? 1 : 0;
+        final b10 = v10 >= dangerThreshold ? 2 : 0;
+        final b01 = v01 >= dangerThreshold ? 4 : 0;
+        final b11 = v11 >= dangerThreshold ? 8 : 0;
         final caseIndex = b00 | b10 | b01 | b11;
 
         if (caseIndex == 0 || caseIndex == 15) continue;
 
-        double lerp(double va, double vb) {
-          if ((vb - va).abs() < 1e-10) return 0.5;
-          return (thresholdSq - va) / (vb - va);
-        }
+        // For binary grid, lerp just gives midpoint
+        const double midpoint = 0.5;
 
-        final bottom = Offset(x0 + lerp(v00, v10) * step, y0);
-        final top = Offset(x0 + lerp(v01, v11) * step, y0 + step);
-        final left = Offset(x0, y0 + lerp(v00, v01) * step);
-        final right = Offset(x0 + step, y0 + lerp(v10, v11) * step);
+        final bottom = Offset(x0 + midpoint * step, y0);
+        final top = Offset(x0 + midpoint * step, y0 + step);
+        final left = Offset(x0, y0 + midpoint * step);
+        final right = Offset(x0 + step, y0 + midpoint * step);
 
         void addSeg(Offset a, Offset b) {
           boundaryPath.moveTo(a.dx, a.dy);

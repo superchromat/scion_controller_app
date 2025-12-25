@@ -13,6 +13,70 @@ import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'osc_dropdown.dart';
 
+/// Hardware limit for ADC bias (14-bit signed, max positive = 8191, but practical limit ~2048)
+const double kMaxAdcBiasNormalized = 0.5;  // 2048 in Q12
+
+/// Compute the required ADC output bias for a matrix.
+/// Returns the maximum absolute bias needed across all channels.
+/// If this exceeds kMaxAdcBiasNormalized, the matrix cannot be properly recovered.
+double computeRequiredAdcBias(List<List<double>> m) {
+  // Step 1: Compute output range and scale factor
+  double scale = 1.0;
+  List<double> minOut = [0, 0, 0];
+
+  for (int row = 0; row < 3; row++) {
+    double posSum = 0, negSum = 0;
+    for (int col = 0; col < 3; col++) {
+      if (m[row][col] > 0) {
+        posSum += m[row][col];
+      } else {
+        negSum += m[row][col];
+      }
+    }
+    minOut[row] = negSum;
+    double range = posSum - negSum;
+    if (range > scale) scale = range;
+  }
+  scale *= 1.05;  // margin
+
+  // Step 2: Compute DAC output bias = -min/scale
+  List<double> dacBias = [
+    -minOut[0] / scale,
+    -minOut[1] / scale,
+    -minOut[2] / scale,
+  ];
+
+  // Step 3: Compute inverse matrix
+  final det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+              m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+              m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+
+  if (det.abs() < 1e-10) return double.infinity;
+
+  final adj = [
+    [m[1][1]*m[2][2] - m[1][2]*m[2][1], m[0][2]*m[2][1] - m[0][1]*m[2][2], m[0][1]*m[1][2] - m[0][2]*m[1][1]],
+    [m[1][2]*m[2][0] - m[1][0]*m[2][2], m[0][0]*m[2][2] - m[0][2]*m[2][0], m[0][2]*m[1][0] - m[0][0]*m[1][2]],
+    [m[1][0]*m[2][1] - m[1][1]*m[2][0], m[0][1]*m[2][0] - m[0][0]*m[2][1], m[0][0]*m[1][1] - m[0][1]*m[1][0]],
+  ];
+
+  // M^-1 = adj / det
+  List<List<double>> mInv = List.generate(3, (i) =>
+    List.generate(3, (j) => adj[i][j] / det));
+
+  // Step 4: Compute ADC output bias = -M^-1 × scale × dacBias
+  double maxAdcBias = 0;
+  for (int row = 0; row < 3; row++) {
+    double sum = 0;
+    for (int col = 0; col < 3; col++) {
+      sum += mInv[row][col] * scale * dacBias[col];
+    }
+    double adcBias = sum.abs();  // We negate in firmware, so absolute value
+    if (adcBias > maxAdcBias) maxAdcBias = adcBias;
+  }
+
+  return maxAdcBias;
+}
+
 /// Compute condition number for a 3x3 matrix using Frobenius norm
 double computeConditionNumber(List<List<double>> m) {
   double frobM = 0;
@@ -279,6 +343,7 @@ class _VideoFormatSelectionSectionState
 
   Widget _buildKappaOverlayPositioned() {
     final kappa = _getCurrentConditionNumber();
+    final adcBias = _getCurrentRequiredAdcBias();
     final rgb = _draggingWheelIndex == 0
         ? _primary1
         : _draggingWheelIndex == 1
@@ -299,7 +364,7 @@ class _VideoFormatSelectionSectionState
       child: IgnorePointer(
         child: Material(
           color: Colors.transparent,
-          child: _buildKappaOverlay(kappa, rgb),
+          child: _buildKappaOverlay(kappa, adcBias, rgb),
         ),
       ),
     );
@@ -343,6 +408,15 @@ class _VideoFormatSelectionSectionState
       [_primary1[2], _primary2[2], _primary3[2]],
     ];
     return computeConditionNumber(matrix);
+  }
+
+  double _getCurrentRequiredAdcBias() {
+    final matrix = [
+      [_primary1[0], _primary2[0], _primary3[0]],
+      [_primary1[1], _primary2[1], _primary3[1]],
+      [_primary1[2], _primary2[2], _primary3[2]],
+    ];
+    return computeRequiredAdcBias(matrix);
   }
 
   Widget _buildConditionBar(double kappa) {
@@ -399,7 +473,7 @@ class _VideoFormatSelectionSectionState
     );
   }
 
-  Widget _buildKappaOverlay(double kappa, List<double> rgb) {
+  Widget _buildKappaOverlay(double kappa, double adcBias, List<double> rgb) {
     // Clamp color for display
     final displayColor = Color.fromRGBO(
       (rgb[0].clamp(0, 1) * 255).round(),
@@ -421,14 +495,20 @@ class _VideoFormatSelectionSectionState
         : '  ∞ ';
 
     // Text color based on kappa value
-    final Color textColor;
+    final Color kappaTextColor;
     if (kappa <= 4) {
-      textColor = const Color(0xFF4CAF50); // Green
+      kappaTextColor = const Color(0xFF4CAF50); // Green
     } else if (kappa <= 15) {
-      textColor = const Color(0xFFF0B830); // Yellow/amber
+      kappaTextColor = const Color(0xFFF0B830); // Yellow/amber
     } else {
-      textColor = const Color(0xFFF44336); // Red
+      kappaTextColor = const Color(0xFFF44336); // Red
     }
+
+    // ADC bias warning - check if it exceeds hardware limit
+    final bool biasExceedsLimit = adcBias > kMaxAdcBiasNormalized;
+    final biasStr = adcBias.isFinite
+        ? adcBias.clamp(0, 9.9).toStringAsFixed(2)
+        : '∞';
 
     return Container(
       height: barHeight,
@@ -470,7 +550,7 @@ class _VideoFormatSelectionSectionState
               fontWeight: FontWeight.w600,
               fontFamily: 'Courier',
               fontFamilyFallback: const ['Courier New', 'monospace'],
-              color: textColor,
+              color: kappaTextColor,
             ),
           ),
           const SizedBox(width: 8),
@@ -482,6 +562,28 @@ class _VideoFormatSelectionSectionState
               kappa: kappa,
             ),
           ),
+          // ADC bias warning indicator (only show when exceeds limit)
+          if (biasExceedsLimit) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF44336).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFF44336), width: 1),
+              ),
+              child: Text(
+                'BIAS:$biasStr',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Courier',
+                  fontFamilyFallback: ['Courier New', 'monospace'],
+                  color: Color(0xFFF44336),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
