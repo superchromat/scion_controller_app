@@ -562,6 +562,7 @@ class _VideoFormatSelectionSectionState
               kappa: kappa,
             ),
           ),
+          /*
           // ADC bias warning indicator (only show when exceeds limit)
           if (biasExceedsLimit) ...[
             const SizedBox(width: 8),
@@ -583,7 +584,7 @@ class _VideoFormatSelectionSectionState
                 ),
               ),
             ),
-          ],
+          ], */
         ],
       ),
     );

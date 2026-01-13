@@ -329,14 +329,14 @@ class ColorWheelPainter extends CustomPainter {
 
     const double kappaThreshold = 15.0;
     const double kappaThresholdSq = kappaThreshold * kappaThreshold;
-    const double biasThreshold = 1.5;
+    const double biasThreshold = 1.9;
     const double wheelScale = 2.0;
 
     final poly = _computeKappaPolynomial();
 
     // Build grid of continuous danger values for smooth interpolation
     // dangerValue > 1.0 means dangerous; we use max(kappa/threshold, bias/biasThreshold)
-    final double step = isCompact ? 2.0 : 1.5;
+    final double step = isCompact ? 2.0 : 0.5;
     final int n = (radius * 2 / step).ceil() + 2;
     final dangerValues = List.generate(n, (_) => List.filled(n, 0.0));
 
