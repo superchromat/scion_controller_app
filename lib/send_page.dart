@@ -6,6 +6,7 @@ import 'send_color.dart';
 import 'osc_dropdown.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
+import 'send_glitch.dart';
 import 'osc_registry.dart';
 
 class SendPage extends StatefulWidget {
@@ -18,6 +19,9 @@ class SendPage extends StatefulWidget {
 }
 
 class _SendPageState extends State<SendPage> with OscAddressMixin {
+  final _textureKey = GlobalKey();
+  final _glitchKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +36,16 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     if (widget.pageNumber == 1) {
       registry.registerAddress('$send/rotation');
     }
+  }
+
+  Widget _resetButton(VoidCallback onPressed) {
+    return IconButton(
+      icon: Icon(Icons.refresh, size: 18, color: Colors.grey[500]),
+      onPressed: onPressed,
+      tooltip: 'Reset to defaults',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+    );
   }
 
   @override
@@ -56,7 +70,16 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                 ),
                 LabeledCard(title: 'Shape', child: Shape(pageNumber: widget.pageNumber)),
                 LabeledCard(title: 'Color', child: SendColor()),
-                const LabeledCard(title: 'Texture', child: SendTexture()),
+                LabeledCard(
+                  title: 'Texture',
+                  action: _resetButton(() => (_textureKey.currentState as dynamic)?.reset()),
+                  child: SendTexture(key: _textureKey),
+                ),
+                LabeledCard(
+                  title: 'Glitch',
+                  action: _resetButton(() => (_glitchKey.currentState as dynamic)?.reset()),
+                  child: SendGlitch(key: _glitchKey),
+                ),
               ],
             ),
           ),

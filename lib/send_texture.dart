@@ -28,6 +28,25 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
   double _vBlur = 0.0;       // 0 to 1
   double _vBlurShape = 0.5;  // 0 (triangular) to 1 (box)
   double _vSharp = 0.0;      // 0 to 1
+  int _resetCount = 0;       // Used to force knob recreation on reset
+
+  /// Reset all texture/filter controls to defaults
+  void reset() {
+    setState(() {
+      _hBlur = 0.0;
+      _hBlurShape = 0.5;
+      _hSharp = 0.0;
+      _hSharpShape = 0.0;
+      _vBlur = 0.0;
+      _vBlurShape = 0.5;
+      _vSharp = 0.0;
+      _resetCount++;
+    });
+    _applyHorizontalBlur();
+    _applyHorizontalSharpen();
+    _applyVerticalBlur();
+    _applyVerticalSharpen();
+  }
 
 
   //----------------------------------------------------------------------------
@@ -230,6 +249,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
     List<double> snapPoints = const [],
   }) {
     return OscRotaryKnob(
+      key: ValueKey('$label-$_resetCount'),
       initialValue: value,
       minValue: minValue,
       maxValue: maxValue,

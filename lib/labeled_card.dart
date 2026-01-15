@@ -9,12 +9,14 @@ class LabeledCard extends StatelessWidget {
   final String title;
   final Widget child;
   final bool networkIndependent;
+  final Widget? action;
 
   const LabeledCard({
     super.key,
     required this.title,
     required this.child,
     this.networkIndependent = false,
+    this.action,
   });
 
   @override
@@ -43,7 +45,7 @@ class LabeledCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // title row with reset button
+                  // title row with optional action
                   Row(
                     children: [
                       Expanded(
@@ -52,6 +54,7 @@ class LabeledCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
+                      if (action != null) action!,
                     ],
                   ),
                   const SizedBox(height: 12),

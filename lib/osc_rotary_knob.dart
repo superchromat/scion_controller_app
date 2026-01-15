@@ -126,8 +126,8 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
 
   void _doSendOsc() {
     _lastSentValue = _value;
-    if (widget.preferInteger && _value == _value.roundToDouble()) {
-      sendOsc(_value.toInt());
+    if (widget.preferInteger) {
+      sendOsc(_value.round());
     } else {
       sendOsc(_value);
     }
