@@ -332,7 +332,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                     AnimatedBuilder(
                       animation: _bppColor,
                       builder: (ctx, _) => Text(
-                        '$_bpp bpp',
+                        '$_bpp bit',
                         style: _systemTextStyle.copyWith(color: _bppColor.value),
                       ),
                     ),

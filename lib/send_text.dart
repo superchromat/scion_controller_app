@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
+import 'oklch_color_picker.dart';
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -118,7 +119,7 @@ class OscPositionControl extends StatelessWidget {
   }
 }
 
-/// RGB color control that sends R,G,B as combined OSC message
+/// OKLCH color picker that sends R,G,B as combined OSC message
 class OscColorControl extends StatefulWidget {
   final int initialR;
   final int initialG;
@@ -136,117 +137,44 @@ class OscColorControl extends StatefulWidget {
 }
 
 class _OscColorControlState extends State<OscColorControl> with OscAddressMixin {
-  late int _r;
-  late int _g;
-  late int _b;
-  final _rKey = GlobalKey<OscRotaryKnobState>();
-  final _gKey = GlobalKey<OscRotaryKnobState>();
-  final _bKey = GlobalKey<OscRotaryKnobState>();
+  late Color _color;
+  final _pickerKey = GlobalKey<OklchColorPickerState>();
 
   @override
   void initState() {
     super.initState();
-    _r = widget.initialR;
-    _g = widget.initialG;
-    _b = widget.initialB;
+    _color = Color.fromARGB(255, widget.initialR, widget.initialG, widget.initialB);
   }
 
   @override
   OscStatus onOscMessage(List<Object?> args) {
     if (args.length >= 3 && args[0] is num && args[1] is num && args[2] is num) {
+      final r = (args[0] as num).toInt().clamp(0, 255);
+      final g = (args[1] as num).toInt().clamp(0, 255);
+      final b = (args[2] as num).toInt().clamp(0, 255);
       setState(() {
-        _r = (args[0] as num).toInt();
-        _g = (args[1] as num).toInt();
-        _b = (args[2] as num).toInt();
+        _color = Color.fromARGB(255, r, g, b);
       });
-      _rKey.currentState?.setValue(_r.toDouble(), emit: false);
-      _gKey.currentState?.setValue(_g.toDouble(), emit: false);
-      _bKey.currentState?.setValue(_b.toDouble(), emit: false);
+      _pickerKey.currentState?.setColor(_color);
       return OscStatus.ok;
     }
     return OscStatus.error;
   }
 
-  void _sendColor() {
-    sendOsc([_r, _g, _b]);
+  void _onColorChanged(Color color) {
+    setState(() {
+      _color = color;
+    });
+    sendOsc([color.red, color.green, color.blue]);
   }
-
-  void _onRChanged(double value) {
-    _r = value.toInt();
-    setState(() {}); // Update color preview
-    _sendColor();
-  }
-
-  void _onGChanged(double value) {
-    _g = value.toInt();
-    setState(() {});
-    _sendColor();
-  }
-
-  void _onBChanged(double value) {
-    _b = value.toInt();
-    setState(() {});
-    _sendColor();
-  }
-
-  Color get _previewColor => Color.fromARGB(255, _r, _g, _b);
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Color preview swatch
-        Container(
-          width: 48,
-          height: 48,
-          margin: const EdgeInsets.only(right: 16),
-          decoration: BoxDecoration(
-            color: _previewColor,
-            border: Border.all(color: Colors.white24),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        // RGB knobs
-        OscRotaryKnob(
-          key: _rKey,
-          label: 'R',
-          minValue: 0,
-          maxValue: 255,
-          initialValue: _r.toDouble(),
-          defaultValue: 255,
-          format: '%.0f',
-          size: 60,
-          onChanged: _onRChanged,
-          sendOsc: false,
-        ),
-        const SizedBox(width: 8),
-        OscRotaryKnob(
-          key: _gKey,
-          label: 'G',
-          minValue: 0,
-          maxValue: 255,
-          initialValue: _g.toDouble(),
-          defaultValue: 255,
-          format: '%.0f',
-          size: 60,
-          onChanged: _onGChanged,
-          sendOsc: false,
-        ),
-        const SizedBox(width: 8),
-        OscRotaryKnob(
-          key: _bKey,
-          label: 'B',
-          minValue: 0,
-          maxValue: 255,
-          initialValue: _b.toDouble(),
-          defaultValue: 255,
-          format: '%.0f',
-          size: 60,
-          onChanged: _onBChanged,
-          sendOsc: false,
-        ),
-      ],
+    return OklchColorPicker(
+      key: _pickerKey,
+      initialColor: _color,
+      onColorChanged: _onColorChanged,
+      size: 120,
     );
   }
 }
@@ -299,6 +227,27 @@ class SendText extends StatelessWidget {
               const OscPathSegment(
                 segment: 'color',
                 child: OscColorControl(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Alpha row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(width: 70, child: Text('Alpha')),
+              OscPathSegment(
+                segment: 'alpha',
+                child: OscRotaryKnob(
+                  label: 'A',
+                  minValue: 0,
+                  maxValue: 255,
+                  initialValue: 255,
+                  defaultValue: 255,
+                  format: '%.0f',
+                  size: 60,
+                  preferInteger: true,
+                ),
               ),
             ],
           ),

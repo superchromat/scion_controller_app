@@ -4,6 +4,7 @@ import 'labeled_card.dart';
 import 'shape.dart';
 import 'send_color.dart';
 import 'send_text.dart';
+import 'send_image.dart';
 import 'osc_dropdown.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
@@ -72,6 +73,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                 LabeledCard(title: 'Shape', child: Shape(pageNumber: widget.pageNumber)),
                 LabeledCard(title: 'Color', child: SendColor()),
                 const LabeledCard(title: 'Text', child: SendText()),
+                const LabeledCard(title: 'Image', child: SendImage()),
                 LabeledCard(
                   title: 'Texture',
                   action: _resetButton(() => (_textureKey.currentState as dynamic)?.reset()),
