@@ -153,7 +153,7 @@ class OklchColorPicker extends StatefulWidget {
     super.key,
     this.initialColor = Colors.white,
     this.onColorChanged,
-    this.size = 150,
+    this.size = 90,
   });
 
   @override
@@ -164,6 +164,14 @@ class OklchColorPickerState extends State<OklchColorPicker> {
   late double _lightness;
   late double _chroma;
   late double _hue;
+
+  // Drag mode: 0 = none, 1 = wheel (hue/chroma), 2 = arc (lightness)
+  int _dragMode = 0;
+
+  static const double _arcWidth = 6.0;
+  static const double _arcGap = 2.0;
+  static const double _startAngle = 0.75 * pi;
+  static const double _sweepAngle = 1.5 * pi;
 
   @override
   void initState() {
@@ -189,34 +197,66 @@ class OklchColorPickerState extends State<OklchColorPicker> {
     return Color.fromARGB(255, rgb[0], rgb[1], rgb[2]);
   }
 
-  void _onWheelPan(Offset localPosition, double wheelSize) {
-    final center = Offset(wheelSize / 2, wheelSize / 2);
-    final offset = localPosition - center;
-    final radius = wheelSize / 2;
+  void _handleDrag(Offset pos, {required bool isStart}) {
+    final totalSize = widget.size;
+    final center = Offset(totalSize / 2, totalSize / 2);
+    final offset = pos - center;
+    final dist = offset.distance;
+    final outerRadius = totalSize / 2;
+    final innerRadius = outerRadius - _arcWidth - _arcGap;
 
-    // Compute hue from angle
-    var hue = atan2(-offset.dy, offset.dx) * 180 / pi;
-    if (hue < 0) hue += 360;
+    if (isStart) {
+      _dragMode = dist > innerRadius ? 2 : 1;
+    }
 
-    // Compute chroma from distance
-    final dist = offset.distance.clamp(0.0, radius);
-    final maxC = maxChromaForLH(_lightness, hue);
-    final chroma = (dist / radius) * maxC;
+    if (_dragMode == 2) {
+      // Arc mode — map angle to lightness 0→1 (unipolar)
+      var angle = atan2(offset.dy, offset.dx);
+      var relAngle = angle - _startAngle;
+      while (relAngle < 0) { relAngle += 2 * pi; }
+      while (relAngle >= 2 * pi) { relAngle -= 2 * pi; }
 
-    setState(() {
-      _hue = hue;
-      _chroma = chroma;
-    });
+      if (relAngle > _sweepAngle) {
+        relAngle = relAngle < (_sweepAngle + (2 * pi - _sweepAngle) / 2)
+            ? _sweepAngle
+            : 0;
+      }
 
-    _notifyChange();
+      final lightness = (relAngle / _sweepAngle).clamp(0.0, 1.0);
+
+      setState(() {
+        _lightness = lightness;
+        // Clamp chroma to max for new lightness
+        final maxC = maxChromaForLH(_lightness, _hue);
+        if (_chroma > maxC) _chroma = maxC;
+      });
+      _notifyChange();
+    } else {
+      // Wheel mode — map position to hue/chroma
+      final wheelRadius = innerRadius;
+
+      var hue = atan2(-offset.dy, offset.dx) * 180 / pi;
+      if (hue < 0) hue += 360;
+
+      final clampedDist = dist.clamp(0.0, wheelRadius);
+      final maxC = maxChromaForLH(_lightness, hue);
+      final chroma = (clampedDist / wheelRadius) * maxC;
+
+      setState(() {
+        _hue = hue;
+        _chroma = chroma;
+      });
+      _notifyChange();
+    }
   }
 
-  void _onLightnessChanged(double value) {
+  void _handleDragEnd() {
+    setState(() => _dragMode = 0);
+  }
+
+  void _handleDoubleTap() {
     setState(() {
-      _lightness = value;
-      // Clamp chroma to max for new lightness
-      final maxC = maxChromaForLH(_lightness, _hue);
-      if (_chroma > maxC) _chroma = maxC;
+      _initFromColor(widget.initialColor);
     });
     _notifyChange();
   }
@@ -227,57 +267,22 @@ class OklchColorPickerState extends State<OklchColorPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final wheelSize = widget.size;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Color wheel
-        GestureDetector(
-          onPanStart: (details) => _onWheelPan(details.localPosition, wheelSize),
-          onPanUpdate: (details) => _onWheelPan(details.localPosition, wheelSize),
-          onTapDown: (details) => _onWheelPan(details.localPosition, wheelSize),
-          child: SizedBox(
-            width: wheelSize,
-            height: wheelSize,
-            child: CustomPaint(
-              painter: _OklchWheelPainter(
-                lightness: _lightness,
-                chroma: _chroma,
-                hue: _hue,
-              ),
-            ),
-          ),
+    final totalSize = widget.size;
+    return GestureDetector(
+      onPanStart: (d) => _handleDrag(d.localPosition, isStart: true),
+      onPanUpdate: (d) => _handleDrag(d.localPosition, isStart: false),
+      onPanEnd: (_) => _handleDragEnd(),
+      onTapDown: (d) => _handleDrag(d.localPosition, isStart: true),
+      onTapUp: (_) => _handleDragEnd(),
+      onDoubleTap: _handleDoubleTap,
+      child: CustomPaint(
+        size: Size(totalSize, totalSize),
+        painter: _OklchWheelPainter(
+          lightness: _lightness,
+          chroma: _chroma,
+          hue: _hue,
         ),
-        const SizedBox(height: 8),
-        // Lightness slider
-        SizedBox(
-          width: wheelSize,
-          child: Row(
-            children: [
-              const Text('L', style: TextStyle(fontSize: 12)),
-              Expanded(
-                child: Slider(
-                  value: _lightness,
-                  min: 0.0,
-                  max: 1.0,
-                  onChanged: _onLightnessChanged,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Color preview
-        Container(
-          width: wheelSize,
-          height: 24,
-          decoration: BoxDecoration(
-            color: currentColor,
-            border: Border.all(color: Colors.white24),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -286,6 +291,11 @@ class _OklchWheelPainter extends CustomPainter {
   final double lightness;
   final double chroma;
   final double hue;
+
+  static const double arcWidth = 6.0;
+  static const double arcGap = 2.0;
+  static const double startAngle = 0.75 * pi;
+  static const double sweepAngle = 1.5 * pi;
 
   _OklchWheelPainter({
     required this.lightness,
@@ -296,51 +306,202 @@ class _OklchWheelPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    final wheelSize = (radius * 2).round();
+    final outerRadius = size.width / 2;
+    final arcRadius = outerRadius - arcWidth / 2;
+    final slotInnerRadius = outerRadius - arcWidth;
+    final wheelRadius = slotInnerRadius - arcGap;
+
+    // === NEUMORPHIC ARC SLOT ===
+    const lightOffset = Alignment(0.0, -0.4);
+
+    // Border gradient
+    final borderGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.7,
+      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      startAngle, sweepAngle, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth + 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = borderGradient.createShader(
+            Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Outer shadow
+    final outerShadowGradient = RadialGradient(
+      center: const Alignment(0.0, 0.5),
+      radius: 0.6,
+      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
+      stops: const [0.0, 0.3, 0.8],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: outerRadius - 1),
+      startAngle, sweepAngle, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.butt
+        ..shader = outerShadowGradient.createShader(
+            Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Inner highlight
+    final innerHighlightGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.6,
+      colors: const [Color(0xFF353535), Color(0xFF252525), Color(0x00000000)],
+      stops: const [0.0, 0.2, 0.5],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
+      startAngle, sweepAngle, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.butt
+        ..shader = innerHighlightGradient.createShader(
+            Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Dark floor
+    final floorGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.7,
+      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      startAngle, sweepAngle, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth - 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = floorGradient.createShader(
+            Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // === UNIPOLAR LIGHTNESS ARC ===
+    const Color activeColor = Color(0xFFF0B830);
+
+    // Unipolar: arc fills from start angle, length = lightness * sweepAngle
+    final valueSweep = lightness * sweepAngle;
+
+    const minArcSweep = 0.10;
+    final drawArcSweep = valueSweep < minArcSweep ? minArcSweep : valueSweep;
+
+    final valueArcGradient = RadialGradient(
+      center: lightOffset,
+      radius: 0.8,
+      colors: [
+        activeColor,
+        Color.lerp(activeColor, Colors.black, 0.10)!,
+        Color.lerp(activeColor, Colors.black, 0.20)!,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      startAngle, drawArcSweep, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth - 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = valueArcGradient.createShader(
+            Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // Highlight on value arc
+    final highlightGradient = RadialGradient(
+      center: const Alignment(0.0, -0.6),
+      radius: 0.5,
+      colors: [
+        Colors.white.withValues(alpha: 0.35),
+        Colors.white.withValues(alpha: 0.10),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.3, 0.7],
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: arcRadius),
+      startAngle, drawArcSweep, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth - 2
+        ..strokeCap = StrokeCap.butt
+        ..shader = highlightGradient.createShader(
+            Rect.fromCircle(center: center, radius: outerRadius)),
+    );
+
+    // === INNER OKLCH COLOR WHEEL ===
+    canvas.save();
+    canvas.clipPath(
+        Path()..addOval(Rect.fromCircle(center: center, radius: wheelRadius)));
+
+    final wheelSize = (wheelRadius * 2).round();
 
     // Check cache
-    if (_cachedOklchWheelImage != null &&
-        _cachedOklchWheelSize == wheelSize &&
-        (_cachedOklchLightness - lightness).abs() < 0.01) {
-      final src = Rect.fromLTWH(0, 0,
-          _cachedOklchWheelImage!.width.toDouble(),
-          _cachedOklchWheelImage!.height.toDouble());
-      final dst = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawImageRect(_cachedOklchWheelImage!, src, dst,
-          Paint()..filterQuality = FilterQuality.high);
-    } else {
-      // Generate new wheel
+    if (_cachedOklchWheelImage == null ||
+        _cachedOklchWheelSize != wheelSize ||
+        (_cachedOklchLightness - lightness).abs() >= 0.01) {
       _cachedOklchWheelImage = _generateOklchWheel(wheelSize, lightness);
       _cachedOklchWheelSize = wheelSize;
       _cachedOklchLightness = lightness;
-
-      final src = Rect.fromLTWH(0, 0,
-          _cachedOklchWheelImage!.width.toDouble(),
-          _cachedOklchWheelImage!.height.toDouble());
-      final dst = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawImageRect(_cachedOklchWheelImage!, src, dst,
-          Paint()..filterQuality = FilterQuality.high);
     }
 
-    // Draw selection indicator
+    final src = Rect.fromLTWH(0, 0,
+        _cachedOklchWheelImage!.width.toDouble(),
+        _cachedOklchWheelImage!.height.toDouble());
+    final dst = Rect.fromCircle(center: center, radius: wheelRadius);
+    canvas.drawImageRect(_cachedOklchWheelImage!, src, dst,
+        Paint()..filterQuality = FilterQuality.high);
+
+    canvas.restore();
+
+    // === SELECTION INDICATOR ===
     final maxC = maxChromaForLH(lightness, hue);
     final normalizedChroma = maxC > 0 ? chroma / maxC : 0.0;
-    final dist = normalizedChroma * radius;
+    final dist = normalizedChroma * wheelRadius;
     final hueRad = hue * pi / 180;
     final selX = center.dx + dist * cos(hueRad);
     final selY = center.dy - dist * sin(hueRad);
     final selPos = Offset(selX, selY);
 
-    // Get current color for indicator
-    final rgb = oklchToSrgb255(lightness, chroma, hue);
-    final selColor = Color.fromARGB(255, rgb[0], rgb[1], rgb[2]);
+    const indicatorRadius = 5.0;
+    canvas.drawCircle(
+      selPos,
+      indicatorRadius + 1.5,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = Colors.white,
+    );
+    canvas.drawCircle(
+      selPos,
+      indicatorRadius,
+      Paint()..color = Colors.white.withValues(alpha: 0.3),
+    );
 
-    canvas.drawCircle(selPos, 8, Paint()..color = selColor);
-    canvas.drawCircle(selPos, 8, Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2);
+    // === CROSSHAIR AT CENTER ===
+    final crossPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(center.dx - wheelRadius * 0.3, center.dy),
+      Offset(center.dx + wheelRadius * 0.3, center.dy),
+      crossPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx, center.dy - wheelRadius * 0.3),
+      Offset(center.dx, center.dy + wheelRadius * 0.3),
+      crossPaint,
+    );
   }
 
   @override

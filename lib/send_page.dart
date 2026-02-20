@@ -66,7 +66,32 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                   title: 'Send Source',
                   child: SendSourceSelector(pageNumber: widget.pageNumber),
                 ),
-                LabeledCard(title: 'Shape', child: Shape(pageNumber: widget.pageNumber)),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: LabeledCard(
+                          title: 'Shape',
+                          child: Shape(pageNumber: widget.pageNumber),
+                        ),
+                      ),
+                      Expanded(
+                        child: LabeledCard(
+                          title: 'Texture',
+                          action: _resetButton(() => (_textureKey.currentState as dynamic)?.reset()),
+                          child: SendTexture(key: _textureKey),
+                        ),
+                      ),
+                      const Expanded(
+                        child: LabeledCard(
+                          title: 'Text',
+                          child: SendText(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 LabeledCard(
                   title: 'Color',
                   child: SendColor(
@@ -74,13 +99,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                     gradePath: '/send/${widget.pageNumber}/grade',
                   ),
                 ),
-                const LabeledCard(title: 'Text', child: SendText()),
 //                const LabeledCard(title: 'Image', child: SendImage()),
-                LabeledCard(
-                  title: 'Texture',
-                  action: _resetButton(() => (_textureKey.currentState as dynamic)?.reset()),
-                  child: SendTexture(key: _textureKey),
-                ),
                 LabeledCard(
                   title: 'Glitch',
                   action: _resetButton(() => (_glitchKey.currentState as dynamic)?.reset()),

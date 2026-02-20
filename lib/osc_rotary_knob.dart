@@ -56,6 +56,9 @@ class OscRotaryKnob extends StatefulWidget {
   /// If true, send integers when value is a whole number
   final bool preferInteger;
 
+  /// Optional style override for the label below the knob
+  final TextStyle? labelStyle;
+
   const OscRotaryKnob({
     super.key,
     required this.minValue,
@@ -73,6 +76,7 @@ class OscRotaryKnob extends StatefulWidget {
     this.dragBarWidth = 400,
     this.sendOsc = true,
     this.preferInteger = false,
+    this.labelStyle,
   });
 
   @override
@@ -185,6 +189,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
       mappingSegments: widget.mappingSegments,
       size: widget.size,
       dragBarWidth: widget.dragBarWidth,
+      labelStyle: widget.labelStyle,
     );
   }
 }

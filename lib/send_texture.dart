@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'osc_widget_binding.dart';
+import 'labeled_card.dart';
 
 /// Texture controls with 7 knobs:
 /// - H Blur: 0 to 1 - horizontal blur amount
@@ -256,7 +257,8 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
       format: '%.2f',
       label: label,
       defaultValue: 0,
-      size: 60,
+      size: _dialSize,
+      labelStyle: _knobLabelStyle,
       sendOsc: false,
       isBipolar: minValue < 0,
       snapConfig: SnapConfig(
@@ -268,88 +270,140 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
     );
   }
 
+  // Grid constants — match shape.dart
+  static const double _dialSize = 50;
+  static const double _knobGap = 12;
+  static const EdgeInsets _panelPadding = EdgeInsets.fromLTRB(6, 6, 6, 4);
+  static const TextStyle _knobLabelStyle = TextStyle(
+    fontSize: 11,
+    color: Color(0xFF999999),
+  );
+  static const Color _iconColor = Color(0xFF888888);
+  static const double _iconSize = 14;
+
+  Widget _iconRow(String tooltip, IconData icon, List<Widget> knobs) {
+    return NeumorphicInset(
+      padding: _panelPadding,
+      child: Row(
+        children: [
+          Tooltip(
+            message: tooltip,
+            child: Icon(icon, size: _iconSize, color: _iconColor),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (int i = 0; i < knobs.length; i++) ...[
+                  if (i > 0) SizedBox(width: _knobGap),
+                  knobs[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 24,
-      runSpacing: 16,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Horizontal controls
-        _knob(
-          label: 'H Blur',
-          value: _hBlur,
-          minValue: 0.0,
-          maxValue: 1.0,
-          onChanged: (v) {
-            setState(() => _hBlur = v);
-            _applyHorizontalBlur();
-          },
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _iconRow('Horizontal Blur', Icons.blur_linear, [
+                  _knob(
+                    label: 'Amount',
+                    value: _hBlur,
+                    minValue: 0.0,
+                    maxValue: 1.0,
+                    onChanged: (v) {
+                      setState(() => _hBlur = v);
+                      _applyHorizontalBlur();
+                    },
+                  ),
+                  _knob(
+                    label: 'Shape',
+                    value: _hBlurShape,
+                    minValue: 0.0,
+                    maxValue: 1.0,
+                    snapPoints: const [0.5],
+                    onChanged: (v) {
+                      setState(() => _hBlurShape = v);
+                      _applyHorizontalBlur();
+                    },
+                  ),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _iconRow('Horizontal Sharpening', Icons.deblur, [
+                  _knob(
+                    label: 'Amount',
+                    value: _hSharp,
+                    minValue: 0.0,
+                    maxValue: 1.0,
+                    onChanged: (v) {
+                      setState(() => _hSharp = v);
+                      _applyHorizontalSharpen();
+                    },
+                  ),
+                  _knob(
+                    label: 'Shape',
+                    value: _hSharpShape,
+                    minValue: 0.0,
+                    maxValue: 1.0,
+                    snapPoints: const [0.5],
+                    onChanged: (v) {
+                      setState(() => _hSharpShape = v);
+                      _applyHorizontalSharpen();
+                    },
+                  ),
+                ]),
+              ),
+            ],
+          ),
         ),
-        _knob(
-          label: 'H Blur Shp',
-          value: _hBlurShape,
-          minValue: 0.0,
-          maxValue: 1.0,
-          snapPoints: const [0.5],
-          onChanged: (v) {
-            setState(() => _hBlurShape = v);
-            _applyHorizontalBlur();
-          },
-        ),
-        _knob(
-          label: 'H Sharp',
-          value: _hSharp,
-          minValue: 0.0,
-          maxValue: 1.0,
-          onChanged: (v) {
-            setState(() => _hSharp = v);
-            _applyHorizontalSharpen();
-          },
-        ),
-        _knob(
-          label: 'H Shrp Shp',
-          value: _hSharpShape,
-          minValue: 0.0,
-          maxValue: 1.0,
-          snapPoints: const [0.5],
-          onChanged: (v) {
-            setState(() => _hSharpShape = v);
-            _applyHorizontalSharpen();
-          },
-        ),
-        // Vertical controls
-        _knob(
-          label: 'V Blur',
-          value: _vBlur,
-          minValue: 0.0,
-          maxValue: 1.0,
-          onChanged: (v) {
-            setState(() => _vBlur = v);
-            _applyVerticalBlur();
-          },
-        ),
-        _knob(
-          label: 'V Blur Shp',
-          value: _vBlurShape,
-          minValue: 0.0,
-          maxValue: 1.0,
-          snapPoints: const [0.5],
-          onChanged: (v) {
-            setState(() => _vBlurShape = v);
-            _applyVerticalBlur();
-          },
-        ),
-        _knob(
-          label: 'V Sharp',
-          value: _vSharp,
-          minValue: 0.0,
-          maxValue: 1.0,
-          onChanged: (v) {
-            setState(() => _vSharp = v);
-            _applyVerticalSharpen();
-          },
-        ),
+        const SizedBox(height: 8),
+        _iconRow('Vertical', Icons.swap_vert, [
+          _knob(
+            label: 'Blur',
+            value: _vBlur,
+            minValue: 0.0,
+            maxValue: 1.0,
+            onChanged: (v) {
+              setState(() => _vBlur = v);
+              _applyVerticalBlur();
+            },
+          ),
+          _knob(
+            label: 'Blur Shp',
+            value: _vBlurShape,
+            minValue: 0.0,
+            maxValue: 1.0,
+            snapPoints: const [0.5],
+            onChanged: (v) {
+              setState(() => _vBlurShape = v);
+              _applyVerticalBlur();
+            },
+          ),
+          _knob(
+            label: 'Sharp',
+            value: _vSharp,
+            minValue: 0.0,
+            maxValue: 1.0,
+            onChanged: (v) {
+              setState(() => _vSharp = v);
+              _applyVerticalSharpen();
+            },
+          ),
+        ]),
       ],
     );
   }

@@ -16,8 +16,6 @@ import 'osc_registry_viewer.dart';
 import 'return_page.dart';
 import 'knob_page.dart';
 import 'lighting_settings.dart';
-import 'din_cable_page.dart';
-import 'color_primaries_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -296,15 +294,11 @@ class _MyHomePageState extends State<MyHomePage> {
       const ReturnPage(),
       // 5 → Setup
       const SetupPage(),
-      // 6 → DIN Cable
-      const DinCablePage(),
-      // 7 → Color Primaries
-      const ColorPrimariesPage(),
-      // 8 → OSC Log
+      // 6 → OSC Log
       OscLogTable(
         key: oscLogKey,
         onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 8,
+        isActive: selectedIndex == 6,
       ),
     ];
   }
@@ -383,14 +377,6 @@ class _MyHomePageState extends State<MyHomePage> {
                           NavigationRailDestination(
                             icon: Icon(Icons.settings),
                             label: Text('Setup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.cable),
-                            label: Text('DIN Cable', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.color_lens),
-                            label: Text('Primaries', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.view_list),

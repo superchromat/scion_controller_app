@@ -5,6 +5,14 @@ import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'oklch_color_picker.dart';
+import 'labeled_card.dart';
+
+const double _dialSize = 50;
+const double _knobGap = 12;
+const TextStyle _knobLabelStyle = TextStyle(
+  fontSize: 11,
+  color: Color(0xFF999999),
+);
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -76,60 +84,19 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
   }
 }
 
-/// Position control with separate X and Y OSC endpoints under /text/pos/
-class OscPositionControl extends StatelessWidget {
-  const OscPositionControl({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'pos',
-      child: Row(
-        children: [
-          OscPathSegment(
-            segment: 'x',
-            child: OscRotaryKnob(
-              label: 'X',
-              minValue: 0,
-              maxValue: 3840,
-              initialValue: 100,
-              defaultValue: 100,
-              format: '%.0f',
-              size: 60,
-              preferInteger: true,
-            ),
-          ),
-          const SizedBox(width: 8),
-          OscPathSegment(
-            segment: 'y',
-            child: OscRotaryKnob(
-              label: 'Y',
-              minValue: 0,
-              maxValue: 2160,
-              initialValue: 100,
-              defaultValue: 100,
-              format: '%.0f',
-              size: 60,
-              preferInteger: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// OKLCH color picker that sends R,G,B as combined OSC message
 class OscColorControl extends StatefulWidget {
   final int initialR;
   final int initialG;
   final int initialB;
+  final double size;
 
   const OscColorControl({
     super.key,
-    this.initialR = 255,
-    this.initialG = 255,
-    this.initialB = 255,
+    this.initialR = 128,
+    this.initialG = 128,
+    this.initialB = 128,
+    this.size = 90,
   });
 
   @override
@@ -174,7 +141,7 @@ class _OscColorControlState extends State<OscColorControl> with OscAddressMixin 
       key: _pickerKey,
       initialColor: _color,
       onColorChanged: _onColorChanged,
-      size: 120,
+      size: widget.size,
     );
   }
 }
@@ -188,68 +155,86 @@ class SendText extends StatelessWidget {
     return OscPathSegment(
       segment: 'text',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Text input (multiline)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(width: 70, child: Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text('Text'),
-              )),
-              Expanded(
-                child: OscPathSegment(
-                  segment: 'string',
-                  child: OscTextField(
-                    hintText: 'Enter overlay text...',
-                    maxLines: 4,
+          // Panel 1: Text input
+          NeumorphicInset(
+            padding: const EdgeInsets.all(8),
+            child: OscPathSegment(
+              segment: 'string',
+              child: OscTextField(
+                hintText: 'Enter overlay text...',
+                maxLines: 2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Panel 2: Color wheel + Position + Alpha
+          NeumorphicInset(
+            baseColor: const Color(0xFF252527),
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OscPathSegment(
+                  segment: 'color',
+                  child: OscColorControl(size: 90),
+                ),
+                SizedBox(width: _knobGap),
+                OscPathSegment(
+                  segment: 'pos',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OscPathSegment(
+                        segment: 'x',
+                        child: OscRotaryKnob(
+                          label: 'X',
+                          minValue: 0,
+                          maxValue: 3840,
+                          initialValue: 100,
+                          defaultValue: 100,
+                          format: '%.0f',
+                          size: _dialSize,
+                          labelStyle: _knobLabelStyle,
+                          preferInteger: true,
+                        ),
+                      ),
+                      SizedBox(width: _knobGap),
+                      OscPathSegment(
+                        segment: 'y',
+                        child: OscRotaryKnob(
+                          label: 'Y',
+                          minValue: 0,
+                          maxValue: 2160,
+                          initialValue: 100,
+                          defaultValue: 100,
+                          format: '%.0f',
+                          size: _dialSize,
+                          labelStyle: _knobLabelStyle,
+                          preferInteger: true,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Position row - X and Y have their own OSC paths under 'text'
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(width: 70, child: Text('Position')),
-              const OscPositionControl(),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Color row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(width: 70, child: Text('Color')),
-              const OscPathSegment(
-                segment: 'color',
-                child: OscColorControl(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Alpha row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(width: 70, child: Text('Alpha')),
-              OscPathSegment(
-                segment: 'alpha',
-                child: OscRotaryKnob(
-                  label: 'A',
-                  minValue: 0,
-                  maxValue: 255,
-                  initialValue: 255,
-                  defaultValue: 255,
-                  format: '%.0f',
-                  size: 60,
-                  preferInteger: true,
+                SizedBox(width: _knobGap),
+                OscPathSegment(
+                  segment: 'alpha',
+                  child: OscRotaryKnob(
+                    label: 'Alpha',
+                    minValue: 0,
+                    maxValue: 255,
+                    initialValue: 255,
+                    defaultValue: 255,
+                    format: '%.0f',
+                    size: _dialSize,
+                    labelStyle: _knobLabelStyle,
+                    preferInteger: true,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

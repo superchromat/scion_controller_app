@@ -135,6 +135,9 @@ class RotaryKnob extends StatefulWidget {
   /// Notch half-width angle in radians (for arc notches)
   final double notchHalfAngle;
 
+  /// Optional style override for the label below the knob
+  final TextStyle? labelStyle;
+
   const RotaryKnob({
     super.key,
     required this.minValue,
@@ -155,6 +158,7 @@ class RotaryKnob extends StatefulWidget {
     this.arcWidth = 8.0,
     this.notchDepth = 4.0,
     this.notchHalfAngle = 0.055,    // ~3.15 degrees
+    this.labelStyle,
   });
 
   @override
@@ -966,7 +970,7 @@ class _RotaryKnobState extends State<RotaryKnob>
               offset: const Offset(0, -4),
               child: Text(
                 widget.label,
-                style: const TextStyle(
+                style: widget.labelStyle ?? const TextStyle(
                   fontSize: 13,
                   color: Colors.white,
                 ),
