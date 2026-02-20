@@ -276,18 +276,32 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
   static const EdgeInsets _panelPadding = AppGrid.panelPadding;
   static const TextStyle _knobLabelStyle = AppGrid.knobLabelStyle;
 
-  /// Builds a panel row of knob slots.
+  Widget _panelTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Center(
+        child: Text(text, style: AppGrid.panelTitleStyle),
+      ),
+    );
+  }
+
+  /// Builds a titled panel of knob slots.
   ///
   /// Each entry in [knobs] occupies one equal-width column in the row.
   /// Pass `null` for an empty slot — this is used to keep the vertical row
   /// knobs grid-aligned with the horizontal row knobs above them.
-  Widget _knobRow(List<Widget?> knobs) {
+  Widget _knobRow(String title, List<Widget?> knobs) {
     return NeumorphicInset(
       padding: _panelPadding,
-      child: Row(
+      child: Column(
         children: [
-          for (final k in knobs)
-            Expanded(child: Center(child: k ?? const SizedBox())),
+          _panelTitle(title),
+          Row(
+            children: [
+              for (final k in knobs)
+                Expanded(child: Center(child: k ?? const SizedBox())),
+            ],
+          ),
         ],
       ),
     );
@@ -303,33 +317,33 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
           cells: [
             (
               span: 1,
-              child: _knobRow([
-                  _knob(
-                    label: 'Amount',
-                    value: _hBlur,
-                    minValue: 0.0,
-                    maxValue: 1.0,
-                    onChanged: (v) {
-                      setState(() => _hBlur = v);
-                      _applyHorizontalBlur();
-                    },
-                  ),
-                  _knob(
-                    label: 'Shape',
-                    value: _hBlurShape,
-                    minValue: 0.0,
-                    maxValue: 1.0,
-                    snapPoints: const [0.5],
-                    onChanged: (v) {
-                      setState(() => _hBlurShape = v);
-                      _applyHorizontalBlur();
-                    },
-                  ),
-                ]),
+              child: _knobRow('Horizontal Blur', [
+                _knob(
+                  label: 'Amount',
+                  value: _hBlur,
+                  minValue: 0.0,
+                  maxValue: 1.0,
+                  onChanged: (v) {
+                    setState(() => _hBlur = v);
+                    _applyHorizontalBlur();
+                  },
+                ),
+                _knob(
+                  label: 'Shape',
+                  value: _hBlurShape,
+                  minValue: 0.0,
+                  maxValue: 1.0,
+                  snapPoints: const [0.5],
+                  onChanged: (v) {
+                    setState(() => _hBlurShape = v);
+                    _applyHorizontalBlur();
+                  },
+                ),
+              ]),
             ),
             (
               span: 1,
-              child: _knobRow([
+              child: _knobRow('Horizontal Sharpen', [
                 _knob(
                   label: 'Amount',
                   value: _hSharp,
@@ -355,8 +369,8 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        GridRow(columns: 1, cells: [(span: 1, child: _knobRow([
+        const GridGap(fraction: 0.5),
+        GridRow(columns: 1, cells: [(span: 1, child: _knobRow('Vertical', [
           _knob(
             label: 'Blur',
             value: _vBlur,

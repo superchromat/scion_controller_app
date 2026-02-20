@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'grid.dart';
 import 'network.dart';
 import 'osc_registry.dart';
 import 'osc_widget_binding.dart';
@@ -541,12 +542,12 @@ class GradeZone extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const GridGap(fraction: 0.25),
                 GradeWheel(
                   basePath: '$basePath/$zoneName',
                   size: wheelSize,
                 ),
-                const SizedBox(height: 4),
+                const GridGap(fraction: 0.25),
                 Row(
                   children: [
                     Expanded(

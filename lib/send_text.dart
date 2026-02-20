@@ -166,7 +166,7 @@ class SendText extends StatelessWidget {
               ),
             ),
           ))]),
-          const SizedBox(height: 8),
+          const GridGap(fraction: 0.5),
           // Panel 2: Color wheel + Position + Alpha
           GridRow(columns: 1, cells: [(span: 1, child: NeumorphicInset(
             baseColor: const Color(0xFF252527),

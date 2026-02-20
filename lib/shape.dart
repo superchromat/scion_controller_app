@@ -108,6 +108,7 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Center(
@@ -128,18 +129,15 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
             ? GestureDetector(
                 onTap: _toggleLink,
                 behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: SizedBox(
-                    width: _knobGap,
-                    child: Center(
-                      child: Icon(
-                        _linked ? Icons.link : Icons.link_off,
-                        size: 16,
-                        color: _linked
-                            ? const Color(0xFFFFF176)
-                            : Colors.grey[600],
-                      ),
+                child: SizedBox(
+                  width: _knobGap,
+                  child: Center(
+                    child: Icon(
+                      _linked ? Icons.link : Icons.link_off,
+                      size: 16,
+                      color: _linked
+                          ? const Color(0xFFFFF176)
+                          : Colors.grey[600],
                     ),
                   ),
                 ),
@@ -177,6 +175,15 @@ class Shape extends StatefulWidget {
 class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<OscRotaryKnobState>();
 
+  Widget _panelTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Center(
+        child: Text(text, style: AppGrid.panelTitleStyle),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Only show rotation for Send 1 (pageNumber == 1)
@@ -192,18 +199,23 @@ class ShapeState extends State<Shape> {
               span: 1,
               child: NeumorphicInset(
                 padding: _panelPadding,
-                child: LinkableKnobPair(
-                  label: 'Scale',
-                  icon: Icons.zoom_out_map,
-                  xKey: 'scaleX',
-                  yKey: 'scaleY',
-                  xValue: 1.0,
-                  yValue: 1.0,
-                  minValue: 0.0,
-                  maxValue: 4.0,
-                  snapPoints: const [0.0, 0.5, 1.0, 2.0, 4.0],
-                  precision: 3,
-                  defaultLinked: true,
+                child: Column(
+                  children: [
+                    _panelTitle('Scale'),
+                    LinkableKnobPair(
+                      label: 'Scale',
+                      icon: Icons.zoom_out_map,
+                      xKey: 'scaleX',
+                      yKey: 'scaleY',
+                      xValue: 1.0,
+                      yValue: 1.0,
+                      minValue: 0.0,
+                      maxValue: 4.0,
+                      snapPoints: const [0.0, 0.5, 1.0, 2.0, 4.0],
+                      precision: 3,
+                      defaultLinked: true,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -211,24 +223,29 @@ class ShapeState extends State<Shape> {
               span: 1,
               child: NeumorphicInset(
                 padding: _panelPadding,
-                child: LinkableKnobPair(
-                  label: 'Position',
-                  icon: Icons.open_with,
-                  xKey: 'posX',
-                  yKey: 'posY',
-                  xValue: 0.5,
-                  yValue: 0.5,
-                  minValue: 0.0,
-                  maxValue: 1.0,
-                  snapPoints: const [0.0, 0.5, 1.0],
-                  precision: 3,
+                child: Column(
+                  children: [
+                    _panelTitle('Position'),
+                    LinkableKnobPair(
+                      label: 'Position',
+                      icon: Icons.open_with,
+                      xKey: 'posX',
+                      yKey: 'posY',
+                      xValue: 0.5,
+                      yValue: 0.5,
+                      minValue: 0.0,
+                      maxValue: 1.0,
+                      snapPoints: const [0.0, 0.5, 1.0],
+                      precision: 3,
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
         if (showRotation) ...[
-          const SizedBox(height: 8),
+          const GridGap(fraction: 0.5),
           GridRow(
             columns: 2,
             cells: [
@@ -236,32 +253,37 @@ class ShapeState extends State<Shape> {
                 span: 1,
                 child: NeumorphicInset(
                   padding: _panelPadding,
-                  child: Row(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: Center(
-                          child: OscPathSegment(
-                            segment: 'rotation',
-                            child: OscRotaryKnob(
-                              key: _rotationKey,
-                              initialValue: 180.0,
-                              minValue: 0.0,
-                              maxValue: 360.0,
-                              format: '%.1f',
-                              label: 'Rotation',
-                              defaultValue: 180.0,
-                              size: _dialSize,
-                              labelStyle: _knobLabelStyle,
-                              snapConfig: SnapConfig(
-                                snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
-                                snapRegionHalfWidth: 7.2,
-                                snapBehavior: SnapBehavior.hard,
+                      _panelTitle('Rotation'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: OscPathSegment(
+                                segment: 'rotation',
+                                child: OscRotaryKnob(
+                                  key: _rotationKey,
+                                  initialValue: 180.0,
+                                  minValue: 0.0,
+                                  maxValue: 360.0,
+                                  format: '%.1f',
+                                  label: 'Degrees',
+                                  defaultValue: 180.0,
+                                  size: _dialSize,
+                                  labelStyle: _knobLabelStyle,
+                                  snapConfig: SnapConfig(
+                                    snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
+                                    snapRegionHalfWidth: 7.2,
+                                    snapBehavior: SnapBehavior.hard,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                          const Expanded(child: SizedBox()),
+                        ],
                       ),
-                      const Expanded(child: SizedBox()),
                     ],
                   ),
                 ),

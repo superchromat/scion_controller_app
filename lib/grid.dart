@@ -41,6 +41,13 @@ abstract class AppGrid {
     fontSize: 11,
     color: Color(0xFF999999),
   );
+
+  /// Text style for panel group titles (e.g. "Scale", "Horizontal Blur").
+  static const TextStyle panelTitleStyle = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: Color(0xFF888888),
+  );
 }
 
 /// Provides a computed gutter value to all descendant [GridRow] widgets.
@@ -62,15 +69,40 @@ class GridGutterProvider extends InheritedWidget {
     return context.dependOnInheritedWidgetOfExactType<GridGutterProvider>()?.gutter;
   }
 
+  /// Returns the page-level gutter value.  Crashes if no [GridGutterProvider]
+  /// is above [context] — prefer this over [maybeOf] for widgets that must
+  /// live inside a grid-aware page.
+  static double of(BuildContext context) {
+    final g = maybeOf(context);
+    assert(g != null, 'GridGutterProvider.of() called without a GridGutterProvider ancestor');
+    return g!;
+  }
+
   @override
   bool updateShouldNotify(GridGutterProvider old) => old.gutter != gutter;
+}
+
+/// Vertical spacer that derives its height from the page-level gutter [g].
+///
+/// Use between card rows in a page Column to get `g` vertical spacing,
+/// or pass [fraction] for sub-gutter gaps (e.g. `0.5` for `g/2`).
+class GridGap extends StatelessWidget {
+  const GridGap({super.key, this.fraction = 1.0});
+
+  /// Multiplier applied to the gutter value.  Defaults to 1.0 (full `g`).
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = GridGutterProvider.maybeOf(context) ?? 16.0;
+    return SizedBox(height: g * fraction);
+  }
 }
 
 /// A [Row] whose children are positioned on a column-span grid.
 ///
 /// Each entry in [cells] carries a [span] (number of grid columns) and a
-/// [child] widget. Cell widths are computed from [LayoutBuilder] so the row
-/// is fully responsive to its parent width.
+/// [child] widget.
 ///
 /// **Math** — given total width W and gutter g:
 ///   colUnit  = (W + g) / columns
@@ -78,75 +110,86 @@ class GridGutterProvider extends InheritedWidget {
 ///
 /// This satisfies `Σ cellWidths + (n−1)×g = W` for any partition of columns.
 ///
-/// **Gutter with [LabeledCard] children** — pass the same gutter value used
-/// by [GridOverlay] (default 16) and set [LabeledCard.outerPadding] to
-/// `EdgeInsets.symmetric(vertical: 8)` so that card edges land on grid rules.
+/// When a [GridGutterProvider] ancestor exists the gutter is known without
+/// measuring, so `LayoutBuilder` is avoided entirely.  This lets multi-cell
+/// rows wrap their content in [IntrinsicHeight] so all cells stretch to the
+/// tallest child's height — card bottoms align across the row.
+///
+/// Place a [GridGutterProvider] at the page level so all GridRows and
+/// LabeledCards share the same `g`.
 class GridRow extends StatelessWidget {
   const GridRow({
     super.key,
     this.columns = 12,
     this.gutter,
     required this.cells,
-    this.crossAxisAlignment = CrossAxisAlignment.start,
   });
 
   /// Total number of grid columns (default 12).
   final int columns;
 
   /// Total gap between adjacent cell contents.  When `null` (the default),
-  /// computed as `width × [AppGrid.gutterFraction]` so it scales with the
-  /// window.  Distributed as half-gutter padding inside each cell — content
-  /// is centred within its column span and grid lines fall at cell boundaries.
+  /// read from [GridGutterProvider] or, as a last resort, computed as
+  /// `width × [AppGrid.gutterFraction]` via [LayoutBuilder].
   final double? gutter;
 
   /// Ordered list of (span, child) pairs. Spans should sum to [columns].
   final List<({int span, Widget child})> cells;
 
-  final CrossAxisAlignment crossAxisAlignment;
-
   @override
   Widget build(BuildContext context) {
-    // Read the page-level gutter BEFORE entering LayoutBuilder so that
-    // nested GridRows inside cards use the same absolute spacing as the
-    // top-level grid.
-    final inheritedGutter = GridGutterProvider.maybeOf(context);
+    final knownGutter = gutter ?? GridGutterProvider.maybeOf(context);
+
+    // Fast path — gutter is known without measuring.  Avoids LayoutBuilder
+    // so the subtree can participate in intrinsic-height queries (needed by
+    // IntrinsicHeight for equal-height multi-cell rows).
+    if (knownGutter != null) {
+      return _buildWithGutter(knownGutter);
+    }
+
+    // Fallback — compute gutter from width.  LayoutBuilder prevents
+    // IntrinsicHeight from working, but this path is only hit when there
+    // is no GridGutterProvider ancestor (e.g. standalone usage).
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         if (!w.isFinite || w <= 0) return const SizedBox.shrink();
-        final g = gutter ?? inheritedGutter ?? w * AppGrid.gutterFraction;
-        final halfG = g / 2;
-        final colUnit = (w - g) / columns;
-
-        // Single-cell row: no Row/IntrinsicHeight needed.  Just apply
-        // the combined row-margin + cell-padding (= g) on each side.
-        if (cells.length == 1) {
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: g),
-            child: cells[0].child,
-          );
-        }
-
-        // Multi-cell row: SizedBox per cell with half-gutter padding.
-        final List<Widget> children = [];
-        for (var i = 0; i < cells.length; i++) {
-          children.add(SizedBox(
-            width: cells[i].span * colUnit,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: halfG),
-              child: cells[i].child,
-            ),
-          ));
-        }
-
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: halfG),
-          child: Row(
-            crossAxisAlignment: crossAxisAlignment,
-            children: children,
-          ),
-        );
+        return _buildWithGutter(w * AppGrid.gutterFraction);
       },
+    );
+  }
+
+  Widget _buildWithGutter(double g) {
+    final halfG = g / 2;
+
+    // Single-cell row: combined row-margin + cell-padding (= g) on each side.
+    if (cells.length == 1) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: g),
+        child: cells[0].child,
+      );
+    }
+
+    // Multi-cell row: Expanded with flex = span for proportional widths.
+    // Wrapped in IntrinsicHeight so all cells stretch to the tallest
+    // child's height — card bottoms align across the row.
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: halfG),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final cell in cells)
+              Expanded(
+                flex: cell.span,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: halfG),
+                  child: cell.child,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -205,18 +248,9 @@ class _GridOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final g = gutterOverride ?? size.width * AppGrid.gutterFraction;
-    final halfG = g / 2;
-    final colUnit = (size.width - g) / columns;
-
-    final paint = Paint()
-      ..color = const Color(0x994FC3F7)
-      ..strokeWidth = 1.0;
-
-    for (var i = 0; i <= columns; i++) {
-      final x = halfG + i * colUnit;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
+    // Grid overlay intentionally empty — toggle kShowGrid to disable.
+    // Vertical column lines and horizontal rhythm lines were removed
+    // because the fine-grained mesh was not useful for visual alignment.
   }
 
   @override
