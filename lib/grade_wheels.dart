@@ -480,6 +480,21 @@ class GradeZone extends StatelessWidget {
     required this.basePath,
   });
 
+  void _resetZone(BuildContext context) {
+    final network = context.read<Network>();
+    final reg = OscRegistry();
+    final zonePath = '$basePath/$zoneName';
+
+    for (final param in ['shift_x', 'shift_y', 'level']) {
+      network.sendOscMessage('$zonePath/$param', [0.0]);
+      reg.dispatchLocal('$zonePath/$param', [0.0]);
+    }
+    for (final param in ['contrast', 'saturation']) {
+      network.sendOscMessage('$zonePath/$param', [0.5]);
+      reg.dispatchLocal('$zonePath/$param', [0.5]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
@@ -490,13 +505,31 @@ class GradeZone extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFAAAAAA),
-              ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 14,
+                      icon: const Icon(Icons.refresh, color: Color(0xFF888888)),
+                      onPressed: () => _resetZone(context),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             GradeWheel(
@@ -567,24 +600,30 @@ class GradeWheels extends StatelessWidget {
     return OscPathSegment(
       segment: 'grade',
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GradeZone(
-            label: 'Shadows',
-            zoneName: 'shadows',
-            basePath: basePath,
+          Expanded(
+            child: GradeZone(
+              label: 'Shadows',
+              zoneName: 'shadows',
+              basePath: basePath,
+            ),
           ),
-          const SizedBox(width: 16),
-          GradeZone(
-            label: 'Midtones',
-            zoneName: 'midtones',
-            basePath: basePath,
+          const SizedBox(width: 12),
+          Expanded(
+            child: GradeZone(
+              label: 'Midtones',
+              zoneName: 'midtones',
+              basePath: basePath,
+            ),
           ),
-          const SizedBox(width: 16),
-          GradeZone(
-            label: 'Highlights',
-            zoneName: 'highlights',
-            basePath: basePath,
+          const SizedBox(width: 12),
+          Expanded(
+            child: GradeZone(
+              label: 'Highlights',
+              zoneName: 'highlights',
+              basePath: basePath,
+            ),
           ),
         ],
       ),

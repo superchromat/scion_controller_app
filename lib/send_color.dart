@@ -74,68 +74,86 @@ class _SendColorState extends State<SendColor> {
     return SizedBox(
       height: 400,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Left column: global knobs + grade wheels stacked vertically
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              NeumorphicInset(
-                baseColor: const Color(0xFF252527),
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  spacing: 24,
-                  runSpacing: 16,
-                  children: [
-                    _labeledKnob(
-                      label: 'Brightness',
-                      paramKey: 'brightness',
-                      knobKey: _brightnessKey,
-                      initialValue: _initialBrightness,
-                      minValue: 0,
-                      maxValue: 1,
-                      snapPoints: const [0.0, 0.5, 1.0],
-                      precision: 3,
-                    ),
-                    _labeledKnob(
-                      label: 'Contrast',
-                      paramKey: 'contrast',
-                      knobKey: _contrastKey,
-                      initialValue: _initialContrast,
-                      minValue: 0,
-                      maxValue: 1,
-                      snapPoints: const [0.0, 0.5, 1.0],
-                      precision: 3,
-                    ),
-                    _labeledKnob(
-                      label: 'Saturation',
-                      paramKey: 'saturation',
-                      knobKey: _saturationKey,
-                      initialValue: _initialSaturation,
-                      minValue: 0,
-                      maxValue: 1,
-                      snapPoints: const [0.0, 0.5, 1.0],
-                      precision: 3,
-                    ),
-                    _labeledKnob(
-                      label: 'Hue',
-                      paramKey: 'hue',
-                      knobKey: _hueKey,
-                      initialValue: _initialHue,
-                      minValue: -180,
-                      maxValue: 180,
-                      snapPoints: const [0.0],
-                      precision: 1,
-                      isBipolar: true,
-                    ),
-                  ],
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                NeumorphicInset(
+                  baseColor: const Color(0xFF252527),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Global',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFAAAAAA),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 24,
+                        runSpacing: 16,
+                        children: [
+                          _labeledKnob(
+                            label: 'Brightness',
+                            paramKey: 'brightness',
+                            knobKey: _brightnessKey,
+                            initialValue: _initialBrightness,
+                            minValue: 0,
+                            maxValue: 1,
+                            snapPoints: const [0.0, 0.5, 1.0],
+                            precision: 3,
+                          ),
+                          _labeledKnob(
+                            label: 'Contrast',
+                            paramKey: 'contrast',
+                            knobKey: _contrastKey,
+                            initialValue: _initialContrast,
+                            minValue: 0,
+                            maxValue: 1,
+                            snapPoints: const [0.0, 0.5, 1.0],
+                            precision: 3,
+                          ),
+                          _labeledKnob(
+                            label: 'Saturation',
+                            paramKey: 'saturation',
+                            knobKey: _saturationKey,
+                            initialValue: _initialSaturation,
+                            minValue: 0,
+                            maxValue: 1,
+                            snapPoints: const [0.0, 0.5, 1.0],
+                            precision: 3,
+                          ),
+                          _labeledKnob(
+                            label: 'Hue',
+                            paramKey: 'hue',
+                            knobKey: _hueKey,
+                            initialValue: _initialHue,
+                            minValue: -180,
+                            maxValue: 180,
+                            snapPoints: const [0.0],
+                            precision: 1,
+                            isBipolar: true,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (showGrade) ...[
-                const SizedBox(height: 12),
-                GradeWheels(basePath: '/send/${widget.pageNumber}/grade'),
+                if (showGrade) ...[
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: GradeWheels(basePath: '/send/${widget.pageNumber}/grade'),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           const SizedBox(width: 16),
           // Right column: LUT curve editor
