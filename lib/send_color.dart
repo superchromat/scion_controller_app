@@ -114,7 +114,7 @@ class _SendColorState extends State<SendColor> {
                         color: Color(0xFFAAAAAA),
                       ),
                     ),
-                    const GridGap(fraction: 0.5),
+                    const GridGap(),
                     Row(
                       children: [
                         Expanded(
@@ -172,7 +172,7 @@ class _SendColorState extends State<SendColor> {
                 ),
               ),
               if (showGrade) ...[
-                const GridGap(fraction: 0.5),
+                const GridGap(),
                 Expanded(
                   child: GradeWheels(basePath: widget.gradePath!),
                 ),

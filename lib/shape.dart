@@ -245,7 +245,7 @@ class ShapeState extends State<Shape> {
           ],
         ),
         if (showRotation) ...[
-          const GridGap(fraction: 0.5),
+          const GridGap(),
           GridRow(
             columns: 2,
             cells: [

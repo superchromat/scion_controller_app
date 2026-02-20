@@ -369,7 +369,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
             ),
           ],
         ),
-        const GridGap(fraction: 0.5),
+        const GridGap(),
         GridRow(columns: 1, cells: [(span: 1, child: _knobRow('Vertical', [
           _knob(
             label: 'Blur',
