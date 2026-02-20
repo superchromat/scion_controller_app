@@ -7,6 +7,7 @@ import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'labeled_card.dart';
 import 'grade_wheels.dart';
+import 'grid.dart';
 
 class SendColor extends StatefulWidget {
   final bool showGrade;
@@ -43,65 +44,81 @@ class _SendColorState extends State<SendColor> {
     bool isBipolar = false,
   }) {
     final format = '%.${precision}f';
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        OscPathSegment(
-          segment: paramKey,
-          child: OscRotaryKnob(
-            key: knobKey,
-            initialValue: initialValue,
-            minValue: minValue,
-            maxValue: maxValue,
-            format: format,
-            label: label,
-            defaultValue: initialValue,
-            isBipolar: isBipolar,
-            size: 70,
-            snapConfig: SnapConfig(
-              snapPoints: snapPoints ?? [],
-              snapRegionHalfWidth: (maxValue - minValue) * 0.02,
-              snapBehavior: SnapBehavior.hard,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final knobSize = (constraints.maxWidth * 0.75).clamp(30.0, 90.0);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OscPathSegment(
+              segment: paramKey,
+              child: OscRotaryKnob(
+                key: knobKey,
+                initialValue: initialValue,
+                minValue: minValue,
+                maxValue: maxValue,
+                format: format,
+                label: label,
+                defaultValue: initialValue,
+                isBipolar: isBipolar,
+                size: knobSize,
+                snapConfig: SnapConfig(
+                  snapPoints: snapPoints ?? [],
+                  snapRegionHalfWidth: (maxValue - minValue) * 0.02,
+                  snapBehavior: SnapBehavior.hard,
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final bool showGrade = widget.showGrade;
-    return SizedBox(
-      height: 400,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Left column: global knobs + grade wheels stacked vertically
-          IntrinsicWidth(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                NeumorphicInset(
-                  baseColor: const Color(0xFF252527),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Global',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFAAAAAA),
-                        ),
+    // Height scales with available width (35%) so the color section grows
+    // proportionally as the window widens, clamped to a sensible range.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = (constraints.maxWidth * 0.45).clamp(400.0, 700.0);
+        return SizedBox(
+          height: height,
+          child: _buildContent(showGrade),
+        );
+      },
+    );
+  }
+
+  Widget _buildContent(bool showGrade) {
+    return GridRow(
+      columns: 12,
+      cells: [
+        (
+          span: 6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              NeumorphicInset(
+                baseColor: const Color(0xFF252527),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Global',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFAAAAAA),
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 24,
-                        runSpacing: 16,
-                        children: [
-                          _labeledKnob(
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _labeledKnob(
                             label: 'Brightness',
                             paramKey: 'brightness',
                             knobKey: _brightnessKey,
@@ -111,7 +128,9 @@ class _SendColorState extends State<SendColor> {
                             snapPoints: const [0.0, 0.5, 1.0],
                             precision: 3,
                           ),
-                          _labeledKnob(
+                        ),
+                        Expanded(
+                          child: _labeledKnob(
                             label: 'Contrast',
                             paramKey: 'contrast',
                             knobKey: _contrastKey,
@@ -121,7 +140,9 @@ class _SendColorState extends State<SendColor> {
                             snapPoints: const [0.0, 0.5, 1.0],
                             precision: 3,
                           ),
-                          _labeledKnob(
+                        ),
+                        Expanded(
+                          child: _labeledKnob(
                             label: 'Saturation',
                             paramKey: 'saturation',
                             knobKey: _saturationKey,
@@ -131,7 +152,9 @@ class _SendColorState extends State<SendColor> {
                             snapPoints: const [0.0, 0.5, 1.0],
                             precision: 3,
                           ),
-                          _labeledKnob(
+                        ),
+                        Expanded(
+                          child: _labeledKnob(
                             label: 'Hue',
                             paramKey: 'hue',
                             knobKey: _hueKey,
@@ -142,34 +165,33 @@ class _SendColorState extends State<SendColor> {
                             precision: 1,
                             isBipolar: true,
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                if (showGrade) ...[
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: GradeWheels(basePath: widget.gradePath!),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Right column: LUT curve editor
-          Expanded(
-            child: NeumorphicInset(
-              baseColor: const Color(0xFF252527),
-              padding: const EdgeInsets.all(16),
-              child: OscPathSegment(
-                segment: 'lut',
-                child: LUTEditor(),
               ),
+              if (showGrade) ...[
+                const SizedBox(height: 12),
+                Expanded(
+                  child: GradeWheels(basePath: widget.gradePath!),
+                ),
+              ],
+            ],
+          ),
+        ),
+        (
+          span: 6,
+          child: NeumorphicInset(
+            baseColor: const Color(0xFF252527),
+            padding: const EdgeInsets.all(16),
+            child: OscPathSegment(
+              segment: 'lut',
+              child: LUTEditor(),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

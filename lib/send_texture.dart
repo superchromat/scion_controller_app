@@ -4,6 +4,7 @@ import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'osc_widget_binding.dart';
 import 'labeled_card.dart';
+import 'grid.dart';
 
 /// Texture controls with 7 knobs:
 /// - H Blur: 0 to 1 - horizontal blur amount
@@ -270,38 +271,23 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
     );
   }
 
-  // Grid constants — match shape.dart
-  static const double _dialSize = 50;
-  static const double _knobGap = 12;
-  static const EdgeInsets _panelPadding = EdgeInsets.fromLTRB(6, 6, 6, 4);
-  static const TextStyle _knobLabelStyle = TextStyle(
-    fontSize: 11,
-    color: Color(0xFF999999),
-  );
-  static const Color _iconColor = Color(0xFF888888);
-  static const double _iconSize = 14;
+  // Local aliases for AppGrid tokens.
+  static const double _dialSize = AppGrid.knobSize;
+  static const EdgeInsets _panelPadding = AppGrid.panelPadding;
+  static const TextStyle _knobLabelStyle = AppGrid.knobLabelStyle;
 
-  Widget _iconRow(String tooltip, IconData icon, List<Widget> knobs) {
+  /// Builds a panel row of knob slots.
+  ///
+  /// Each entry in [knobs] occupies one equal-width column in the row.
+  /// Pass `null` for an empty slot — this is used to keep the vertical row
+  /// knobs grid-aligned with the horizontal row knobs above them.
+  Widget _knobRow(List<Widget?> knobs) {
     return NeumorphicInset(
       padding: _panelPadding,
       child: Row(
         children: [
-          Tooltip(
-            message: tooltip,
-            child: Icon(icon, size: _iconSize, color: _iconColor),
-          ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (int i = 0; i < knobs.length; i++) ...[
-                  if (i > 0) SizedBox(width: _knobGap),
-                  knobs[i],
-                ],
-              ],
-            ),
-          ),
+          for (final k in knobs)
+            Expanded(child: Center(child: k ?? const SizedBox())),
         ],
       ),
     );
@@ -312,12 +298,12 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _iconRow('Horizontal Blur', Icons.blur_linear, [
+        GridRow(
+          columns: 2,
+          cells: [
+            (
+              span: 1,
+              child: _knobRow([
                   _knob(
                     label: 'Amount',
                     value: _hBlur,
@@ -340,38 +326,37 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
                     },
                   ),
                 ]),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _iconRow('Horizontal Sharpening', Icons.deblur, [
-                  _knob(
-                    label: 'Amount',
-                    value: _hSharp,
-                    minValue: 0.0,
-                    maxValue: 1.0,
-                    onChanged: (v) {
-                      setState(() => _hSharp = v);
-                      _applyHorizontalSharpen();
-                    },
-                  ),
-                  _knob(
-                    label: 'Shape',
-                    value: _hSharpShape,
-                    minValue: 0.0,
-                    maxValue: 1.0,
-                    snapPoints: const [0.5],
-                    onChanged: (v) {
-                      setState(() => _hSharpShape = v);
-                      _applyHorizontalSharpen();
-                    },
-                  ),
-                ]),
-              ),
-            ],
-          ),
+            ),
+            (
+              span: 1,
+              child: _knobRow([
+                _knob(
+                  label: 'Amount',
+                  value: _hSharp,
+                  minValue: 0.0,
+                  maxValue: 1.0,
+                  onChanged: (v) {
+                    setState(() => _hSharp = v);
+                    _applyHorizontalSharpen();
+                  },
+                ),
+                _knob(
+                  label: 'Shape',
+                  value: _hSharpShape,
+                  minValue: 0.0,
+                  maxValue: 1.0,
+                  snapPoints: const [0.5],
+                  onChanged: (v) {
+                    setState(() => _hSharpShape = v);
+                    _applyHorizontalSharpen();
+                  },
+                ),
+              ]),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        _iconRow('Vertical', Icons.swap_vert, [
+        GridRow(columns: 1, cells: [(span: 1, child: _knobRow([
           _knob(
             label: 'Blur',
             value: _vBlur,
@@ -403,7 +388,8 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
               _applyVerticalSharpen();
             },
           ),
-        ]),
+          null, // no V Sharp Shape equivalent
+        ]))]),
       ],
     );
   }

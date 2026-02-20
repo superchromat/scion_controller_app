@@ -10,6 +10,16 @@ class LabeledCard extends StatelessWidget {
   final Widget child;
   final bool networkIndependent;
   final Widget? action;
+  /// Outer spacing around the card surface. Defaults to `EdgeInsets.all(8)`
+  /// which produces a 16 px visual gap between adjacent cards.
+  /// Pass `EdgeInsets.symmetric(vertical: 8)` when [GridRow] owns the
+  /// horizontal gutter so that card edges land exactly on column-rule lines.
+  final EdgeInsetsGeometry outerPadding;
+
+  /// Padding inside the card surface, around both title and content.
+  /// Set horizontal to 0 when the child's layout is grid-aligned and must
+  /// span the full card width (e.g. SendSourceSelector tiles).
+  final EdgeInsets innerPadding;
 
   const LabeledCard({
     super.key,
@@ -17,6 +27,8 @@ class LabeledCard extends StatelessWidget {
     required this.child,
     this.networkIndependent = false,
     this.action,
+    this.outerPadding = const EdgeInsets.all(8),
+    this.innerPadding = const EdgeInsets.all(16),
   });
 
   @override
@@ -33,20 +45,25 @@ class LabeledCard extends StatelessWidget {
     final lighting = context.watch<LightingSettings>();
 
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: outerPadding,
       child: IgnorePointer(
         ignoring: disabled,
         child: Opacity(
           opacity: disabled ? 0.2 : 1.0,
           child: _NeumorphicCard(
             lighting: lighting,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // title row with optional action
-                  Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title row: always keeps ≥16 px horizontal indent.
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    innerPadding.left < 16 ? 16.0 : innerPadding.left,
+                    innerPadding.top,
+                    innerPadding.right < 16 ? 16.0 : innerPadding.right,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       Expanded(
                         child: Text(
@@ -57,10 +74,18 @@ class LabeledCard extends StatelessWidget {
                       if (action != null) action!,
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  child,
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                // Content area: uses innerPadding for left/right/bottom.
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: innerPadding.left,
+                    right: innerPadding.right,
+                    bottom: innerPadding.bottom,
+                  ),
+                  child: child,
+                ),
+              ],
             ),
           ),
         ),

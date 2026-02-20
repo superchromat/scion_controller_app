@@ -6,13 +6,11 @@ import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'oklch_color_picker.dart';
 import 'labeled_card.dart';
+import 'grid.dart';
 
-const double _dialSize = 50;
-const double _knobGap = 12;
-const TextStyle _knobLabelStyle = TextStyle(
-  fontSize: 11,
-  color: Color(0xFF999999),
-);
+const double _dialSize = AppGrid.knobSize;
+const double _knobGap = AppGrid.knobGap;
+const TextStyle _knobLabelStyle = AppGrid.knobLabelStyle;
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -158,7 +156,7 @@ class SendText extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Panel 1: Text input
-          NeumorphicInset(
+          GridRow(columns: 1, cells: [(span: 1, child: NeumorphicInset(
             padding: const EdgeInsets.all(8),
             child: OscPathSegment(
               segment: 'string',
@@ -167,75 +165,88 @@ class SendText extends StatelessWidget {
                 maxLines: 2,
               ),
             ),
-          ),
+          ))]),
           const SizedBox(height: 8),
           // Panel 2: Color wheel + Position + Alpha
-          NeumorphicInset(
+          GridRow(columns: 1, cells: [(span: 1, child: NeumorphicInset(
             baseColor: const Color(0xFF252527),
             padding: const EdgeInsets.all(8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OscPathSegment(
                   segment: 'color',
                   child: OscColorControl(size: 90),
                 ),
-                SizedBox(width: _knobGap),
-                OscPathSegment(
-                  segment: 'pos',
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      OscPathSegment(
-                        segment: 'x',
-                        child: OscRotaryKnob(
-                          label: 'X',
-                          minValue: 0,
-                          maxValue: 3840,
-                          initialValue: 100,
-                          defaultValue: 100,
-                          format: '%.0f',
-                          size: _dialSize,
-                          labelStyle: _knobLabelStyle,
-                          preferInteger: true,
+                const SizedBox(width: _knobGap),
+                // X, Y, Alpha each get equal Expanded slots.
+                // 'pos' OscPathSegment wraps both X and Y.
+                Expanded(
+                  flex: 2,
+                  child: OscPathSegment(
+                    segment: 'pos',
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: OscPathSegment(
+                              segment: 'x',
+                              child: OscRotaryKnob(
+                                label: 'X',
+                                minValue: 0,
+                                maxValue: 3840,
+                                initialValue: 100,
+                                defaultValue: 100,
+                                format: '%.0f',
+                                size: _dialSize,
+                                labelStyle: _knobLabelStyle,
+                                preferInteger: true,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: _knobGap),
-                      OscPathSegment(
-                        segment: 'y',
-                        child: OscRotaryKnob(
-                          label: 'Y',
-                          minValue: 0,
-                          maxValue: 2160,
-                          initialValue: 100,
-                          defaultValue: 100,
-                          format: '%.0f',
-                          size: _dialSize,
-                          labelStyle: _knobLabelStyle,
-                          preferInteger: true,
+                        Expanded(
+                          child: Center(
+                            child: OscPathSegment(
+                              segment: 'y',
+                              child: OscRotaryKnob(
+                                label: 'Y',
+                                minValue: 0,
+                                maxValue: 2160,
+                                initialValue: 100,
+                                defaultValue: 100,
+                                format: '%.0f',
+                                size: _dialSize,
+                                labelStyle: _knobLabelStyle,
+                                preferInteger: true,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                SizedBox(width: _knobGap),
-                OscPathSegment(
-                  segment: 'alpha',
-                  child: OscRotaryKnob(
-                    label: 'Alpha',
-                    minValue: 0,
-                    maxValue: 255,
-                    initialValue: 255,
-                    defaultValue: 255,
-                    format: '%.0f',
-                    size: _dialSize,
-                    labelStyle: _knobLabelStyle,
-                    preferInteger: true,
+                Expanded(
+                  child: Center(
+                    child: OscPathSegment(
+                      segment: 'alpha',
+                      child: OscRotaryKnob(
+                        label: 'Alpha',
+                        minValue: 0,
+                        maxValue: 255,
+                        initialValue: 255,
+                        defaultValue: 255,
+                        format: '%.0f',
+                        size: _dialSize,
+                        labelStyle: _knobLabelStyle,
+                        preferInteger: true,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
+          ))]),
         ],
       ),
     );

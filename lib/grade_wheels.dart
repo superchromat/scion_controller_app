@@ -502,82 +502,100 @@ class GradeZone extends StatelessWidget {
       child: NeumorphicInset(
         baseColor: const Color(0xFF252527),
         padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFAAAAAA),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 14,
-                      icon: const Icon(Icons.refresh, color: Color(0xFF888888)),
-                      onPressed: () => _resetZone(context),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            GradeWheel(
-              basePath: '$basePath/$zoneName',
-              size: 100.0,
-            ),
-            const SizedBox(height: 6),
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final h = constraints.maxHeight;
+            // Reserve space for title (~22px), gaps (8px), knobs (~knobSize+16px)
+            final knobSize = (w / 3).clamp(25.0, 50.0);
+            // title ~24, gaps ~12, knob row ~(knobSize+20 for label), plus 8px buffer
+            final reservedVertical = 24 + 12 + knobSize + 20 + 8;
+            final maxWheelFromHeight = h.isFinite ? (h - reservedVertical).clamp(40.0, 300.0) : w;
+            final wheelSize = w.clamp(40.0, maxWheelFromHeight);
+            return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                OscPathSegment(
-                  segment: 'contrast',
-                  child: OscRotaryKnob(
-                    initialValue: 0.5,
-                    minValue: 0.0,
-                    maxValue: 1.0,
-                    format: '%.2f',
-                    label: 'Con',
-                    defaultValue: 0.5,
-                    size: 55,
-                    snapConfig: SnapConfig(
-                      snapPoints: const [0.5],
-                      snapRegionHalfWidth: 0.02,
-                      snapBehavior: SnapBehavior.hard,
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFAAAAAA),
+                      ),
                     ),
-                  ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          iconSize: 14,
+                          icon: const Icon(Icons.refresh, color: Color(0xFF888888)),
+                          onPressed: () => _resetZone(context),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                OscPathSegment(
-                  segment: 'saturation',
-                  child: OscRotaryKnob(
-                    initialValue: 0.5,
-                    minValue: 0.0,
-                    maxValue: 1.0,
-                    format: '%.2f',
-                    label: 'Sat',
-                    defaultValue: 0.5,
-                    size: 55,
-                    snapConfig: SnapConfig(
-                      snapPoints: const [0.5],
-                      snapRegionHalfWidth: 0.02,
-                      snapBehavior: SnapBehavior.hard,
+                const SizedBox(height: 4),
+                GradeWheel(
+                  basePath: '$basePath/$zoneName',
+                  size: wheelSize,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: OscPathSegment(
+                          segment: 'contrast',
+                          child: OscRotaryKnob(
+                            initialValue: 0.5,
+                            minValue: 0.0,
+                            maxValue: 1.0,
+                            format: '%.2f',
+                            label: 'Con',
+                            defaultValue: 0.5,
+                            size: knobSize,
+                            snapConfig: SnapConfig(
+                              snapPoints: const [0.5],
+                              snapRegionHalfWidth: 0.02,
+                              snapBehavior: SnapBehavior.hard,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    Expanded(
+                      child: Center(
+                        child: OscPathSegment(
+                          segment: 'saturation',
+                          child: OscRotaryKnob(
+                            initialValue: 0.5,
+                            minValue: 0.0,
+                            maxValue: 1.0,
+                            format: '%.2f',
+                            label: 'Sat',
+                            defaultValue: 0.5,
+                            size: knobSize,
+                            snapConfig: SnapConfig(
+                              snapPoints: const [0.5],
+                              snapRegionHalfWidth: 0.02,
+                              snapBehavior: SnapBehavior.hard,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -602,29 +620,11 @@ class GradeWheels extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: GradeZone(
-              label: 'Shadows',
-              zoneName: 'shadows',
-              basePath: basePath,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: GradeZone(
-              label: 'Midtones',
-              zoneName: 'midtones',
-              basePath: basePath,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: GradeZone(
-              label: 'Highlights',
-              zoneName: 'highlights',
-              basePath: basePath,
-            ),
-          ),
+          Expanded(child: GradeZone(label: 'Shadows', zoneName: 'shadows', basePath: basePath)),
+          const SizedBox(width: 8),
+          Expanded(child: GradeZone(label: 'Midtones', zoneName: 'midtones', basePath: basePath)),
+          const SizedBox(width: 8),
+          Expanded(child: GradeZone(label: 'Highlights', zoneName: 'highlights', basePath: basePath)),
         ],
       ),
     );

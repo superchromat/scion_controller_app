@@ -5,6 +5,7 @@ import 'osc_registry.dart';
 import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'system_overview.dart';
+import 'grid.dart';
 
 const TextStyle _greenText = TextStyle(
   color: Colors.green,
@@ -74,17 +75,19 @@ class _SelectorInnerState extends State<_SelectorInner>
   Widget build(BuildContext context) {
     return SizedBox(
       height: TileLayout.tileHeight,
-      child: Row(
-        children: [
+      child: GridRow(
+        cells: [
           for (int i = 1; i <= 3; i++)
-            Expanded(
+            (
+              span: 3,
               child: _InputSourceTile(
                 inputIndex: i,
                 selected: _selected == i,
                 onTap: () => _select(i),
               ),
             ),
-          Expanded(
+          (
+            span: 3,
             child: _ReturnSourceTile(
               selected: _selected == 4,
               onTap: () => _select(4),
@@ -341,7 +344,6 @@ class _SelectableTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           border: Border.all(

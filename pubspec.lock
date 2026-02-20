@@ -347,7 +347,7 @@ packages:
   osc:
     dependency: "direct main"
     description:
-      path: "/Users/josh/src/superchromat/osc"
+      path: "/Users/joshreich/superchromat/osc"
       relative: false
     source: path
     version: "1.0.0"
