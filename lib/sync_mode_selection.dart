@@ -64,9 +64,11 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
     return LabeledCard(
       title: 'Return Sync',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
+      child: Center(
+        heightFactor: 1.0,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           // Top spacing to align with Analog Format grey area
           const SizedBox(height: 24),
           // Sync mode tiles
@@ -139,6 +141,7 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
             ),
           ),
         ],
+        ),
       ),
     );
   }

@@ -787,13 +787,9 @@ class _VideoFormatSelectionSectionState
       segment: 'analog_format',
       child: LabeledCard(
         title: 'Analog Send/Return Format',
-        child: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              SizedBox(
+        child: Center(
+            heightFactor: 1.0,
+            child: SizedBox(
                 width: colWidth + gap + wheelsBoxWidth,
                 height: resFrameHeight + colorspaceBoxHeight,
                 child: Stack(
@@ -886,12 +882,11 @@ class _VideoFormatSelectionSectionState
                 ],
               ),
             ),
-          ],
         ),
-      ),
     ),
   );
   }
+
 }
 
 /// Draws L-shape using two overlapping rounded rectangles with lighting

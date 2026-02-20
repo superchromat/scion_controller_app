@@ -1,6 +1,7 @@
 import 'package:SCION_Controller/system_overview.dart';
 import 'package:flutter/material.dart';
 
+import 'grid.dart';
 import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
 import 'firmware_update.dart';
@@ -18,30 +19,27 @@ class _SystemPageState extends State<SystemPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Padding(
-        padding: const EdgeInsets.all(8),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              IntrinsicHeight(
-                  child: SizedBox(
-                      height: TileLayout.computeCardHeight(),
-                      child: SystemOverview())),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: VideoFormatSelectionSection()),
-                    SizedBox(
-                      width: 400,
-                      child: SyncSettingsSection(),
-                    ),
-                  ],
-                ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final pageGutter = constraints.maxWidth * AppGrid.gutterFraction;
+          return GridGutterProvider(
+            gutter: pageGutter,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(pageGutter),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridRow(cells: [(span: 12, child: SystemOverview())]),
+                  const GridGap(),
+                  GridRow(cells: [
+                    (span: 7, child: VideoFormatSelectionSection()),
+                    (span: 5, child: SyncSettingsSection()),
+                  ]),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
