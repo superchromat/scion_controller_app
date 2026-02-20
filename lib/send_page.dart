@@ -71,9 +71,9 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                   ),
                 ),
                 LabeledCard(title: 'Shape', child: Shape(pageNumber: widget.pageNumber)),
-                LabeledCard(title: 'Color', child: SendColor()),
+                LabeledCard(title: 'Color', child: SendColor(pageNumber: widget.pageNumber)),
                 const LabeledCard(title: 'Text', child: SendText()),
-                const LabeledCard(title: 'Image', child: SendImage()),
+//                const LabeledCard(title: 'Image', child: SendImage()),
                 LabeledCard(
                   title: 'Texture',
                   action: _resetButton(() => (_textureKey.currentState as dynamic)?.reset()),
