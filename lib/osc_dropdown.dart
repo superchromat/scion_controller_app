@@ -16,6 +16,7 @@ class OscDropdown<T> extends StatelessWidget {
   final String? displayLabel;
   final bool enabled;
   final double width;
+  final Map<T, String>? itemLabels;
 
   const OscDropdown({
     super.key,
@@ -27,6 +28,7 @@ class OscDropdown<T> extends StatelessWidget {
     this.displayLabel,
     this.enabled = true,
     this.width = 160,
+    this.itemLabels,
   });
 
   @override
@@ -42,6 +44,7 @@ class OscDropdown<T> extends StatelessWidget {
         onChanged: onChanged,
         enabled: enabled,
         width: width,
+        itemLabels: itemLabels,
       ),
     );
   }
@@ -54,6 +57,7 @@ class _OscDropdownInner<T> extends StatefulWidget {
   final OnChangedCallback<T>? onChanged;
   final bool enabled;
   final double width;
+  final Map<T, String>? itemLabels;
 
   const _OscDropdownInner({
     super.key,
@@ -63,6 +67,7 @@ class _OscDropdownInner<T> extends StatefulWidget {
     this.onChanged,
     this.enabled = true,
     this.width = 160,
+    this.itemLabels,
   });
 
   @override
@@ -142,6 +147,9 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
   }
 
   String _formatLabel(T item) {
+    if (widget.itemLabels != null && widget.itemLabels!.containsKey(item)) {
+      return widget.itemLabels![item]!;
+    }
     if (item is double) {
       final value = item;
       if ((value - value.roundToDouble()).abs() < 1e-6) {

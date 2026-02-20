@@ -5,7 +5,7 @@ import 'shape.dart';
 import 'send_color.dart';
 import 'send_text.dart';
 import 'send_image.dart';
-import 'osc_dropdown.dart';
+import 'send_source_selector.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
 import 'send_glitch.dart';
@@ -64,11 +64,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
               children: [
                 LabeledCard(
                   title: 'Send Source',
-                  child: OscDropdown(
-                    label: 'Input',
-                    items: [1, 2, 3],
-                    defaultValue: widget.pageNumber,
-                  ),
+                  child: SendSourceSelector(pageNumber: widget.pageNumber),
                 ),
                 LabeledCard(title: 'Shape', child: Shape(pageNumber: widget.pageNumber)),
                 LabeledCard(
