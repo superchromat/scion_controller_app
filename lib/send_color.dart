@@ -9,9 +9,10 @@ import 'labeled_card.dart';
 import 'grade_wheels.dart';
 
 class SendColor extends StatefulWidget {
-  final int pageNumber;
+  final bool showGrade;
+  final String? gradePath;
 
-  const SendColor({super.key, required this.pageNumber});
+  const SendColor({super.key, this.showGrade = false, this.gradePath});
 
   @override
   _SendColorState createState() => _SendColorState();
@@ -70,7 +71,7 @@ class _SendColorState extends State<SendColor> {
 
   @override
   Widget build(BuildContext context) {
-    final bool showGrade = widget.pageNumber <= 2;
+    final bool showGrade = widget.showGrade;
     return SizedBox(
       height: 400,
       child: Row(
@@ -149,7 +150,7 @@ class _SendColorState extends State<SendColor> {
                 if (showGrade) ...[
                   const SizedBox(height: 12),
                   Expanded(
-                    child: GradeWheels(basePath: '/send/${widget.pageNumber}/grade'),
+                    child: GradeWheels(basePath: widget.gradePath!),
                   ),
                 ],
               ],

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'labeled_card.dart';
-import 'lut_editor.dart';
 import 'osc_dropdown.dart';
 import 'osc_value_label.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
-import 'rotary_knob.dart';
+import 'send_color.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_registry.dart';
@@ -39,15 +38,16 @@ class _ReturnPageBody extends StatelessWidget {
       children: const [
         _ReturnOutputFormatCard(),
         SizedBox(height: 16),
-        _ReturnOutputPictureCard(),
+        LabeledCard(
+          title: 'Color',
+          child: SendColor(showGrade: true, gradePath: '/output/grade'),
+        ),
         SizedBox(height: 16),
         _AdvPhaseCard(),
         SizedBox(height: 16),
         AdvDeWindowCard(),
         SizedBox(height: 16),
         AdvSyncAdjustCard(),
-        SizedBox(height: 16),
-        _ReturnOutputLutCard(),
       ],
     );
   }
@@ -97,148 +97,6 @@ class _ReturnOutputControls extends StatelessWidget {
         _ChromaSubsamplingDropdown(),
         _BitDepthDropdown(),
       ],
-    );
-  }
-}
-
-class _ReturnOutputPictureCard extends StatelessWidget {
-  const _ReturnOutputPictureCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const LabeledCard(
-      title: 'Output Picture',
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: _ReturnOutputPictureControls(),
-      ),
-    );
-  }
-}
-
-class _ReturnOutputPictureControls extends StatefulWidget {
-  const _ReturnOutputPictureControls();
-
-  @override
-  State<_ReturnOutputPictureControls> createState() =>
-      _ReturnOutputPictureControlsState();
-}
-
-class _ReturnOutputPictureControlsState
-    extends State<_ReturnOutputPictureControls> {
-  final _brightnessKey = GlobalKey<OscRotaryKnobState>();
-  final _contrastKey = GlobalKey<OscRotaryKnobState>();
-  final _saturationKey = GlobalKey<OscRotaryKnobState>();
-  final _hueKey = GlobalKey<OscRotaryKnobState>();
-
-  static const double _initialBrightness = 0.5;
-  static const double _initialContrast = 0.5;
-  static const double _initialSaturation = 0.5;
-  static const double _initialHue = 0.0;
-
-  Widget _buildKnob({
-    required String label,
-    required String segment,
-    required GlobalKey<OscRotaryKnobState> knobKey,
-    required double initialValue,
-    required double minValue,
-    required double maxValue,
-    List<double>? snapPoints,
-    required int precision,
-    bool isBipolar = false,
-  }) {
-    final format = '%.${precision}f';
-    return OscPathSegment(
-      segment: segment,
-      child: OscRotaryKnob(
-        key: knobKey,
-        initialValue: initialValue,
-        minValue: minValue,
-        maxValue: maxValue,
-        format: format,
-        label: label,
-        defaultValue: initialValue,
-        isBipolar: isBipolar,
-        size: 70,
-        snapConfig: SnapConfig(
-          snapPoints: snapPoints ?? [],
-          snapRegionHalfWidth: (maxValue - minValue) * 0.02,
-          snapBehavior: SnapBehavior.hard,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 24,
-      runSpacing: 16,
-      children: [
-        _buildKnob(
-          label: 'Brightness',
-          segment: 'brightness',
-          knobKey: _brightnessKey,
-          initialValue: _initialBrightness,
-          minValue: 0,
-          maxValue: 1,
-          snapPoints: const [0.0, 0.5, 1.0],
-          precision: 3,
-        ),
-        _buildKnob(
-          label: 'Contrast',
-          segment: 'contrast',
-          knobKey: _contrastKey,
-          initialValue: _initialContrast,
-          minValue: 0,
-          maxValue: 1,
-          snapPoints: const [0.0, 0.5, 1.0],
-          precision: 3,
-        ),
-        _buildKnob(
-          label: 'Saturation',
-          segment: 'saturation',
-          knobKey: _saturationKey,
-          initialValue: _initialSaturation,
-          minValue: 0,
-          maxValue: 1,
-          snapPoints: const [0.0, 0.5, 1.0],
-          precision: 3,
-        ),
-        _buildKnob(
-          label: 'Hue',
-          segment: 'hue',
-          knobKey: _hueKey,
-          initialValue: _initialHue,
-          minValue: -180,
-          maxValue: 180,
-          snapPoints: const [0.0],
-          precision: 1,
-          isBipolar: true,
-        ),
-      ],
-    );
-  }
-}
-
-class _ReturnOutputLutCard extends StatelessWidget {
-  const _ReturnOutputLutCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return LabeledCard(
-      title: 'Output LUT',
-      child: SizedBox(
-        height: 400,
-        child: NeumorphicInset(
-          baseColor: const Color(0xFF252527),
-          padding: const EdgeInsets.all(16),
-          child: const OscPathSegment(
-            segment: 'lut',
-            child: LUTEditor(),
-          ),
-        ),
-      ),
     );
   }
 }

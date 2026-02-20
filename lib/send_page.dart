@@ -71,7 +71,13 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                   ),
                 ),
                 LabeledCard(title: 'Shape', child: Shape(pageNumber: widget.pageNumber)),
-                LabeledCard(title: 'Color', child: SendColor(pageNumber: widget.pageNumber)),
+                LabeledCard(
+                  title: 'Color',
+                  child: SendColor(
+                    showGrade: widget.pageNumber == 1,
+                    gradePath: '/send/${widget.pageNumber}/grade',
+                  ),
+                ),
                 const LabeledCard(title: 'Text', child: SendText()),
 //                const LabeledCard(title: 'Image', child: SendImage()),
                 LabeledCard(
