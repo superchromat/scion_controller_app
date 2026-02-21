@@ -26,7 +26,7 @@ class OscRotaryKnob extends StatefulWidget {
   /// Label text
   final String label;
 
-  /// Default value for double-tap reset
+  /// Default value for long-press reset
   final double? defaultValue;
 
   /// Whether this is a bipolar knob

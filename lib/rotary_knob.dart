@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'grid.dart';
 
 /// A segment for piecewise value mapping between normalized [0,1] and value space.
 class MappingSegment {
@@ -189,6 +190,7 @@ class _RotaryKnobState extends State<RotaryKnob>
   // Overlay for drag bar and background
   OverlayEntry? _dragBarOverlay;
   final GlobalKey _knobKey = GlobalKey();
+  bool _isOverlayPinned = false;
 
   // Animation for settling
   late AnimationController _settleController;
@@ -328,6 +330,12 @@ class _RotaryKnobState extends State<RotaryKnob>
         _textController.text = _formatValue(_currentValue);
       });
       widget.onChanged?.call(_currentValue);
+      _updateDragBar();
+      // When overlay was explicitly pinned for numeric entry, close on commit.
+      if (_isOverlayPinned && _state == _KnobState.idle) {
+        _isOverlayPinned = false;
+        _removeDragBar();
+      }
     } else {
       setState(() {
         _isEditing = false;
@@ -583,6 +591,9 @@ class _RotaryKnobState extends State<RotaryKnob>
 
       setState(() {
         _currentValue = vFinal.clamp(widget.minValue, widget.maxValue);
+        if (!_isEditing) {
+          _textController.text = _formatValue(_currentValue);
+        }
       });
 
       widget.onChanged?.call(_currentValue);
@@ -591,7 +602,9 @@ class _RotaryKnobState extends State<RotaryKnob>
   }
 
   void _onPanEnd(DragEndDetails details) {
-    _removeDragBar();
+    if (!_isOverlayPinned) {
+      _removeDragBar();
+    }
     setState(() {
       _state = _KnobState.idle;
       _snappedTo = null;
@@ -600,6 +613,23 @@ class _RotaryKnobState extends State<RotaryKnob>
   }
 
   void _onDoubleTap() {
+    if (_isOverlayPinned) {
+      _isOverlayPinned = false;
+      _removeDragBar();
+      _textFocusNode.unfocus();
+      return;
+    }
+
+    _isOverlayPinned = true;
+    _showDragBar();
+    _textFocusNode.requestFocus();
+    _textController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _textController.text.length,
+    );
+  }
+
+  void _resetToDefault() {
     if (widget.defaultValue != null) {
       setState(() {
         _currentValue =
@@ -607,6 +637,7 @@ class _RotaryKnobState extends State<RotaryKnob>
         _textController.text = _formatValue(_currentValue);
       });
       widget.onChanged?.call(_currentValue);
+      _updateDragBar();
     }
   }
 
@@ -646,7 +677,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     // Single overlay entry with background, knob copy, and drag bar all layered correctly
     _dragBarOverlay = OverlayEntry(
       builder: (context) => Stack(
-        children: [
+          children: [
           // Background shape (bottom layer)
           _KnobDragBackground(
             knobCenterX: knobCenterX,
@@ -662,96 +693,52 @@ class _RotaryKnobState extends State<RotaryKnob>
           Positioned(
             left: knobPosition.dx,
             top: knobPosition.dy,
-            child: IgnorePointer(
-              child: Material(
-                type: MaterialType.transparency,
-                child: SizedBox(
-                  width: knobSize.width,
-                  height: knobSize.height,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Knob with centered value
-                      SizedBox(
-                        width: widget.size,
-                        height: widget.size,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CustomPaint(
-                              size: Size(widget.size, widget.size),
-                              painter: _KnobPainter(
-                                normalized: _normalizedFromValue(_currentValue),
-                                isBipolar: widget.isBipolar,
-                                neutralNormalized: widget.isBipolar
-                                    ? _normalizedFromValue(widget.neutralValue ?? 0)
-                                    : null,
-                                isActive: true,
-                                snapPoints: widget.snapConfig.snapPoints
-                                    .map((v) => _normalizedFromValue(v))
-                                    .toList(),
-                                lightPhi: widget.lightPhi,
-                                lightTheta: widget.lightTheta,
-                                arcWidth: widget.arcWidth,
-                                notchDepth: widget.notchDepth,
-                                notchHalfAngle: widget.notchHalfAngle,
-                                noiseImage: _noiseImage,
-                              ),
-                            ),
-                            // Value display in knob center
-                            Builder(
-                              builder: (context) {
-                                final (leading, main) = _formatValueWithLeading(_currentValue);
-                                final fontSize = widget.size * 0.18;
-                                return Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      if (leading.isNotEmpty)
-                                        TextSpan(
-                                          text: leading,
-                                          style: TextStyle(
-                                            fontSize: fontSize,
-                                            fontFamily: 'Courier',
-                                            fontFeatures: const [FontFeature.tabularFigures()],
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.grey[600],
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                      TextSpan(
-                                        text: main,
-                                        style: TextStyle(
-                                          fontSize: fontSize,
-                                          fontFamily: 'Courier',
-                                          fontFeatures: const [FontFeature.tabularFigures()],
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Label (below knob)
-                      if (widget.label.isNotEmpty)
-                        Transform.translate(
-                          offset: const Offset(0, -4),
-                          child: Text(
-                            widget.label,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.white,
-                              decoration: TextDecoration.none,
+            child: Material(
+              type: MaterialType.transparency,
+              child: SizedBox(
+                width: knobSize.width,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: widget.size,
+                      height: widget.size,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CustomPaint(
+                            size: Size(widget.size, widget.size),
+                            painter: _KnobPainter(
+                              normalized: _normalizedFromValue(_currentValue),
+                              isBipolar: widget.isBipolar,
+                              neutralNormalized: widget.isBipolar
+                                  ? _normalizedFromValue(widget.neutralValue ?? 0)
+                                  : null,
+                              isActive: true,
+                              snapPoints: widget.snapConfig.snapPoints
+                                  .map((v) => _normalizedFromValue(v))
+                                  .toList(),
+                              lightPhi: widget.lightPhi,
+                              lightTheta: widget.lightTheta,
+                              arcWidth: widget.arcWidth,
+                              notchDepth: widget.notchDepth,
+                              notchHalfAngle: widget.notchHalfAngle,
+                              noiseImage: _noiseImage,
                             ),
                           ),
+                          _buildCenterValueEditor(_valueEditorFontSize(), interactive: true),
+                        ],
+                      ),
+                    ),
+                    if (widget.label.isNotEmpty)
+                      Text(
+                        widget.label,
+                        style: widget.labelStyle ?? const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white,
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -776,8 +763,8 @@ class _RotaryKnobState extends State<RotaryKnob>
               noiseImage: _noiseImage,
             ),
           ),
-        ],
-      ),
+          ],
+        ),
     );
 
     overlay.insert(_dragBarOverlay!);
@@ -792,11 +779,177 @@ class _RotaryKnobState extends State<RotaryKnob>
     _dragBarOverlay = null;
   }
 
+  double _valueEditorFontSize() {
+    final base = widget.size * 0.14;
+    if (!_isEditing) return base;
+    final headingSize = GridProvider.maybeOf(context)?.textHeading.fontSize;
+    return headingSize ?? base;
+  }
+
+  Widget _buildCenterValueEditor(double valueFontSize, {bool interactive = true}) {
+    final mainColor = _snappedTo != null
+        ? const Color(0xFFF0B830)
+        : Colors.grey[400]!;
+
+    Color borderColor;
+    if (_isEditing) {
+      borderColor = Colors.yellow;
+    } else if (_isHovering) {
+      borderColor = Colors.grey[600]!;
+    } else {
+      borderColor = Colors.transparent;
+    }
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.text,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: _isEditing ? Colors.black : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: borderColor, width: 1),
+        ),
+        child: Builder(
+          builder: (context) {
+            final fullText = _formatValue(_currentValue);
+            final charWidth = _measureTextWidth('0', valueFontSize);
+            final fixedWidth = charWidth * fullText.length;
+
+            final style = TextStyle(
+              fontSize: valueFontSize,
+              fontFamily: 'Courier',
+              fontFeatures: const [FontFeature.tabularFigures()],
+              fontWeight: FontWeight.normal,
+              letterSpacing: 0,
+              height: 1.0,
+            );
+
+            if (!interactive) {
+              final text = _textController.text;
+              int signEnd = 0;
+              if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
+                signEnd = 1;
+              }
+              int zerosEnd = signEnd;
+              while (zerosEnd < text.length - 1 &&
+                  text[zerosEnd] == '0' &&
+                  zerosEnd + 1 < text.length &&
+                  text[zerosEnd + 1] != '.') {
+                zerosEnd++;
+              }
+              return SizedBox(
+                width: fixedWidth,
+                child: RichText(
+                  textAlign: TextAlign.right,
+                  text: TextSpan(
+                    children: [
+                      if (signEnd > 0)
+                        TextSpan(
+                          text: text.substring(0, signEnd),
+                          style: style.copyWith(color: mainColor),
+                        ),
+                      if (zerosEnd > signEnd)
+                        TextSpan(
+                          text: text.substring(signEnd, zerosEnd),
+                          style: style.copyWith(color: Colors.grey[700]),
+                        ),
+                      TextSpan(
+                        text: text.substring(zerosEnd),
+                        style: style.copyWith(color: mainColor),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return SizedBox(
+              width: fixedWidth,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.centerRight,
+                children: [
+                  TextField(
+                    controller: _textController,
+                    focusNode: _textFocusNode,
+                    style: style.copyWith(
+                      color: _isEditing ? Colors.white : Colors.transparent,
+                    ),
+                    cursorColor: Colors.white,
+                    cursorWidth: 1.5,
+                    textAlign: TextAlign.right,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      isCollapsed: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                      signed: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
+                      LengthLimitingTextInputFormatter(_getMaxInputLength()),
+                    ],
+                    onSubmitted: (_) => _commitEditing(),
+                  ),
+                  if (!_isEditing)
+                    IgnorePointer(
+                      child: Builder(
+                        builder: (context) {
+                          final text = _textController.text;
+                          int signEnd = 0;
+                          if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
+                            signEnd = 1;
+                          }
+                          int zerosEnd = signEnd;
+                          while (zerosEnd < text.length - 1 &&
+                              text[zerosEnd] == '0' &&
+                              zerosEnd + 1 < text.length &&
+                              text[zerosEnd + 1] != '.') {
+                            zerosEnd++;
+                          }
+                          return RichText(
+                            textAlign: TextAlign.right,
+                            text: TextSpan(
+                              children: [
+                                if (signEnd > 0)
+                                  TextSpan(
+                                    text: text.substring(0, signEnd),
+                                    style: style.copyWith(color: mainColor),
+                                  ),
+                                if (zerosEnd > signEnd)
+                                  TextSpan(
+                                    text: text.substring(signEnd, zerosEnd),
+                                    style: style.copyWith(color: Colors.grey[700]),
+                                  ),
+                                TextSpan(
+                                  text: text.substring(zerosEnd),
+                                  style: style.copyWith(color: mainColor),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final normalized = _normalizedFromValue(_currentValue);
-    // Scale font size based on knob size
-    final valueFontSize = widget.size * 0.14;
+    // While editing, use panel heading size; otherwise use default knob value size.
+    final valueFontSize = _valueEditorFontSize();
 
     return GestureDetector(
       key: _knobKey,
@@ -804,6 +957,7 @@ class _RotaryKnobState extends State<RotaryKnob>
       onPanUpdate: _onPanUpdate,
       onPanEnd: _onPanEnd,
       onDoubleTap: _onDoubleTap,
+      onLongPress: _resetToDefault,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -823,7 +977,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                     neutralNormalized: widget.isBipolar
                         ? _normalizedFromValue(widget.neutralValue ?? 0)
                         : null,
-                    isActive: _state != _KnobState.idle,
+                    isActive: true,
                     snapPoints: widget.snapConfig.snapPoints
                         .map((v) => _normalizedFromValue(v))
                         .toList(),
@@ -835,132 +989,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                     noiseImage: _noiseImage,
                   ),
                 ),
-                // Centered value display (editable)
-                Builder(
-                  builder: (context) {
-                    final mainColor = _snappedTo != null
-                        ? const Color(0xFFF0B830)
-                        : Colors.grey[400]!;
-
-                    // Border color: transparent normally, grey on hover, yellow on focus
-                    Color borderColor;
-                    if (_isEditing) {
-                      borderColor = Colors.yellow;
-                    } else if (_isHovering) {
-                      borderColor = Colors.grey[600]!;
-                    } else {
-                      borderColor = Colors.transparent;
-                    }
-
-                    return MouseRegion(
-                      cursor: SystemMouseCursors.text,
-                      onEnter: (_) => setState(() => _isHovering = true),
-                      onExit: (_) => setState(() => _isHovering = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(3),
-                          // Always have a border to prevent layout shift
-                          border: Border.all(color: borderColor, width: 1),
-                        ),
-                        child: Builder(
-                          builder: (context) {
-                            // Fixed width based on formatted value (with leading zeros)
-                            final fullText = _formatValue(_currentValue);
-                            final charWidth = _measureTextWidth('0', valueFontSize);
-                            final fixedWidth = charWidth * fullText.length;
-
-                            final style = TextStyle(
-                              fontSize: valueFontSize,
-                              fontFamily: 'Courier',
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                              fontWeight: FontWeight.normal,
-                              letterSpacing: 0,
-                              height: 1.0,
-                            );
-
-                            return SizedBox(
-                              width: fixedWidth,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                alignment: Alignment.centerRight,
-                                children: [
-                                  // TextField - always present for interaction
-                                  TextField(
-                                    controller: _textController,
-                                    focusNode: _textFocusNode,
-                                    style: style.copyWith(
-                                      color: _isEditing ? Colors.white : Colors.transparent,
-                                    ),
-                                    cursorColor: Colors.white,
-                                    cursorWidth: 1.5,
-                                    textAlign: TextAlign.right,
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      isCollapsed: true,
-                                    ),
-                                    keyboardType: const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                      signed: true,
-                                    ),
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.+\-]')),
-                                      LengthLimitingTextInputFormatter(_getMaxInputLength()),
-                                    ],
-                                    onSubmitted: (_) => _commitEditing(),
-                                  ),
-                                  // Colored text overlay when not editing
-                                  if (!_isEditing)
-                                    IgnorePointer(
-                                      child: Builder(
-                                        builder: (context) {
-                                          final text = _textController.text;
-                                          int signEnd = 0;
-                                          if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
-                                            signEnd = 1;
-                                          }
-                                          int zerosEnd = signEnd;
-                                          while (zerosEnd < text.length - 1 &&
-                                                 text[zerosEnd] == '0' &&
-                                                 zerosEnd + 1 < text.length &&
-                                                 text[zerosEnd + 1] != '.') {
-                                            zerosEnd++;
-                                          }
-                                          return RichText(
-                                            textAlign: TextAlign.right,
-                                            text: TextSpan(
-                                              children: [
-                                                if (signEnd > 0)
-                                                  TextSpan(
-                                                    text: text.substring(0, signEnd),
-                                                    style: style.copyWith(color: mainColor),
-                                                  ),
-                                                if (zerosEnd > signEnd)
-                                                  TextSpan(
-                                                    text: text.substring(signEnd, zerosEnd),
-                                                    style: style.copyWith(color: Colors.grey[700]),
-                                                  ),
-                                                TextSpan(
-                                                  text: text.substring(zerosEnd),
-                                                  style: style.copyWith(color: mainColor),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                _buildCenterValueEditor(valueFontSize, interactive: !_isOverlayPinned),
               ],
             ),
           ),
