@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
+import 'osc_dropdown.dart';
 import 'grid.dart';
+import 'panel.dart';
 
 /// Glitch effects controls for pixel bus bit and channel ordering.
 ///
@@ -143,13 +145,13 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     required String oscAddress,
     double width = 130,
   }) {
-    return OscPathSegment(
-      segment: oscAddress,
-      child: _IntDropdownWidget(
-        label: label,
-        options: options,
-        width: width,
-      ),
+    return OscDropdown<int>(
+      label: label,
+      pathSegment: oscAddress,
+      items: List.generate(options.length, (i) => i),
+      itemLabels: {for (int i = 0; i < options.length; i++) i: options[i]},
+      defaultValue: 0,
+      width: width,
     );
   }
 
@@ -188,393 +190,118 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     );
   }
 
-  Widget _sectionHeader(String title) {
-    final t = GridProvider.maybeOf(context);
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.only(top: t?.md ?? 12, bottom: t?.xs ?? 4),
-      child: Text(
-        title,
-        style: t?.textHeading ?? TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey[500],
-          letterSpacing: 1.0,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final t = GridProvider.maybeOf(context);
-    final wrapSpacing = t?.lg ?? 24.0;
-    final wrapRunSpacing = t?.sm ?? 12.0;
+    final t = GridProvider.of(context);
     return OscPathSegment(
       segment: 'glitch',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: CardColumn(
         children: [
-          // Pixel Bus section
-          _sectionHeader('PIXEL BUS'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _intDropdown(
-                label: 'Channel Swap',
-                options: _channelSwapLabels,
-                oscAddress: 'channel_swap',
-                width: 130,
+          // Row 1: Pixel Bus (1/3) | Frame Buffer (2/3)
+          GridRow(columns: 3, gutter: t.md, cells: [
+            (span: 1, child: Panel(
+              title: 'Pixel Bus',
+              child: Wrap(
+                spacing: t.md,
+                runSpacing: t.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _intDropdown(
+                    label: 'Channel Swap',
+                    options: _channelSwapLabels,
+                    oscAddress: 'channel_swap',
+                    width: 130,
+                  ),
+                  _bitSwapControl(),
+                ],
               ),
-              _bitSwapControl(),
-            ],
-          ),
-
-          // Frame Buffer section
-          _sectionHeader('FRAME BUFFER'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _knob(
-                label: 'Stride',
-                oscAddress: 'stride_offset',
-                min: -50,
-                max: 50,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
+            )),
+            (span: 2, child: Panel(
+              title: 'Frame Buffer',
+              child: Row(children: [
+                Expanded(child: Center(child: _knob(label: 'Stride',    oscAddress: 'stride_offset',   min: -50,   max: 50,   isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Row Ofs',   oscAddress: 'row_offset',      min: -500,  max: 500,  isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Addr Ofs',  oscAddress: 'addr_offset',     min: -1000, max: 1000, isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Rows/Frm',  oscAddress: 'rows_per_frame',  min: -500,  max: 500,  isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Cb Ofs',    oscAddress: 'cb_offset',       min: -5000, max: 5000, isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Cr Ofs',    oscAddress: 'cr_offset',       min: -5000, max: 5000, isBipolar: true))),
+              ]),
+            )),
+          ]),
+          // Row 2: MFC (1/3) | Temporal (1/3) | Genlock (1/3)
+          GridRow(columns: 3, gutter: t.md, cells: [
+            (span: 1, child: Panel(
+              title: 'MFC',
+              child: Row(children: [
+                Expanded(child: Center(child: _knob(label: 'In ROI X',  oscAddress: 'mfc_in_roi_x', min: -500, max: 500, isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'In ROI Y',  oscAddress: 'mfc_in_roi_y', min: -500, max: 500, isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Valid Lns', oscAddress: 'valid_lines',  min: -30,  max: 30,  isBipolar: true))),
+              ]),
+            )),
+            (span: 1, child: Panel(
+              title: 'Temporal',
+              child: Wrap(
+                spacing: t.md,
+                runSpacing: t.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _knob(label: 'Frame Dly', oscAddress: 'frame_delay', min: 0, max: 6),
+                  OscPathSegment(segment: 'y_freeze', child: const _ToggleWidget(label: 'Y Freeze')),
+                  OscPathSegment(segment: 'c_freeze', child: const _ToggleWidget(label: 'C Freeze')),
+                  _intDropdown(label: 'Test Pattern', options: _testPatternLabels, oscAddress: 'test_pattern', width: 100),
+                ],
               ),
-              _knob(
-                label: 'Row Ofs',
-                oscAddress: 'row_offset',
-                min: -500,
-                max: 500,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
+            )),
+            (span: 1, child: Panel(
+              title: 'Genlock',
+              child: Wrap(
+                spacing: t.md,
+                runSpacing: t.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _knob(label: 'H Delay', oscAddress: 'gen_dlyH', min: -500, max: 500, isBipolar: true),
+                  _knob(label: 'V Delay', oscAddress: 'gen_dlyV', min: -100, max: 100, isBipolar: true),
+                  _knob(label: 'Hyst',    oscAddress: 'gen_hyst',  min: 0, max: 1000, initial: 32, defaultValue: 32),
+                  _intDropdown(label: 'Fine Mode', options: _genFineModeLabels, oscAddress: 'gen_fine', width: 120),
+                ],
               ),
-              _knob(
-                label: 'Addr Ofs',
-                oscAddress: 'addr_offset',
-                min: -1000,
-                max: 1000,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
+            )),
+          ]),
+          // Row 3: Memory Control (2/3) | Output Mux (1/3)
+          GridRow(columns: 3, gutter: t.md, cells: [
+            (span: 2, child: Panel(
+              title: 'Memory Control',
+              child: Wrap(
+                spacing: t.md,
+                runSpacing: t.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OscPathSegment(segment: 'addr_limit_disable', child: const _ToggleWidget(label: 'No Limits')),
+                  _knob(label: 'Col Win', oscAddress: 'col_window', min: -1000, max: 1000, isBipolar: true),
+                  _intDropdown(label: 'Bit Precision', options: _bitPrecisionLabels, oscAddress: 'bit_precision', width: 100),
+                  _intDropdown(label: 'Map Mode',      options: _mapModeLabels,      oscAddress: 'map_mode',      width: 100),
+                  _intDropdown(label: 'Buf ID',        options: _bufIdLabels,        oscAddress: 'buf_id',        width: 80),
+                  _intDropdown(label: 'Y Buf Type',    options: _bufTypeLabels,      oscAddress: 'y_buf_type',    width: 80),
+                  _intDropdown(label: 'Cb Buf Type',   options: _bufTypeLabels,      oscAddress: 'cb_buf_type',   width: 80),
+                  _intDropdown(label: 'Cr Buf Type',   options: _bufTypeLabels,      oscAddress: 'cr_buf_type',   width: 80),
+                ],
               ),
-              _knob(
-                label: 'Rows/Frm',
-                oscAddress: 'rows_per_frame',
-                min: -500,
-                max: 500,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
+            )),
+            (span: 1, child: Panel(
+              title: 'Output Mux',
+              child: Wrap(
+                spacing: t.md,
+                runSpacing: t.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _intDropdown(label: 'OutMux Mode', options: _outmuxModeLabels, oscAddress: 'outmux_mode', width: 130),
+                  _intDropdown(label: 'OutMux Port', options: _outmuxPortLabels, oscAddress: 'outmux_port', width: 130),
+                ],
               ),
-              _knob(
-                label: 'Cb Ofs',
-                oscAddress: 'cb_offset',
-                min: -5000,
-                max: 5000,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-              _knob(
-                label: 'Cr Ofs',
-                oscAddress: 'cr_offset',
-                min: -5000,
-                max: 5000,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-            ],
-          ),
-
-          // Memory Control section
-          _sectionHeader('MEMORY CONTROL'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              OscPathSegment(
-                segment: 'addr_limit_disable',
-                child: const _ToggleWidget(label: 'No Limits'),
-              ),
-              _knob(
-                label: 'Col Win',
-                oscAddress: 'col_window',
-                min: -1000,
-                max: 1000,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-              _intDropdown(
-                label: 'Bit Precision',
-                options: _bitPrecisionLabels,
-                oscAddress: 'bit_precision',
-                width: 100,
-              ),
-              _intDropdown(
-                label: 'Map Mode',
-                options: _mapModeLabels,
-                oscAddress: 'map_mode',
-                width: 100,
-              ),
-              _intDropdown(
-                label: 'Buf ID',
-                options: _bufIdLabels,
-                oscAddress: 'buf_id',
-                width: 80,
-              ),
-              _intDropdown(
-                label: 'Y Buf Type',
-                options: _bufTypeLabels,
-                oscAddress: 'y_buf_type',
-                width: 80,
-              ),
-              _intDropdown(
-                label: 'Cb Buf Type',
-                options: _bufTypeLabels,
-                oscAddress: 'cb_buf_type',
-                width: 80,
-              ),
-              _intDropdown(
-                label: 'Cr Buf Type',
-                options: _bufTypeLabels,
-                oscAddress: 'cr_buf_type',
-                width: 80,
-              ),
-            ],
-          ),
-
-          // MFC section
-          _sectionHeader('MFC'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _knob(
-                label: 'In ROI X',
-                oscAddress: 'mfc_in_roi_x',
-                min: -500,
-                max: 500,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-              _knob(
-                label: 'In ROI Y',
-                oscAddress: 'mfc_in_roi_y',
-                min: -500,
-                max: 500,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-              _knob(
-                label: 'Valid Lns',
-                oscAddress: 'valid_lines',
-                min: -30,
-                max: 30,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-            ],
-          ),
-
-          // Temporal section
-          _sectionHeader('TEMPORAL'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _knob(
-                label: 'Frame Dly',
-                oscAddress: 'frame_delay',
-                min: 0,
-                max: 6,
-                initial: 0,
-                defaultValue: 0,
-              ),
-              OscPathSegment(
-                segment: 'y_freeze',
-                child: const _ToggleWidget(label: 'Y Freeze'),
-              ),
-              OscPathSegment(
-                segment: 'c_freeze',
-                child: const _ToggleWidget(label: 'C Freeze'),
-              ),
-              _intDropdown(
-                label: 'Test Pattern',
-                options: _testPatternLabels,
-                oscAddress: 'test_pattern',
-                width: 100,
-              ),
-            ],
-          ),
-
-          // Genlock section
-          _sectionHeader('GENLOCK'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _knob(
-                label: 'H Delay',
-                oscAddress: 'gen_dlyH',
-                min: -500,
-                max: 500,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-              _knob(
-                label: 'V Delay',
-                oscAddress: 'gen_dlyV',
-                min: -100,
-                max: 100,
-                initial: 0,
-                defaultValue: 0,
-                isBipolar: true,
-              ),
-              _knob(
-                label: 'Hyst',
-                oscAddress: 'gen_hyst',
-                min: 0,
-                max: 1000,
-                initial: 32,
-                defaultValue: 32,
-              ),
-              _intDropdown(
-                label: 'Fine Mode',
-                options: _genFineModeLabels,
-                oscAddress: 'gen_fine',
-                width: 120,
-              ),
-            ],
-          ),
-
-          // Output Mux section
-          _sectionHeader('OUTPUT MUX'),
-          Wrap(
-            spacing: wrapSpacing,
-            runSpacing: wrapRunSpacing,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _intDropdown(
-                label: 'OutMux Mode',
-                options: _outmuxModeLabels,
-                oscAddress: 'outmux_mode',
-                width: 130,
-              ),
-              _intDropdown(
-                label: 'OutMux Port',
-                options: _outmuxPortLabels,
-                oscAddress: 'outmux_port',
-                width: 130,
-              ),
-            ],
-          ),
+            )),
+          ]),
         ],
       ),
-    );
-  }
-}
-
-/// Integer dropdown widget for glitch controls
-class _IntDropdownWidget extends StatefulWidget {
-  final String label;
-  final List<String> options;
-  final double width;
-
-  const _IntDropdownWidget({
-    required this.label,
-    required this.options,
-    this.width = 130,
-  });
-
-  @override
-  State<_IntDropdownWidget> createState() => _IntDropdownWidgetState();
-}
-
-class _IntDropdownWidgetState extends State<_IntDropdownWidget> with OscAddressMixin {
-  int _value = 0;
-
-  @override
-  OscStatus onOscMessage(List<Object?> args) {
-    if (args.isNotEmpty && args.first is int) {
-      final v = args.first as int;
-      if (v >= 0 && v < widget.options.length) {
-        setState(() => _value = v);
-        return OscStatus.ok;
-      }
-    }
-    return OscStatus.error;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[400],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Container(
-          width: widget.width,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF3A3A3C),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey[700]!, width: 1),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              value: _value.clamp(0, widget.options.length - 1),
-              isExpanded: true,
-              dropdownColor: const Color(0xFF3A3A3C),
-              style: const TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
-                color: Colors.white,
-              ),
-              items: List.generate(widget.options.length, (i) {
-                return DropdownMenuItem(
-                  value: i,
-                  child: Text(widget.options[i]),
-                );
-              }),
-              onChanged: (v) {
-                if (v != null) {
-                  setState(() => _value = v);
-                  sendOsc(v);
-                }
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

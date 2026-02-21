@@ -208,14 +208,14 @@ class LightingSettings extends ChangeNotifier {
 
     return [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.5),
+        color: Colors.black.withValues(alpha: 0.3),
         offset: shadowOffset,
-        blurRadius: elevation * 1.5,
+        blurRadius: elevation,
       ),
       BoxShadow(
         color: Colors.white.withValues(alpha: 0.03),
         offset: highlightOffset,
-        blurRadius: elevation,
+        blurRadius: elevation * 0.5,
       ),
     ];
   }

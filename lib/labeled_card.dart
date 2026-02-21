@@ -85,7 +85,7 @@ class _NeumorphicCard extends StatefulWidget {
   const _NeumorphicCard({
     required this.lighting,
     required this.child,
-    this.baseColor = const Color(0xFF3A3A3C),
+    this.baseColor = const Color(0xFF303032),
     this.borderRadius = 8.0,
     this.elevation = 4.0,
   });

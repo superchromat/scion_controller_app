@@ -38,9 +38,10 @@ class GridTokens {
       );
 
   TextStyle get textHeading => TextStyle(
-        fontSize: 1.2 * u,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFFAAAAAA),
+        fontSize: 1.1 * u,
+        fontWeight: FontWeight.w300,
+        color: Colors.white,
+        letterSpacing: 0.08 * u,
       );
 
   TextStyle get textLabel => TextStyle(

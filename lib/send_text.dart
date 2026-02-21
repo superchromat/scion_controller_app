@@ -172,83 +172,90 @@ class SendText extends StatelessWidget {
               ),
             ),
           ))]),
-          // Panel 2: Color wheel + Position + Alpha
-          GridRow(columns: 1, gutter: t.md, cells: [(span: 1, child: Panel.dark(
-            title: 'Color',
-            child: Row(
-              children: [
-                OscPathSegment(
-                  segment: 'color',
-                  child: OscColorControl(size: t.knobMd * 1.3),
-                ),
-                SizedBox(width: t.md),
-                Expanded(
-                  flex: 2,
-                  child: OscPathSegment(
-                    segment: 'pos',
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Center(
-                            child: OscPathSegment(
-                              segment: 'x',
-                              child: OscRotaryKnob(
-                                label: 'X',
-                                minValue: 0,
-                                maxValue: 3840,
-                                initialValue: 100,
-                                defaultValue: 100,
-                                format: '%.0f',
-                                size: t.knobMd,
-                                labelStyle: t.textLabel,
-                                preferInteger: true,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: OscPathSegment(
-                              segment: 'y',
-                              child: OscRotaryKnob(
-                                label: 'Y',
-                                minValue: 0,
-                                maxValue: 2160,
-                                initialValue: 100,
-                                defaultValue: 100,
-                                format: '%.0f',
-                                size: t.knobMd,
-                                labelStyle: t.textLabel,
-                                preferInteger: true,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+          // Panel 2 + 3: Color wheel + Alpha  |  Position (X, Y)
+          GridRow(columns: 2, gutter: t.md, cells: [
+            (span: 1, child: Panel.dark(
+              title: 'Color',
+              child: Row(
+                children: [
+                  // Shift wheel up by ~half the knob label height so the wheel
+                  // circle center aligns with the knob circle centers.
+                  // Transform.translate is layout-neutral — no height change.
+                  Transform.translate(
+                    offset: Offset(0, -0.66 * t.u),
+                    child: OscPathSegment(
+                      segment: 'color',
+                      child: OscColorControl(size: t.knobMd * 1.3),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: OscPathSegment(
-                      segment: 'alpha',
-                      child: OscRotaryKnob(
-                        label: 'Alpha',
-                        minValue: 0,
-                        maxValue: 255,
-                        initialValue: 255,
-                        defaultValue: 255,
-                        format: '%.0f',
-                        size: t.knobMd,
-                        labelStyle: t.textLabel,
-                        preferInteger: true,
+                  Expanded(
+                    child: Center(
+                      child: OscPathSegment(
+                        segment: 'alpha',
+                        child: OscRotaryKnob(
+                          label: 'Alpha',
+                          minValue: 0,
+                          maxValue: 255,
+                          initialValue: 255,
+                          defaultValue: 255,
+                          format: '%.0f',
+                          size: t.knobMd,
+                          labelStyle: t.textLabel,
+                          preferInteger: true,
+                        ),
                       ),
                     ),
                   ),
+                ],
+              ),
+            )),
+            (span: 1, child: Panel.dark(
+              title: 'Position',
+              child: OscPathSegment(
+                segment: 'pos',
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: OscPathSegment(
+                          segment: 'x',
+                          child: OscRotaryKnob(
+                            label: 'X',
+                            minValue: 0,
+                            maxValue: 3840,
+                            initialValue: 100,
+                            defaultValue: 100,
+                            format: '%.0f',
+                            size: t.knobMd,
+                            labelStyle: t.textLabel,
+                            preferInteger: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: OscPathSegment(
+                          segment: 'y',
+                          child: OscRotaryKnob(
+                            label: 'Y',
+                            minValue: 0,
+                            maxValue: 2160,
+                            initialValue: 100,
+                            defaultValue: 100,
+                            format: '%.0f',
+                            size: t.knobMd,
+                            labelStyle: t.textLabel,
+                            preferInteger: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ))]),
+              ),
+            )),
+          ]),
         ],
       ),
     );
