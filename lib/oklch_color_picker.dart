@@ -186,7 +186,10 @@ class OklchColorPickerState extends State<OklchColorPicker> {
     _hue = oklch[2];
   }
 
+  bool get isDragging => _dragMode != 0;
+
   void setColor(Color color) {
+    if (_dragMode != 0) return; // Don't let OSC echo corrupt active drag
     setState(() {
       _initFromColor(color);
     });

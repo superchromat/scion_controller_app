@@ -7,6 +7,8 @@ import 'lighting_settings.dart';
 import 'system_overview.dart';
 import 'grid.dart';
 
+// Styles are now derived from GridTokens where possible, but these
+// status-indicator colors don't fit the standard token palette.
 const TextStyle _greenText = TextStyle(
   color: Colors.green,
   fontFamily: 'Courier',
@@ -304,8 +306,9 @@ class _FormatInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.maybeOf(context);
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(t?.sm ?? 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

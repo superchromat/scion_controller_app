@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'grid.dart';
 import 'labeled_card.dart';
 import 'osc_checkbox.dart';
 import 'osc_number_field.dart';
@@ -47,12 +48,13 @@ class DacParameters extends StatelessWidget {
     );
   }
 
-  Widget _section(String title, List<Widget> children) {
+  Widget _section(BuildContext context, String title, List<Widget> children) {
+    final t = GridProvider.maybeOf(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: t?.md ?? 12),
       child: LabeledCard(
         title: title,
-        child: Wrap(spacing: 12, runSpacing: 8, children: children),
+        child: Wrap(spacing: t?.md ?? 12, runSpacing: t?.sm ?? 8, children: children),
       ),
     );
   }
@@ -137,7 +139,7 @@ class DacParameters extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _section('System Control', [
+        _section(context, 'System Control', [
           _numField('Version', 'system/version', readOnly: true),
           _boolField('ARST_FUNC_N', 'system/ctl/arst_func_n'),
           _boolField('Chip MS', 'system/ctl/chip_ms'),
@@ -148,21 +150,21 @@ class DacParameters extends StatelessWidget {
           _boolField('VESA Clk', 'system/ctl/vesa_clk'),
           _boolField('VESA Bars', 'system/ctl/vesa_colorbars'),
         ]),
-        _section('Color Space Conversion', [
+        _section(context, 'Color Space Conversion', [
           _cscMatrix(),
           _numField('Y Off', 'csc/yoff', precision: 2),
           _numField('CbCr Off', 'csc/cboff', precision: 2),
           _boolField('CSC Bypass', 'csc/csc_bypass'),
           _boolField('CSC UOF', 'csc/csc_uof'),
         ]),
-        _section('Test Control', [
+        _section(context, 'Test Control', [
           _boolField('DigBypass', 'test/digbypass'),
           _boolField('Force Off', 'test/force_off'),
           _numField('Y Delay', 'test/ydelay'),
           _boolField('Fast Ramp', 'test/fastramp'),
           _boolField('Slow Ramp', 'test/slowramp'),
         ]),
-        _section('Data Path', [
+        _section(context, 'Data Path', [
           _boolField('CLK656 On', 'datapath/clk656_on'),
           _boolField('FS Adjust', 'datapath/fsadj'),
           _boolField('IFIR12 Bypass', 'datapath/ifir12_bypass'),
@@ -170,13 +172,13 @@ class DacParameters extends StatelessWidget {
           _boolField('Tristate656', 'datapath/tristate656'),
           _numField('DMAN Cntl', 'datapath/dman_cntl'),
         ]),
-        _section('DAC Control', [
+        _section(context, 'DAC Control', [
           _numField('DAC1', 'dac/dac1'),
           _numField('DAC2', 'dac/dac2'),
           _numField('DAC3', 'dac/dac3'),
           _boolField('I2C Control', 'dac/i2c_cntl'),
         ]),
-        _section('Clip/Scale/Multiplier', [
+        _section(context, 'Clip/Scale/Multiplier', [
           _numField('Clip GY Lo', 'csm/clip_gy_lo'),
           _numField('Clip CB Lo', 'csm/clip_cb_lo'),
           _numField('Clip CR Lo', 'csm/clip_cr_lo'),
@@ -191,7 +193,7 @@ class DacParameters extends StatelessWidget {
           _numField('Mult CR', 'csm/mult_cr'),
           _numField('CSM Ctrl', 'csm/csm_ctrl'),
         ]),
-        _section('DTG1', [
+        _section(context, 'DTG1', [
           _numField('Y Blank', 'dtg1/y_blank'),
           _numField('Y Sync Lo', 'dtg1/y_sync_lo'),
           _numField('Y Sync Hi', 'dtg1/y_sync_hi'),
@@ -219,7 +221,7 @@ class DacParameters extends StatelessWidget {
           _numField('Field Size', 'dtg1/field_size'),
           _numField('CBar Size', 'dtg1/cbar_size'),
         ]),
-        _section('DTG2', [
+        _section(context, 'DTG2', [
           _dtg2Table(),
           _numField('HLength', 'dtg2/hlength'),
           _numField('HDly', 'dtg2/hdly'),
@@ -241,12 +243,12 @@ class DacParameters extends StatelessWidget {
           _boolField('VS Pol', 'dtg2/ctrl/vs_pol'),
           _boolField('HS Pol', 'dtg2/ctrl/hs_pol'),
         ]),
-        _section('CGMS', [
+        _section(context, 'CGMS', [
           _boolField('Enable', 'cgms/enable'),
           _numField('Header', 'cgms/header'),
           _numField('Payload', 'cgms/payload'),
         ]),
-        _section('Readback', [
+        _section(context, 'Readback', [
           _numField('PPL', 'readback/ppl', readOnly: true),
           _numField('LPF', 'readback/lpf', readOnly: true),
         ]),

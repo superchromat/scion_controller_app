@@ -3,7 +3,99 @@
 import 'package:flutter/material.dart';
 
 /// Set true to render the 12-column guide overlay on the send page.
-const bool kShowGrid = true;
+const bool kShowGrid = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Grid tokens — all layout values derived from a single base unit `u`
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// All spacing, sizing, and typography values derived from viewport width.
+///
+/// Compute once at the page level and provide via [GridProvider].
+class GridTokens {
+  GridTokens(double contentWidth)
+      : u = (contentWidth * 0.01).clamp(6.0, 20.0);
+
+  /// Base unit — everything else derives from this.
+  final double u;
+
+  // Spacing
+  double get xs => 0.5 * u;
+  double get sm => u;
+  double get md => 1.5 * u;
+  double get lg => 2.0 * u;
+
+  // Knob diameters
+  double get knobSm => 4 * u;
+  double get knobMd => 5.5 * u;
+  double get knobLg => 7 * u;
+
+  // Typography
+  TextStyle get textTitle => TextStyle(
+        fontSize: 2 * u,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      );
+
+  TextStyle get textHeading => TextStyle(
+        fontSize: 1.2 * u,
+        fontWeight: FontWeight.w600,
+        color: const Color(0xFFAAAAAA),
+      );
+
+  TextStyle get textLabel => TextStyle(
+        fontSize: 1.1 * u,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFF888888),
+      );
+
+  TextStyle get textValue => TextStyle(
+        fontSize: 1.1 * u,
+        fontWeight: FontWeight.w400,
+        color: Colors.white,
+      );
+
+  TextStyle get textCaption => TextStyle(
+        fontSize: u,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFF666666),
+      );
+
+  // Composite padding
+  EdgeInsets get panelPadding => EdgeInsets.all(xs);
+  EdgeInsets get cardPadding => EdgeInsets.all(md);
+}
+
+/// Provides [GridTokens] to all descendants.
+class GridProvider extends InheritedWidget {
+  final GridTokens tokens;
+
+  const GridProvider({
+    super.key,
+    required this.tokens,
+    required super.child,
+  });
+
+  /// Returns tokens from the nearest [GridProvider], or a fallback computed
+  /// from [defaultWidth] if no provider exists.  This allows widgets to be
+  /// used on pages that haven't been migrated to [GridProvider] yet.
+  static GridTokens of(BuildContext context, {double defaultWidth = 1200}) {
+    return maybeOf(context) ?? GridTokens(defaultWidth);
+  }
+
+  static GridTokens? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<GridProvider>()
+        ?.tokens;
+  }
+
+  @override
+  bool updateShouldNotify(GridProvider old) => old.tokens.u != tokens.u;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy grid constants (kept for backward compat during migration)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// Layout tokens shared across all send-page sections.
 ///
@@ -139,7 +231,8 @@ class GridRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final knownGutter = gutter ?? GridGutterProvider.maybeOf(context);
+    final knownGutter =
+        gutter ?? GridProvider.maybeOf(context)?.lg ?? GridGutterProvider.maybeOf(context);
 
     // Fast path — gutter is known without measuring.  Avoids LayoutBuilder
     // so the subtree can participate in intrinsic-height queries (needed by
@@ -223,7 +316,8 @@ class GridOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inheritedGutter = GridGutterProvider.maybeOf(context);
+    final inheritedGutter =
+        GridProvider.maybeOf(context)?.lg ?? GridGutterProvider.maybeOf(context);
     return IgnorePointer(
       child: CustomPaint(
         painter: _GridOverlayPainter(

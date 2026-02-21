@@ -5,7 +5,6 @@ import 'grid.dart';
 import 'shape.dart';
 import 'send_color.dart';
 import 'send_text.dart';
-import 'send_image.dart';
 import 'send_source_selector.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
@@ -54,11 +53,11 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final pageGutter = constraints.maxWidth * AppGrid.gutterFraction;
-        return GridGutterProvider(
-          gutter: pageGutter,
+        final t = GridTokens(constraints.maxWidth);
+        return GridProvider(
+          tokens: t,
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(pageGutter),
+            padding: EdgeInsets.all(t.md),
             child: Stack(
               children: [
                 Column(
@@ -69,15 +68,16 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          GridRow(cells: [(
+                          GridRow(gutter: t.md, cells: [(
                             span: 12,
                             child: LabeledCard(
                               title: 'Send Source',
                               child: SendSourceSelector(pageNumber: widget.pageNumber),
                             ),
                           )]),
-                          const GridGap(),
+                          SizedBox(height: t.md),
                           GridRow(
+                            gutter: t.md,
                             cells: [
                               (
                                 span: 4,
@@ -102,8 +102,8 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                               ),
                             ],
                           ),
-                          const GridGap(),
-                          GridRow(cells: [(
+                          SizedBox(height: t.md),
+                          GridRow(gutter: t.md, cells: [(
                             span: 12,
                             child: LabeledCard(
                               title: 'Color',
@@ -113,8 +113,8 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                               ),
                             ),
                           )]),
-                          const GridGap(),
-                          GridRow(cells: [(
+                          SizedBox(height: t.md),
+                          GridRow(gutter: t.md, cells: [(
                             span: 12,
                             child: LabeledCard(
                               title: 'Glitch',
@@ -125,10 +125,10 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                         ],
                       ),
                     ),
-                    const GridGap(),
+                    SizedBox(height: t.md),
                     OscPathSegment(
                       segment: 'dac/${widget.pageNumber}',
-                      child: GridRow(cells: [(
+                      child: GridRow(gutter: t.md, cells: [(
                         span: 12,
                         child: const LabeledCard(title: 'DAC', child: DacParameters()),
                       )]),

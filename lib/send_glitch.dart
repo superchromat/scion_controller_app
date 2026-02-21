@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
+import 'grid.dart';
 
 /// Glitch effects controls for pixel bus bit and channel ordering.
 ///
@@ -169,6 +170,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     String format = '%d',
     bool isBipolar = false,
   }) {
+    final t = GridProvider.maybeOf(context);
     return OscPathSegment(
       segment: oscAddress,
       child: OscRotaryKnob(
@@ -180,18 +182,19 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
         format: format,
         isBipolar: isBipolar,
         preferInteger: true,
-        size: 60,
+        size: t?.knobMd ?? 60,
       ),
     );
   }
 
   Widget _sectionHeader(String title) {
+    final t = GridProvider.maybeOf(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      padding: EdgeInsets.only(top: t?.md ?? 12, bottom: t?.xs ?? 4),
       child: Text(
         title,
-        style: TextStyle(
+        style: t?.textHeading ?? TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: Colors.grey[500],
@@ -203,6 +206,9 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.maybeOf(context);
+    final wrapSpacing = t?.lg ?? 24.0;
+    final wrapRunSpacing = t?.sm ?? 12.0;
     return OscPathSegment(
       segment: 'glitch',
       child: Column(
@@ -211,8 +217,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // Pixel Bus section
           _sectionHeader('PIXEL BUS'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _intDropdown(
@@ -228,8 +234,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // Frame Buffer section
           _sectionHeader('FRAME BUFFER'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _knob(
@@ -292,8 +298,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // Memory Control section
           _sectionHeader('MEMORY CONTROL'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               OscPathSegment(
@@ -351,8 +357,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // MFC section
           _sectionHeader('MFC'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _knob(
@@ -388,8 +394,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // Temporal section
           _sectionHeader('TEMPORAL'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _knob(
@@ -420,8 +426,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // Genlock section
           _sectionHeader('GENLOCK'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _knob(
@@ -462,8 +468,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
           // Output Mux section
           _sectionHeader('OUTPUT MUX'),
           Wrap(
-            spacing: 24,
-            runSpacing: 12,
+            spacing: wrapSpacing,
+            runSpacing: wrapRunSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _intDropdown(

@@ -4,14 +4,8 @@ import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
-import 'labeled_card.dart';
 import 'grid.dart';
-
-// Local aliases for AppGrid tokens used in this file.
-const double _dialSize = AppGrid.knobSize;
-const double _knobGap = AppGrid.knobGap;
-const EdgeInsets _panelPadding = AppGrid.panelPadding;
-const TextStyle _knobLabelStyle = AppGrid.knobLabelStyle;
+import 'panel.dart';
 
 class LinkableKnobPair extends StatefulWidget {
   final String label;
@@ -82,6 +76,7 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
     required double initialValue,
     required void Function(double) onChanged,
   }) {
+    final t = GridProvider.of(context);
     final format = '%.${widget.precision}f';
     return OscPathSegment(
       segment: segment,
@@ -93,8 +88,8 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
         format: format,
         label: label,
         defaultValue: initialValue,
-        size: _dialSize,
-        labelStyle: _knobLabelStyle,
+        size: t.knobMd,
+        labelStyle: t.textLabel,
         snapConfig: SnapConfig(
           snapPoints: widget.snapPoints ?? [],
           snapRegionHalfWidth: (widget.maxValue - widget.minValue) * 0.02,
@@ -107,6 +102,7 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -129,20 +125,28 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
             ? GestureDetector(
                 onTap: _toggleLink,
                 behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  width: _knobGap,
-                  child: Center(
-                    child: Icon(
-                      _linked ? Icons.link : Icons.link_off,
-                      size: 16,
-                      color: _linked
-                          ? const Color(0xFFFFF176)
-                          : Colors.grey[600],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Spacer matching knob circle height
+                    SizedBox(height: t.knobMd),
+                    // Icon at label level (between X and Y labels)
+                    SizedBox(
+                      width: t.md,
+                      child: Center(
+                        child: Icon(
+                          _linked ? Icons.link : Icons.link_off,
+                          size: t.knobMd * 0.3,
+                          color: _linked
+                              ? const Color(0xFFFFF176)
+                              : Colors.grey[600],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               )
-            : SizedBox(width: _knobGap),
+            : SizedBox(width: t.md),
         Expanded(
           child: Center(
             child: _buildKnob(
@@ -175,123 +179,92 @@ class Shape extends StatefulWidget {
 class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<OscRotaryKnobState>();
 
-  Widget _panelTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Center(
-        child: Text(text, style: AppGrid.panelTitleStyle),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
     // Only show rotation for Send 1 (pageNumber == 1)
     final showRotation = widget.pageNumber == null || widget.pageNumber == 1;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return CardColumn(
       children: [
         GridRow(
           columns: 2,
+          gutter: t.md,
           cells: [
             (
               span: 1,
-              child: NeumorphicInset(
-                padding: _panelPadding,
-                child: Column(
-                  children: [
-                    _panelTitle('Scale'),
-                    LinkableKnobPair(
-                      label: 'Scale',
-                      icon: Icons.zoom_out_map,
-                      xKey: 'scaleX',
-                      yKey: 'scaleY',
-                      xValue: 1.0,
-                      yValue: 1.0,
-                      minValue: 0.0,
-                      maxValue: 4.0,
-                      snapPoints: const [0.0, 0.5, 1.0, 2.0, 4.0],
-                      precision: 3,
-                      defaultLinked: true,
-                    ),
-                  ],
+              child: Panel(
+                title: 'Scale',
+                child: LinkableKnobPair(
+                  label: 'Scale',
+                  icon: Icons.zoom_out_map,
+                  xKey: 'scaleX',
+                  yKey: 'scaleY',
+                  xValue: 1.0,
+                  yValue: 1.0,
+                  minValue: 0.0,
+                  maxValue: 4.0,
+                  snapPoints: const [0.0, 0.5, 1.0, 2.0, 4.0],
+                  precision: 3,
+                  defaultLinked: true,
                 ),
               ),
             ),
             (
               span: 1,
-              child: NeumorphicInset(
-                padding: _panelPadding,
-                child: Column(
-                  children: [
-                    _panelTitle('Position'),
-                    LinkableKnobPair(
-                      label: 'Position',
-                      icon: Icons.open_with,
-                      xKey: 'posX',
-                      yKey: 'posY',
-                      xValue: 0.5,
-                      yValue: 0.5,
-                      minValue: 0.0,
-                      maxValue: 1.0,
-                      snapPoints: const [0.0, 0.5, 1.0],
-                      precision: 3,
-                    ),
-                  ],
+              child: Panel(
+                title: 'Position',
+                child: LinkableKnobPair(
+                  label: 'Position',
+                  icon: Icons.open_with,
+                  xKey: 'posX',
+                  yKey: 'posY',
+                  xValue: 0.5,
+                  yValue: 0.5,
+                  minValue: 0.0,
+                  maxValue: 1.0,
+                  snapPoints: const [0.0, 0.5, 1.0],
+                  precision: 3,
                 ),
               ),
             ),
           ],
         ),
-        if (showRotation) ...[
-          const GridGap(),
+        if (showRotation)
           GridRow(
             columns: 2,
+            gutter: t.md,
             cells: [
               (
                 span: 1,
-                child: NeumorphicInset(
-                  padding: _panelPadding,
-                  child: Column(
-                    children: [
-                      _panelTitle('Rotation'),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Center(
-                              child: OscPathSegment(
-                                segment: 'rotation',
-                                child: OscRotaryKnob(
-                                  key: _rotationKey,
-                                  initialValue: 180.0,
-                                  minValue: 0.0,
-                                  maxValue: 360.0,
-                                  format: '%.1f',
-                                  label: 'Degrees',
-                                  defaultValue: 180.0,
-                                  size: _dialSize,
-                                  labelStyle: _knobLabelStyle,
-                                  snapConfig: SnapConfig(
-                                    snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
-                                    snapRegionHalfWidth: 7.2,
-                                    snapBehavior: SnapBehavior.hard,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const Expanded(child: SizedBox()),
-                        ],
+                child: Panel(
+                  title: 'Rotation',
+                  child: Center(
+                    child: OscPathSegment(
+                      segment: 'rotation',
+                      child: OscRotaryKnob(
+                        key: _rotationKey,
+                        initialValue: 180.0,
+                        minValue: 0.0,
+                        maxValue: 360.0,
+                        format: '%.1f',
+                        label: 'Degrees',
+                        defaultValue: 180.0,
+                        size: t.knobMd,
+                        labelStyle: t.textLabel,
+                        snapConfig: SnapConfig(
+                          snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
+                          snapRegionHalfWidth: 7.2,
+                          snapBehavior: SnapBehavior.hard,
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
               (span: 1, child: const SizedBox()),
             ],
           ),
-        ],
       ],
     );
   }

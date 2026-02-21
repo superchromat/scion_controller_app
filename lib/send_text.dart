@@ -5,12 +5,8 @@ import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'oklch_color_picker.dart';
-import 'labeled_card.dart';
 import 'grid.dart';
-
-const double _dialSize = AppGrid.knobSize;
-const double _knobGap = AppGrid.knobGap;
-const TextStyle _knobLabelStyle = AppGrid.knobLabelStyle;
+import 'panel.dart';
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -117,6 +113,11 @@ class _OscColorControlState extends State<OscColorControl> with OscAddressMixin 
 
   @override
   OscStatus onOscMessage(List<Object?> args) {
+    // Skip echo while picker is being dragged — the rebuild disrupts gestures
+    // and the RGB→OKLCH roundtrip is lossy.
+    final pickerState = _pickerKey.currentState;
+    if (pickerState != null && pickerState.isDragging) return OscStatus.ok;
+
     if (args.length >= 3 && args[0] is num && args[1] is num && args[2] is num) {
       final r = (args[0] as num).toInt().clamp(0, 255);
       final g = (args[1] as num).toInt().clamp(0, 255);
@@ -154,61 +155,33 @@ class SendText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+
     return OscPathSegment(
       segment: 'text',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: CardColumn(
         children: [
-          // Panel 1: Text input — a hidden reference column with the exact
-          // same widget structure as a knob panel (title + SizedBox(knobSize)
-          // + label) sets the intrinsic height.  The TextField fills that
-          // space via Positioned.fill in a Stack.
-          GridRow(columns: 1, cells: [(span: 1, child: NeumorphicInset(
-            padding: AppGrid.panelPadding,
-            child: Stack(
-              children: [
-                // Invisible reference: identical content to _knobRow
-                Opacity(
-                  opacity: 0,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(' ', style: AppGrid.panelTitleStyle),
-                      ),
-                      SizedBox(height: AppGrid.knobSize),
-                      Text(' ', style: AppGrid.knobLabelStyle),
-                    ],
-                  ),
-                ),
-                // Text field fills the reference height
-                Positioned.fill(
-                  child: OscPathSegment(
-                    segment: 'string',
-                    child: OscTextField(
-                      hintText: 'Enter overlay text...',
-                      expands: true,
-                    ),
-                  ),
-                ),
-              ],
+          // Panel 1: Text input — rows:1 reference matches titled knob panel height
+          GridRow(columns: 1, gutter: t.md, cells: [(span: 1, child: Panel(
+            rows: 1,
+            child: OscPathSegment(
+              segment: 'string',
+              child: OscTextField(
+                hintText: 'Enter overlay text...',
+                expands: true,
+              ),
             ),
           ))]),
-          const GridGap(),
           // Panel 2: Color wheel + Position + Alpha
-          GridRow(columns: 1, cells: [(span: 1, child: NeumorphicInset(
-            baseColor: const Color(0xFF252527),
-            padding: const EdgeInsets.all(8),
+          GridRow(columns: 1, gutter: t.md, cells: [(span: 1, child: Panel.dark(
+            title: 'Color',
             child: Row(
               children: [
                 OscPathSegment(
                   segment: 'color',
-                  child: OscColorControl(size: 90),
+                  child: OscColorControl(size: t.knobMd * 1.3),
                 ),
-                const SizedBox(width: _knobGap),
-                // X, Y, Alpha each get equal Expanded slots.
-                // 'pos' OscPathSegment wraps both X and Y.
+                SizedBox(width: t.md),
                 Expanded(
                   flex: 2,
                   child: OscPathSegment(
@@ -226,8 +199,8 @@ class SendText extends StatelessWidget {
                                 initialValue: 100,
                                 defaultValue: 100,
                                 format: '%.0f',
-                                size: _dialSize,
-                                labelStyle: _knobLabelStyle,
+                                size: t.knobMd,
+                                labelStyle: t.textLabel,
                                 preferInteger: true,
                               ),
                             ),
@@ -244,8 +217,8 @@ class SendText extends StatelessWidget {
                                 initialValue: 100,
                                 defaultValue: 100,
                                 format: '%.0f',
-                                size: _dialSize,
-                                labelStyle: _knobLabelStyle,
+                                size: t.knobMd,
+                                labelStyle: t.textLabel,
                                 preferInteger: true,
                               ),
                             ),
@@ -266,8 +239,8 @@ class SendText extends StatelessWidget {
                         initialValue: 255,
                         defaultValue: 255,
                         format: '%.0f',
-                        size: _dialSize,
-                        labelStyle: _knobLabelStyle,
+                        size: t.knobMd,
+                        labelStyle: t.textLabel,
                         preferInteger: true,
                       ),
                     ),

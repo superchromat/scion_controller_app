@@ -33,8 +33,14 @@ class LabeledCard extends StatelessWidget {
     // Get lighting settings
     final lighting = context.watch<LightingSettings>();
 
-    // Derive all vertical padding from the page-level gutter.
-    final g = GridGutterProvider.maybeOf(context) ?? 16.0;
+    // Use grid tokens when available, fall back to legacy gutter.
+    final t = GridProvider.maybeOf(context);
+    final titlePadH = t?.md ?? 16.0;
+    final titlePadTop = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
+    final titleGap = t?.xs ?? (titlePadTop / 2);
+    final contentPadH = 0.0; // GridRow handles horizontal spacing
+    final contentPadBot = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
+    final titleStyle = t?.textTitle ?? Theme.of(context).textTheme.titleLarge!;
 
     return IgnorePointer(
       ignoring: disabled,
@@ -45,25 +51,18 @@ class LabeledCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title row: always keeps ≥16 px horizontal indent.
               Padding(
-                padding: EdgeInsets.fromLTRB(16, g, 16, 0),
+                padding: EdgeInsets.fromLTRB(titlePadH, titlePadTop, titlePadH, 0),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
+                    Expanded(child: Text(title, style: titleStyle)),
                     if (action != null) action!,
                   ],
                 ),
               ),
-              SizedBox(height: g / 2),
-              // Content area: no horizontal padding (grid-aligned), g bottom.
+              SizedBox(height: titleGap),
               Padding(
-                padding: EdgeInsets.only(bottom: g),
+                padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
                 child: child,
               ),
             ],

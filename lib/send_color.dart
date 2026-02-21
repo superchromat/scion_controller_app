@@ -5,9 +5,10 @@ import 'lut_editor.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
-import 'labeled_card.dart';
 import 'grade_wheels.dart';
 import 'grid.dart';
+import 'panel.dart';
+import 'labeled_card.dart';
 
 class SendColor extends StatefulWidget {
   final bool showGrade;
@@ -43,136 +44,119 @@ class _SendColorState extends State<SendColor> {
     required int precision,
     bool isBipolar = false,
   }) {
+    final t = GridProvider.of(context);
     final format = '%.${precision}f';
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final knobSize = (constraints.maxWidth * 0.75).clamp(30.0, 90.0);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            OscPathSegment(
-              segment: paramKey,
-              child: OscRotaryKnob(
-                key: knobKey,
-                initialValue: initialValue,
-                minValue: minValue,
-                maxValue: maxValue,
-                format: format,
-                label: label,
-                defaultValue: initialValue,
-                isBipolar: isBipolar,
-                size: knobSize,
-                snapConfig: SnapConfig(
-                  snapPoints: snapPoints ?? [],
-                  snapRegionHalfWidth: (maxValue - minValue) * 0.02,
-                  snapBehavior: SnapBehavior.hard,
-                ),
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OscPathSegment(
+          segment: paramKey,
+          child: OscRotaryKnob(
+            key: knobKey,
+            initialValue: initialValue,
+            minValue: minValue,
+            maxValue: maxValue,
+            format: format,
+            label: label,
+            defaultValue: initialValue,
+            isBipolar: isBipolar,
+            size: t.knobLg,
+            snapConfig: SnapConfig(
+              snapPoints: snapPoints ?? [],
+              snapRegionHalfWidth: (maxValue - minValue) * 0.02,
+              snapBehavior: SnapBehavior.hard,
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
     final bool showGrade = widget.showGrade;
-    // Height scales with available width (35%) so the color section grows
+    // Height scales with available width so the color section grows
     // proportionally as the window widens, clamped to a sensible range.
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = (constraints.maxWidth * 0.45).clamp(400.0, 700.0);
         return SizedBox(
           height: height,
-          child: _buildContent(showGrade),
+          child: _buildContent(showGrade, t),
         );
       },
     );
   }
 
-  Widget _buildContent(bool showGrade) {
+  Widget _buildContent(bool showGrade, GridTokens t) {
     return GridRow(
       columns: 12,
+      gutter: t.md,
       cells: [
         (
           span: 6,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              NeumorphicInset(
-                baseColor: const Color(0xFF252527),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              Panel(
+                title: 'Global',
+                child: Row(
                   children: [
-                    const Text(
-                      'Global',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFAAAAAA),
+                    Expanded(
+                      child: _labeledKnob(
+                        label: 'Brightness',
+                        paramKey: 'brightness',
+                        knobKey: _brightnessKey,
+                        initialValue: _initialBrightness,
+                        minValue: 0,
+                        maxValue: 1,
+                        snapPoints: const [0.0, 0.5, 1.0],
+                        precision: 3,
                       ),
                     ),
-                    const GridGap(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _labeledKnob(
-                            label: 'Brightness',
-                            paramKey: 'brightness',
-                            knobKey: _brightnessKey,
-                            initialValue: _initialBrightness,
-                            minValue: 0,
-                            maxValue: 1,
-                            snapPoints: const [0.0, 0.5, 1.0],
-                            precision: 3,
-                          ),
-                        ),
-                        Expanded(
-                          child: _labeledKnob(
-                            label: 'Contrast',
-                            paramKey: 'contrast',
-                            knobKey: _contrastKey,
-                            initialValue: _initialContrast,
-                            minValue: 0,
-                            maxValue: 1,
-                            snapPoints: const [0.0, 0.5, 1.0],
-                            precision: 3,
-                          ),
-                        ),
-                        Expanded(
-                          child: _labeledKnob(
-                            label: 'Saturation',
-                            paramKey: 'saturation',
-                            knobKey: _saturationKey,
-                            initialValue: _initialSaturation,
-                            minValue: 0,
-                            maxValue: 1,
-                            snapPoints: const [0.0, 0.5, 1.0],
-                            precision: 3,
-                          ),
-                        ),
-                        Expanded(
-                          child: _labeledKnob(
-                            label: 'Hue',
-                            paramKey: 'hue',
-                            knobKey: _hueKey,
-                            initialValue: _initialHue,
-                            minValue: -180,
-                            maxValue: 180,
-                            snapPoints: const [0.0],
-                            precision: 1,
-                            isBipolar: true,
-                          ),
-                        ),
-                      ],
+                    Expanded(
+                      child: _labeledKnob(
+                        label: 'Contrast',
+                        paramKey: 'contrast',
+                        knobKey: _contrastKey,
+                        initialValue: _initialContrast,
+                        minValue: 0,
+                        maxValue: 1,
+                        snapPoints: const [0.0, 0.5, 1.0],
+                        precision: 3,
+                      ),
+                    ),
+                    Expanded(
+                      child: _labeledKnob(
+                        label: 'Saturation',
+                        paramKey: 'saturation',
+                        knobKey: _saturationKey,
+                        initialValue: _initialSaturation,
+                        minValue: 0,
+                        maxValue: 1,
+                        snapPoints: const [0.0, 0.5, 1.0],
+                        precision: 3,
+                      ),
+                    ),
+                    Expanded(
+                      child: _labeledKnob(
+                        label: 'Hue',
+                        paramKey: 'hue',
+                        knobKey: _hueKey,
+                        initialValue: _initialHue,
+                        minValue: -180,
+                        maxValue: 180,
+                        snapPoints: const [0.0],
+                        precision: 1,
+                        isBipolar: true,
+                      ),
                     ),
                   ],
                 ),
               ),
               if (showGrade) ...[
-                const GridGap(),
+                SizedBox(height: t.md),
                 Expanded(
                   child: GradeWheels(basePath: widget.gradePath!),
                 ),
@@ -184,7 +168,7 @@ class _SendColorState extends State<SendColor> {
           span: 6,
           child: NeumorphicInset(
             baseColor: const Color(0xFF252527),
-            padding: const EdgeInsets.all(16),
+            padding: t.panelPadding,
             child: OscPathSegment(
               segment: 'lut',
               child: LUTEditor(),
