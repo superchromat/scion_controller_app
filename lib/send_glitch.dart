@@ -193,6 +193,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+
     return OscPathSegment(
       segment: 'glitch',
       child: CardColumn(
@@ -202,7 +203,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
             (span: 1, child: Panel(
               title: 'Pixel Bus',
               child: Wrap(
-                spacing: t.md,
+                spacing: t.sm,
                 runSpacing: t.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -241,13 +242,19 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
             (span: 1, child: Panel(
               title: 'Temporal',
               child: Wrap(
-                spacing: t.md,
+                spacing: t.sm,
                 runSpacing: t.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _knob(label: 'Frame Dly', oscAddress: 'frame_delay', min: 0, max: 6),
-                  OscPathSegment(segment: 'y_freeze', child: const _ToggleWidget(label: 'Y Freeze')),
-                  OscPathSegment(segment: 'c_freeze', child: const _ToggleWidget(label: 'C Freeze')),
+                  OscPathSegment(
+                    segment: 'y_freeze',
+                    child: const _ToggleWidget(label: 'Y Freeze'),
+                  ),
+                  OscPathSegment(
+                    segment: 'c_freeze',
+                    child: const _ToggleWidget(label: 'C Freeze'),
+                  ),
                   _intDropdown(label: 'Test Pattern', options: _testPatternLabels, oscAddress: 'test_pattern', width: 100),
                 ],
               ),
@@ -255,7 +262,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
             (span: 1, child: Panel(
               title: 'Genlock',
               child: Wrap(
-                spacing: t.md,
+                spacing: t.sm,
                 runSpacing: t.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -272,25 +279,25 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
             (span: 2, child: Panel(
               title: 'Memory Control',
               child: Wrap(
-                spacing: t.md,
+                spacing: t.sm,
                 runSpacing: t.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   OscPathSegment(segment: 'addr_limit_disable', child: const _ToggleWidget(label: 'No Limits')),
                   _knob(label: 'Col Win', oscAddress: 'col_window', min: -1000, max: 1000, isBipolar: true),
-                  _intDropdown(label: 'Bit Precision', options: _bitPrecisionLabels, oscAddress: 'bit_precision', width: 100),
-                  _intDropdown(label: 'Map Mode',      options: _mapModeLabels,      oscAddress: 'map_mode',      width: 100),
-                  _intDropdown(label: 'Buf ID',        options: _bufIdLabels,        oscAddress: 'buf_id',        width: 80),
-                  _intDropdown(label: 'Y Buf Type',    options: _bufTypeLabels,      oscAddress: 'y_buf_type',    width: 80),
-                  _intDropdown(label: 'Cb Buf Type',   options: _bufTypeLabels,      oscAddress: 'cb_buf_type',   width: 80),
-                  _intDropdown(label: 'Cr Buf Type',   options: _bufTypeLabels,      oscAddress: 'cr_buf_type',   width: 80),
+                  _intDropdown(label: 'Bit Precision', options: _bitPrecisionLabels, oscAddress: 'bit_precision', width: 120),
+                  _intDropdown(label: 'Map Mode', options: _mapModeLabels, oscAddress: 'map_mode', width: 120),
+                  _intDropdown(label: 'Buf ID', options: _bufIdLabels, oscAddress: 'buf_id', width: 120),
+                  _intDropdown(label: 'Y Buf Type', options: _bufTypeLabels, oscAddress: 'y_buf_type', width: 120),
+                  _intDropdown(label: 'Cb Buf Type', options: _bufTypeLabels, oscAddress: 'cb_buf_type', width: 120),
+                  _intDropdown(label: 'Cr Buf Type', options: _bufTypeLabels, oscAddress: 'cr_buf_type', width: 120),
                 ],
               ),
             )),
             (span: 1, child: Panel(
               title: 'Output Mux',
               child: Wrap(
-                spacing: t.md,
+                spacing: t.sm,
                 runSpacing: t.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -304,6 +311,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       ),
     );
   }
+
 }
 
 /// Bit swap control with individual toggles for Y, Cb, Cr
@@ -334,14 +342,15 @@ class _BitSwapWidgetState extends State<_BitSwapWidget> with OscAddressMixin {
   }
 
   Widget _bitToggle(String label, int bit) {
+    final t = GridProvider.of(context);
     final isSet = (_value & (1 << bit)) != 0;
     return GestureDetector(
       onTap: () => _toggleBit(bit),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs),
         decoration: BoxDecoration(
           color: isSet ? const Color(0xFFFFF176) : const Color(0xFF2A2A2C),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(5),
           border: Border.all(
             color: isSet ? const Color(0xFFFFF176) : Colors.grey[600]!,
             width: 1,
@@ -349,10 +358,9 @@ class _BitSwapWidgetState extends State<_BitSwapWidget> with OscAddressMixin {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: isSet ? Colors.black : Colors.grey[400],
+          style: t.textLabel.copyWith(
+            fontWeight: FontWeight.w700,
+            color: isSet ? Colors.black : Colors.grey[300],
           ),
         ),
       ),
@@ -361,28 +369,25 @@ class _BitSwapWidgetState extends State<_BitSwapWidget> with OscAddressMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          padding: EdgeInsets.only(left: t.xs, bottom: t.xs),
           child: Text(
             'Bit Swap',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[400],
-              fontWeight: FontWeight.w500,
-            ),
+            style: t.textLabel,
           ),
         ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             _bitToggle('Y', 0),
-            const SizedBox(width: 4),
+            SizedBox(width: t.xs),
             _bitToggle('Cb', 1),
-            const SizedBox(width: 4),
+            SizedBox(width: t.xs),
             _bitToggle('Cr', 2),
           ],
         ),
@@ -415,19 +420,16 @@ class _ToggleWidgetState extends State<_ToggleWidget> with OscAddressMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          padding: EdgeInsets.only(left: t.xs, bottom: t.xs),
           child: Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[400],
-              fontWeight: FontWeight.w500,
-            ),
+            style: t.textLabel,
           ),
         ),
         GestureDetector(
@@ -437,10 +439,10 @@ class _ToggleWidgetState extends State<_ToggleWidget> with OscAddressMixin {
             sendOsc(newValue ? 1 : 0);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
             decoration: BoxDecoration(
               color: _enabled ? const Color(0xFFFF6B6B) : const Color(0xFF2A2A2C),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(5),
               border: Border.all(
                 color: _enabled ? const Color(0xFFFF6B6B) : Colors.grey[600]!,
                 width: 1,
@@ -448,10 +450,9 @@ class _ToggleWidgetState extends State<_ToggleWidget> with OscAddressMixin {
             ),
             child: Text(
               _enabled ? 'ON' : 'OFF',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: _enabled ? Colors.white : Colors.grey[400],
+              style: t.textLabel.copyWith(
+                fontWeight: FontWeight.w700,
+                color: _enabled ? Colors.white : Colors.grey[300],
               ),
             ),
           ),
@@ -460,4 +461,3 @@ class _ToggleWidgetState extends State<_ToggleWidget> with OscAddressMixin {
     );
   }
 }
-

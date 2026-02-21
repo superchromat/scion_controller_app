@@ -41,15 +41,15 @@ class GridTokens {
   // Tier 2: Group headers (Panel titles)
   TextStyle get textHeading => TextStyle(
         fontSize: 1.4 * u,
-        fontWeight: FontWeight.w500,
-        color: const Color(0xFFD0D0D0),
+        fontWeight: FontWeight.w400,
+        color: Colors.white,
       );
 
   // Tier 3: Control labels (knobs, dropdowns)
   TextStyle get textLabel => TextStyle(
         fontSize: 1.05 * u,
-        fontWeight: FontWeight.w400,
-        color: const Color(0xFFAAAAAA),
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFFC8C8C8),
       );
 
   // Active/value text
@@ -63,7 +63,7 @@ class GridTokens {
   TextStyle get textCaption => TextStyle(
         fontSize: 0.9 * u,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF707070),
+        color: const Color(0xFF9A9A9A),
       );
 
   // Composite padding

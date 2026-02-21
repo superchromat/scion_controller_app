@@ -63,6 +63,7 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
     return TextField(
       controller: _controller,
       focusNode: _focusNode,
@@ -70,12 +71,22 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
       maxLines: widget.expands ? null : widget.maxLines,
       expands: widget.expands,
       textAlignVertical: widget.expands ? TextAlignVertical.top : null,
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+      style: t.textValue.copyWith(fontFamily: 'monospace'),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hintText,
-        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        border: const OutlineInputBorder(),
+        hintStyle: t.textLabel.copyWith(fontWeight: FontWeight.w400),
+        contentPadding: EdgeInsets.symmetric(vertical: t.sm, horizontal: t.sm),
+        filled: true,
+        fillColor: const Color(0x22000000),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.42)),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(6)),
+          borderSide: BorderSide(color: Color(0xFFFFF176), width: 1.25),
+        ),
       ),
       onChanged: _onChanged,
     );
@@ -161,101 +172,115 @@ class SendText extends StatelessWidget {
       segment: 'text',
       child: CardColumn(
         children: [
-          // Panel 1: Text input — rows:1 reference matches titled knob panel height
-          GridRow(columns: 1, gutter: t.md, cells: [(span: 1, child: Panel(
-            rows: 1,
-            child: OscPathSegment(
-              segment: 'string',
-              child: OscTextField(
-                hintText: 'Enter overlay text...',
-                expands: true,
-              ),
-            ),
-          ))]),
-          // Panel 2 + 3: Color wheel + Alpha  |  Position (X, Y)
-          GridRow(columns: 2, gutter: t.md, cells: [
-            (span: 1, child: Panel.dark(
-              title: 'Color',
-              child: Row(
-                children: [
-                  // Shift wheel up by ~half the knob label height so the wheel
-                  // circle center aligns with the knob circle centers.
-                  // Transform.translate is layout-neutral — no height change.
-                  Transform.translate(
-                    offset: Offset(0, -0.66 * t.u),
-                    child: OscPathSegment(
-                      segment: 'color',
-                      child: OscColorControl(size: t.knobMd * 1.3),
+          GridRow(
+            columns: 1,
+            gutter: t.md,
+            cells: [
+              (
+                span: 1,
+                child: Panel(
+                  rows: 1,
+                  child: OscPathSegment(
+                    segment: 'string',
+                    child: OscTextField(
+                      hintText: 'Enter overlay text...',
+                      expands: true,
                     ),
                   ),
-                  Expanded(
-                    child: Center(
-                      child: OscPathSegment(
-                        segment: 'alpha',
-                        child: OscRotaryKnob(
-                          label: 'Alpha',
-                          minValue: 0,
-                          maxValue: 255,
-                          initialValue: 255,
-                          defaultValue: 255,
-                          format: '%.0f',
-                          size: t.knobMd,
-                          labelStyle: t.textLabel,
-                          preferInteger: true,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-            (span: 1, child: Panel.dark(
-              title: 'Position',
-              child: OscPathSegment(
-                segment: 'pos',
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: OscPathSegment(
-                          segment: 'x',
-                          child: OscRotaryKnob(
-                            label: 'X',
-                            minValue: 0,
-                            maxValue: 3840,
-                            initialValue: 100,
-                            defaultValue: 100,
-                            format: '%.0f',
-                            size: t.knobMd,
-                            labelStyle: t.textLabel,
-                            preferInteger: true,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Center(
-                        child: OscPathSegment(
-                          segment: 'y',
-                          child: OscRotaryKnob(
-                            label: 'Y',
-                            minValue: 0,
-                            maxValue: 2160,
-                            initialValue: 100,
-                            defaultValue: 100,
-                            format: '%.0f',
-                            size: t.knobMd,
-                            labelStyle: t.textLabel,
-                            preferInteger: true,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
-            )),
-          ]),
+            ],
+          ),
+          GridRow(
+            columns: 2,
+            gutter: t.md,
+            cells: [
+              (
+                span: 1,
+                child: Panel.dark(
+                  title: 'Color',
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      OscPathSegment(
+                        segment: 'color',
+                        child: OscColorControl(size: t.knobMd * 1.15),
+                      ),
+                      SizedBox(width: t.sm),
+                      Expanded(
+                        child: Center(
+                          child: OscPathSegment(
+                            segment: 'alpha',
+                            child: OscRotaryKnob(
+                              label: 'Alpha',
+                              minValue: 0,
+                              maxValue: 255,
+                              initialValue: 255,
+                              defaultValue: 255,
+                              format: '%.0f',
+                              size: t.knobMd,
+                              labelStyle: t.textLabel,
+                              preferInteger: true,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              (
+                span: 1,
+                child: Panel.dark(
+                  title: 'Position',
+                  child: OscPathSegment(
+                    segment: 'pos',
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: OscPathSegment(
+                              segment: 'x',
+                              child: OscRotaryKnob(
+                                label: 'X',
+                                minValue: 0,
+                                maxValue: 3840,
+                                initialValue: 100,
+                                defaultValue: 100,
+                                format: '%.0f',
+                                size: t.knobMd,
+                                labelStyle: t.textLabel,
+                                preferInteger: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: t.md),
+                        Expanded(
+                          child: Center(
+                            child: OscPathSegment(
+                              segment: 'y',
+                              child: OscRotaryKnob(
+                                label: 'Y',
+                                minValue: 0,
+                                maxValue: 2160,
+                                initialValue: 100,
+                                defaultValue: 100,
+                                format: '%.0f',
+                                size: t.knobMd,
+                                labelStyle: t.textLabel,
+                                preferInteger: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

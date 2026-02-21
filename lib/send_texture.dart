@@ -242,7 +242,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
           cells: [
             (
               span: 1,
-              child: _knobPanel('Horizontal Blur', [
+              child: _knobPanel('H Blur', [
                 _knob(
                   label: 'Amount',
                   value: _hBlur,
@@ -268,7 +268,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
             ),
             (
               span: 1,
-              child: _knobPanel('Horizontal Sharpen', [
+              child: _knobPanel('H Sharpen', [
                 _knob(
                   label: 'Amount',
                   value: _hSharp,
@@ -300,7 +300,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
           cells: [
             (
               span: 1,
-              child: _knobPanel('Vertical Blur', [
+              child: _knobPanel('V Blur', [
                 _knob(
                   label: 'Amount',
                   value: _vBlur,
@@ -326,7 +326,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
             ),
             (
               span: 1,
-              child: _knobPanel('Vertical Sharpen', [
+              child: _knobPanel('V Sharpen', [
                 _knob(
                   label: 'Amount',
                   value: _vSharp,

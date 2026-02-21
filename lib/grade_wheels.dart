@@ -241,6 +241,12 @@ class GradeZone extends StatelessWidget {
     required this.basePath,
   });
 
+  TextStyle _headingStyle(GridTokens t) {
+    final base = t.textHeading;
+    final size = (base.fontSize ?? 14).clamp(12.0, 16.0);
+    return base.copyWith(fontSize: size);
+  }
+
   void _resetZone(BuildContext context) {
     final network = context.read<Network>();
     final reg = OscRegistry();
@@ -258,6 +264,8 @@ class GradeZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    final headingStyle = _headingStyle(t);
     return OscPathSegment(
       segment: zoneName,
       child: NeumorphicInset(
@@ -283,11 +291,9 @@ class GradeZone extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFAAAAAA),
-                      ),
+                      style: headingStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Align(
                       alignment: Alignment.centerRight,
@@ -297,7 +303,7 @@ class GradeZone extends StatelessWidget {
                         child: IconButton(
                           padding: EdgeInsets.zero,
                           iconSize: 14,
-                          icon: const Icon(Icons.refresh, color: Color(0xFF888888)),
+                          icon: Icon(Icons.refresh, color: t.textCaption.color),
                           onPressed: () => _resetZone(context),
                         ),
                       ),

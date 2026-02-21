@@ -54,6 +54,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     return LayoutBuilder(
       builder: (context, constraints) {
         final t = GridTokens(constraints.maxWidth);
+        final sectionGap = t.md;
         return GridProvider(
           tokens: t,
           child: SingleChildScrollView(
@@ -75,7 +76,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                               child: SendSourceSelector(pageNumber: widget.pageNumber),
                             ),
                           )]),
-                          SizedBox(height: t.md),
+                          SizedBox(height: sectionGap),
                           GridRow(
                             gutter: t.md,
                             cells: [
@@ -102,7 +103,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                               ),
                             ],
                           ),
-                          SizedBox(height: t.md),
+                          SizedBox(height: sectionGap),
                           GridRow(gutter: t.md, cells: [(
                             span: 12,
                             child: LabeledCard(
@@ -113,7 +114,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                               ),
                             ),
                           )]),
-                          SizedBox(height: t.md),
+                          SizedBox(height: sectionGap),
                           GridRow(gutter: t.md, cells: [(
                             span: 12,
                             child: LabeledCard(
@@ -125,7 +126,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                         ],
                       ),
                     ),
-                    SizedBox(height: t.md),
+                    SizedBox(height: sectionGap),
                     OscPathSegment(
                       segment: 'dac/${widget.pageNumber}',
                       child: GridRow(gutter: t.md, cells: [(

@@ -43,8 +43,9 @@ class Panel extends StatelessWidget {
       // Reference includes title area so height matches a titled knob panel.
       final reference = Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(child: Text(' ', style: t.textHeading)),
+          Align(alignment: Alignment.centerLeft, child: Text(' ', style: t.textHeading)),
           SizedBox(height: t.xs),
           for (int i = 0; i < rows!; i++) ...[
             if (i > 0) SizedBox(height: t.sm),
@@ -71,8 +72,18 @@ class Panel extends StatelessWidget {
     if (title != null) {
       body = Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(child: Text(title!, style: t.textHeading)),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title!,
+              style: t.textHeading,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+            ),
+          ),
           SizedBox(height: t.xs),
           child,
         ],
