@@ -314,7 +314,9 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(insetPadding, insetPadding, insetPadding, 0),
+          child: Row(
           children: [
             _buildButton(
               child: const Icon(Icons.refresh, color: Colors.white),
@@ -375,7 +377,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                 ),
               ),
           ],
-        ),
+        )),
         const SizedBox(height: 5),
         Expanded(
           child: LayoutBuilder(

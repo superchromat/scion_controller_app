@@ -60,6 +60,7 @@ class _SendColorState extends State<SendColor> {
             label: label,
             defaultValue: initialValue,
             isBipolar: isBipolar,
+            labelStyle: t.textLabel,
             size: t.knobLg,
             snapConfig: SnapConfig(
               snapPoints: snapPoints ?? [],

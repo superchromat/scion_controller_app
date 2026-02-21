@@ -12,6 +12,7 @@ import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'oklch_color_picker.dart';
+import 'color_wheel_arc.dart';
 import 'labeled_card.dart';
 
 // ---------------------------------------------------------------------------
@@ -84,12 +85,7 @@ class GradeWheel extends StatefulWidget {
 }
 
 class _GradeWheelState extends State<GradeWheel> {
-  double _shiftX = 0.0;
-  double _shiftY = 0.0;
-  double _level = 0.0;
-
-  // Drag mode: 0 = none, 1 = wheel (shift), 2 = arc (level)
-  int _dragMode = 0;
+  final _wheelKey = GlobalKey<ColorWheelArcState>();
 
   String get _shiftXAddr => '${widget.basePath}/shift_x';
   String get _shiftYAddr => '${widget.basePath}/shift_y';
@@ -118,120 +114,64 @@ class _GradeWheelState extends State<GradeWheel> {
 
   void _onShiftX(List<Object?> args) {
     if (args.isNotEmpty && args.first is num) {
-      setState(() => _shiftX = (args.first as num).toDouble());
+      final v = (args.first as num).toDouble();
+      _wheelKey.currentState?.setWheelPosition(
+        v, _wheelKey.currentState?.wheelY ?? 0.0);
     }
   }
 
   void _onShiftY(List<Object?> args) {
     if (args.isNotEmpty && args.first is num) {
-      setState(() => _shiftY = (args.first as num).toDouble());
+      final v = (args.first as num).toDouble();
+      _wheelKey.currentState?.setWheelPosition(
+        _wheelKey.currentState?.wheelX ?? 0.0, v);
     }
   }
 
   void _onLevel(List<Object?> args) {
     if (args.isNotEmpty && args.first is num) {
-      setState(() => _level = (args.first as num).toDouble());
+      final level = (args.first as num).toDouble();
+      _wheelKey.currentState?.setArcValue((level + 1.0) / 2.0);
     }
   }
 
   void _sendOsc(String address, double value) {
     final network = context.read<Network>();
     network.sendOscMessage(address, [value]);
-    // Local echo
     final reg = OscRegistry();
     reg.registerAddress(address);
     reg.dispatchLocal(address, [value]);
   }
 
-  void _handleDrag(Offset pos, {required bool isStart}) {
-    const arcWidth = 6.0;
-    const arcGap = 2.0;
-    final totalSize = widget.size;
-    final center = Offset(totalSize / 2, totalSize / 2);
-    final offset = pos - center;
-    final dist = offset.distance;
-    final outerRadius = totalSize / 2;
-    final innerRadius = outerRadius - arcWidth - arcGap;
-
-    if (isStart && _dragMode == 0) {
-      _dragMode = dist > innerRadius ? 2 : 1;
-    }
-
-    if (_dragMode == 2) {
-      // Arc mode — map angle to level (-1 to +1)
-      const startAngle = 0.75 * pi;
-      const sweepAngle = 1.5 * pi;
-
-      var angle = atan2(offset.dy, offset.dx);
-      var relAngle = angle - startAngle;
-      while (relAngle < 0) relAngle += 2 * pi;
-      while (relAngle >= 2 * pi) relAngle -= 2 * pi;
-
-      if (relAngle > sweepAngle) {
-        relAngle = relAngle < (sweepAngle + (2 * pi - sweepAngle) / 2)
-            ? sweepAngle
-            : 0;
-      }
-
-      final normalized = relAngle / sweepAngle;
-      final level = (-1.0 + normalized * 2.0).clamp(-1.0, 1.0);
-
-      setState(() => _level = level);
-      _sendOsc(_levelAddr, _level);
-    } else {
-      // Wheel mode — map position to shift_x/shift_y (-1 to +1)
-      final wheelRadius = innerRadius;
-      var nx = offset.dx / wheelRadius;
-      var ny = offset.dy / wheelRadius;
-
-      // Clamp to circle
-      final d = sqrt(nx * nx + ny * ny);
-      if (d > 1.0) {
-        nx /= d;
-        ny /= d;
-      }
-
-      setState(() {
-        _shiftX = nx.clamp(-1.0, 1.0);
-        _shiftY = ny.clamp(-1.0, 1.0);
-      });
-      _sendOsc(_shiftXAddr, _shiftX);
-      _sendOsc(_shiftYAddr, _shiftY);
-    }
-  }
-
-  void _handleDragEnd() {
-    setState(() => _dragMode = 0);
-  }
-
-  void _handleDoubleTap() {
-    setState(() {
-      _shiftX = 0.0;
-      _shiftY = 0.0;
-      _level = 0.0;
-    });
-    _sendOsc(_shiftXAddr, 0.0);
-    _sendOsc(_shiftYAddr, 0.0);
-    _sendOsc(_levelAddr, 0.0);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final totalSize = widget.size;
-    return GestureDetector(
-      onPanStart: (d) => _handleDrag(d.localPosition, isStart: true),
-      onPanUpdate: (d) => _handleDrag(d.localPosition, isStart: false),
-      onPanEnd: (_) => _handleDragEnd(),
-      onTapDown: (d) => _handleDrag(d.localPosition, isStart: true),
-      onTapUp: (_) => _handleDragEnd(),
-      onDoubleTap: _handleDoubleTap,
-      child: CustomPaint(
-        size: Size(totalSize, totalSize),
-        painter: _GradeWheelPainter(
-          shiftX: _shiftX,
-          shiftY: _shiftY,
-          level: _level,
-        ),
+    return ColorWheelArc(
+      key: _wheelKey,
+      size: widget.size,
+      initialArcValue: 0.5, // level 0 = center
+      onWheelChanged: (pos) {
+        _sendOsc(_shiftXAddr, pos.x);
+        _sendOsc(_shiftYAddr, pos.y);
+      },
+      onArcChanged: (value) {
+        final level = (-1.0 + value * 2.0).clamp(-1.0, 1.0);
+        _sendOsc(_levelAddr, level);
+      },
+      onDoubleTap: () {
+        _sendOsc(_shiftXAddr, 0.0);
+        _sendOsc(_shiftYAddr, 0.0);
+        _sendOsc(_levelAddr, 0.0);
+      },
+      painterBuilder: ({
+        required wheelX,
+        required wheelY,
+        required arcValue,
+        required wheelRadius,
+        required center,
+      }) => _GradeWheelPainter(
+        shiftX: wheelX,
+        shiftY: wheelY,
+        level: (-1.0 + arcValue * 2.0).clamp(-1.0, 1.0),
       ),
     );
   }
@@ -245,11 +185,6 @@ class _GradeWheelPainter extends CustomPainter {
   final double shiftY;
   final double level;
 
-  static const double arcWidth = 6.0;
-  static const double arcGap = 2.0;
-  static const double startAngle = 0.75 * pi;
-  static const double sweepAngle = 1.5 * pi;
-
   _GradeWheelPainter({
     required this.shiftX,
     required this.shiftY,
@@ -260,203 +195,28 @@ class _GradeWheelPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final outerRadius = size.width / 2;
+    const arcWidth = ColorWheelArcState.arcWidth;
+    const arcGap = ColorWheelArcState.arcGap;
     final arcRadius = outerRadius - arcWidth / 2;
     final slotInnerRadius = outerRadius - arcWidth;
     final wheelRadius = slotInnerRadius - arcGap;
 
-    // === NEUMORPHIC ARC SLOT ===
-    const lightOffset = Alignment(0.0, -0.4);
+    paintArcSlot(canvas, center, outerRadius, arcRadius, slotInnerRadius);
 
-    // Border gradient
-    final borderGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth + 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = borderGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Outer shadow
-    final outerShadowGradient = RadialGradient(
-      center: const Alignment(0.0, 0.5),
-      radius: 0.6,
-      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
-      stops: const [0.0, 0.3, 0.8],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: outerRadius - 1),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.butt
-        ..shader = outerShadowGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Inner highlight
-    final innerHighlightGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.6,
-      colors: const [Color(0xFF353535), Color(0xFF252525), Color(0x00000000)],
-      stops: const [0.0, 0.2, 0.5],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.butt
-        ..shader = innerHighlightGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Dark floor
-    final floorGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = floorGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // === BIPOLAR LEVEL ARC ===
-    const Color activeColor = Color(0xFFF0B830);
-
-    // level: -1 to +1, neutral at 0
-    // Map to normalized: -1 -> 0, 0 -> 0.5, +1 -> 1
+    // Bipolar: level -1..+1 → normalized 0..1
     final normalized = (level + 1.0) / 2.0;
-    const neutralNormalized = 0.5;
+    paintBipolarArc(canvas, center, arcRadius, outerRadius, normalized,
+        const Color(0xFFF0B830));
 
-    final neutralAngle = startAngle + neutralNormalized * sweepAngle;
-    final valueAngle = startAngle + normalized * sweepAngle;
-    final arcStartAngle = min(neutralAngle, valueAngle);
-    final arcEndAngle = max(neutralAngle, valueAngle);
-    final arcSweep = arcEndAngle - arcStartAngle;
-
-    const minArcSweep = 0.10;
-    var drawArcStart = arcStartAngle;
-    var drawArcSweep = arcSweep;
-
-    if (arcSweep < minArcSweep) {
-      drawArcStart = valueAngle - minArcSweep / 2;
-      drawArcSweep = minArcSweep;
-    }
-
-    final valueArcGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.8,
-      colors: [
-        activeColor,
-        Color.lerp(activeColor, Colors.black, 0.10)!,
-        Color.lerp(activeColor, Colors.black, 0.20)!,
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    );
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      drawArcStart, drawArcSweep, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = valueArcGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Highlight on value arc
-    final highlightGradient = RadialGradient(
-      center: const Alignment(0.0, -0.6),
-      radius: 0.5,
-      colors: [
-        Colors.white.withValues(alpha: 0.35),
-        Colors.white.withValues(alpha: 0.10),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.3, 0.7],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      drawArcStart, drawArcSweep, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = highlightGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // === INNER OKLCH COLOR WHEEL (lightness driven by level arc) ===
-    canvas.save();
-    canvas.clipPath(
-        Path()..addOval(Rect.fromCircle(center: center, radius: wheelRadius)));
-
-    // Map level (-1..+1) to OKLCH lightness (0.1..0.9)
+    // Grade wheel image
     final oklchLightness = 0.5 + level * 0.4;
     final wheelImage = _getGradeWheelImage(
         (wheelRadius * 2).round(), oklchLightness);
-    final src = Rect.fromLTWH(0, 0,
-        wheelImage.width.toDouble(), wheelImage.height.toDouble());
-    final dst = Rect.fromCircle(center: center, radius: wheelRadius);
-    canvas.drawImageRect(wheelImage, src, dst,
-        Paint()..filterQuality = FilterQuality.high);
+    paintWheelImage(canvas, center, wheelRadius, wheelImage);
 
-    canvas.restore();
-
-    // === SELECTION INDICATOR ===
-    final indicatorX = center.dx + shiftX * wheelRadius;
-    final indicatorY = center.dy + shiftY * wheelRadius;
-    final indicatorPos = Offset(indicatorX, indicatorY);
-    const indicatorRadius = 5.0;
-
-    canvas.drawCircle(
-      indicatorPos,
-      indicatorRadius + 1.5,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = Colors.white,
-    );
-    canvas.drawCircle(
-      indicatorPos,
-      indicatorRadius,
-      Paint()..color = Colors.white.withValues(alpha: 0.3),
-    );
-
-    // === CROSSHAIR AT CENTER ===
-    final crossPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..strokeWidth = 0.5;
-    canvas.drawLine(
-      Offset(center.dx - wheelRadius * 0.3, center.dy),
-      Offset(center.dx + wheelRadius * 0.3, center.dy),
-      crossPaint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, center.dy - wheelRadius * 0.3),
-      Offset(center.dx, center.dy + wheelRadius * 0.3),
-      crossPaint,
-    );
+    paintWheelIndicator(
+        canvas, center, Offset(shiftX, shiftY), wheelRadius);
+    paintCrosshair(canvas, center, wheelRadius);
   }
 
   @override
@@ -507,14 +267,16 @@ class GradeZone extends StatelessWidget {
           builder: (context, constraints) {
             final w = constraints.maxWidth;
             final h = constraints.maxHeight;
-            // Reserve space for title (~22px), gaps (8px), knobs (~knobSize+16px)
-            final knobSize = (w / 3).clamp(25.0, 50.0);
-            // title ~24, gaps ~12, knob row ~(knobSize+20 for label), plus 8px buffer
-            final reservedVertical = 24 + 12 + knobSize + 20 + 8;
-            final maxWheelFromHeight = h.isFinite ? (h - reservedVertical).clamp(40.0, 300.0) : w;
-            final wheelSize = w.clamp(40.0, maxWheelFromHeight);
+            final titleH = 24.0;
+            final gap = 4.0;
+            final knobSize = w * 0.5;
+            final knobH = knobSize + 16;
+            final diagH = knobH * 1.5;
+            // Wheel gets remaining height
+            final wheelSize = h.isFinite
+                ? (h - titleH - gap - diagH).clamp(40.0, w)
+                : w;
             return Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Stack(
                   alignment: Alignment.center,
@@ -542,16 +304,23 @@ class GradeZone extends StatelessWidget {
                     ),
                   ],
                 ),
-                const GridGap(fraction: 0.25),
-                GradeWheel(
-                  basePath: '$basePath/$zoneName',
-                  size: wheelSize,
+                SizedBox(height: gap),
+                Center(
+                  child: GradeWheel(
+                    basePath: '$basePath/$zoneName',
+                    size: wheelSize,
+                  ),
                 ),
-                const GridGap(fraction: 0.25),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Center(
+                const Spacer(),
+                // Diagonal knob area: Con top-left, Sat bottom-right
+                SizedBox(
+                  width: w,
+                  height: diagH,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: 0,
+                        left: 0,
                         child: OscPathSegment(
                           segment: 'contrast',
                           child: OscRotaryKnob(
@@ -562,6 +331,7 @@ class GradeZone extends StatelessWidget {
                             label: 'Con',
                             defaultValue: 0.5,
                             size: knobSize,
+                            labelStyle: GridProvider.maybeOf(context)?.textLabel,
                             snapConfig: SnapConfig(
                               snapPoints: const [0.5],
                               snapRegionHalfWidth: 0.02,
@@ -570,9 +340,9 @@ class GradeZone extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Center(
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
                         child: OscPathSegment(
                           segment: 'saturation',
                           child: OscRotaryKnob(
@@ -583,6 +353,7 @@ class GradeZone extends StatelessWidget {
                             label: 'Sat',
                             defaultValue: 0.5,
                             size: knobSize,
+                            labelStyle: GridProvider.maybeOf(context)?.textLabel,
                             snapConfig: SnapConfig(
                               snapPoints: const [0.5],
                               snapRegionHalfWidth: 0.02,
@@ -591,8 +362,8 @@ class GradeZone extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             );

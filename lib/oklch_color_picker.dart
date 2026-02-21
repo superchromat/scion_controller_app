@@ -4,6 +4,7 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'color_wheel_arc.dart';
 
 // Cached wheel image
 ui.Image? _cachedOklchWheelImage;
@@ -161,138 +162,80 @@ class OklchColorPicker extends StatefulWidget {
 }
 
 class OklchColorPickerState extends State<OklchColorPicker> {
-  // Store wheel position as normalized (x,y) like GradeWheel — independent
-  // from lightness, so dragging the arc never moves the dot.
-  double _wheelX = 0.0; // -1 to 1
-  double _wheelY = 0.0; // -1 to 1
-  double _lightness = 0.5;
+  final _wheelKey = GlobalKey<ColorWheelArcState>();
 
-  int _dragMode = 0; // 0=none, 1=wheel, 2=arc
-
-  static const double _arcWidth = 6.0;
-  static const double _arcGap = 2.0;
-  static const double _startAngle = 0.75 * pi;
-  static const double _sweepAngle = 1.5 * pi;
-
-  @override
-  void initState() {
-    super.initState();
-    _initFromColor(widget.initialColor);
-  }
-
-  void _initFromColor(Color color) {
-    final oklch = srgbToOklch(color.red, color.green, color.blue);
-    _lightness = oklch[0].clamp(0.0, 1.0);
-    final chroma = oklch[1];
-    final hue = oklch[2];
-    // Convert to normalized wheel position
-    final maxC = maxChromaForLH(_lightness, hue);
-    final norm = maxC > 0 ? (chroma / maxC).clamp(0.0, 1.0) : 0.0;
-    final rad = hue * pi / 180;
-    _wheelX = cos(rad) * norm;
-    _wheelY = -sin(rad) * norm;
-  }
-
-  bool get isDragging => _dragMode != 0;
+  bool get isDragging => _wheelKey.currentState?.isDragging ?? false;
 
   void setColor(Color color) {
-    if (_dragMode != 0) return;
-    setState(() => _initFromColor(color));
+    final state = _wheelKey.currentState;
+    if (state == null || state.isDragging) return;
+    final pos = _colorToWheelPos(color);
+    state.setPosition(pos.x, pos.y, pos.arc);
   }
 
-  // Derived OKLCH values from wheel position
-  double get _hue {
-    var h = atan2(-_wheelY, _wheelX) * 180 / pi;
-    if (h < 0) h += 360;
-    return h;
+  ({double x, double y, double arc}) _colorToWheelPos(Color color) {
+    final oklch = srgbToOklch(color.red, color.green, color.blue);
+    final lightness = oklch[0].clamp(0.0, 1.0);
+    final chroma = oklch[1];
+    final hue = oklch[2];
+    final maxC = maxChromaForLH(lightness, hue);
+    final norm = maxC > 0 ? (chroma / maxC).clamp(0.0, 1.0) : 0.0;
+    final rad = hue * pi / 180;
+    return (x: cos(rad) * norm, y: -sin(rad) * norm, arc: lightness);
   }
 
-  double get _chroma {
-    final d = sqrt(_wheelX * _wheelX + _wheelY * _wheelY).clamp(0.0, 1.0);
-    return d * maxChromaForLH(_lightness, _hue);
-  }
-
-  Color get currentColor {
-    final rgb = oklchToSrgb255(_lightness, _chroma, _hue);
+  Color _wheelPosToColor(double wx, double wy, double lightness) {
+    var hue = atan2(-wy, wx) * 180 / pi;
+    if (hue < 0) hue += 360;
+    final d = sqrt(wx * wx + wy * wy).clamp(0.0, 1.0);
+    final chroma = d * maxChromaForLH(lightness, hue);
+    final rgb = oklchToSrgb255(lightness, chroma, hue);
     return Color.fromARGB(255, rgb[0], rgb[1], rgb[2]);
   }
 
-  void _handleDrag(Offset pos, {required bool isStart}) {
-    final totalSize = widget.size;
-    final center = Offset(totalSize / 2, totalSize / 2);
-    final offset = pos - center;
-    final dist = offset.distance;
-    final outerRadius = totalSize / 2;
-    final innerRadius = outerRadius - _arcWidth - _arcGap;
-
-    if (isStart && _dragMode == 0) {
-      _dragMode = dist > innerRadius ? 2 : 1;
+  Color get currentColor {
+    final s = _wheelKey.currentState;
+    if (s == null) {
+      final pos = _colorToWheelPos(widget.initialColor);
+      return _wheelPosToColor(pos.x, pos.y, pos.arc);
     }
-
-    if (_dragMode == 2) {
-      // Arc — same as GradeWheel
-      var angle = atan2(offset.dy, offset.dx);
-      var relAngle = angle - _startAngle;
-      while (relAngle < 0) relAngle += 2 * pi;
-      while (relAngle >= 2 * pi) relAngle -= 2 * pi;
-
-      if (relAngle > _sweepAngle) {
-        relAngle = relAngle < (_sweepAngle + (2 * pi - _sweepAngle) / 2)
-            ? _sweepAngle
-            : 0;
-      }
-
-      setState(() {
-        _lightness = (relAngle / _sweepAngle).clamp(0.0, 1.0);
-        // No chroma clamping — wheel position stays put
-      });
-      _notifyChange();
-    } else {
-      // Wheel — same pattern as GradeWheel
-      final wheelRadius = innerRadius;
-      var nx = offset.dx / wheelRadius;
-      var ny = offset.dy / wheelRadius;
-      final d = sqrt(nx * nx + ny * ny);
-      if (d > 1.0) { nx /= d; ny /= d; }
-
-      setState(() {
-        _wheelX = nx;
-        _wheelY = ny;
-      });
-      _notifyChange();
-    }
+    return _wheelPosToColor(s.wheelX, s.wheelY, s.arcValue);
   }
 
-  void _handleDragEnd() {
-    setState(() => _dragMode = 0);
+  void _onWheelChanged(({double x, double y}) pos) {
+    widget.onColorChanged?.call(currentColor);
   }
 
-  void _handleDoubleTap() {
-    setState(() => _initFromColor(widget.initialColor));
-    _notifyChange();
+  void _onArcChanged(double value) {
+    widget.onColorChanged?.call(currentColor);
   }
 
-  void _notifyChange() {
+  void _onDoubleTap() {
     widget.onColorChanged?.call(currentColor);
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalSize = widget.size;
-    return GestureDetector(
-      onPanStart: (d) => _handleDrag(d.localPosition, isStart: true),
-      onPanUpdate: (d) => _handleDrag(d.localPosition, isStart: false),
-      onPanEnd: (_) => _handleDragEnd(),
-      onTapDown: (d) => _handleDrag(d.localPosition, isStart: true),
-      onTapUp: (_) => _handleDragEnd(),
-      onDoubleTap: _handleDoubleTap,
-      child: CustomPaint(
-        size: Size(totalSize, totalSize),
-        painter: _OklchWheelPainter(
-          lightness: _lightness,
-          wheelX: _wheelX,
-          wheelY: _wheelY,
-        ),
+    final init = _colorToWheelPos(widget.initialColor);
+    return ColorWheelArc(
+      key: _wheelKey,
+      size: widget.size,
+      initialWheelX: init.x,
+      initialWheelY: init.y,
+      initialArcValue: init.arc,
+      onWheelChanged: _onWheelChanged,
+      onArcChanged: _onArcChanged,
+      onDoubleTap: _onDoubleTap,
+      painterBuilder: ({
+        required wheelX,
+        required wheelY,
+        required arcValue,
+        required wheelRadius,
+        required center,
+      }) => _OklchWheelPainter(
+        lightness: arcValue,
+        wheelX: wheelX,
+        wheelY: wheelY,
       ),
     );
   }
@@ -302,11 +245,6 @@ class _OklchWheelPainter extends CustomPainter {
   final double lightness;
   final double wheelX;
   final double wheelY;
-
-  static const double arcWidth = 6.0;
-  static const double arcGap = 2.0;
-  static const double startAngle = 0.75 * pi;
-  static const double sweepAngle = 1.5 * pi;
 
   _OklchWheelPainter({
     required this.lightness,
@@ -318,146 +256,18 @@ class _OklchWheelPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final outerRadius = size.width / 2;
+    const arcWidth = ColorWheelArcState.arcWidth;
+    const arcGap = ColorWheelArcState.arcGap;
     final arcRadius = outerRadius - arcWidth / 2;
     final slotInnerRadius = outerRadius - arcWidth;
     final wheelRadius = slotInnerRadius - arcGap;
 
-    // === NEUMORPHIC ARC SLOT ===
-    const lightOffset = Alignment(0.0, -0.4);
+    paintArcSlot(canvas, center, outerRadius, arcRadius, slotInnerRadius);
+    paintUnipolarArc(canvas, center, arcRadius, outerRadius, lightness,
+        const Color(0xFFF0B830));
 
-    // Border gradient
-    final borderGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth + 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = borderGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Outer shadow
-    final outerShadowGradient = RadialGradient(
-      center: const Alignment(0.0, 0.5),
-      radius: 0.6,
-      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
-      stops: const [0.0, 0.3, 0.8],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: outerRadius - 1),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.butt
-        ..shader = outerShadowGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Inner highlight
-    final innerHighlightGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.6,
-      colors: const [Color(0xFF353535), Color(0xFF252525), Color(0x00000000)],
-      stops: const [0.0, 0.2, 0.5],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.butt
-        ..shader = innerHighlightGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Dark floor
-    final floorGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = floorGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // === UNIPOLAR LIGHTNESS ARC ===
-    const Color activeColor = Color(0xFFF0B830);
-
-    // Unipolar: arc fills from start angle, length = lightness * sweepAngle
-    final valueSweep = lightness * sweepAngle;
-
-    const minArcSweep = 0.10;
-    final drawArcSweep = valueSweep < minArcSweep ? minArcSweep : valueSweep;
-
-    final valueArcGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.8,
-      colors: [
-        activeColor,
-        Color.lerp(activeColor, Colors.black, 0.10)!,
-        Color.lerp(activeColor, Colors.black, 0.20)!,
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    );
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, drawArcSweep, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = valueArcGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Highlight on value arc
-    final highlightGradient = RadialGradient(
-      center: const Alignment(0.0, -0.6),
-      radius: 0.5,
-      colors: [
-        Colors.white.withValues(alpha: 0.35),
-        Colors.white.withValues(alpha: 0.10),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.3, 0.7],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, drawArcSweep, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = highlightGradient.createShader(
-            Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // === INNER OKLCH COLOR WHEEL ===
-    canvas.save();
-    canvas.clipPath(
-        Path()..addOval(Rect.fromCircle(center: center, radius: wheelRadius)));
-
+    // OKLCH wheel image
     final wheelSize = (wheelRadius * 2).round();
-
-    // Check cache
     if (_cachedOklchWheelImage == null ||
         _cachedOklchWheelSize != wheelSize ||
         (_cachedOklchLightness - lightness).abs() >= 0.01) {
@@ -465,52 +275,10 @@ class _OklchWheelPainter extends CustomPainter {
       _cachedOklchWheelSize = wheelSize;
       _cachedOklchLightness = lightness;
     }
+    paintWheelImage(canvas, center, wheelRadius, _cachedOklchWheelImage!);
 
-    final src = Rect.fromLTWH(0, 0,
-        _cachedOklchWheelImage!.width.toDouble(),
-        _cachedOklchWheelImage!.height.toDouble());
-    final dst = Rect.fromCircle(center: center, radius: wheelRadius);
-    canvas.drawImageRect(_cachedOklchWheelImage!, src, dst,
-        Paint()..filterQuality = FilterQuality.high);
-
-    canvas.restore();
-
-    // === SELECTION INDICATOR ===
-    // Draw directly from normalized wheel position — no OKLCH conversion
-    final selPos = Offset(
-      center.dx + wheelX * wheelRadius,
-      center.dy + wheelY * wheelRadius,
-    );
-
-    const indicatorRadius = 5.0;
-    canvas.drawCircle(
-      selPos,
-      indicatorRadius + 1.5,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = Colors.white,
-    );
-    canvas.drawCircle(
-      selPos,
-      indicatorRadius,
-      Paint()..color = Colors.white.withValues(alpha: 0.3),
-    );
-
-    // === CROSSHAIR AT CENTER ===
-    final crossPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..strokeWidth = 0.5;
-    canvas.drawLine(
-      Offset(center.dx - wheelRadius * 0.3, center.dy),
-      Offset(center.dx + wheelRadius * 0.3, center.dy),
-      crossPaint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, center.dy - wheelRadius * 0.3),
-      Offset(center.dx, center.dy + wheelRadius * 0.3),
-      crossPaint,
-    );
+    paintWheelIndicator(canvas, center, Offset(wheelX, wheelY), wheelRadius);
+    paintCrosshair(canvas, center, wheelRadius);
   }
 
   @override

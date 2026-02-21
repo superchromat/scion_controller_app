@@ -183,6 +183,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
         isBipolar: isBipolar,
         preferInteger: true,
         size: t?.knobMd ?? 60,
+        labelStyle: t?.textLabel,
       ),
     );
   }
