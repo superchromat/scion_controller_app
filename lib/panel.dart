@@ -72,7 +72,7 @@ class Panel extends StatelessWidget {
       body = Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Center(child: Text(title!.toUpperCase(), style: t.textHeading)),
+          Center(child: Text(title!, style: t.textHeading)),
           SizedBox(height: t.xs),
           child,
         ],

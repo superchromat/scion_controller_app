@@ -178,8 +178,8 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
             widget.label,
             style: TextStyle(
               fontSize: 11,
-              color: widget.enabled ? Colors.grey[400] : Colors.grey[600],
-              fontWeight: FontWeight.w500,
+              color: widget.enabled ? const Color(0xFFAAAAAA) : const Color(0xFF606060),
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),

@@ -30,36 +30,40 @@ class GridTokens {
   double get knobMd => 5.5 * u;
   double get knobLg => 7 * u;
 
-  // Typography
+  // Typography — 4-tier hierarchy
+  // Tier 1: Section headers (LabeledCard titles)
   TextStyle get textTitle => TextStyle(
         fontSize: 2 * u,
         fontWeight: FontWeight.w600,
         color: Colors.white,
       );
 
+  // Tier 2: Group headers (Panel titles)
   TextStyle get textHeading => TextStyle(
-        fontSize: 1.1 * u,
-        fontWeight: FontWeight.w300,
-        color: Colors.white,
-        letterSpacing: 0.08 * u,
+        fontSize: 1.4 * u,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFFD0D0D0),
       );
 
+  // Tier 3: Control labels (knobs, dropdowns)
   TextStyle get textLabel => TextStyle(
-        fontSize: 1.1 * u,
+        fontSize: 1.05 * u,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF888888),
+        color: const Color(0xFFAAAAAA),
       );
 
+  // Active/value text
   TextStyle get textValue => TextStyle(
         fontSize: 1.1 * u,
         fontWeight: FontWeight.w400,
         color: Colors.white,
       );
 
+  // Tier 4: Meta labels (units, captions)
   TextStyle get textCaption => TextStyle(
-        fontSize: u,
+        fontSize: 0.9 * u,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF666666),
+        color: const Color(0xFF707070),
       );
 
   // Composite padding
