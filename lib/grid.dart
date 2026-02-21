@@ -48,6 +48,7 @@ abstract class AppGrid {
     fontWeight: FontWeight.w600,
     color: Color(0xFF888888),
   );
+
 }
 
 /// Provides a computed gutter value to all descendant [GridRow] widgets.

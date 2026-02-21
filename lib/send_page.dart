@@ -22,7 +22,6 @@ class SendPage extends StatefulWidget {
 }
 
 class _SendPageState extends State<SendPage> with OscAddressMixin {
-  final _textureKey = GlobalKey();
   final _glitchKey = GlobalKey();
 
   @override
@@ -91,9 +90,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                 span: 4,
                                 child: LabeledCard(
                                   title: 'Texture',
-                                  action: _resetButton(() =>
-                                      (_textureKey.currentState as dynamic)?.reset()),
-                                  child: SendTexture(key: _textureKey),
+                                  child: const SendTexture(),
                                 ),
                               ),
                               (

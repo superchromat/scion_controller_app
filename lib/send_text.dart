@@ -17,12 +17,14 @@ class OscTextField extends StatefulWidget {
   final String initialValue;
   final String hintText;
   final int maxLines;
+  final bool expands;
 
   const OscTextField({
     super.key,
     this.initialValue = '',
     this.hintText = 'Enter text...',
     this.maxLines = 1,
+    this.expands = false,
   });
 
   @override
@@ -68,8 +70,10 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
     return TextField(
       controller: _controller,
       focusNode: _focusNode,
-      keyboardType: widget.maxLines > 1 ? TextInputType.multiline : TextInputType.text,
-      maxLines: widget.maxLines,
+      keyboardType: TextInputType.multiline,
+      maxLines: widget.expands ? null : widget.maxLines,
+      expands: widget.expands,
+      textAlignVertical: widget.expands ? TextAlignVertical.top : null,
       style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
       decoration: InputDecoration(
         isDense: true,
@@ -155,15 +159,40 @@ class SendText extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Panel 1: Text input
+          // Panel 1: Text input — a hidden reference column with the exact
+          // same widget structure as a knob panel (title + SizedBox(knobSize)
+          // + label) sets the intrinsic height.  The TextField fills that
+          // space via Positioned.fill in a Stack.
           GridRow(columns: 1, cells: [(span: 1, child: NeumorphicInset(
-            padding: const EdgeInsets.all(8),
-            child: OscPathSegment(
-              segment: 'string',
-              child: OscTextField(
-                hintText: 'Enter overlay text...',
-                maxLines: 2,
-              ),
+            padding: AppGrid.panelPadding,
+            child: Stack(
+              children: [
+                // Invisible reference: identical content to _knobRow
+                Opacity(
+                  opacity: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(' ', style: AppGrid.panelTitleStyle),
+                      ),
+                      SizedBox(height: AppGrid.knobSize),
+                      Text(' ', style: AppGrid.knobLabelStyle),
+                    ],
+                  ),
+                ),
+                // Text field fills the reference height
+                Positioned.fill(
+                  child: OscPathSegment(
+                    segment: 'string',
+                    child: OscTextField(
+                      hintText: 'Enter overlay text...',
+                      expands: true,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ))]),
           const GridGap(),
