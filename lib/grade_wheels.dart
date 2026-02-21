@@ -153,7 +153,7 @@ class _GradeWheelState extends State<GradeWheel> {
     final outerRadius = totalSize / 2;
     final innerRadius = outerRadius - arcWidth - arcGap;
 
-    if (isStart) {
+    if (isStart && _dragMode == 0) {
       _dragMode = dist > innerRadius ? 2 : 1;
     }
 

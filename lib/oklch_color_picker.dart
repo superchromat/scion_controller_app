@@ -161,12 +161,13 @@ class OklchColorPicker extends StatefulWidget {
 }
 
 class OklchColorPickerState extends State<OklchColorPicker> {
-  late double _lightness;
-  late double _chroma;
-  late double _hue;
+  // Store wheel position as normalized (x,y) like GradeWheel — independent
+  // from lightness, so dragging the arc never moves the dot.
+  double _wheelX = 0.0; // -1 to 1
+  double _wheelY = 0.0; // -1 to 1
+  double _lightness = 0.5;
 
-  // Drag mode: 0 = none, 1 = wheel (hue/chroma), 2 = arc (lightness)
-  int _dragMode = 0;
+  int _dragMode = 0; // 0=none, 1=wheel, 2=arc
 
   static const double _arcWidth = 6.0;
   static const double _arcGap = 2.0;
@@ -182,17 +183,33 @@ class OklchColorPickerState extends State<OklchColorPicker> {
   void _initFromColor(Color color) {
     final oklch = srgbToOklch(color.red, color.green, color.blue);
     _lightness = oklch[0].clamp(0.0, 1.0);
-    _chroma = oklch[1];
-    _hue = oklch[2];
+    final chroma = oklch[1];
+    final hue = oklch[2];
+    // Convert to normalized wheel position
+    final maxC = maxChromaForLH(_lightness, hue);
+    final norm = maxC > 0 ? (chroma / maxC).clamp(0.0, 1.0) : 0.0;
+    final rad = hue * pi / 180;
+    _wheelX = cos(rad) * norm;
+    _wheelY = -sin(rad) * norm;
   }
 
   bool get isDragging => _dragMode != 0;
 
   void setColor(Color color) {
-    if (_dragMode != 0) return; // Don't let OSC echo corrupt active drag
-    setState(() {
-      _initFromColor(color);
-    });
+    if (_dragMode != 0) return;
+    setState(() => _initFromColor(color));
+  }
+
+  // Derived OKLCH values from wheel position
+  double get _hue {
+    var h = atan2(-_wheelY, _wheelX) * 180 / pi;
+    if (h < 0) h += 360;
+    return h;
+  }
+
+  double get _chroma {
+    final d = sqrt(_wheelX * _wheelX + _wheelY * _wheelY).clamp(0.0, 1.0);
+    return d * maxChromaForLH(_lightness, _hue);
   }
 
   Color get currentColor {
@@ -208,16 +225,16 @@ class OklchColorPickerState extends State<OklchColorPicker> {
     final outerRadius = totalSize / 2;
     final innerRadius = outerRadius - _arcWidth - _arcGap;
 
-    if (isStart) {
+    if (isStart && _dragMode == 0) {
       _dragMode = dist > innerRadius ? 2 : 1;
     }
 
     if (_dragMode == 2) {
-      // Arc mode — map angle to lightness 0→1 (unipolar)
+      // Arc — same as GradeWheel
       var angle = atan2(offset.dy, offset.dx);
       var relAngle = angle - _startAngle;
-      while (relAngle < 0) { relAngle += 2 * pi; }
-      while (relAngle >= 2 * pi) { relAngle -= 2 * pi; }
+      while (relAngle < 0) relAngle += 2 * pi;
+      while (relAngle >= 2 * pi) relAngle -= 2 * pi;
 
       if (relAngle > _sweepAngle) {
         relAngle = relAngle < (_sweepAngle + (2 * pi - _sweepAngle) / 2)
@@ -225,29 +242,22 @@ class OklchColorPickerState extends State<OklchColorPicker> {
             : 0;
       }
 
-      final lightness = (relAngle / _sweepAngle).clamp(0.0, 1.0);
-
       setState(() {
-        _lightness = lightness;
-        // Clamp chroma to max for new lightness
-        final maxC = maxChromaForLH(_lightness, _hue);
-        if (_chroma > maxC) _chroma = maxC;
+        _lightness = (relAngle / _sweepAngle).clamp(0.0, 1.0);
+        // No chroma clamping — wheel position stays put
       });
       _notifyChange();
     } else {
-      // Wheel mode — map position to hue/chroma
+      // Wheel — same pattern as GradeWheel
       final wheelRadius = innerRadius;
-
-      var hue = atan2(-offset.dy, offset.dx) * 180 / pi;
-      if (hue < 0) hue += 360;
-
-      final clampedDist = dist.clamp(0.0, wheelRadius);
-      final maxC = maxChromaForLH(_lightness, hue);
-      final chroma = (clampedDist / wheelRadius) * maxC;
+      var nx = offset.dx / wheelRadius;
+      var ny = offset.dy / wheelRadius;
+      final d = sqrt(nx * nx + ny * ny);
+      if (d > 1.0) { nx /= d; ny /= d; }
 
       setState(() {
-        _hue = hue;
-        _chroma = chroma;
+        _wheelX = nx;
+        _wheelY = ny;
       });
       _notifyChange();
     }
@@ -258,9 +268,7 @@ class OklchColorPickerState extends State<OklchColorPicker> {
   }
 
   void _handleDoubleTap() {
-    setState(() {
-      _initFromColor(widget.initialColor);
-    });
+    setState(() => _initFromColor(widget.initialColor));
     _notifyChange();
   }
 
@@ -282,8 +290,8 @@ class OklchColorPickerState extends State<OklchColorPicker> {
         size: Size(totalSize, totalSize),
         painter: _OklchWheelPainter(
           lightness: _lightness,
-          chroma: _chroma,
-          hue: _hue,
+          wheelX: _wheelX,
+          wheelY: _wheelY,
         ),
       ),
     );
@@ -292,8 +300,8 @@ class OklchColorPickerState extends State<OklchColorPicker> {
 
 class _OklchWheelPainter extends CustomPainter {
   final double lightness;
-  final double chroma;
-  final double hue;
+  final double wheelX;
+  final double wheelY;
 
   static const double arcWidth = 6.0;
   static const double arcGap = 2.0;
@@ -302,8 +310,8 @@ class _OklchWheelPainter extends CustomPainter {
 
   _OklchWheelPainter({
     required this.lightness,
-    required this.chroma,
-    required this.hue,
+    required this.wheelX,
+    required this.wheelY,
   });
 
   @override
@@ -468,13 +476,11 @@ class _OklchWheelPainter extends CustomPainter {
     canvas.restore();
 
     // === SELECTION INDICATOR ===
-    final maxC = maxChromaForLH(lightness, hue);
-    final normalizedChroma = maxC > 0 ? chroma / maxC : 0.0;
-    final dist = normalizedChroma * wheelRadius;
-    final hueRad = hue * pi / 180;
-    final selX = center.dx + dist * cos(hueRad);
-    final selY = center.dy - dist * sin(hueRad);
-    final selPos = Offset(selX, selY);
+    // Draw directly from normalized wheel position — no OKLCH conversion
+    final selPos = Offset(
+      center.dx + wheelX * wheelRadius,
+      center.dy + wheelY * wheelRadius,
+    );
 
     const indicatorRadius = 5.0;
     canvas.drawCircle(
@@ -510,7 +516,7 @@ class _OklchWheelPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _OklchWheelPainter old) {
     return old.lightness != lightness ||
-        old.chroma != chroma ||
-        old.hue != hue;
+        old.wheelX != wheelX ||
+        old.wheelY != wheelY;
   }
 }
