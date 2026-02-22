@@ -12,6 +12,7 @@ import 'lut_painter.dart';
 import 'osc_registry.dart';
 import 'osc_log.dart';
 import 'lighting_settings.dart';
+import 'global_rect_tracking.dart';
 
 
 /// A LUT editor widget with two-way OSC binding per channel.
@@ -428,33 +429,14 @@ class _NeumorphicLutButton extends StatefulWidget {
   State<_NeumorphicLutButton> createState() => _NeumorphicLutButtonState();
 }
 
-class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
+class _NeumorphicLutButtonState extends State<_NeumorphicLutButton>
+    with GlobalRectTracking<_NeumorphicLutButton> {
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isPressed = widget.selected || _isPressed;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -468,7 +450,7 @@ class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
         },
         onTapCancel: () => setState(() => _isPressed = false),
         child: Container(
-          key: _key,
+          key: globalRectKey,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             boxShadow: widget.lighting.createNeumorphicShadows(
@@ -485,7 +467,7 @@ class _NeumorphicLutButtonState extends State<_NeumorphicLutButton> {
                 isHovered: _isHovered,
                 accentColor: widget.accentColor,
                 selected: widget.selected,
-                globalRect: _globalRect,
+                globalRect: trackedGlobalRect,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

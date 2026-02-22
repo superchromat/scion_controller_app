@@ -16,10 +16,96 @@ import 'osc_registry_viewer.dart';
 import 'return_page.dart';
 import 'knob_page.dart';
 import 'lighting_settings.dart';
+import 'global_rect_tracking.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
+
+/// Temporary resize performance probe. Logs frame timing stats to the console
+/// while the window is actively being resized.
+const bool kEnableResizePerfProbe = true;
+
+_ResizePerfProbe? _resizePerfProbe;
+
+class _ResizePerfProbe with WidgetsBindingObserver {
+  bool _installed = false;
+  DateTime? _resizeActiveUntil;
+  DateTime _lastLogAt = DateTime.now();
+
+  int _frameCount = 0;
+  int _jankyBuildFrames = 0;
+  int _jankyRasterFrames = 0;
+  Duration _buildTotal = Duration.zero;
+  Duration _rasterTotal = Duration.zero;
+  Duration _buildWorst = Duration.zero;
+  Duration _rasterWorst = Duration.zero;
+
+  void install() {
+    if (_installed) return;
+    _installed = true;
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addTimingsCallback(_onTimings);
+    debugPrint('[perf] resize probe enabled');
+  }
+
+  void _onTimings(List<FrameTiming> timings) {
+    final now = DateTime.now();
+    final activeUntil = _resizeActiveUntil;
+    final resizing = activeUntil != null && now.isBefore(activeUntil);
+    if (!resizing) {
+      if (_frameCount > 0) _flush(now, reason: 'resize-end');
+      return;
+    }
+
+    for (final t in timings) {
+      final build = t.buildDuration;
+      final raster = t.rasterDuration;
+      _frameCount++;
+      _buildTotal += build;
+      _rasterTotal += raster;
+      if (build > _buildWorst) _buildWorst = build;
+      if (raster > _rasterWorst) _rasterWorst = raster;
+      if (build.inMilliseconds >= 16) _jankyBuildFrames++;
+      if (raster.inMilliseconds >= 16) _jankyRasterFrames++;
+    }
+
+    if (now.difference(_lastLogAt) >= const Duration(milliseconds: 700)) {
+      _flush(now);
+    }
+  }
+
+  void _flush(DateTime now, {String? reason}) {
+    if (_frameCount == 0) {
+      _lastLogAt = now;
+      return;
+    }
+    final avgBuildUs = _buildTotal.inMicroseconds ~/ _frameCount;
+    final avgRasterUs = _rasterTotal.inMicroseconds ~/ _frameCount;
+    debugPrint(
+      '[perf] resize ${reason ?? 'sample'} '
+      'frames=$_frameCount '
+      'build(avg=${(avgBuildUs / 1000).toStringAsFixed(1)}ms '
+      'max=${_buildWorst.inMilliseconds}ms janky=$_jankyBuildFrames) '
+      'raster(avg=${(avgRasterUs / 1000).toStringAsFixed(1)}ms '
+      'max=${_rasterWorst.inMilliseconds}ms janky=$_jankyRasterFrames)',
+    );
+
+    _frameCount = 0;
+    _jankyBuildFrames = 0;
+    _jankyRasterFrames = 0;
+    _buildTotal = Duration.zero;
+    _rasterTotal = Duration.zero;
+    _buildWorst = Duration.zero;
+    _rasterWorst = Duration.zero;
+    _lastLogAt = now;
+  }
+
+  @override
+  void didChangeMetrics() {
+    _resizeActiveUntil = DateTime.now().add(const Duration(milliseconds: 900));
+  }
+}
 
 void _showGlobalErrorSnack(Object error, StackTrace stack) {
   return; // JOSH TODO
@@ -88,6 +174,9 @@ void _installGlobalErrorHooks() {
 void main() {
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
+    if (kEnableResizePerfProbe && (kDebugMode || kProfileMode)) {
+      (_resizePerfProbe ??= _ResizePerfProbe()).install();
+    }
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       const Size initialSize = Size(1200, 800);
       setWindowMinSize(initialSize);
@@ -169,36 +258,16 @@ class _NeumorphicNavRail extends StatefulWidget {
   State<_NeumorphicNavRail> createState() => _NeumorphicNavRailState();
 }
 
-class _NeumorphicNavRailState extends State<_NeumorphicNavRail> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicNavRailState extends State<_NeumorphicNavRail>
+    with GlobalRectTracking<_NeumorphicNavRail> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-
     return CustomPaint(
-      key: _key,
+      key: globalRectKey,
       painter: _NavRailPainter(
         lighting: widget.lighting,
-        globalRect: _globalRect,
+        globalRect: trackedGlobalRect,
       ),
       child: widget.child,
     );

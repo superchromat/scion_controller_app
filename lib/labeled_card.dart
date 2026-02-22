@@ -5,6 +5,7 @@ import 'grid.dart';
 import 'network.dart';
 import 'osc_widget_binding.dart';
 import 'lighting_settings.dart';
+import 'global_rect_tracking.dart';
 
 class LabeledCard extends StatelessWidget {
   final String title;
@@ -104,34 +105,13 @@ class _NeumorphicCard extends StatefulWidget {
   State<_NeumorphicCard> createState() => _NeumorphicCardState();
 }
 
-class _NeumorphicCardState extends State<_NeumorphicCard> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicCardState extends State<_NeumorphicCard>
+    with GlobalRectTracking<_NeumorphicCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Update position on each build in case of scroll/resize
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-
     return Container(
-      key: _key,
+      key: globalRectKey,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         boxShadow: widget.lighting.createNeumorphicShadows(elevation: widget.elevation),
@@ -143,7 +123,7 @@ class _NeumorphicCardState extends State<_NeumorphicCard> {
             lighting: widget.lighting,
             baseColor: widget.baseColor,
             borderRadius: widget.borderRadius,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           child: widget.child,
         ),
@@ -254,31 +234,12 @@ class NeumorphicContainer extends StatefulWidget {
   State<NeumorphicContainer> createState() => _NeumorphicContainerState();
 }
 
-class _NeumorphicContainerState extends State<NeumorphicContainer> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicContainerState extends State<NeumorphicContainer>
+    with GlobalRectTracking<NeumorphicContainer> {
 
   @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
 
     Widget content = widget.child;
     if (widget.padding != null) {
@@ -286,7 +247,7 @@ class _NeumorphicContainerState extends State<NeumorphicContainer> {
     }
 
     return Container(
-      key: _key,
+      key: globalRectKey,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         boxShadow: lighting.createNeumorphicShadows(elevation: widget.elevation),
@@ -298,7 +259,7 @@ class _NeumorphicContainerState extends State<NeumorphicContainer> {
             lighting: lighting,
             baseColor: widget.baseColor,
             borderRadius: widget.borderRadius,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           child: content,
         ),
@@ -329,31 +290,12 @@ class NeumorphicInset extends StatefulWidget {
   State<NeumorphicInset> createState() => _NeumorphicInsetState();
 }
 
-class _NeumorphicInsetState extends State<NeumorphicInset> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicInsetState extends State<NeumorphicInset>
+    with GlobalRectTracking<NeumorphicInset> {
 
   @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
 
     Widget content = widget.child;
     if (widget.padding != null) {
@@ -361,7 +303,7 @@ class _NeumorphicInsetState extends State<NeumorphicInset> {
     }
 
     return Container(
-      key: _key,
+      key: globalRectKey,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         boxShadow: lighting.createNeumorphicShadows(
@@ -376,7 +318,7 @@ class _NeumorphicInsetState extends State<NeumorphicInset> {
             lighting: lighting,
             baseColor: widget.baseColor,
             borderRadius: widget.borderRadius,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           child: content,
         ),

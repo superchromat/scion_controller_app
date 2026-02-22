@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'lighting_settings.dart';
+import 'global_rect_tracking.dart';
 
 class OscCheckbox extends StatefulWidget {
   final bool initialValue;
@@ -129,33 +130,13 @@ class _NeumorphicCheckbox extends StatefulWidget {
   State<_NeumorphicCheckbox> createState() => _NeumorphicCheckboxState();
 }
 
-class _NeumorphicCheckboxState extends State<_NeumorphicCheckbox> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicCheckboxState extends State<_NeumorphicCheckbox>
+    with GlobalRectTracking<_NeumorphicCheckbox> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-
     return Container(
-      key: _key,
+      key: globalRectKey,
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
@@ -173,7 +154,7 @@ class _NeumorphicCheckboxState extends State<_NeumorphicCheckbox> {
             value: widget.value,
             isHovered: widget.isHovered,
             enabled: widget.enabled,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           size: Size(widget.size, widget.size),
         ),

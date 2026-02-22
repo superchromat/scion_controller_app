@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'system_overview_tiles.dart';
@@ -48,6 +49,7 @@ class _SystemOverviewState extends State<SystemOverview>
   final GlobalKey _outputKey = GlobalKey();
 
   List<Arrow> _arrows = [];
+  Timer? _resizeArrowDebounce;
 
   @override
   void initState() {
@@ -67,13 +69,18 @@ class _SystemOverviewState extends State<SystemOverview>
 
   @override
   void dispose() {
+    _resizeArrowDebounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeMetrics() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+    _resizeArrowDebounce?.cancel();
+    _resizeArrowDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+    });
   }
 
   Widget _sectionBox({

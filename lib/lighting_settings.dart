@@ -25,15 +25,22 @@ class LightingSettings extends ChangeNotifier {
   /// Shared noise texture
   ui.Image? _noiseImage;
   bool _noiseImageLoading = false;
+  bool _isWindowResizing = false;
+  Timer? _resizeIdleTimer;
 
   LightingSettings() {
+    _metricsObserver.onMetricsChanged = _handleMetricsChanged;
+    WidgetsBinding.instance.addObserver(_metricsObserver);
     _generateNoiseImage();
   }
 
   double get lightPhi => _lightPhi;
   double get lightTheta => _lightTheta;
   double get lightDistance => _lightDistance;
-  ui.Image? get noiseImage => _noiseImage;
+  ui.Image? get noiseImage => _isWindowResizing ? null : _noiseImage;
+  bool get isWindowResizing => _isWindowResizing;
+
+  final _LightingMetricsObserver _metricsObserver = _LightingMetricsObserver();
 
   /// Light phi in degrees for UI display
   double get lightPhiDegrees => _lightPhi * 180 / math.pi;
@@ -185,6 +192,19 @@ class LightingSettings extends ChangeNotifier {
     double elevation = 4.0,
     bool inset = false,
   }) {
+    if (_isWindowResizing) {
+      // During active window resize, shader/raster cost matters more than depth fidelity.
+      return inset
+          ? const []
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.16),
+                offset: const Offset(0, 1),
+                blurRadius: 2,
+              ),
+            ];
+    }
+
     final light = lightDir2D;
     final shadowOffset = Offset(-light.dx * elevation, -light.dy * elevation);
     final highlightOffset = Offset(light.dx * elevation, light.dy * elevation);
@@ -233,6 +253,20 @@ class LightingSettings extends ChangeNotifier {
     double intensity = 0.04,
     Rect? globalRect,
   }) {
+    if (_isWindowResizing) {
+      final light = lightDir2D;
+      return LinearGradient(
+        begin: Alignment(light.dx * 0.35, light.dy * 0.35),
+        end: Alignment(-light.dx * 0.35, -light.dy * 0.35),
+        colors: [
+          Color.lerp(baseColor, Colors.white, intensity * 0.45)!,
+          baseColor,
+          Color.lerp(baseColor, Colors.black, intensity * 0.35)!,
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      );
+    }
+
     // Light position in normalized screen coordinates (-1 to 1)
     // centered on screen, with light distance in screen-width units
     final (lx, ly, lz) = lightPos3D;
@@ -316,4 +350,31 @@ class LightingSettings extends ChangeNotifier {
       stops: const [0.0, 0.5, 1.0],
     );
   }
+
+  void _handleMetricsChanged() {
+    _resizeIdleTimer?.cancel();
+    if (!_isWindowResizing) {
+      _isWindowResizing = true;
+      notifyListeners();
+    }
+    _resizeIdleTimer = Timer(const Duration(milliseconds: 220), () {
+      if (!_isWindowResizing) return;
+      _isWindowResizing = false;
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _resizeIdleTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(_metricsObserver);
+    super.dispose();
+  }
+}
+
+class _LightingMetricsObserver with WidgetsBindingObserver {
+  VoidCallback? onMetricsChanged;
+
+  @override
+  void didChangeMetrics() => onMetricsChanged?.call();
 }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'lighting_settings.dart';
 import 'grid.dart';
+import 'global_rect_tracking.dart';
 
 /// Callback type for custom onChanged handling.
 typedef OnChangedCallback<T> = void Function(T value);
@@ -251,33 +252,13 @@ class _NeumorphicDropdownButton extends StatefulWidget {
   State<_NeumorphicDropdownButton> createState() => _NeumorphicDropdownButtonState();
 }
 
-class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton>
+    with GlobalRectTracking<_NeumorphicDropdownButton> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-
     return Container(
-      key: _key,
+      key: globalRectKey,
       width: widget.width,
       height: 32,
       decoration: BoxDecoration(
@@ -293,7 +274,7 @@ class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton> {
             lighting: widget.lighting,
             enabled: widget.enabled,
             isHovered: widget.isHovered,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -556,33 +537,13 @@ class _NeumorphicMenuContainer extends StatefulWidget {
   State<_NeumorphicMenuContainer> createState() => _NeumorphicMenuContainerState();
 }
 
-class _NeumorphicMenuContainerState extends State<_NeumorphicMenuContainer> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicMenuContainerState extends State<_NeumorphicMenuContainer>
+    with GlobalRectTracking<_NeumorphicMenuContainer> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-
     return Container(
-      key: _key,
+      key: globalRectKey,
       width: widget.width,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
@@ -599,7 +560,7 @@ class _NeumorphicMenuContainerState extends State<_NeumorphicMenuContainer> {
         child: CustomPaint(
           painter: _MenuContainerPainter(
             lighting: widget.lighting,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),

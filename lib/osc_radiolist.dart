@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'lighting_settings.dart';
+import 'global_rect_tracking.dart';
 
 class OscRadioList extends StatefulWidget {
   /// Each sublist is [value, label]
@@ -171,33 +172,13 @@ class _NeumorphicRadioButton extends StatefulWidget {
   State<_NeumorphicRadioButton> createState() => _NeumorphicRadioButtonState();
 }
 
-class _NeumorphicRadioButtonState extends State<_NeumorphicRadioButton> {
-  final GlobalKey _key = GlobalKey();
-  Rect? _globalRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-  }
-
-  void _updateGlobalRect() {
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      final position = renderBox.localToGlobal(Offset.zero);
-      final newRect = position & renderBox.size;
-      if (_globalRect != newRect) {
-        setState(() => _globalRect = newRect);
-      }
-    }
-  }
+class _NeumorphicRadioButtonState extends State<_NeumorphicRadioButton>
+    with GlobalRectTracking<_NeumorphicRadioButton> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateGlobalRect());
-
     return Container(
-      key: _key,
+      key: globalRectKey,
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
@@ -213,7 +194,7 @@ class _NeumorphicRadioButtonState extends State<_NeumorphicRadioButton> {
             lighting: widget.lighting,
             isSelected: widget.isSelected,
             isHovered: widget.isHovered,
-            globalRect: _globalRect,
+            globalRect: trackedGlobalRect,
           ),
           size: Size(widget.size, widget.size),
         ),
