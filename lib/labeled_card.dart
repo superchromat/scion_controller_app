@@ -92,22 +92,24 @@ class _NeumorphicCardState extends State<_NeumorphicCard>
     const borderRadius = 8.0;
     const elevation = 4.0;
     const baseColor = Color(0xFF323236);
-    return Container(
-      key: globalRectKey,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: widget.lighting.createNeumorphicShadows(elevation: elevation),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: CustomPaint(
-          painter: _NeumorphicCardPainter(
-            lighting: widget.lighting,
-            baseColor: baseColor,
-            borderRadius: borderRadius,
-            globalRect: trackedGlobalRect,
+    return RepaintBoundary(
+      child: Container(
+        key: globalRectKey,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: widget.lighting.createNeumorphicShadows(elevation: elevation),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: CustomPaint(
+            painter: _NeumorphicCardPainter(
+              lighting: widget.lighting,
+              baseColor: baseColor,
+              borderRadius: borderRadius,
+              globalRect: trackedGlobalRect,
+            ),
+            child: widget.child,
           ),
-          child: widget.child,
         ),
       ),
     );
@@ -228,22 +230,24 @@ class _NeumorphicContainerState extends State<NeumorphicContainer>
       content = Padding(padding: widget.padding!, child: content);
     }
 
-    return Container(
-      key: globalRectKey,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        boxShadow: lighting.createNeumorphicShadows(elevation: widget.elevation),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: CustomPaint(
-          painter: _NeumorphicCardPainter(
-            lighting: lighting,
-            baseColor: widget.baseColor,
-            borderRadius: widget.borderRadius,
-            globalRect: trackedGlobalRect,
+    return RepaintBoundary(
+      child: Container(
+        key: globalRectKey,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          boxShadow: lighting.createNeumorphicShadows(elevation: widget.elevation),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          child: CustomPaint(
+            painter: _NeumorphicCardPainter(
+              lighting: lighting,
+              baseColor: widget.baseColor,
+              borderRadius: widget.borderRadius,
+              globalRect: trackedGlobalRect,
+            ),
+            child: content,
           ),
-          child: content,
         ),
       ),
     );
@@ -284,25 +288,27 @@ class _NeumorphicInsetState extends State<NeumorphicInset>
       content = Padding(padding: widget.padding!, child: content);
     }
 
-    return Container(
-      key: globalRectKey,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        boxShadow: lighting.createNeumorphicShadows(
-          elevation: widget.depth,
-          inset: true,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: CustomPaint(
-          painter: _NeumorphicInsetPainter(
-            lighting: lighting,
-            baseColor: widget.baseColor,
-            borderRadius: widget.borderRadius,
-            globalRect: trackedGlobalRect,
+    return RepaintBoundary(
+      child: Container(
+        key: globalRectKey,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          boxShadow: lighting.createNeumorphicShadows(
+            elevation: widget.depth,
+            inset: true,
           ),
-          child: content,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          child: CustomPaint(
+            painter: _NeumorphicInsetPainter(
+              lighting: lighting,
+              baseColor: widget.baseColor,
+              borderRadius: widget.borderRadius,
+              globalRect: trackedGlobalRect,
+            ),
+            child: content,
+          ),
         ),
       ),
     );
