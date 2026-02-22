@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 
 import 'color_wheel.dart';
 import 'color_space_matrix.dart';
-import 'video_format_selection.dart' show computeRequiredAdcBias, kMaxAdcBiasNormalized;
+import 'video_format_selection.dart' show computeRequiredAdcBias;
+
+const double kMaxAdcBiasNormalized = 0.5; // 2048 in Q12
 
 class ColorPrimariesPage extends StatefulWidget {
   const ColorPrimariesPage({super.key});
@@ -90,9 +92,9 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
 
   void _setSliderForPrimary(int index, double value) {
     switch (index) {
-      case 0: _slider1 = value; break;
-      case 1: _slider2 = value; break;
-      case 2: _slider3 = value; break;
+      case 0: _slider1 = value;
+      case 1: _slider2 = value;
+      case 2: _slider3 = value;
     }
   }
 
@@ -107,9 +109,9 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
 
   void _setPrimary(int index, List<double> value) {
     switch (index) {
-      case 0: _primary1 = value; break;
-      case 1: _primary2 = value; break;
-      case 2: _primary3 = value; break;
+      case 0: _primary1 = value;
+      case 1: _primary2 = value;
+      case 2: _primary3 = value;
     }
   }
 
@@ -373,7 +375,6 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                   ),
                 ),
                 const SizedBox(width: 24),
-
                 // Condition number display
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -12,9 +12,7 @@ import 'file_selection.dart';
 import 'setup_page.dart';
 import 'send_page.dart';
 import 'osc_log.dart';
-import 'osc_registry_viewer.dart';
 import 'return_page.dart';
-import 'knob_page.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
 
@@ -108,7 +106,6 @@ class _ResizePerfProbe with WidgetsBindingObserver {
 }
 
 void _showGlobalErrorSnack(Object error, StackTrace stack) {
-  return; // JOSH TODO
   if (!kDebugMode) return;
   // Keep the snack concise; full details are printed to the console.
   final msg = error.toString().split('\n').first;

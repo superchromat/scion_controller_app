@@ -106,7 +106,10 @@ class DacParameters extends StatelessWidget {
     ];
     return Table(
       border: TableBorder.all(color: Colors.grey, width: 0.5),
-      defaultColumnWidth: const FixedColumnWidth(140),
+      columnWidths: const {
+        0: FixedColumnWidth(140),
+        1: FixedColumnWidth(240),
+      },
       children: List.generate(16, (i) {
         return TableRow(
           children: [

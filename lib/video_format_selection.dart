@@ -1,7 +1,6 @@
 // ignore_for_file: file_names
 
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
@@ -13,12 +12,9 @@ import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'osc_dropdown.dart';
 
-/// Hardware limit for ADC bias (14-bit signed, max positive = 8191, but practical limit ~2048)
-const double kMaxAdcBiasNormalized = 0.5;  // 2048 in Q12
-
 /// Compute the required ADC output bias for a matrix.
 /// Returns the maximum absolute bias needed across all channels.
-/// If this exceeds kMaxAdcBiasNormalized, the matrix cannot be properly recovered.
+/// Large values indicate the matrix may not be practically recoverable in hardware.
 double computeRequiredAdcBias(List<List<double>> m) {
   // Step 1: Compute output range and scale factor
   double scale = 1.0;
@@ -275,9 +271,9 @@ class _VideoFormatSelectionSectionState
 
   void _setSliderForPrimary(int index, double value) {
     switch (index) {
-      case 0: _slider1 = value; break;
-      case 1: _slider2 = value; break;
-      case 2: _slider3 = value; break;
+      case 0: _slider1 = value;
+      case 1: _slider2 = value;
+      case 2: _slider3 = value;
     }
   }
 
@@ -419,60 +415,6 @@ class _VideoFormatSelectionSectionState
     return computeRequiredAdcBias(matrix);
   }
 
-  Widget _buildConditionBar(double kappa) {
-    // Log scale: kappa 1 = 0%, kappa 1000 = 100%
-    final logKappa = log(kappa.clamp(1, 1000)) / log(1000);
-    final percentage = (logKappa * 100).clamp(0.0, 100.0);
-
-    // Color: green (good) -> yellow -> red (bad)
-    Color barColor;
-    if (kappa < 3) {
-      barColor = const Color(0xFF4CAF50); // Green
-    } else if (kappa < 10) {
-      barColor = const Color(0xFFFFC107); // Yellow
-    } else if (kappa < 100) {
-      barColor = const Color(0xFFFF9800); // Orange
-    } else {
-      barColor = const Color(0xFFF44336); // Red
-    }
-
-    return Container(
-      width: 90,
-      height: 16,
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Stack(
-        children: [
-          // Fill bar
-          FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: percentage / 100,
-            child: Container(
-              decoration: BoxDecoration(
-                color: barColor,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-          // κ value text
-          Center(
-            child: Text(
-              'κ=${kappa.isFinite ? kappa.toStringAsFixed(1) : '∞'}',
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                shadows: [Shadow(blurRadius: 2, color: Colors.black)],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildKappaOverlay(double kappa, double adcBias, List<double> rgb) {
     // Clamp color for display
     final displayColor = Color.fromRGBO(
@@ -505,11 +447,6 @@ class _VideoFormatSelectionSectionState
     }
 
     // ADC bias warning - check if it exceeds hardware limit
-    final bool biasExceedsLimit = adcBias > kMaxAdcBiasNormalized;
-    final biasStr = adcBias.isFinite
-        ? adcBias.clamp(0, 9.9).toStringAsFixed(2)
-        : '∞';
-
     return Container(
       height: barHeight,
       padding: const EdgeInsets.only(left: 6, right: 8),
@@ -562,29 +499,6 @@ class _VideoFormatSelectionSectionState
               kappa: kappa,
             ),
           ),
-          /*
-          // ADC bias warning indicator (only show when exceeds limit)
-          if (biasExceedsLimit) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF44336).withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFFF44336), width: 1),
-              ),
-              child: Text(
-                'BIAS:$biasStr',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Courier',
-                  fontFamilyFallback: ['Courier New', 'monospace'],
-                  color: Color(0xFFF44336),
-                ),
-              ),
-            ),
-          ], */
         ],
       ),
     );
@@ -701,8 +615,12 @@ class _VideoFormatSelectionSectionState
       // Normalize angle to be relative to startAngle
       var relAngle = angle - startAngle;
       // Wrap to [0, 2π)
-      while (relAngle < 0) relAngle += 2 * pi;
-      while (relAngle >= 2 * pi) relAngle -= 2 * pi;
+      while (relAngle < 0) {
+        relAngle += 2 * pi;
+      }
+      while (relAngle >= 2 * pi) {
+        relAngle -= 2 * pi;
+      }
 
       // Clamp to arc range
       if (relAngle > sweepAngle) {
@@ -777,9 +695,7 @@ class _VideoFormatSelectionSectionState
     const double colWidth = 190.0;
     const double resFrameHeight = 124.0; // Resolution + Framerate height (tighter)
     const double colorspaceBoxHeight = 75.0;
-    const double colorspaceBoxWidth = 200.0;
     const double wheelsBoxWidth = 310.0;
-    const double wheelsBoxHeight = 170.0;
     const double r = 12.0;
     const double gap = 0.0;
 
@@ -896,7 +812,6 @@ class _LPainter extends CustomPainter {
   final Rect hBar;
   final Rect vBar;
   final LightingSettings lighting;
-  final Rect? globalRect;
 
   _LPainter({
     required this.color,
@@ -904,7 +819,6 @@ class _LPainter extends CustomPainter {
     required this.hBar,
     required this.vBar,
     required this.lighting,
-    this.globalRect,
   });
 
   @override
@@ -924,7 +838,6 @@ class _LPainter extends CustomPainter {
     final gradient = lighting.createPhongSurfaceGradient(
       baseColor: color,
       intensity: 0.08,
-      globalRect: globalRect,
     );
     final gradientPaint = Paint()..shader = gradient.createShader(combined);
 
@@ -952,8 +865,7 @@ class _LPainter extends CustomPainter {
       old.color != color || old.hBar != hBar || old.vBar != vBar ||
       old.lighting.lightPhi != lighting.lightPhi ||
       old.lighting.lightTheta != lighting.lightTheta ||
-      old.lighting.noiseImage != lighting.noiseImage ||
-      old.globalRect != globalRect;
+      old.lighting.noiseImage != lighting.noiseImage;
 }
 
 /// Custom painter for the kappa bar with V-notches at κ=4 and κ=15
@@ -1377,4 +1289,3 @@ class _WheelWithArcPainter extends CustomPainter {
       old.rgb != rgb ||
       old.sliderValue != sliderValue;
 }
-

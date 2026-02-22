@@ -71,7 +71,7 @@ class VideoFormatTile extends StatefulWidget {
   });
 
   @override
-  _VideoFormatTileState createState() => _VideoFormatTileState();
+  State<VideoFormatTile> createState() => _VideoFormatTileState();
 }
 
 class _VideoFormatTileState extends State<VideoFormatTile>
@@ -576,11 +576,6 @@ class SyncLock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const locked = true;
-    return Icon(
-      locked ? Icons.lock : Icons.lock_open,
-      color: locked ? Colors.yellow : Colors.grey,
-      size: 48,
-    );
+    return const Icon(Icons.lock, color: Colors.yellow, size: 48);
   }
 }

@@ -1,9 +1,6 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'grid.dart';
-import 'network.dart';
-import 'osc_widget_binding.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
 
@@ -27,12 +24,6 @@ class LabeledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // rebuild on network status
     // ignore for now final connected = context.watch<Network>().isConnected;
-    // TODO: Re-enable connection check when device is back online
-    const disabled = false; // !networkIndependent && !connected;
-
-    // compute OSC namespace prefix for this card
-    final prefix = '/${OscPathSegment.resolvePath(context).join('/')}';
-
     // Get lighting settings
     final lighting = context.watch<LightingSettings>();
 
@@ -45,40 +36,34 @@ class LabeledCard extends StatelessWidget {
     final contentPadBot = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
     final titleStyle = t?.textTitle ?? Theme.of(context).textTheme.titleLarge!;
 
-    return IgnorePointer(
-      ignoring: disabled,
-      child: Opacity(
-        opacity: disabled ? 0.2 : 1.0,
-        child: _NeumorphicCard(
-          lighting: lighting,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(titlePadH, titlePadTop, titlePadH, 0),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(title, style: titleStyle)),
-                    if (action != null) action!,
-                  ],
-                ),
-              ),
-              SizedBox(height: titleGap),
-              if (fillChild)
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
-                    child: child,
-                  ),
-                )
-              else
-                Padding(
-                  padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
-                  child: child,
-                ),
-            ],
+    return _NeumorphicCard(
+      lighting: lighting,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(titlePadH, titlePadTop, titlePadH, 0),
+            child: Row(
+              children: [
+                Expanded(child: Text(title, style: titleStyle)),
+                if (action != null) action!,
+              ],
+            ),
           ),
-        ),
+          SizedBox(height: titleGap),
+          if (fillChild)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
+                child: child,
+              ),
+            )
+          else
+            Padding(
+              padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
+              child: child,
+            ),
+        ],
       ),
     );
   }
@@ -89,16 +74,10 @@ class LabeledCard extends StatelessWidget {
 class _NeumorphicCard extends StatefulWidget {
   final LightingSettings lighting;
   final Widget child;
-  final Color baseColor;
-  final double borderRadius;
-  final double elevation;
 
   const _NeumorphicCard({
     required this.lighting,
     required this.child,
-    this.baseColor = const Color(0xFF323236),
-    this.borderRadius = 8.0,
-    this.elevation = 4.0,
   });
 
   @override
@@ -110,19 +89,22 @@ class _NeumorphicCardState extends State<_NeumorphicCard>
 
   @override
   Widget build(BuildContext context) {
+    const borderRadius = 8.0;
+    const elevation = 4.0;
+    const baseColor = Color(0xFF323236);
     return Container(
       key: globalRectKey,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        boxShadow: widget.lighting.createNeumorphicShadows(elevation: widget.elevation),
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: widget.lighting.createNeumorphicShadows(elevation: elevation),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
+        borderRadius: BorderRadius.circular(borderRadius),
         child: CustomPaint(
           painter: _NeumorphicCardPainter(
             lighting: widget.lighting,
-            baseColor: widget.baseColor,
-            borderRadius: widget.borderRadius,
+            baseColor: baseColor,
+            borderRadius: borderRadius,
             globalRect: trackedGlobalRect,
           ),
           child: widget.child,

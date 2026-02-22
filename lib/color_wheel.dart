@@ -328,7 +328,6 @@ class ColorWheelPainter extends CustomPainter {
     canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
 
     const double kappaThreshold = 15.0;
-    const double kappaThresholdSq = kappaThreshold * kappaThreshold;
     const double biasThreshold = 1.9;
     const double wheelScale = 2.0;
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -73,7 +72,7 @@ class SnapConfig {
 }
 
 /// Interaction states for the knob
-enum _KnobState { idle, armed, dragging, settling }
+enum _KnobState { idle, armed, dragging }
 
 /// A rotary knob with transient linear drag bar.
 ///
@@ -175,17 +174,13 @@ class _RotaryKnobState extends State<RotaryKnob>
   static bool _noiseImageLoading = false;
 
   // Drag tracking
-  double _startValue = 0;
   double _startNormalized = 0;
   double _startMouseX = 0;
-  DateTime _startTime = DateTime.now();
   double _currentValue = 0;
 
   // Snap state
   double? _snappedTo;
-  DateTime? _snapTime;
   double _lastValue = 0;
-  DateTime _lastUpdateTime = DateTime.now();
 
   // Overlay for drag bar and background
   OverlayEntry? _dragBarOverlay;
@@ -194,8 +189,6 @@ class _RotaryKnobState extends State<RotaryKnob>
 
   // Animation for settling
   late AnimationController _settleController;
-  late Animation<double> _settleAnimation;
-
   // Text editing state
   bool _isHovering = false;
   bool _isEditing = false;
@@ -563,12 +556,9 @@ class _RotaryKnobState extends State<RotaryKnob>
   void _onPanStart(DragStartDetails details) {
     setState(() {
       _state = _KnobState.armed;
-      _startValue = _currentValue;
       _startNormalized = _normalizedFromValue(_currentValue);
       _startMouseX = details.globalPosition.dx;
-      _startTime = DateTime.now();
       _lastValue = _currentValue;
-      _lastUpdateTime = DateTime.now();
     });
   }
 
@@ -599,7 +589,6 @@ class _RotaryKnobState extends State<RotaryKnob>
       final vFinal = _applySnapping(vProposed, bypassSnap: ctrlHeld);
 
       _lastValue = _currentValue;
-      _lastUpdateTime = DateTime.now();
 
       setState(() {
         _currentValue = vFinal.clamp(widget.minValue, widget.maxValue);
@@ -1029,8 +1018,6 @@ class _KnobPainter extends CustomPainter {
 
   static const double startAngle = 0.75 * math.pi; // 135 degrees
   static const double sweepAngle = 1.5 * math.pi; // 270 degrees
-  static const double deadZone = 0.25 * math.pi; // 45 degrees dead zone at bottom
-
   // Saturated amber for active state, bright white-ish for inactive
   static const Color _activeColor = Color(0xFFF0B830);  // Vivid amber/gold
   static const Color _inactiveColor = Color(0xFFE8E8E8);  // Brighter light grey
@@ -1271,8 +1258,8 @@ class _KnobPainter extends CustomPainter {
       center: const Alignment(0.0, -0.6),
       radius: 0.5,
       colors: [
-        Colors.white.withOpacity(0.35),
-        Colors.white.withOpacity(0.10),
+        Colors.white.withValues(alpha: 0.35),
+        Colors.white.withValues(alpha: 0.10),
         Colors.transparent,
       ],
       stops: const [0.0, 0.3, 0.7],
@@ -2093,7 +2080,7 @@ class _KnobDragBackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.4)
+      ..color = Colors.black.withValues(alpha: 0.4)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
 
     // Expanded dimensions with padding
@@ -2124,7 +2111,7 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Draw thin white border for separation
     final borderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5;
     canvas.drawPath(path, borderPaint);

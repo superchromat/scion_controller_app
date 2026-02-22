@@ -416,10 +416,6 @@ class _NeumorphicDropdownMenu<T> extends StatelessWidget {
     double initialScrollOffset = 0;
     if (totalMenuHeight > maxMenuHeight) {
       // We need to scroll to show the selected item
-      final visibleTop = menuTop;
-      final visibleBottom = menuTop + menuHeight;
-      final idealSelectedTop = buttonCenterY - _itemHeight / 2;
-
       // Calculate how much to scroll so selected item is visible and centered
       initialScrollOffset = selectedItemTop - (menuHeight / 2 - _itemHeight / 2);
       initialScrollOffset = initialScrollOffset.clamp(0.0, totalMenuHeight - menuHeight);
