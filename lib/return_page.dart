@@ -9,8 +9,11 @@ import 'send_color.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_registry.dart';
+import 'osc_checkbox.dart';
 import 'adv_de_window.dart';
 import 'adv_sync_adjust.dart';
+import 'grid.dart';
+import 'panel.dart';
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});
@@ -33,51 +36,127 @@ class _ReturnPageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: const [
-        _ReturnOutputFormatCard(),
-        SizedBox(height: 16),
-        LabeledCard(
-          title: 'Color',
-          child: SendColor(showGrade: true, gradePath: '/output/grade'),
-        ),
-        SizedBox(height: 16),
-        _AdvPhaseCard(),
-        SizedBox(height: 16),
-        AdvDeWindowCard(),
-        SizedBox(height: 16),
-        AdvSyncAdjustCard(),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final t = GridTokens(constraints.maxWidth);
+        final topRow = GridRow(
+          gutter: t.md,
+          cells: const [
+            (span: 6, child: _ReturnOutputFormatCard(compact: true)),
+            (span: 6, child: _AdcAdjustmentsCard()),
+          ],
+        );
+
+        return GridProvider(
+          tokens: t,
+          child: ListView(
+            padding: EdgeInsets.all(t.md),
+            children: [
+              topRow,
+              SizedBox(height: t.md),
+              GridRow(
+                gutter: t.md,
+                cells: const [
+                  (
+                    span: 12,
+                    child: LabeledCard(
+                      title: 'Color',
+                      child: SendColor(showGrade: true, gradePath: '/output/grade'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _ReturnOutputFormatCard extends StatelessWidget {
-  const _ReturnOutputFormatCard();
+  final bool compact;
+
+  const _ReturnOutputFormatCard({this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     return LabeledCard(
       title: 'Return Output Format',
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            _ReturnOutputControls(),
-          ],
-        ),
-      ),
+      fillChild: compact,
+      child: _ReturnOutputControls(compact: compact),
     );
   }
 }
 
 class _ReturnOutputControls extends StatelessWidget {
-  const _ReturnOutputControls();
+  final bool compact;
+
+  const _ReturnOutputControls({this.compact = false});
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+
+    if (compact) {
+      return GridRow(
+        gutter: t.md,
+        cells: [
+          (
+            span: 12,
+            child: Panel(
+              fillChild: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridRow(
+                    columns: 12,
+                    gutter: t.md,
+                    cells: [
+                      (
+                        span: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const OscPathSegment(
+                              segment: 'resolution',
+                              child: OscValueLabel(label: 'Resolution', width: null),
+                            ),
+                            SizedBox(height: t.md),
+                            const OscPathSegment(
+                              segment: 'framerate',
+                              child: OscValueLabel(
+                                label: 'Framerate',
+                                defaultValue: '0.0',
+                                width: null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      (
+                        span: 8,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _ColorspaceDropdown(width: double.infinity),
+                            SizedBox(height: t.sm),
+                            _ChromaSubsamplingDropdown(width: double.infinity),
+                            SizedBox(height: t.sm),
+                            _BitDepthDropdown(width: double.infinity),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Wrap(
       spacing: 24,
       runSpacing: 16,
@@ -101,8 +180,71 @@ class _ReturnOutputControls extends StatelessWidget {
   }
 }
 
+class _AdcAdjustmentsCard extends StatelessWidget {
+  const _AdcAdjustmentsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const LabeledCard(
+      title: 'ADC Adjustments',
+      child: _AdcAdjustmentsContent(),
+    );
+  }
+}
+
+class _AdcAdjustmentsContent extends StatelessWidget {
+  const _AdcAdjustmentsContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    return CardColumn(
+      children: [
+        GridRow(
+          gutter: t.md,
+          cells: const [
+            (
+              span: 8,
+              child: Panel(
+                title: 'DE Window',
+                child: AdvDeWindowCard.embedded(),
+              ),
+            ),
+            (
+              span: 4,
+              child: Panel(
+                title: 'LLC Phase',
+                child: _AdvPhaseCard(embedded: true),
+              ),
+            ),
+          ],
+        ),
+        GridRow(
+          gutter: t.md,
+          cells: const [
+            (
+              span: 8,
+              child: Panel(
+                title: 'Sync Adjust',
+                child: AdvSyncAdjustCard.embedded(),
+              ),
+            ),
+            (
+              span: 4,
+              child: SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _AdvPhaseCard extends StatefulWidget {
-  const _AdvPhaseCard();
+  final bool embedded;
+  final bool vertical;
+
+  const _AdvPhaseCard({this.embedded = false, this.vertical = false});
 
   @override
   State<_AdvPhaseCard> createState() => _AdvPhaseCardState();
@@ -159,6 +301,96 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    final phaseKnobSize = widget.embedded ? t.knobSm : t.knobMd;
+    final dllCheckbox = OscCheckbox(
+      initialValue: _dllEnabled,
+      size: t.knobSm * 0.42,
+      onChanged: (v) {
+        setState(() => _dllEnabled = v);
+        _sendDll(v);
+      },
+    );
+    final dllRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('DLL', style: t.textLabel),
+        SizedBox(width: t.xs),
+        dllCheckbox,
+      ],
+    );
+    final phaseKnob = OscRotaryKnob(
+      key: _phaseKey,
+      initialValue: _phase.toDouble(),
+      minValue: 0,
+      maxValue: 63,
+      format: '%.0f',
+      label: 'Phase',
+      labelStyle: t.textLabel,
+      defaultValue: 0,
+      size: phaseKnobSize,
+      sendOsc: false,  // Manual OSC handling
+      preferInteger: true,
+      onChanged: (v) {
+        final iv = v.round().clamp(0, 63);
+        _phase = iv;
+        _sendPhase(iv);
+      },
+    );
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        dllRow,
+        SizedBox(width: t.md),
+        phaseKnob,
+      ],
+    );
+
+    if (widget.embedded) {
+      if (widget.vertical) {
+        final compactRow = Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            dllRow,
+            SizedBox(width: t.sm),
+            phaseKnob,
+          ],
+        );
+        return Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: compactRow,
+          ),
+        );
+      }
+      final dllStack = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          dllCheckbox,
+          SizedBox(height: t.xs * 0.4),
+          Text('DLL', style: t.textCaption),
+        ],
+      );
+      final compactRow = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          dllStack,
+          SizedBox(width: t.sm),
+          phaseKnob,
+        ],
+      );
+      return Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: compactRow,
+        ),
+      );
+    }
+
     return NeumorphicContainer(
       baseColor: const Color(0xFF2A2A2C),
       padding: const EdgeInsets.all(16),
@@ -167,33 +399,7 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
           const Text('ADV7842 LLC Phase',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const Spacer(),
-          const Text('DLL'),
-          const SizedBox(width: 8),
-          Switch(
-            value: _dllEnabled,
-            onChanged: (v) {
-              setState(() => _dllEnabled = v);
-              _sendDll(v);
-            },
-          ),
-          const SizedBox(width: 16),
-          OscRotaryKnob(
-            key: _phaseKey,
-            initialValue: _phase.toDouble(),
-            minValue: 0,
-            maxValue: 63,
-            format: '%.0f',
-            label: 'Phase',
-            defaultValue: 0,
-            size: 60,
-            sendOsc: false,  // Manual OSC handling
-            preferInteger: true,
-            onChanged: (v) {
-              final iv = v.round().clamp(0, 63);
-              _phase = iv;
-              _sendPhase(iv);
-            },
-          ),
+          controls,
         ],
       ),
     );
@@ -201,7 +407,9 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
 }
 
 class _ColorspaceDropdown extends StatelessWidget {
-  const _ColorspaceDropdown();
+  final double? width;
+
+  const _ColorspaceDropdown({this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -211,12 +419,15 @@ class _ColorspaceDropdown extends StatelessWidget {
       pathSegment: 'colorspace',
       items: ReturnPage._colorspaces,
       defaultValue: ReturnPage._colorspaces.first,
+      width: width ?? 160,
     );
   }
 }
 
 class _ChromaSubsamplingDropdown extends StatelessWidget {
-  const _ChromaSubsamplingDropdown();
+  final double? width;
+
+  const _ChromaSubsamplingDropdown({this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -226,12 +437,15 @@ class _ChromaSubsamplingDropdown extends StatelessWidget {
       pathSegment: 'chroma_subsampling',
       items: ReturnPage._subsamplings,
       defaultValue: ReturnPage._subsamplings.first,
+      width: width ?? 160,
     );
   }
 }
 
 class _BitDepthDropdown extends StatelessWidget {
-  const _BitDepthDropdown();
+  final double? width;
+
+  const _BitDepthDropdown({this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -241,6 +455,7 @@ class _BitDepthDropdown extends StatelessWidget {
       pathSegment: 'bit_depth',
       items: ReturnPage._bitDepths,
       defaultValue: ReturnPage._bitDepths.first,
+      width: width ?? 160,
     );
   }
 }

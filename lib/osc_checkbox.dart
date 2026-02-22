@@ -8,6 +8,7 @@ class OscCheckbox extends StatefulWidget {
   final bool readOnly;
   final String? label;
   final double size;
+  final ValueChanged<bool>? onChanged;
 
   const OscCheckbox({
     super.key,
@@ -15,6 +16,7 @@ class OscCheckbox extends StatefulWidget {
     this.readOnly = false,
     this.label,
     this.size = 22,
+    this.onChanged,
   });
 
   @override
@@ -47,8 +49,21 @@ class _OscCheckboxState extends State<OscCheckbox> with OscAddressMixin {
 
   void _toggle() {
     if (widget.readOnly) return;
-    setState(() => _value = !_value);
-    sendOsc(_value);
+    final next = !_value;
+    setState(() => _value = next);
+    if (oscAddress.isNotEmpty) {
+      sendOsc(next);
+    }
+    widget.onChanged?.call(next);
+  }
+
+  @override
+  void didUpdateWidget(covariant OscCheckbox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue &&
+        widget.initialValue != _value) {
+      _value = widget.initialValue;
+    }
   }
 
   @override

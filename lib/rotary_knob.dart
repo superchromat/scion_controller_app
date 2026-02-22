@@ -202,6 +202,18 @@ class _RotaryKnobState extends State<RotaryKnob>
   late TextEditingController _textController;
   late FocusNode _textFocusNode;
 
+  TextStyle _fallbackKnobLabelStyle(BuildContext context) {
+    final t = GridProvider.maybeOf(context);
+    return widget.labelStyle ??
+        t?.textLabel ??
+        const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          fontFamily: 'DINPro',
+          color: Colors.white,
+        );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -733,10 +745,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                     if (widget.label.isNotEmpty)
                       Text(
                         widget.label,
-                        style: widget.labelStyle ?? const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white,
-                        ),
+                        style: _fallbackKnobLabelStyle(context),
                       ),
                   ],
                 ),
@@ -999,10 +1008,7 @@ class _RotaryKnobState extends State<RotaryKnob>
               offset: const Offset(0, -4),
               child: Text(
                 widget.label,
-                style: widget.labelStyle ?? const TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                ),
+                style: _fallbackKnobLabelStyle(context),
               ),
             ),
         ],

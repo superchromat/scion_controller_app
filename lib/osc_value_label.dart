@@ -5,12 +5,14 @@ class OscValueLabel extends StatefulWidget {
   final String label;
   final String defaultValue;
   final String Function(Object?)? formatter;
+  final double? width;
 
   const OscValueLabel({
     super.key,
     required this.label,
     this.defaultValue = '?',
     this.formatter,
+    this.width = 180,
   });
 
   @override
@@ -59,30 +61,30 @@ class _OscValueLabelState extends State<OscValueLabel> with OscAddressMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      width: 180,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.label,
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.label,
+          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[700]!),
+            color: Colors.grey[850],
           ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.grey[700]!),
-              color: Colors.grey[850],
-            ),
-            child: Text(
-              _value,
-              style: const TextStyle(fontFamily: 'monospace'),
-            ),
+          child: Text(
+            _value,
+            style: const TextStyle(fontFamily: 'monospace'),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+
+    if (widget.width == null) return body;
+    return SizedBox(width: widget.width, child: body);
   }
 }

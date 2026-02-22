@@ -20,12 +20,14 @@ class Panel extends StatelessWidget {
   final String? title;
   final Widget child;
   final Color? baseColor;
+  final bool fillChild;
 
   const Panel({
     super.key,
     this.rows,
     this.title,
     required this.child,
+    this.fillChild = false,
   }) : baseColor = null;
 
   const Panel.dark({
@@ -33,6 +35,7 @@ class Panel extends StatelessWidget {
     this.rows,
     this.title,
     required this.child,
+    this.fillChild = false,
   }) : baseColor = const Color(0xFF252527);
 
   @override
@@ -78,7 +81,7 @@ class Panel extends StatelessWidget {
     Widget body;
     if (title != null) {
       body = Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: fillChild ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -95,11 +98,11 @@ class Panel extends StatelessWidget {
             ),
           ),
           SizedBox(height: t.xs),
-          child,
+          if (fillChild) Expanded(child: child) else child,
         ],
       );
     } else {
-      body = child;
+      body = fillChild ? SizedBox.expand(child: child) : child;
     }
 
     return NeumorphicInset(

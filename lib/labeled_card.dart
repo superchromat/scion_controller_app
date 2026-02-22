@@ -11,6 +11,7 @@ class LabeledCard extends StatelessWidget {
   final Widget child;
   final bool networkIndependent;
   final Widget? action;
+  final bool fillChild;
 
   const LabeledCard({
     super.key,
@@ -18,6 +19,7 @@ class LabeledCard extends StatelessWidget {
     required this.child,
     this.networkIndependent = false,
     this.action,
+    this.fillChild = false,
   });
 
   @override
@@ -61,10 +63,18 @@ class LabeledCard extends StatelessWidget {
                 ),
               ),
               SizedBox(height: titleGap),
-              Padding(
-                padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
-                child: child,
-              ),
+              if (fillChild)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
+                    child: child,
+                  ),
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
+                  child: child,
+                ),
             ],
           ),
         ),

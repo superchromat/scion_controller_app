@@ -52,7 +52,7 @@ class GridTokens {
   // Tier 3: Control labels (knobs, dropdowns)
   TextStyle get textLabel => TextStyle(
         fontSize: 1.05 * u,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
         fontFamily: 'DINPro',
         letterSpacing: 0.05,
         color: const Color(0xFFD2D2D4),
@@ -243,6 +243,7 @@ class GridRow extends StatelessWidget {
     super.key,
     this.columns = 12,
     this.gutter,
+    this.equalHeight = true,
     required this.cells,
   });
 
@@ -253,6 +254,11 @@ class GridRow extends StatelessWidget {
   /// read from [GridGutterProvider] or, as a last resort, computed as
   /// `width × [AppGrid.gutterFraction]` via [LayoutBuilder].
   final double? gutter;
+
+  /// When true, multi-cell rows stretch all cells to the tallest child.
+  ///
+  /// Some rows (e.g. asymmetric dashboard cards) should keep natural heights.
+  final bool equalHeight;
 
   /// Ordered list of (span, child) pairs. Spans should sum to [columns].
   final List<({int span, Widget child})> cells;
@@ -295,23 +301,24 @@ class GridRow extends StatelessWidget {
     // Multi-cell row: Expanded with flex = span for proportional widths.
     // Wrapped in IntrinsicHeight so all cells stretch to the tallest
     // child's height — card bottoms align across the row.
+    final row = Row(
+      crossAxisAlignment:
+          equalHeight ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+      children: [
+        for (final cell in cells)
+          Expanded(
+            flex: cell.span,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: halfG),
+              child: cell.child,
+            ),
+          ),
+      ],
+    );
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: halfG),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final cell in cells)
-              Expanded(
-                flex: cell.span,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: halfG),
-                  child: cell.child,
-                ),
-              ),
-          ],
-        ),
-      ),
+      child: equalHeight ? IntrinsicHeight(child: row) : row,
     );
   }
 }

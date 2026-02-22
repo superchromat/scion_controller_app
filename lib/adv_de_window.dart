@@ -6,9 +6,13 @@ import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'osc_registry.dart';
 import 'labeled_card.dart';
+import 'grid.dart';
 
 class AdvDeWindowCard extends StatefulWidget {
-  const AdvDeWindowCard({super.key});
+  final bool embedded;
+
+  const AdvDeWindowCard({super.key}) : embedded = false;
+  const AdvDeWindowCard.embedded({super.key}) : embedded = true;
 
   @override
   State<AdvDeWindowCard> createState() => _AdvDeWindowCardState();
@@ -67,6 +71,34 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    final knobSize = widget.embedded ? t.knobSm : t.knobMd;
+    final knobWidgets = [
+      _deKnob(context, 'H Start', _hStartKey, -512, 511, knobSize, (v) { _hStart = v; _sendDe(); }),
+      _deKnob(context, 'H End', _hEndKey, -512, 511, knobSize, (v) { _hEnd = v; _sendDe(); }),
+      _deKnob(context, 'V Start', _vStartKey, -8, 7, knobSize, (v) { _vStart = v; _sendDe(); }),
+      _deKnob(context, 'V End', _vEndKey, -8, 7, knobSize, (v) { _vEnd = v; _sendDe(); }),
+    ];
+    final controls = widget.embedded
+        ? GridRow(
+            columns: 4,
+            gutter: t.sm,
+            equalHeight: false,
+            cells: [
+              for (final k in knobWidgets) (span: 1, child: k),
+            ],
+          )
+        : Wrap(
+            spacing: t.md,
+            runSpacing: t.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: knobWidgets,
+          );
+
+    if (widget.embedded) {
+      return Align(alignment: Alignment.centerLeft, child: controls);
+    }
+
     return NeumorphicContainer(
       baseColor: const Color(0xFF2A2A2C),
       padding: const EdgeInsets.all(16),
@@ -76,24 +108,15 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
           const Text('ADV7842 DE Window',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 24,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _deKnob('H Start', _hStartKey, -512, 511, (v) { _hStart = v; _sendDe(); }),
-              _deKnob('H End', _hEndKey, -512, 511, (v) { _hEnd = v; _sendDe(); }),
-              _deKnob('V Start', _vStartKey, -8, 7, (v) { _vStart = v; _sendDe(); }),
-              _deKnob('V End', _vEndKey, -8, 7, (v) { _vEnd = v; _sendDe(); }),
-            ],
-          ),
+          controls,
         ],
       ),
     );
   }
 
-  Widget _deKnob(String label, GlobalKey<OscRotaryKnobState> key,
-      double min, double max, void Function(int) onCommit) {
+  Widget _deKnob(BuildContext context, String label, GlobalKey<OscRotaryKnobState> key,
+      double min, double max, double size, void Function(int) onCommit) {
+    final t = GridProvider.of(context);
     return OscRotaryKnob(
       key: key,
       initialValue: 0,
@@ -101,8 +124,9 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
       maxValue: max,
       format: '%.0f',
       label: label,
+      labelStyle: t.textLabel,
       defaultValue: 0,
-      size: 55,
+      size: size,
       sendOsc: false,
       preferInteger: true,
       isBipolar: min < 0,
@@ -115,4 +139,3 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
     );
   }
 }
-
