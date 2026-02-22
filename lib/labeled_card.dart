@@ -30,8 +30,9 @@ class LabeledCard extends StatelessWidget {
     // Use grid tokens when available, fall back to legacy gutter.
     final t = GridProvider.maybeOf(context);
     final titlePadH = t?.cardTitleAlignToPanelTitle ?? 16.0;
-    final titlePadTop = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
-    final titleGap = t?.xs ?? (titlePadTop / 2);
+    // Pull the title closer to the top so its visual inset matches the left inset.
+    final titlePadTop = titlePadH - (t?.xs ?? ((GridGutterProvider.maybeOf(context) ?? 16.0) / 2));
+    final titleGap = t?.xs ?? (titlePadH / 2);
     final contentPadH = 0.0; // GridRow handles horizontal spacing
     final contentPadBot = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
     final titleStyle = t?.textTitle ?? Theme.of(context).textTheme.titleLarge!;
@@ -45,7 +46,16 @@ class LabeledCard extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(titlePadH, titlePadTop, titlePadH, 0),
             child: Row(
               children: [
-                Expanded(child: Text(title, style: titleStyle)),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: titleStyle.copyWith(height: 1.0),
+                    textHeightBehavior: const TextHeightBehavior(
+                      applyHeightToFirstAscent: false,
+                      applyHeightToLastDescent: false,
+                    ),
+                  ),
+                ),
                 if (action != null) action!,
               ],
             ),

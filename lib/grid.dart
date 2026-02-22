@@ -91,7 +91,8 @@ class GridTokens {
   ///
   /// Assumes card internals use [GridRow] with gutter [md], which is the
   /// standard pattern across Send-page sections.
-  double get cardTitleAlignToPanelTitle => md;
+  double get cardTitleAlignToPanelTitle =>
+      (md / 2) + panelTitleTextOffsetInPanel;
 }
 
 /// Provides [GridTokens] to all descendants.

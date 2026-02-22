@@ -6,6 +6,7 @@ import 'osc_value_label.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'send_color.dart';
+import 'send_texture.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_registry.dart';
@@ -14,6 +15,7 @@ import 'adv_de_window.dart';
 import 'adv_sync_adjust.dart';
 import 'grid.dart';
 import 'panel.dart';
+import 'shape.dart';
 
 class ReturnPage extends StatelessWidget {
   const ReturnPage({super.key});
@@ -53,6 +55,26 @@ class _ReturnPageBody extends StatelessWidget {
             padding: EdgeInsets.all(t.md),
             children: [
               topRow,
+              SizedBox(height: t.md),
+              GridRow(
+                gutter: t.md,
+                cells: [
+                  (
+                    span: 6,
+                    child: LabeledCard(
+                      title: 'Shape',
+                      child: const Shape(pageNumber: 2),
+                    ),
+                  ),
+                  (
+                    span: 6,
+                    child: LabeledCard(
+                      title: 'Texture',
+                      child: const SendTexture(),
+                    ),
+                  ),
+                ],
+              ),
               SizedBox(height: t.md),
               GridRow(
                 gutter: t.md,
