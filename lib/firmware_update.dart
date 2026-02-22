@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'labeled_card.dart';
 import 'network.dart';
 import 'osc_registry.dart';
+import 'grid.dart';
 
 enum FirmwareStage { idle, ready, uploading, finalizing, done, error }
 
@@ -35,6 +36,28 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
   Completer<void>? _endAck;
   Completer<void>? _chunkAck;
   int _expectedChunkSeq = -1;
+
+  ButtonStyle _actionButtonStyle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ElevatedButton.styleFrom(
+      elevation: 0,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      minimumSize: const Size(0, 48),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      backgroundColor: const Color(0xFF2A2A30),
+      disabledBackgroundColor: const Color(0xFF57575E),
+      foregroundColor: scheme.primary,
+      disabledForegroundColor: const Color(0xFFB5B5BA),
+      textStyle: const TextStyle(
+        fontFamily: 'DINPro',
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+        letterSpacing: 0.05,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -356,70 +379,93 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     final net = Provider.of<Network>(context);
     final connected = net.isConnected;
     final progress = _totalBytes == 0 ? 0.0 : _sentBytes / _totalBytes;
+    final t = GridProvider.maybeOf(context);
+    final contentPadH = ((t?.md ?? 16.0) < 24.0) ? 24.0 : (t?.md ?? 16.0);
+    final contentPadTop = t?.xs ?? 8.0;
+    final contentPadBottom = t?.md ?? 16.0;
+    final buttonStyle = _actionButtonStyle(context);
 
     return LabeledCard(
       title: 'Firmware Update',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: _stage == FirmwareStage.uploading
-                    ? null
-                    : () => _pickFile(),
-                icon: const Icon(Icons.file_open),
-                label: const Text('Select Firmware'),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: (_path != null && connected &&
-                        (_stage == FirmwareStage.ready ||
-                            _stage == FirmwareStage.error))
-                    ? () => _startUpgrade(context)
-                    : null,
-                icon: const Icon(Icons.system_update_alt),
-                label: const Text('Begin Upgrade'),
-              ),
-              const SizedBox(width: 12),
-              if (_fileName != null)
-                Text(
-                  _fileName!,
-                  style: const TextStyle(fontStyle: FontStyle.italic),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          contentPadH,
+          contentPadTop,
+          contentPadH,
+          contentPadBottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  style: buttonStyle,
+                  onPressed: _stage == FirmwareStage.uploading
+                      ? null
+                      : () => _pickFile(),
+                  icon: const Icon(Icons.file_open),
+                  label: const Text('Select Firmware'),
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: (_stage == FirmwareStage.uploading ||
-                    _stage == FirmwareStage.finalizing ||
-                    _stage == FirmwareStage.done)
-                ? progress.clamp(0.0, 1.0)
-                : 0.0,
-            minHeight: 8,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _statusText ??
-                    (_stage == FirmwareStage.uploading
-                        ? 'Uploading...'
-                        : _stage == FirmwareStage.finalizing
-                            ? 'Finalizing...'
-                            : _stage == FirmwareStage.done
-                                ? 'Done'
-                                : connected
-                                    ? 'Ready'
-                                    : 'Not connected'),
-              ),
-              if (_totalBytes > 0)
-                Text('${_sentBytes}/${_totalBytes} bytes'
-                    ' (${(progress * 100).toStringAsFixed(1)}%)'),
-            ],
-          ),
-        ],
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: buttonStyle,
+                  onPressed: (_path != null && connected &&
+                          (_stage == FirmwareStage.ready ||
+                              _stage == FirmwareStage.error))
+                      ? () => _startUpgrade(context)
+                      : null,
+                  icon: const Icon(Icons.system_update_alt),
+                  label: const Text('Begin Upgrade'),
+                ),
+                const SizedBox(width: 12),
+                if (_fileName != null)
+                  Expanded(
+                    child: Text(
+                      _fileName!,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: (_stage == FirmwareStage.uploading ||
+                      _stage == FirmwareStage.finalizing ||
+                      _stage == FirmwareStage.done)
+                  ? progress.clamp(0.0, 1.0)
+                  : 0.0,
+              minHeight: 8,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _statusText ??
+                        (_stage == FirmwareStage.uploading
+                            ? 'Uploading...'
+                            : _stage == FirmwareStage.finalizing
+                                ? 'Finalizing...'
+                                : _stage == FirmwareStage.done
+                                    ? 'Done'
+                                    : connected
+                                        ? 'Ready'
+                                        : 'Not connected'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (_totalBytes > 0) ...[
+                  const SizedBox(width: 12),
+                  Text('${_sentBytes}/${_totalBytes} bytes'
+                      ' (${(progress * 100).toStringAsFixed(1)}%)'),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

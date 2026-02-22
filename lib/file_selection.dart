@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'osc_registry.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
+import 'labeled_card.dart';
 
 final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileManagementSectionState>();
 
@@ -86,81 +87,178 @@ class FileManagementSectionState extends State<FileManagementSection> {
     );
   }
 
-  ButtonStyle _iconButtonStyle(
-      BuildContext context, {
-      Color? borderColor,
-      Color? foregroundColor,
-  }) {
-    final theme = Theme.of(context);
-    return ElevatedButton.styleFrom(
-      backgroundColor: Colors.grey[600],
-      foregroundColor: foregroundColor ?? theme.colorScheme.onPrimary,
-      padding: const EdgeInsets.all(12),
-      minimumSize: const Size(40, 40),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: BorderSide(
-          color: borderColor ?? theme.colorScheme.primary,
-          width: 2,
+  @override
+  Widget build(BuildContext context) {
+    return TooltipTheme(
+      data: TooltipTheme.of(context).copyWith(
+        waitDuration: const Duration(milliseconds: 350),
+        showDuration: const Duration(milliseconds: 1200),
+        preferBelow: false,
+        verticalOffset: 14,
+        textStyle: const TextStyle(
+          fontFamily: 'DINPro',
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.08,
+          color: Color(0xFFF0F0F3),
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2D2D31),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Tooltip(
+                message: 'Save',
+                child: _NeumorphicFileActionButton(
+                  borderColor: Theme.of(context).colorScheme.primary,
+                  onPressed: () => _save(context),
+                  icon: Icons.save,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Tooltip(
+                message: 'Save As',
+                child: _NeumorphicFileActionButton(
+                  borderColor: Theme.of(context).colorScheme.primary,
+                  onPressed: () => _saveAs(context),
+                  icon: Icons.save_as,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Tooltip(
+                message: 'Load',
+                child: _NeumorphicFileActionButton(
+                  borderColor: Theme.of(context).colorScheme.primary,
+                  onPressed: () => _load(context),
+                  icon: Icons.folder_open,
+                ),
+              ),
+              const Spacer(),
+              Tooltip(
+                message: 'Reset to defaults',
+                child: _NeumorphicFileActionButton(
+                  icon: Icons.restore,
+                  onPressed: () => _reset(context),
+                  borderColor: const Color(0xFFB56A77),
+                  iconColor: const Color(0xFFE7E7EA),
+                  baseColor: const Color(0xFF514249),
+                  textureTint: const Color(0x226A2D38),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
+}
+
+class _NeumorphicFileActionButton extends StatelessWidget {
+  const _NeumorphicFileActionButton({
+    required this.icon,
+    required this.onPressed,
+    required this.borderColor,
+    this.iconColor,
+    this.baseColor = const Color(0xFF5A5A5E),
+    this.textureTint = const Color(0x00000000),
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final Color borderColor;
+  final Color? iconColor;
+  final Color baseColor;
+  final Color textureTint;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Tooltip(
-              message: 'Save',
-              child: ElevatedButton(
-                style: _iconButtonStyle(context,
-                    borderColor: Theme.of(context).colorScheme.primary),
-                onPressed: () => _save(context),
-                child: const Icon(Icons.save),
+    final iconFg = iconColor ?? const Color(0xFFE7E7EA);
+    final insetBase = Color.alphaBlend(
+      const Color(0x22000000),
+      baseColor,
+    );
+
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: NeumorphicContainer(
+        baseColor: baseColor,
+        borderRadius: 5,
+        elevation: 4.0,
+        child: Padding(
+          padding: const EdgeInsets.all(1.5),
+          child: NeumorphicInset(
+            baseColor: insetBase,
+            borderRadius: 4,
+            depth: 1.6,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: onPressed,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: borderColor.withValues(alpha: 0.78),
+                          width: 1.0,
+                        ),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.08),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.05),
+                          ],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.09),
+                          width: 0.6,
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Icon(icon, color: iconFg, size: 20),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 10),
-            Tooltip(
-              message: 'Save As',
-              child: ElevatedButton(
-                style: _iconButtonStyle(context,
-                    borderColor: Theme.of(context).colorScheme.primary),
-                onPressed: () => _saveAs(context),
-                child: const Icon(Icons.save_as),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Tooltip(
-              message: 'Load',
-              child: ElevatedButton(
-                style: _iconButtonStyle(context,
-                    borderColor: Theme.of(context).colorScheme.primary),
-                onPressed: () => _load(context),
-                child: const Icon(Icons.folder_open),
-              ),
-            ),
-            SizedBox(width: 16),
-            Tooltip(
-          message: 'Reset to defaults',
-          child: ElevatedButton(
-            style: _iconButtonStyle(
-              context,
-              borderColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor:
-                  Theme.of(context).colorScheme.onErrorContainer,
-            ),
-            onPressed: () => _reset(context),
-            child: const Icon(Icons.restore),
           ),
         ),
-          ],
-        ),
-        
-      ],
+      ),
     );
   }
 }

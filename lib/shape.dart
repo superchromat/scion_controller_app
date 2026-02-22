@@ -248,7 +248,7 @@ class ShapeState extends State<Shape> {
                         minValue: 0.0,
                         maxValue: 360.0,
                         format: '%.1f',
-                        label: 'Degrees',
+                        label: 'φ',
                         defaultValue: 180.0,
                         size: t.knobMd,
                         labelStyle: t.textLabel,

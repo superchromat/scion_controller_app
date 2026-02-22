@@ -230,6 +230,39 @@ class _NavRailPainter extends CustomPainter {
 
     canvas.drawRect(rect, gradientPaint);
 
+    // Left edge shadow/highlight to sit on the same depth plane as raised cards
+    final leftBandRect = Rect.fromLTWH(0, 0, 10, size.height);
+    final leftBandPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.black.withValues(alpha: 0.16),
+          Colors.black.withValues(alpha: 0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.35, 1.0],
+      ).createShader(leftBandRect);
+    canvas.drawRect(leftBandRect, leftBandPaint);
+
+    final leftEdgePaint = Paint()
+      ..strokeWidth = 1.0
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.035),
+          Colors.white.withValues(alpha: 0.02),
+          Colors.black.withValues(alpha: 0.05),
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(rect);
+    canvas.drawLine(
+      const Offset(0.5, 0),
+      Offset(0.5, size.height),
+      leftEdgePaint,
+    );
+
     // Right edge shadow/highlight for depth
     final edgePaint = Paint()
       ..strokeWidth = 1.5
@@ -312,6 +345,20 @@ class _MyHomePageState extends State<MyHomePage> {
       // Use the same constants passed to NavigationRail:
       const double railCollapsedWidth = 100;
       const double railExtendedWidth = 222;
+      const selectedRailLabelStyle = TextStyle(
+        fontFamily: 'DINPro',
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.10,
+        color: Color(0xFFF1F1F3),
+      );
+      const unselectedRailLabelStyle = TextStyle(
+        fontFamily: 'DINPro',
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.10,
+        color: Color(0xFFD2D2D4),
+      );
 
       final lighting = context.watch<LightingSettings>();
 
@@ -329,7 +376,9 @@ class _MyHomePageState extends State<MyHomePage> {
                         minWidth: railCollapsedWidth,
                         minExtendedWidth: railExtendedWidth,
                         extended: isRailExtended,
-                        // Precisely constrain the leading section to the rail width:
+                        groupAlignment: -1.0,
+                        selectedLabelTextStyle: selectedRailLabelStyle,
+                        unselectedLabelTextStyle: unselectedRailLabelStyle,
                         leading: SizedBox(
                           width: isRailExtended
                               ? railExtendedWidth
@@ -344,7 +393,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 SizedBox(height: 16),
                                 FileManagementSection(),
                                 SizedBox(height: 8),
-                                Divider(color: Colors.grey),
+                                _FadedRailDivider(),
                               ],
                             ),
                           ),
@@ -356,31 +405,31 @@ class _MyHomePageState extends State<MyHomePage> {
                         destinations: const [
                           NavigationRailDestination(
                             icon: Icon(Icons.memory),
-                            label: Text('System', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                            label: Text('System'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.output),
-                            label: Text('Send 1', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
+                            label: Text('Send 1'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.output),
-                            label: Text('Send 2', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
+                            label: Text('Send 2'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.output),
-                            label: Text('Send 3', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
+                            label: Text('Send 3'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.input),
-                            label: Text('Return', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
+                            label: Text('Return'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.settings),
-                            label: Text('Setup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                            label: Text('Setup'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.view_list),
-                            label: Text('OSC Log', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w300)),
+                            label: Text('OSC Log'),
                           ),
                         ],
                       ),
@@ -402,5 +451,34 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       );
     });
+  }
+}
+
+class _FadedRailDivider extends StatelessWidget {
+  const _FadedRailDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 20,
+      child: Center(
+        child: Container(
+          height: 1,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.0),
+                Colors.white.withValues(alpha: 0.34),
+                Colors.white.withValues(alpha: 0.34),
+                Colors.white.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.18, 0.82, 1.0],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
