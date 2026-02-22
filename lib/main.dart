@@ -434,9 +434,9 @@ class _MyHomePageState extends State<MyHomePage> {
             Expanded(
               child: Row(
                 children: [
-                  SafeArea(
-                    child: _NeumorphicNavRail(
-                      lighting: lighting,
+                  _NeumorphicNavRail(
+                    lighting: lighting,
+                    child: SafeArea(
                       child: NavigationRail(
                         backgroundColor: Colors.transparent,
                         minWidth: railCollapsedWidth,

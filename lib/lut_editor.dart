@@ -1,7 +1,9 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:osc/osc.dart';
@@ -40,6 +42,10 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   String selectedChannel = 'Y';
   int? currentControlPointIdx;
   bool isDragging = false;
+  int? _activePointer;
+  Timer? _longPressTimer;
+  Offset? _pointerDownLocalPosition;
+  bool _longPressTriggered = false;
 
   final ValueNotifier<bool> flashLockNotifier = ValueNotifier(false);
   static const double insetPadding = 20.0;
@@ -61,6 +67,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   : const Offset(-1, -1),
         ),
     };
+  }
+
+  @override
+  void dispose() {
+    _cancelLongPressTracking();
+    super.dispose();
   }
 
   @override
@@ -227,8 +239,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     );
   }
 
-  void onPanStart(DragStartDetails details, Size size) {
-    final pos = _normalize(details.localPosition, size);
+  void _beginInteractionAt(
+    Offset localPosition,
+    Size size, {
+    required bool startDrag,
+  }) {
+    final pos = _normalize(localPosition, size);
     final pts = controlPoints[selectedChannel]!;
     final idx = _findNearby(pos, pts);
     setState(() {
@@ -246,15 +262,23 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           }
         }
       }
-      isDragging = true;
+      isDragging = startDrag;
     });
     _rebuildSplines();
     _sendCurrentChannel();
   }
 
+  void onPanStart(DragStartDetails details, Size size) {
+    _beginInteractionAt(details.localPosition, size, startDrag: true);
+  }
+
   void onPanUpdate(DragUpdateDetails details, Size size) {
+    _updateInteractionAt(details.localPosition, size);
+  }
+
+  void _updateInteractionAt(Offset localPosition, Size size) {
     if (!isDragging || currentControlPointIdx == null) return;
-    final pos = _normalize(details.localPosition, size);
+    final pos = _normalize(localPosition, size);
     setState(() {
       final idx = currentControlPointIdx!;
       final x = pos.dx.clamp(0.0, 1.0);
@@ -271,14 +295,41 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   }
 
   void onPanEnd(DragEndDetails _) {
+    _endInteraction();
+  }
+
+  void _endInteraction() {
+    _cancelLongPressTracking();
     setState(() {
       isDragging = false;
       currentControlPointIdx = null;
     });
+    _activePointer = null;
   }
 
-  void onLongPressStart(LongPressStartDetails details, Size size) {
-    final pos = _normalize(details.localPosition, size);
+  void onTapDown(TapDownDetails details, Size size) {
+    _beginInteractionAt(details.localPosition, size, startDrag: false);
+  }
+
+  void onTapUp(TapUpDetails _) {
+    setState(() {
+      isDragging = false;
+      currentControlPointIdx = null;
+    });
+    _activePointer = null;
+  }
+
+  void onTapCancel() {
+    if (isDragging) return;
+    setState(() {
+      isDragging = false;
+      currentControlPointIdx = null;
+    });
+    _activePointer = null;
+  }
+
+  void _deletePointAt(Offset localPosition, Size size) {
+    final pos = _normalize(localPosition, size);
     final pts = controlPoints[selectedChannel]!;
     final idx = _findNearby(pos, pts);
     if (idx != null && idx > 1) {
@@ -293,6 +344,33 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
       _rebuildSplines();
       _sendCurrentChannel();
     }
+  }
+
+  void _startLongPressTracking(Offset localPosition, Size size) {
+    _cancelLongPressTracking();
+    _pointerDownLocalPosition = localPosition;
+    _longPressTriggered = false;
+    _longPressTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted || _activePointer == null || _pointerDownLocalPosition == null) {
+        return;
+      }
+      _longPressTriggered = true;
+      _deletePointAt(_pointerDownLocalPosition!, size);
+    });
+  }
+
+  void _updateLongPressTracking(Offset localPosition) {
+    final start = _pointerDownLocalPosition;
+    if (start == null || _longPressTriggered) return;
+    if ((localPosition - start).distance > 10) {
+      _cancelLongPressTracking();
+    }
+  }
+
+  void _cancelLongPressTracking() {
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
+    _pointerDownLocalPosition = null;
   }
 
   Widget _buildButton({
@@ -384,20 +462,53 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           child: LayoutBuilder(
             builder: (ctx, constraints) {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
-              return GestureDetector(
+              return RawGestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onPanStart: (d) => onPanStart(d, size),
-                onPanUpdate: (d) => onPanUpdate(d, size),
-                onPanEnd: onPanEnd,
-                onLongPressStart: (d) => onLongPressStart(d, size),
-                child: CustomPaint(
-                  size: size,
-                  painter: LUTPainter(
-                    controlPoints: controlPoints,
-                    splines: splines,
-                    selectedChannel: selectedChannel,
-                    highlightedIndex: currentControlPointIdx,
-                    insetPadding: insetPadding,
+                gestures: {
+                  EagerGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                          EagerGestureRecognizer>(
+                    () => EagerGestureRecognizer(),
+                    (instance) {},
+                  ),
+                },
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (event) {
+                    if (_activePointer != null) return;
+                    _activePointer = event.pointer;
+                    _startLongPressTracking(event.localPosition, size);
+                    _beginInteractionAt(
+                      event.localPosition,
+                      size,
+                      startDrag: true,
+                    );
+                  },
+                  onPointerMove: (event) {
+                    if (_activePointer != event.pointer) return;
+                    _updateLongPressTracking(event.localPosition);
+                    _updateInteractionAt(event.localPosition, size);
+                  },
+                  onPointerUp: (event) {
+                    if (_activePointer != event.pointer) return;
+                    _endInteraction();
+                  },
+                  onPointerCancel: (event) {
+                    if (_activePointer != event.pointer) return;
+                    _endInteraction();
+                  },
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    child: CustomPaint(
+                      size: size,
+                      painter: LUTPainter(
+                        controlPoints: controlPoints,
+                        splines: splines,
+                        selectedChannel: selectedChannel,
+                        highlightedIndex: currentControlPointIdx,
+                        insetPadding: insetPadding,
+                      ),
+                    ),
                   ),
                 ),
               );

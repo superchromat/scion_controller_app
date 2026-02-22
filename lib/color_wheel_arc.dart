@@ -3,6 +3,7 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 
 /// Callback that builds a [CustomPainter] given the current wheel state.
 typedef WheelPainterBuilder = CustomPainter Function({
@@ -53,6 +54,7 @@ class ColorWheelArcState extends State<ColorWheelArc> {
   late double arcValue;
 
   int _dragMode = 0; // 0=none, 1=wheel, 2=arc
+  int? _activePointer;
   bool get isDragging => _dragMode != 0;
 
   static const double arcWidth = 6.0;
@@ -142,6 +144,7 @@ class ColorWheelArcState extends State<ColorWheelArc> {
   }
 
   void _handleDragEnd() {
+    _activePointer = null;
     setState(() => _dragMode = 0);
   }
 
@@ -160,21 +163,47 @@ class ColorWheelArcState extends State<ColorWheelArc> {
   Widget build(BuildContext context) {
     final totalSize = widget.size;
     final center = Offset(totalSize / 2, totalSize / 2);
-    return GestureDetector(
-      onPanStart: (d) => _handleDrag(d.localPosition, isStart: true),
-      onPanUpdate: (d) => _handleDrag(d.localPosition, isStart: false),
-      onPanEnd: (_) => _handleDragEnd(),
-      onTapDown: (d) => _handleDrag(d.localPosition, isStart: true),
-      onTapUp: (_) => _handleDragEnd(),
-      onDoubleTap: _handleDoubleTap,
-      child: CustomPaint(
-        size: Size(totalSize, totalSize),
-        painter: widget.painterBuilder(
-          wheelX: wheelX,
-          wheelY: wheelY,
-          arcValue: arcValue,
-          wheelRadius: _innerRadius,
-          center: center,
+    return RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      gestures: {
+        EagerGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(
+          () => EagerGestureRecognizer(),
+          (instance) {},
+        ),
+      },
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          if (_activePointer != null) return;
+          _activePointer = event.pointer;
+          _handleDrag(event.localPosition, isStart: true);
+        },
+        onPointerMove: (event) {
+          if (_activePointer != event.pointer) return;
+          _handleDrag(event.localPosition, isStart: false);
+        },
+        onPointerUp: (event) {
+          if (_activePointer != event.pointer) return;
+          _handleDragEnd();
+        },
+        onPointerCancel: (event) {
+          if (_activePointer != event.pointer) return;
+          _handleDragEnd();
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTap: _handleDoubleTap,
+          child: CustomPaint(
+            size: Size(totalSize, totalSize),
+            painter: widget.painterBuilder(
+              wheelX: wheelX,
+              wheelY: wheelY,
+              arcValue: arcValue,
+              wheelRadius: _innerRadius,
+              center: center,
+            ),
+          ),
         ),
       ),
     );
