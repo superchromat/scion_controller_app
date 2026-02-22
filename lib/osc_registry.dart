@@ -44,6 +44,7 @@ class OscParam {
 
 /// Central registry for OSC-bound addresses.
 class OscRegistry extends ChangeNotifier {
+  static const String _nodeValueKey = '__value';
   static final OscRegistry _instance = OscRegistry._internal();
   factory OscRegistry() => _instance;
   OscRegistry._internal();
@@ -138,10 +139,25 @@ class OscRegistry extends ChangeNotifier {
           final val = p.currentValue.length == 1
               ? p.currentValue.first
               : p.currentValue;
-          map[seg] = val;
+          final existing = map[seg];
+          if (existing is Map<String, dynamic>) {
+            existing[_nodeValueKey] = val;
+          } else {
+            map[seg] = val;
+          }
         } else {
-          map = map.putIfAbsent(seg, () => <String, dynamic>{})
-              as Map<String, dynamic>;
+          final existing = map[seg];
+          if (existing is Map<String, dynamic>) {
+            map = existing;
+          } else if (existing == null) {
+            final child = <String, dynamic>{};
+            map[seg] = child;
+            map = child;
+          } else {
+            final child = <String, dynamic>{_nodeValueKey: existing};
+            map[seg] = child;
+            map = child;
+          }
         }
       }
     }
@@ -154,7 +170,21 @@ class OscRegistry extends ChangeNotifier {
     final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
 
     void recurse(Map<String, dynamic> node, List<String> prefix) {
+      if (node.containsKey(_nodeValueKey)) {
+        final addr = '/${prefix.join('/')}';
+        if (prefix.isNotEmpty) {
+          registerAddress(addr);
+          final param = _params[addr]!;
+          final value = node[_nodeValueKey];
+          final args = value is List
+              ? List<Object?>.from(value)
+              : <Object?>[value];
+          param.dispatch(args);
+        }
+      }
+
       node.forEach((key, value) {
+        if (key == _nodeValueKey) return;
         final newPrefix = [...prefix, key];
         if (value is Map<String, dynamic>) {
           recurse(value, newPrefix);

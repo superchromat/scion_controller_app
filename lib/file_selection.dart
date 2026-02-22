@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import 'app_alert.dart';
 import 'osc_registry.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
@@ -18,32 +21,158 @@ class FileManagementSection extends StatefulWidget {
 class FileManagementSectionState extends State<FileManagementSection> {
   String? _currentFile;
 
-  Future<void> _save(BuildContext context) async {
-    final path = _currentFile ?? await FilePicker.platform.saveFile(
-      dialogTitle: 'Save Configuration',
-      fileName: 'default.config',
-    );
-    if (path == null) return;
+  String _displayNameForPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final parts = normalized.split('/').where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'configuration';
+    final name = parts.last;
+    return name.isEmpty ? 'configuration' : name;
+  }
 
-    await OscRegistry().saveToFile(path);
-    setState(() => _currentFile = path);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Configuration saved to $path')),
-    );
+  Rect? _shareOriginRect(BuildContext context) {
+    RenderBox? box;
+    final ro = context.findRenderObject();
+    if (ro is RenderBox && ro.hasSize && ro.size.width > 0 && ro.size.height > 0) {
+      box = ro;
+    } else {
+      final overlay = Overlay.maybeOf(context)?.context.findRenderObject();
+      if (overlay is RenderBox &&
+          overlay.hasSize &&
+          overlay.size.width > 0 &&
+          overlay.size.height > 0) {
+        box = overlay;
+      }
+    }
+    if (box == null) return null;
+    final origin = box.localToGlobal(Offset.zero);
+    return origin & box.size;
+  }
+
+  bool _isClearlyBadPath(String path) {
+    return path.trim().isEmpty || path == '/' || path.startsWith('//');
+  }
+
+  Future<Directory?> _fallbackWritableDirectory() async {
+    final candidates = <Directory>[];
+
+    final home = Platform.environment['HOME'];
+    if (home != null && home.isNotEmpty) {
+      candidates.add(Directory('$home/Documents'));
+      candidates.add(Directory('$home/tmp'));
+      candidates.add(Directory('$home/Library/Caches'));
+      candidates.add(Directory(home));
+    }
+
+    candidates.add(Directory.systemTemp);
+
+    for (final dir in candidates) {
+      try {
+        if (await dir.exists()) return dir;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Future<String?> _fallbackSavePath(String fileName) async {
+    final dir = await _fallbackWritableDirectory();
+    if (dir == null) return null;
+    return '${dir.path}/$fileName';
+  }
+
+  Future<String?> _promptSavePath({
+    required String dialogTitle,
+    required String fileName,
+  }) async {
+    try {
+      return await FilePicker.platform.saveFile(
+        dialogTitle: dialogTitle,
+        fileName: fileName,
+      );
+    } on UnimplementedError {
+      // iOS/native platforms may not implement save dialogs in file_picker.
+      return _fallbackSavePath(fileName);
+    } on UnsupportedError {
+      return _fallbackSavePath(fileName);
+    }
+  }
+
+  Future<void> _save(BuildContext context) async {
+    try {
+      String? path = _currentFile;
+      if (path == null || _isClearlyBadPath(path)) {
+        path =
+            await _promptSavePath(
+              dialogTitle: 'Save Configuration',
+              fileName: 'default.config',
+            );
+      }
+      if (path == null) return;
+
+      try {
+        await OscRegistry().saveToFile(path);
+      } on FileSystemException catch (_) {
+        path = await _fallbackSavePath('default.config');
+        if (path == null || _isClearlyBadPath(path)) {
+          path = await _promptSavePath(
+          dialogTitle: 'Save Configuration',
+          fileName: 'default.config',
+        );
+        }
+        if (path == null) return;
+        await OscRegistry().saveToFile(path);
+      }
+      setState(() => _currentFile = path);
+      showAppAlert(
+        context,
+        'Configuration saved: ${_displayNameForPath(path)}',
+      );
+    } catch (e) {
+      showAppAlert(context, 'Save failed: $e', tone: AppAlertTone.error);
+    }
   }
 
   Future<void> _saveAs(BuildContext context) async {
-    final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save As',
-      fileName: 'default.config',
-    );
-    if (path == null) return;
+    try {
+      final path = await _promptSavePath(
+        dialogTitle: 'Save As',
+        fileName: 'default.config',
+      );
+      if (path == null || _isClearlyBadPath(path)) return;
 
-    await OscRegistry().saveToFile(path);
-    setState(() => _currentFile = path);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Configuration saved to $path')),
-    );
+      await OscRegistry().saveToFile(path);
+      setState(() => _currentFile = path);
+      showAppAlert(
+        context,
+        'Configuration saved: ${_displayNameForPath(path)}',
+      );
+    } catch (e) {
+      showAppAlert(context, 'Save failed: $e', tone: AppAlertTone.error);
+    }
+  }
+
+  Future<void> _export(BuildContext context) async {
+    try {
+      final dir = await _fallbackWritableDirectory();
+      if (dir == null) {
+        throw const FileSystemException('No writable export directory found');
+      }
+      final fileName = _currentFile != null && _currentFile!.trim().isNotEmpty
+          ? _currentFile!.split(Platform.pathSeparator).last
+          : 'scion_config_export.config';
+      final path = '${dir.path}/$fileName';
+
+      await OscRegistry().saveToFile(path);
+      await Share.shareXFiles(
+        [XFile(path)],
+        text: 'SCION configuration export',
+        subject: fileName,
+        sharePositionOrigin: _shareOriginRect(context),
+      );
+
+      showAppAlert(context, 'Exported $fileName');
+    } catch (e) {
+      showAppAlert(context, 'Export failed: $e', tone: AppAlertTone.error);
+    }
   }
 
   Future<void> _load(BuildContext context) async {
@@ -56,8 +185,9 @@ class FileManagementSectionState extends State<FileManagementSection> {
 
     await OscRegistry().loadFromFile(path);
     setState(() => _currentFile = path);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Configuration loaded from $path')),
+    showAppAlert(
+      context,
+      'Configuration loaded: ${_displayNameForPath(path)}',
     );
   }
 
@@ -89,6 +219,7 @@ class FileManagementSectionState extends State<FileManagementSection> {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     return TooltipTheme(
       data: TooltipTheme.of(context).copyWith(
         waitDuration: const Duration(milliseconds: 350),
@@ -124,24 +255,36 @@ class FileManagementSectionState extends State<FileManagementSection> {
         children: [
           Row(
             children: [
-              Tooltip(
-                message: 'Save',
-                child: _NeumorphicFileActionButton(
-                  borderColor: Theme.of(context).colorScheme.primary,
-                  onPressed: () => _save(context),
-                  icon: Icons.save,
+              if (!isIos) ...[
+                Tooltip(
+                  message: 'Save',
+                  child: _NeumorphicFileActionButton(
+                    borderColor: Theme.of(context).colorScheme.primary,
+                    onPressed: () => _save(context),
+                    icon: Icons.save,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Tooltip(
-                message: 'Save As',
-                child: _NeumorphicFileActionButton(
-                  borderColor: Theme.of(context).colorScheme.primary,
-                  onPressed: () => _saveAs(context),
-                  icon: Icons.save_as,
+                const SizedBox(width: 10),
+                Tooltip(
+                  message: 'Save As',
+                  child: _NeumorphicFileActionButton(
+                    borderColor: Theme.of(context).colorScheme.primary,
+                    onPressed: () => _saveAs(context),
+                    icon: Icons.save_as,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
+              ] else ...[
+                Tooltip(
+                  message: 'Export',
+                  child: _NeumorphicFileActionButton(
+                    borderColor: Theme.of(context).colorScheme.primary,
+                    onPressed: () => _export(context),
+                    icon: Icons.ios_share,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               Tooltip(
                 message: 'Load',
                 child: _NeumorphicFileActionButton(
