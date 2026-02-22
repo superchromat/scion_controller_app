@@ -21,91 +21,6 @@ import 'global_rect_tracking.dart';
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
-/// Temporary resize performance probe. Logs frame timing stats to the console
-/// while the window is actively being resized.
-const bool kEnableResizePerfProbe = true;
-
-_ResizePerfProbe? _resizePerfProbe;
-
-class _ResizePerfProbe with WidgetsBindingObserver {
-  bool _installed = false;
-  DateTime? _resizeActiveUntil;
-  DateTime _lastLogAt = DateTime.now();
-
-  int _frameCount = 0;
-  int _jankyBuildFrames = 0;
-  int _jankyRasterFrames = 0;
-  Duration _buildTotal = Duration.zero;
-  Duration _rasterTotal = Duration.zero;
-  Duration _buildWorst = Duration.zero;
-  Duration _rasterWorst = Duration.zero;
-
-  void install() {
-    if (_installed) return;
-    _installed = true;
-    WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addTimingsCallback(_onTimings);
-    debugPrint('[perf] resize probe enabled');
-  }
-
-  void _onTimings(List<FrameTiming> timings) {
-    final now = DateTime.now();
-    final activeUntil = _resizeActiveUntil;
-    final resizing = activeUntil != null && now.isBefore(activeUntil);
-    if (!resizing) {
-      if (_frameCount > 0) _flush(now, reason: 'resize-end');
-      return;
-    }
-
-    for (final t in timings) {
-      final build = t.buildDuration;
-      final raster = t.rasterDuration;
-      _frameCount++;
-      _buildTotal += build;
-      _rasterTotal += raster;
-      if (build > _buildWorst) _buildWorst = build;
-      if (raster > _rasterWorst) _rasterWorst = raster;
-      if (build.inMilliseconds >= 16) _jankyBuildFrames++;
-      if (raster.inMilliseconds >= 16) _jankyRasterFrames++;
-    }
-
-    if (now.difference(_lastLogAt) >= const Duration(milliseconds: 700)) {
-      _flush(now);
-    }
-  }
-
-  void _flush(DateTime now, {String? reason}) {
-    if (_frameCount == 0) {
-      _lastLogAt = now;
-      return;
-    }
-    final avgBuildUs = _buildTotal.inMicroseconds ~/ _frameCount;
-    final avgRasterUs = _rasterTotal.inMicroseconds ~/ _frameCount;
-    debugPrint(
-      '[perf] resize ${reason ?? 'sample'} '
-      'frames=$_frameCount '
-      'build(avg=${(avgBuildUs / 1000).toStringAsFixed(1)}ms '
-      'max=${_buildWorst.inMilliseconds}ms janky=$_jankyBuildFrames) '
-      'raster(avg=${(avgRasterUs / 1000).toStringAsFixed(1)}ms '
-      'max=${_rasterWorst.inMilliseconds}ms janky=$_jankyRasterFrames)',
-    );
-
-    _frameCount = 0;
-    _jankyBuildFrames = 0;
-    _jankyRasterFrames = 0;
-    _buildTotal = Duration.zero;
-    _rasterTotal = Duration.zero;
-    _buildWorst = Duration.zero;
-    _rasterWorst = Duration.zero;
-    _lastLogAt = now;
-  }
-
-  @override
-  void didChangeMetrics() {
-    _resizeActiveUntil = DateTime.now().add(const Duration(milliseconds: 900));
-  }
-}
-
 void _showGlobalErrorSnack(Object error, StackTrace stack) {
   if (!kDebugMode) return;
   // Keep the snack concise; full details are printed to the console.
@@ -172,14 +87,11 @@ void _installGlobalErrorHooks() {
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    if (!kIsWeb && Platform.isAndroid) {
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-    }
-    if (kEnableResizePerfProbe && (kDebugMode || kProfileMode)) {
-      (_resizePerfProbe ??= _ResizePerfProbe()).install();
     }
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       const Size initialSize = Size(1200, 800);
