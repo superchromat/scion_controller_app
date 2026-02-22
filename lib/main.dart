@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
@@ -169,8 +170,14 @@ void _installGlobalErrorHooks() {
 }
 
 void main() {
-  runZonedGuarded(() {
+  runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     if (kEnableResizePerfProbe && (kDebugMode || kProfileMode)) {
       (_resizePerfProbe ??= _ResizePerfProbe()).install();
     }
