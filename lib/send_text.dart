@@ -1,12 +1,14 @@
 // send_text.dart
 // Text overlay controls for MFC OSD
 
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
+import 'labeled_card.dart';
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -71,21 +73,28 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
       maxLines: widget.expands ? null : widget.maxLines,
       expands: widget.expands,
       textAlignVertical: widget.expands ? TextAlignVertical.top : null,
-      style: t.textValue.copyWith(fontFamily: 'monospace'),
+      style: t.textValue.copyWith(
+        fontFamily: 'Courier',
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hintText,
-        hintStyle: t.textLabel.copyWith(fontWeight: FontWeight.w400),
+        hintStyle: t.textLabel.copyWith(
+          fontWeight: FontWeight.w400,
+          fontFamily: 'Courier',
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
         contentPadding: EdgeInsets.symmetric(vertical: t.sm, horizontal: t.sm),
         filled: true,
-        fillColor: const Color(0x22000000),
+        fillColor: const Color(0x14000000),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.42)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(6)),
-          borderSide: BorderSide(color: Color(0xFFFFF176), width: 1.25),
+          borderSide: BorderSide(color: Color(0xFFF3DA77), width: 1.2),
         ),
       ),
       onChanged: _onChanged,
@@ -164,6 +173,32 @@ class _OscColorControlState extends State<OscColorControl> with OscAddressMixin 
 class SendText extends StatelessWidget {
   const SendText({super.key});
 
+  Widget _textInputSizedSlot(BuildContext context, Widget child) {
+    // Match the old `Panel(rows: 1)` footprint exactly, but without drawing
+    // the inset panel chrome.
+    final reference = Panel(
+      rows: 1,
+      child: const SizedBox.shrink(),
+    );
+
+    return Stack(
+      children: [
+        Opacity(opacity: 0, child: reference),
+        Positioned.fill(
+          child: NeumorphicInset(
+            baseColor: const Color(0xFF26262A),
+            borderRadius: 6.0,
+            depth: 1.6,
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: child,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
@@ -178,9 +213,9 @@ class SendText extends StatelessWidget {
             cells: [
               (
                 span: 1,
-                child: Panel(
-                  rows: 1,
-                  child: OscPathSegment(
+                child: _textInputSizedSlot(
+                  context,
+                  OscPathSegment(
                     segment: 'string',
                     child: OscTextField(
                       hintText: 'Enter overlay text...',

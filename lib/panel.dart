@@ -38,6 +38,7 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    final titleInsetLeft = t.panelTitleInsetLeft;
 
     if (rows != null) {
       // Reference includes title area so height matches a titled knob panel.
@@ -45,7 +46,13 @@ class Panel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(alignment: Alignment.centerLeft, child: Text(' ', style: t.textHeading)),
+          Padding(
+            padding: EdgeInsets.only(left: titleInsetLeft),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(' ', style: t.textHeading),
+            ),
+          ),
           SizedBox(height: t.xs),
           for (int i = 0; i < rows!; i++) ...[
             if (i > 0) SizedBox(height: t.sm),
@@ -74,14 +81,17 @@ class Panel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              title!,
-              style: t.textHeading,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
+          Padding(
+            padding: EdgeInsets.only(left: titleInsetLeft),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title!,
+                style: t.textHeading,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+              ),
             ),
           ),
           SizedBox(height: t.xs),

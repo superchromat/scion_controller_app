@@ -35,3 +35,14 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: DINPro
+      fonts:
+        - asset: assets/fonts/FF_DIN_Pro_Light_Italic.otf
+          weight: 300
+        - asset: assets/fonts/FF_DIN_Pro_Regular_Italic.otf
+          weight: 400
+        - asset: assets/fonts/FF_DIN_Pro_Medium_Italic.otf
+          weight: 500
+        - asset: assets/fonts/FF_DIN_Pro_Bold_Italic.otf
+          weight: 700

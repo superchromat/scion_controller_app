@@ -34,14 +34,18 @@ class GridTokens {
   // Tier 1: Section headers (LabeledCard titles)
   TextStyle get textTitle => TextStyle(
         fontSize: 2 * u,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
+        fontFamily: 'DINPro',
+        letterSpacing: 0.15,
         color: Colors.white,
       );
 
   // Tier 2: Group headers (Panel titles)
   TextStyle get textHeading => TextStyle(
         fontSize: 1.4 * u,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w300,
+        fontFamily: 'DINPro',
+        letterSpacing: 0.1,
         color: Colors.white,
       );
 
@@ -49,26 +53,45 @@ class GridTokens {
   TextStyle get textLabel => TextStyle(
         fontSize: 1.05 * u,
         fontWeight: FontWeight.w500,
-        color: const Color(0xFFC8C8C8),
+        fontFamily: 'DINPro',
+        letterSpacing: 0.05,
+        color: const Color(0xFFD2D2D4),
       );
 
   // Active/value text
   TextStyle get textValue => TextStyle(
         fontSize: 1.1 * u,
-        fontWeight: FontWeight.w400,
-        color: Colors.white,
+        fontWeight: FontWeight.w500,
+        fontFamily: 'DINPro',
+        letterSpacing: 0.05,
+        color: const Color(0xFFF2F2F2),
       );
 
   // Tier 4: Meta labels (units, captions)
   TextStyle get textCaption => TextStyle(
         fontSize: 0.9 * u,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF9A9A9A),
+        fontFamily: 'DINPro',
+        letterSpacing: 0.1,
+        color: const Color(0xFFACACB2),
       );
 
   // Composite padding
   EdgeInsets get panelPadding => EdgeInsets.all(xs);
   EdgeInsets get cardPadding => EdgeInsets.all(md);
+
+  /// Extra left inset applied to panel titles inside inset panels.
+  double get panelTitleInsetLeft => xs;
+
+  /// Text start inside a panel, measured from the panel's left edge.
+  double get panelTitleTextOffsetInPanel => panelPadding.left + panelTitleInsetLeft;
+
+  /// Card-title left inset that aligns with the left edge of inset panels in
+  /// the standard card content grid.
+  ///
+  /// Assumes card internals use [GridRow] with gutter [md], which is the
+  /// standard pattern across Send-page sections.
+  double get cardTitleAlignToPanelTitle => md;
 }
 
 /// Provides [GridTokens] to all descendants.

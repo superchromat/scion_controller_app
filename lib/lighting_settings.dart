@@ -192,15 +192,15 @@ class LightingSettings extends ChangeNotifier {
     if (inset) {
       return [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.4),
+          color: Colors.black.withValues(alpha: 0.28),
           offset: highlightOffset * 0.5,
-          blurRadius: elevation,
+          blurRadius: elevation * 1.15,
           spreadRadius: -1,
         ),
         BoxShadow(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withValues(alpha: 0.07),
           offset: shadowOffset * 0.5,
-          blurRadius: elevation,
+          blurRadius: elevation * 0.9,
           spreadRadius: -1,
         ),
       ];
@@ -208,14 +208,14 @@ class LightingSettings extends ChangeNotifier {
 
     return [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.3),
+        color: Colors.black.withValues(alpha: 0.22),
         offset: shadowOffset,
-        blurRadius: elevation,
+        blurRadius: elevation * 1.2,
       ),
       BoxShadow(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: Colors.white.withValues(alpha: 0.045),
         offset: highlightOffset,
-        blurRadius: elevation * 0.5,
+        blurRadius: elevation * 0.75,
       ),
     ];
   }

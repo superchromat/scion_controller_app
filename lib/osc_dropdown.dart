@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'lighting_settings.dart';
+import 'grid.dart';
 
 /// Callback type for custom onChanged handling.
 typedef OnChangedCallback<T> = void Function(T value);
@@ -166,6 +167,22 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
   @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
+    final t = GridProvider.maybeOf(context);
+    final labelStyle = (t?.textLabel ?? const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w400,
+      color: Color(0xFFAAAAAA),
+    )).copyWith(
+      color: widget.enabled ? (t?.textLabel.color ?? const Color(0xFFAAAAAA)) : const Color(0xFF606060),
+    );
+    final valueStyle = (t?.textValue ?? const TextStyle(
+      fontSize: 13,
+      color: Colors.white,
+    )).copyWith(
+      fontSize: 13,
+      fontFamily: 'DINPro',
+      color: widget.enabled ? Colors.white : Colors.grey[600],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,11 +193,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 11,
-              color: widget.enabled ? const Color(0xFFAAAAAA) : const Color(0xFF606060),
-              fontWeight: FontWeight.w400,
-            ),
+            style: labelStyle,
           ),
         ),
         // Button
@@ -199,11 +212,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
                   Expanded(
                     child: Text(
                       _formatLabel(_selected),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontFamily: 'monospace',
-                        color: widget.enabled ? Colors.white : Colors.grey[600],
-                      ),
+                      style: valueStyle,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -684,6 +693,7 @@ class _NeumorphicMenuItemState extends State<_NeumorphicMenuItem> {
 
   @override
   Widget build(BuildContext context) {
+    final t = GridProvider.maybeOf(context);
     final bgColor = widget.isSelected
         ? const Color(0xFF4A4A4C)
         : (_isHovered ? const Color(0xFF3A3A3C) : Colors.transparent);
@@ -708,9 +718,9 @@ class _NeumorphicMenuItemState extends State<_NeumorphicMenuItem> {
               Expanded(
                 child: Text(
                   widget.label,
-                  style: TextStyle(
+                  style: (t?.textValue ?? const TextStyle(fontSize: 13)).copyWith(
                     fontSize: 13,
-                    fontFamily: 'monospace',
+                    fontFamily: 'DINPro',
                     color: widget.isSelected
                         ? const Color(0xFFFFF176)
                         : Colors.white,

@@ -35,7 +35,7 @@ class LabeledCard extends StatelessWidget {
 
     // Use grid tokens when available, fall back to legacy gutter.
     final t = GridProvider.maybeOf(context);
-    final titlePadH = t?.md ?? 16.0;
+    final titlePadH = t?.cardTitleAlignToPanelTitle ?? 16.0;
     final titlePadTop = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
     final titleGap = t?.xs ?? (titlePadTop / 2);
     final contentPadH = 0.0; // GridRow handles horizontal spacing
@@ -85,7 +85,7 @@ class _NeumorphicCard extends StatefulWidget {
   const _NeumorphicCard({
     required this.lighting,
     required this.child,
-    this.baseColor = const Color(0xFF303032),
+    this.baseColor = const Color(0xFF323236),
     this.borderRadius = 8.0,
     this.elevation = 4.0,
   });
@@ -164,7 +164,7 @@ class _NeumorphicCardPainter extends CustomPainter {
     // Base gradient fill using Phong diffuse shading with global position
     final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
-      intensity: 0.03,
+      intensity: 0.035,
       globalRect: globalRect,
     );
     final gradientPaint = Paint()
@@ -181,9 +181,9 @@ class _NeumorphicCardPainter extends CustomPainter {
         begin: Alignment(light.dx, light.dy),
         end: Alignment(-light.dx, -light.dy),
         colors: [
-          Colors.white.withValues(alpha: 0.06),
+          Colors.white.withValues(alpha: 0.085),
           Colors.transparent,
-          Colors.black.withValues(alpha: 0.08),
+          Colors.black.withValues(alpha: 0.06),
         ],
         stops: const [0.0, 0.5, 1.0],
       ).createShader(rect);
@@ -309,7 +309,7 @@ class NeumorphicInset extends StatefulWidget {
   const NeumorphicInset({
     super.key,
     required this.child,
-    this.baseColor = const Color(0xFF2A2A2C),
+    this.baseColor = const Color(0xFF29292D),
     this.borderRadius = 6.0,
     this.depth = 3.0,
     this.padding,
@@ -397,7 +397,7 @@ class _NeumorphicInsetPainter extends CustomPainter {
     // Darker base for inset using Phong diffuse shading with global position
     final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
-      intensity: 0.04,
+      intensity: 0.035,
       globalRect: globalRect,
     );
     final gradientPaint = Paint()
@@ -414,9 +414,9 @@ class _NeumorphicInsetPainter extends CustomPainter {
         begin: Alignment(light.dx, light.dy),
         end: Alignment(-light.dx, -light.dy),
         colors: [
-          Colors.black.withValues(alpha: 0.15),
+          Colors.black.withValues(alpha: 0.12),
           Colors.transparent,
-          Colors.white.withValues(alpha: 0.03),
+          Colors.white.withValues(alpha: 0.06),
         ],
         stops: const [0.0, 0.5, 1.0],
       ).createShader(rect);
