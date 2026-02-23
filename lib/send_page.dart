@@ -106,14 +106,16 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                           SizedBox(height: sectionGap),
                           GridRow(gutter: t.md, cells: [(
                             span: 12,
-                            child: LabeledCard(
-                              title: 'Color',
-                              child: SendColor(
-                                showGrade: widget.pageNumber == 1,
-                                gradePath: '/send/${widget.pageNumber}/grade',
+                              child: LabeledCard(
+                                title: 'Color',
+                                child: SendColor(
+                                  showGrade: widget.pageNumber == 1,
+                                  gradePath: widget.pageNumber == 1
+                                      ? '/send/${widget.pageNumber}/grade'
+                                      : null,
+                                ),
                               ),
-                            ),
-                          )]),
+                            )]),
                           SizedBox(height: sectionGap),
                           GridRow(gutter: t.md, cells: [(
                             span: 12,

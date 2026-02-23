@@ -16,13 +16,17 @@ import 'osc_log.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
 
+enum _GradeParam { shadowLevel, shadowBlend, midLevel, midBlend }
+
 
 /// A LUT editor widget with two-way OSC binding per channel.
 class LUTEditor extends StatefulWidget {
   /// Maximum number of control points per channel (including placeholders).
   final int maxControlPoints;
+  /// Optional grade base path (e.g., "/send/1/grade") for level/blend lines UI.
+  final String? gradePath;
 
-  const LUTEditor({super.key, this.maxControlPoints = 16});
+  const LUTEditor({super.key, this.maxControlPoints = 16, this.gradePath});
 
   @override
   State<LUTEditor> createState() => _LUTEditorState();
@@ -49,6 +53,14 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   final ValueNotifier<bool> flashLockNotifier = ValueNotifier(false);
   static const double insetPadding = 20.0;
+  static const double _minGap = 0.01;
+
+  // Grade boundary values (level/upper & blend) for shadows and midtones
+  double _shadowLevel = 0.25;
+  double _shadowBlend = 0.1;
+  double _midLevel = 0.75;
+  double _midBlend = 0.1;
+  GradeHandle? _activeGradeHandle;
 
   bool _didInit = false;
 
@@ -84,6 +96,26 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
       // Register base address
       registry.registerAddress(oscAddress);
+
+      // Grade endpoints (optional)
+      if (widget.gradePath != null) {
+        for (final path in [
+          '${widget.gradePath}/shadows/level',
+          '${widget.gradePath}/shadows/blend',
+          '${widget.gradePath}/midtones/level',
+          '${widget.gradePath}/midtones/blend',
+        ]) {
+          registry.registerAddress(path);
+        }
+        registry.registerListener('${widget.gradePath}/shadows/level',
+            (args) => _updateGradeFromOsc(_GradeParam.shadowLevel, args));
+        registry.registerListener('${widget.gradePath}/shadows/blend',
+            (args) => _updateGradeFromOsc(_GradeParam.shadowBlend, args));
+        registry.registerListener('${widget.gradePath}/midtones/level',
+            (args) => _updateGradeFromOsc(_GradeParam.midLevel, args));
+        registry.registerListener('${widget.gradePath}/midtones/blend',
+            (args) => _updateGradeFromOsc(_GradeParam.midBlend, args));
+      }
 
       // Setup incoming listeners, no network send on these
       for (var c in channels) {
@@ -269,11 +301,16 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   }
 
   void onPanStart(DragStartDetails details, Size size) {
+    if (_tryStartGradeDrag(details.localPosition, size)) return;
     _beginInteractionAt(details.localPosition, size, startDrag: true);
   }
 
   void onPanUpdate(DragUpdateDetails details, Size size) {
-    _updateInteractionAt(details.localPosition, size);
+    if (_activeGradeHandle != null) {
+      _updateGradeDrag(details.localPosition, size);
+    } else {
+      _updateInteractionAt(details.localPosition, size);
+    }
   }
 
   void _updateInteractionAt(Offset localPosition, Size size) {
@@ -295,7 +332,11 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   }
 
   void onPanEnd(DragEndDetails _) {
-    _endInteraction();
+    if (_activeGradeHandle != null) {
+      _activeGradeHandle = null;
+    } else {
+      _endInteraction();
+    }
   }
 
   void _endInteraction() {
@@ -371,6 +412,167 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     _longPressTimer?.cancel();
     _longPressTimer = null;
     _pointerDownLocalPosition = null;
+  }
+
+  // --- Grade handles interaction ------------------------------------------------
+  bool _startNearestGradeDrag(Offset localPos, Size size) {
+    if (widget.gradePath == null) return false;
+    final w = size.width - 2 * insetPadding;
+    final candidates = <({double xNorm, GradeHandle handle})>[
+      (xNorm: _shadowLevel, handle: GradeHandle.shadowCenter),
+      (xNorm: (_shadowLevel - _shadowBlend).clamp(0.0, 1.0), handle: GradeHandle.shadowBlendLeft),
+      (xNorm: (_shadowLevel + _shadowBlend).clamp(0.0, 1.0), handle: GradeHandle.shadowBlendRight),
+      (xNorm: _midLevel, handle: GradeHandle.midCenter),
+      (xNorm: (_midLevel - _midBlend).clamp(0.0, 1.0), handle: GradeHandle.midBlendLeft),
+      (xNorm: (_midLevel + _midBlend).clamp(0.0, 1.0), handle: GradeHandle.midBlendRight),
+    ];
+    final targetX = (localPos.dx - insetPadding).clamp(0.0, w);
+    candidates.sort((a, b) =>
+        ((a.xNorm * w) - targetX).abs().compareTo(((b.xNorm * w) - targetX).abs()));
+    _activeGradeHandle = candidates.first.handle;
+    _updateGradeDrag(localPos, size);
+    return true;
+  }
+
+  bool _tryStartGradeDrag(Offset localPos, Size size) {
+    if (widget.gradePath == null) return false;
+    final handle = _hitGradeHandle(localPos, size);
+    if (handle == null) return false;
+    _activeGradeHandle = handle;
+    _updateGradeDrag(localPos, size);
+    return true;
+  }
+
+  GradeHandle? _hitGradeHandle(Offset pos, Size size) {
+    if (widget.gradePath == null) return null;
+    final w = size.width - 2 * insetPadding;
+    const handleHeight = 28.0;
+    final hitTop = size.height - insetPadding - handleHeight;
+    const bottomBand = 80.0; // generous catch zone near the flags
+    final plotBottom = size.height - insetPadding;
+
+    GradeHandle? _check(double xNorm, GradeHandle h) {
+      final x = insetPadding + xNorm * w;
+      final dx = (pos.dx - x).abs();
+      final inBottomBand =
+          pos.dy >= hitTop - bottomBand && pos.dy <= size.height - insetPadding + 8;
+
+      // Only allow hits near the bottom handles; clicks on the line elsewhere fall through.
+      if (inBottomBand && dx <= 28) return h; // big, easy hit on flags
+      return null;
+    }
+
+    // Only respond to hits below the plot area (i.e., below y=0 line).
+    if (pos.dy < plotBottom) return null;
+
+    // Shadows
+    final sL = _shadowLevel;
+    final sB = _shadowBlend;
+    final mL = _midLevel;
+    final mB = _midBlend;
+
+    for (final candidate in [
+      _check(sL, GradeHandle.shadowCenter),
+      _check((sL - sB).clamp(0.0, 1.0), GradeHandle.shadowBlendLeft),
+      _check((sL + sB).clamp(0.0, 1.0), GradeHandle.shadowBlendRight),
+      _check(mL, GradeHandle.midCenter),
+      _check((mL - mB).clamp(0.0, 1.0), GradeHandle.midBlendLeft),
+      _check((mL + mB).clamp(0.0, 1.0), GradeHandle.midBlendRight),
+    ]) {
+      if (candidate != null) return candidate;
+    }
+    return null;
+  }
+
+  void _updateGradeDrag(Offset localPos, Size size) {
+    if (_activeGradeHandle == null) return;
+    final w = size.width - 2 * insetPadding;
+    final xNorm = ((localPos.dx - insetPadding) / w).clamp(0.0, 1.0);
+
+    setState(() {
+      switch (_activeGradeHandle!) {
+        case GradeHandle.shadowCenter:
+          _shadowLevel = xNorm.clamp(0.0, _midLevel - _minGap);
+          _shadowBlend = _shadowBlend.clamp(0.0, _maxShadowBlend());
+          _sendGradeValue('shadows/level', _shadowLevel);
+          _sendGradeValue('shadows/blend', _shadowBlend);
+          break;
+        case GradeHandle.shadowBlendLeft:
+        case GradeHandle.shadowBlendRight:
+          final newBlend = (xNorm - _shadowLevel).abs();
+          _shadowBlend = newBlend.clamp(0.0, _maxShadowBlend());
+          _sendGradeValue('shadows/blend', _shadowBlend);
+          break;
+        case GradeHandle.midCenter:
+          _midLevel = xNorm.clamp(_shadowLevel + _minGap, 1.0);
+          _midBlend = _midBlend.clamp(0.0, _maxMidBlend());
+          _sendGradeValue('midtones/level', _midLevel);
+          _sendGradeValue('midtones/blend', _midBlend);
+          break;
+        case GradeHandle.midBlendLeft:
+        case GradeHandle.midBlendRight:
+          final newBlend = (xNorm - _midLevel).abs();
+          _midBlend = newBlend.clamp(0.0, _maxMidBlend());
+          _sendGradeValue('midtones/blend', _midBlend);
+          break;
+      }
+    });
+  }
+
+  void _updateGradeFromOsc(_GradeParam param, List<Object?> args) {
+    if (args.isEmpty || args.first is! num) return;
+    final v = (args.first as num).toDouble();
+    setState(() {
+      switch (param) {
+        case _GradeParam.shadowLevel:
+          _shadowLevel = v.clamp(0.0, 1.0);
+          _shadowLevel = min(_shadowLevel, _midLevel - _minGap);
+          _shadowBlend = _shadowBlend.clamp(0.0, _maxShadowBlend());
+          break;
+        case _GradeParam.shadowBlend:
+          _shadowBlend = v.clamp(0.0, _maxShadowBlend());
+          break;
+        case _GradeParam.midLevel:
+          _midLevel = v.clamp(0.0, 1.0);
+          _midLevel = max(_midLevel, _shadowLevel + _minGap);
+          _midBlend = _midBlend.clamp(0.0, _maxMidBlend());
+          break;
+        case _GradeParam.midBlend:
+          _midBlend = v.clamp(0.0, _maxMidBlend());
+          break;
+      }
+    });
+  }
+
+  double _maxShadowBlend() {
+    final a = _shadowLevel;
+    final b = _midLevel - _shadowLevel - _minGap;
+    final c = 1 - _shadowLevel;
+    return max(0.0, min(a, min(b, c)));
+  }
+
+  double _maxMidBlend() {
+    final a = _midLevel - _shadowLevel - _minGap;
+    final b = 1 - _midLevel;
+    final c = _midLevel;
+    return max(0.0, min(a, min(b, c)));
+  }
+
+  void _sendGradeValue(String suffix, double v) {
+    if (widget.gradePath == null) return;
+    final path = '${widget.gradePath}/$suffix';
+    final net = context.read<Network>();
+    net.sendOscMessage(path, [v]);
+    final reg = OscRegistry();
+    reg.registerAddress(path);
+    reg.dispatchLocal(path, [v]);
+    oscLogKey.currentState?.logOscMessage(
+      address: path,
+      arg: [v],
+      status: OscStatus.ok,
+      direction: Direction.sent,
+      binary: Uint8List(0),
+    );
   }
 
   Widget _buildButton({
@@ -477,6 +679,13 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   onPointerDown: (event) {
                     if (_activePointer != null) return;
                     _activePointer = event.pointer;
+                    // Only if BELOW the plot (y > 0 line) do we grab grade handles.
+                    final belowGraph =
+                        event.localPosition.dy >= size.height - insetPadding;
+                    if (belowGraph && _startNearestGradeDrag(event.localPosition, size)) return;
+                    // Grade handles get first dibs; if hit, skip LUT point logic.
+                    final consumed = _tryStartGradeDrag(event.localPosition, size);
+                    if (consumed) return;
                     _startLongPressTracking(event.localPosition, size);
                     _beginInteractionAt(
                       event.localPosition,
@@ -486,16 +695,27 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   },
                   onPointerMove: (event) {
                     if (_activePointer != event.pointer) return;
+                    if (_activeGradeHandle != null) {
+                      _updateGradeDrag(event.localPosition, size);
+                      return;
+                    }
                     _updateLongPressTracking(event.localPosition);
                     _updateInteractionAt(event.localPosition, size);
                   },
                   onPointerUp: (event) {
                     if (_activePointer != event.pointer) return;
-                    _endInteraction();
+                    if (_activeGradeHandle != null) {
+                      _activeGradeHandle = null;
+                    } else {
+                      _endInteraction();
+                    }
+                    _activePointer = null;
                   },
                   onPointerCancel: (event) {
                     if (_activePointer != event.pointer) return;
+                    _activeGradeHandle = null;
                     _endInteraction();
+                    _activePointer = null;
                   },
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -507,6 +727,21 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                         selectedChannel: selectedChannel,
                         highlightedIndex: currentControlPointIdx,
                         insetPadding: insetPadding,
+                        gradeBands: widget.gradePath != null
+                            ? [
+                                GradeBand(
+                                  center: _shadowLevel,
+                                  blend: _shadowBlend,
+                                  color: const Color(0xFFF0D86A),
+                                ),
+                                GradeBand(
+                                  center: _midLevel,
+                                  blend: _midBlend,
+                                  color: const Color(0xFFF0D86A),
+                                ),
+                              ]
+                            : const [],
+                        activeHandle: _activeGradeHandle,
                       ),
                     ),
                   ),

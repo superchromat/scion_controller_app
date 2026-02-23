@@ -1,10 +1,13 @@
 // lib/osc_log_table.dart
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'osc_widget_binding.dart';
+import 'app_alert.dart';
 
 final GlobalKey<OscLogTableState> oscLogKey = GlobalKey<OscLogTableState>();
 
@@ -146,7 +149,40 @@ class OscLogTableState extends State<OscLogTable> {
         style: isHeader
             ? const TextStyle(fontWeight: FontWeight.bold)
             : const TextStyle(),
-        child: tooltip != null ? Tooltip(message: tooltip, child: child) : child,
+        child: tooltip != null
+            ? Tooltip(
+                message: tooltip,
+                waitDuration: const Duration(milliseconds: 350),
+                showDuration: const Duration(milliseconds: 1200),
+                preferBelow: false,
+                verticalOffset: 14,
+                textStyle: const TextStyle(
+                  fontFamily: 'DINPro',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.08,
+                  color: Color(0xFFF0F0F3),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2D2D31),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.28),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: child,
+              )
+            : child,
       ),
     );
 
@@ -156,12 +192,7 @@ class OscLogTableState extends State<OscLogTable> {
         child: GestureDetector(
           onTap: () {
             Clipboard.setData(ClipboardData(text: copyText));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Copied to clipboard'),
-                duration: Duration(milliseconds: 800),
-              ),
-            );
+            showAppAlert(context, 'Copied to clipboard');
           },
           child: content,
         ),

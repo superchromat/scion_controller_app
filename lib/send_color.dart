@@ -172,7 +172,9 @@ class _SendColorState extends State<SendColor> {
             padding: t.panelPadding,
             child: OscPathSegment(
               segment: 'lut',
-              child: LUTEditor(),
+              child: LUTEditor(
+                gradePath: showGrade ? widget.gradePath : null,
+              ),
             ),
           ),
         ),
