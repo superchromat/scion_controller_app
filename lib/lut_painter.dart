@@ -84,6 +84,87 @@ class LUTPainter extends CustomPainter {
       canvas.drawLine(Offset(0, i * h), Offset(w, i * h), paintGridMajor);
     }
 
+    // Grade bands overlay (behind curves)
+    if (gradeBands.isNotEmpty) {
+      final linePaint = Paint()
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      final dashPaint = Paint()
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+      final handlePaint = Paint()..style = PaintingStyle.fill;
+
+      for (int idx = 0; idx < gradeBands.length; idx++) {
+        final band = gradeBands[idx];
+        final centerX = band.center.clamp(0.0, 1.0) * w;
+        final leftX = (band.center - band.blend).clamp(0.0, 1.0) * w;
+        final rightX = (band.center + band.blend).clamp(0.0, 1.0) * w;
+        final isShadowBand = idx == 0;
+        final bandActive = activeHandle != null &&
+            ((isShadowBand &&
+                    (activeHandle == GradeHandle.shadowCenter ||
+                        activeHandle == GradeHandle.shadowBlendLeft ||
+                        activeHandle == GradeHandle.shadowBlendRight)) ||
+                (!isShadowBand &&
+                    (activeHandle == GradeHandle.midCenter ||
+                        activeHandle == GradeHandle.midBlendLeft ||
+                        activeHandle == GradeHandle.midBlendRight)));
+        final opacity = bandActive ? 0.95 : 0.5;
+        final color = band.color.withOpacity(opacity);
+
+        // Center line
+        linePaint
+          ..strokeCap = StrokeCap.round
+          ..color = color;
+        canvas.drawLine(Offset(centerX, 0), Offset(centerX, h), linePaint);
+
+        // Dotted side lines
+        dashPaint
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.fill
+          ..color = color;
+        _drawDottedLine(canvas, Offset(leftX, 0), Offset(leftX, h), dashPaint);
+        _drawDottedLine(canvas, Offset(rightX, 0), Offset(rightX, h), dashPaint);
+
+        // Handles (below plot)
+        handlePaint.color = color;
+        _drawFlagHandle(
+          canvas,
+          Offset(centerX, h), // tip sits on plot bottom line
+          9,
+          10,
+          handlePaint,
+          level: band.center,
+          active: activeHandle ==
+              (idx == 0 ? GradeHandle.shadowCenter : GradeHandle.midCenter),
+        );
+        _drawFlagHandle(
+          canvas,
+          Offset(leftX, h),
+          9,
+          10,
+          handlePaint,
+          level: band.center,
+          active: activeHandle ==
+              (idx == 0
+                  ? GradeHandle.shadowBlendLeft
+                  : GradeHandle.midBlendLeft),
+        );
+        _drawFlagHandle(
+          canvas,
+          Offset(rightX, h),
+          9,
+          10,
+          handlePaint,
+          level: band.center,
+          active: activeHandle ==
+              (idx == 0
+                  ? GradeHandle.shadowBlendRight
+                  : GradeHandle.midBlendRight),
+        );
+      }
+    }
+
     // Draw all unselected curves first
     for (var c in ['B', 'G', 'R', 'Y']) {
       if (c == selectedChannel) continue; // skip selected
@@ -144,71 +225,6 @@ class LUTPainter extends CustomPainter {
       );
     }
 
-    // Draw grade bands overlay (vertical lines + handles) behind curves
-    canvas.save();
-    // push lines slightly behind curves
-    canvas.translate(0, 0);
-    final linePaint = Paint()
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    final dashPaint = Paint()
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-      final handlePaint = Paint()..style = PaintingStyle.fill;
-
-    for (int idx = 0; idx < gradeBands.length; idx++) {
-      final band = gradeBands[idx];
-      final centerX = band.center.clamp(0.0, 1.0) * w;
-      final offset = band.blend.clamp(0.0, 1.0) * w;
-      final leftX = (band.center - band.blend).clamp(0.0, 1.0) * w;
-      final rightX = (band.center + band.blend).clamp(0.0, 1.0) * w;
-      final color = band.color.withOpacity(0.8);
-
-      // Center line
-      linePaint.color = color;
-      canvas.drawLine(Offset(centerX, 0), Offset(centerX, h), linePaint);
-
-      // Dashed lines
-      dashPaint.color = color.withOpacity(0.65);
-      _drawDashedLine(canvas, Offset(leftX, 0), Offset(leftX, h), dashPaint);
-      _drawDashedLine(canvas, Offset(rightX, 0), Offset(rightX, h), dashPaint);
-
-      // Handles (uniform size) below plot; draw downward so they don't intrude
-      handlePaint.color = color;
-      _drawFlagHandle(
-        canvas,
-        Offset(centerX, h + 12), // top of stem below plot
-        9,
-        10,
-        handlePaint,
-        active: activeHandle ==
-            (idx == 0 ? GradeHandle.shadowCenter : GradeHandle.midCenter),
-      );
-      _drawFlagHandle(
-        canvas,
-        Offset(leftX, h + 12),
-        9,
-        10,
-        handlePaint,
-        active: activeHandle ==
-            (idx == 0
-                ? GradeHandle.shadowBlendLeft
-                : GradeHandle.midBlendLeft),
-      );
-      _drawFlagHandle(
-        canvas,
-        Offset(rightX, h + 12),
-        9,
-        10,
-        handlePaint,
-        active: activeHandle ==
-            (idx == 0
-                ? GradeHandle.shadowBlendRight
-                : GradeHandle.midBlendRight),
-      );
-    }
-    canvas.restore();
-
   }
 
   @override
@@ -227,45 +243,74 @@ class GradeBand {
   });
 }
 
-void _drawFlagHandle(Canvas canvas, Offset baseTop, double triHeight,
+void _drawFlagHandle(Canvas canvas, Offset tip, double triHeight,
     double stemHeight, Paint paint,
-    {bool active = false}) {
-  // baseTop is the tip of the triangle (top). Triangle points up, square sits below it.
-  final width = triHeight * 0.9;
-  final triBaseY = baseTop.dy + triHeight;
-  final rect = Rect.fromLTWH(
-    baseTop.dx - width / 2,
-    triBaseY,
-    width,
-    stemHeight,
-  );
+    {bool active = false, double level = 0.5}) {
+  // Closed 5-sided polygon (triangle on top, square below), all rounded.
+  final width = triHeight * 1.0;
+  final triBaseY = tip.dy + triHeight;
+  final squareHeight = stemHeight;
+  final overlap = 2.0; // bring square into triangle a bit
+  final squareTop = triBaseY - overlap;
+  final squareBot = squareTop + squareHeight;
+  final leftX = tip.dx - width / 2;
+  final rightX = tip.dx + width / 2;
+
   final path = Path()
-    ..moveTo(baseTop.dx, baseTop.dy)
-    ..lineTo(baseTop.dx - width / 2, triBaseY)
-    ..lineTo(baseTop.dx + width / 2, triBaseY)
+    ..moveTo(tip.dx, tip.dy)
+    ..lineTo(leftX, triBaseY)
+    ..lineTo(leftX, squareBot)
+    ..lineTo(rightX, squareBot)
+    ..lineTo(rightX, triBaseY)
     ..close();
 
   final fill = active ? paint.color.withOpacity(1.0) : paint.color;
   final stroke = Paint()
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1
-    ..color = Colors.black.withOpacity(0.35);
+    ..strokeWidth = 1.5
+    ..strokeJoin = StrokeJoin.round
+    ..strokeCap = StrokeCap.round
+    ..color = fill.withOpacity(0.2);
 
-  canvas.drawRect(rect, paint..color = fill);
-  canvas.drawPath(path, paint..color = fill);
-  canvas.drawRect(rect, stroke);
+  // Outer rounded shape (square portion) with small radius
+  // Inner square shaded by level (0=dark,1=light)
+  final luma = level.clamp(0.0, 1.0);
+  final innerColor =
+      Color.lerp(const Color(0xFF000000), const Color(0xFFFFFFFF), luma)!;
+  final innerSize = min(width * 0.72, squareHeight * 0.9);
+  final innerRect = RRect.fromRectAndRadius(
+    Rect.fromLTWH(
+      tip.dx - innerSize / 2,
+      squareTop + (squareHeight - innerSize) * 0.7,
+      innerSize,
+      innerSize,
+    ),
+    const Radius.circular(0.3),
+  );
+
+  // Single closed path draw to avoid gaps
+  final fillPaint = Paint()
+    ..color = fill
+    ..style = PaintingStyle.fill;
+  canvas.drawPath(path, fillPaint);
+  canvas.drawRRect(innerRect, Paint()..color = innerColor);
   canvas.drawPath(path, stroke);
 }
 
-void _drawDashedLine(Canvas canvas, Offset a, Offset b, Paint paint) {
-  const dash = 6.0;
-  const gap = 4.0;
+void _drawDottedLine(Canvas canvas, Offset a, Offset b, Paint paint) {
+  const double dotH = 1.4;
+  const double dotW = 0.9;
+  const double gap = 3.0;
   final startY = min(a.dy, b.dy);
   final endY = max(a.dy, b.dy);
   double y = startY;
-  while (y < endY) {
-    final next = (y + dash).clamp(startY, endY);
-    canvas.drawLine(Offset(a.dx, y), Offset(a.dx, next), paint);
-    y += dash + gap;
+  while (y <= endY) {
+    final rect = Rect.fromCenter(
+      center: Offset(a.dx, y),
+      width: dotW,
+      height: dotH,
+    );
+    canvas.drawRect(rect, paint);
+    y += dotH + gap;
   }
 }

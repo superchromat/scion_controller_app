@@ -705,7 +705,9 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   onPointerUp: (event) {
                     if (_activePointer != event.pointer) return;
                     if (_activeGradeHandle != null) {
-                      _activeGradeHandle = null;
+                      setState(() {
+                        _activeGradeHandle = null;
+                      });
                     } else {
                       _endInteraction();
                     }
@@ -713,7 +715,9 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   },
                   onPointerCancel: (event) {
                     if (_activePointer != event.pointer) return;
-                    _activeGradeHandle = null;
+                    setState(() {
+                      _activeGradeHandle = null;
+                    });
                     _endInteraction();
                     _activePointer = null;
                   },

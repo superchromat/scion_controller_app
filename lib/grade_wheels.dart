@@ -89,7 +89,8 @@ class _GradeWheelState extends State<GradeWheel> {
 
   String get _shiftXAddr => '${widget.basePath}/shift_x';
   String get _shiftYAddr => '${widget.basePath}/shift_y';
-  String get _levelAddr => '${widget.basePath}/level';
+  // Arc controls lift, not level/upper.
+  String get _levelAddr => '${widget.basePath}/lift';
 
   @override
   void initState() {
@@ -252,7 +253,7 @@ class GradeZone extends StatelessWidget {
     final reg = OscRegistry();
     final zonePath = '$basePath/$zoneName';
 
-    for (final param in ['shift_x', 'shift_y', 'level']) {
+    for (final param in ['shift_x', 'shift_y', 'lift']) {
       network.sendOscMessage('$zonePath/$param', [0.0]);
       reg.dispatchLocal('$zonePath/$param', [0.0]);
     }
