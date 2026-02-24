@@ -325,6 +325,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final allPages = pages;
     return LayoutBuilder(builder: (context, constraints) {
+      final network = context.watch<Network>();
       // Determine whether rail is extended
       final bool isRailExtended = constraints.maxWidth >= 1000;
       // Use the same constants passed to NavigationRail:
@@ -421,12 +422,22 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ),
                   Expanded(
-                    child: Container(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: IndexedStack(
-                        index: selectedIndex.clamp(0, allPages.length - 1),
-                        children: allPages,
-                      ),
+                    child: Stack(
+                      children: [
+                        AnimatedOpacity(
+                          opacity: network.isConnected ? 1.0 : 0.4,
+                          duration: const Duration(milliseconds: 220),
+                          child: Container(
+                            color: Theme.of(context).colorScheme.surface,
+                            child: IndexedStack(
+                              index: selectedIndex.clamp(0, allPages.length - 1),
+                              children: allPages,
+                            ),
+                          ),
+                        ),
+                        if (!network.isConnected)
+                          const Positioned.fill(child: _DisconnectedScrim()),
+                      ],
                     ),
                   ),
                 ],
@@ -462,6 +473,39 @@ class _FadedRailDivider extends StatelessWidget {
               stops: const [0.0, 0.18, 0.82, 1.0],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Semi-transparent overlay shown when the device is disconnected.
+class _DisconnectedScrim extends StatelessWidget {
+  const _DisconnectedScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = Colors.white.withValues(alpha: 0.78);
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 78, 78, 78).withValues(alpha: 0.35),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off, color: textColor, size: 32),
+            const SizedBox(height: 10),
+            Text(
+              'Device disconnected',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
         ),
       ),
     );

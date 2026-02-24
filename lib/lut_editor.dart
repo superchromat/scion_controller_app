@@ -242,6 +242,20 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                 : const Offset(-1, -1);
       }
     }
+    // Reset grade lines to defaults if enabled
+    setState(() {
+      _shadowLevel = 0.25;
+      _shadowBlend = 0.1;
+      _midLevel = 0.75;
+      _midBlend = 0.1;
+    });
+    if (widget.gradePath != null) {
+      _sendGradeValue('shadows/level', _shadowLevel);
+      _sendGradeValue('shadows/blend', _shadowBlend);
+      _sendGradeValue('midtones/level', _midLevel);
+      _sendGradeValue('midtones/blend', _midBlend);
+    }
+
     _rebuildSplines();
     _sendCurrentChannel();
   }
@@ -493,26 +507,26 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
       switch (_activeGradeHandle!) {
         case GradeHandle.shadowCenter:
           _shadowLevel = xNorm.clamp(0.0, _midLevel - _minGap);
-          _shadowBlend = _shadowBlend.clamp(0.0, _maxShadowBlend());
+          _shadowBlend = _shadowBlend.clamp(0.0, 1.0);
           _sendGradeValue('shadows/level', _shadowLevel);
           _sendGradeValue('shadows/blend', _shadowBlend);
           break;
         case GradeHandle.shadowBlendLeft:
         case GradeHandle.shadowBlendRight:
           final newBlend = (xNorm - _shadowLevel).abs();
-          _shadowBlend = newBlend.clamp(0.0, _maxShadowBlend());
+          _shadowBlend = newBlend.clamp(0.0, 1.0);
           _sendGradeValue('shadows/blend', _shadowBlend);
           break;
         case GradeHandle.midCenter:
           _midLevel = xNorm.clamp(_shadowLevel + _minGap, 1.0);
-          _midBlend = _midBlend.clamp(0.0, _maxMidBlend());
+          _midBlend = _midBlend.clamp(0.0, 1.0);
           _sendGradeValue('midtones/level', _midLevel);
           _sendGradeValue('midtones/blend', _midBlend);
           break;
         case GradeHandle.midBlendLeft:
         case GradeHandle.midBlendRight:
           final newBlend = (xNorm - _midLevel).abs();
-          _midBlend = newBlend.clamp(0.0, _maxMidBlend());
+          _midBlend = newBlend.clamp(0.0, 1.0);
           _sendGradeValue('midtones/blend', _midBlend);
           break;
       }
@@ -527,18 +541,18 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
         case _GradeParam.shadowLevel:
           _shadowLevel = v.clamp(0.0, 1.0);
           _shadowLevel = min(_shadowLevel, _midLevel - _minGap);
-          _shadowBlend = _shadowBlend.clamp(0.0, _maxShadowBlend());
+          _shadowBlend = _shadowBlend.clamp(0.0, 1.0);
           break;
         case _GradeParam.shadowBlend:
-          _shadowBlend = v.clamp(0.0, _maxShadowBlend());
+          _shadowBlend = v.clamp(0.0, 1.0);
           break;
         case _GradeParam.midLevel:
           _midLevel = v.clamp(0.0, 1.0);
           _midLevel = max(_midLevel, _shadowLevel + _minGap);
-          _midBlend = _midBlend.clamp(0.0, _maxMidBlend());
+          _midBlend = _midBlend.clamp(0.0, 1.0);
           break;
         case _GradeParam.midBlend:
-          _midBlend = v.clamp(0.0, _maxMidBlend());
+          _midBlend = v.clamp(0.0, 1.0);
           break;
       }
     });

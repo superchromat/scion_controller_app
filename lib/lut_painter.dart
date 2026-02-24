@@ -118,13 +118,20 @@ class LUTPainter extends CustomPainter {
           ..color = color;
         canvas.drawLine(Offset(centerX, 0), Offset(centerX, h), linePaint);
 
-        // Dotted side lines
+        // Dotted side lines. If they fall outside 0..1, skip drawing.
         dashPaint
           ..strokeCap = StrokeCap.round
           ..style = PaintingStyle.fill
           ..color = color;
-        _drawDottedLine(canvas, Offset(leftX, 0), Offset(leftX, h), dashPaint);
-        _drawDottedLine(canvas, Offset(rightX, 0), Offset(rightX, h), dashPaint);
+        final showLeft = band.center - band.blend >= 0.0;
+        final showRight = band.center + band.blend <= 1.0;
+
+        if (showLeft) {
+          _drawDottedLine(canvas, Offset(leftX, 0), Offset(leftX, h), dashPaint);
+        }
+        if (showRight) {
+          _drawDottedLine(canvas, Offset(rightX, 0), Offset(rightX, h), dashPaint);
+        }
 
         // Handles (below plot)
         handlePaint.color = color;
@@ -138,30 +145,34 @@ class LUTPainter extends CustomPainter {
           active: activeHandle ==
               (idx == 0 ? GradeHandle.shadowCenter : GradeHandle.midCenter),
         );
-        _drawFlagHandle(
-          canvas,
-          Offset(leftX, h),
-          9,
-          10,
-          handlePaint,
-          level: band.center,
-          active: activeHandle ==
-              (idx == 0
-                  ? GradeHandle.shadowBlendLeft
-                  : GradeHandle.midBlendLeft),
-        );
-        _drawFlagHandle(
-          canvas,
-          Offset(rightX, h),
-          9,
-          10,
-          handlePaint,
-          level: band.center,
-          active: activeHandle ==
-              (idx == 0
-                  ? GradeHandle.shadowBlendRight
-                  : GradeHandle.midBlendRight),
-        );
+        if (showLeft) {
+          _drawFlagHandle(
+            canvas,
+            Offset(leftX, h),
+            9,
+            10,
+            handlePaint,
+            level: band.center,
+            active: activeHandle ==
+                (idx == 0
+                    ? GradeHandle.shadowBlendLeft
+                    : GradeHandle.midBlendLeft),
+          );
+        }
+        if (showRight) {
+          _drawFlagHandle(
+            canvas,
+            Offset(rightX, h),
+            9,
+            10,
+            handlePaint,
+            level: band.center,
+            active: activeHandle ==
+                (idx == 0
+                    ? GradeHandle.shadowBlendRight
+                    : GradeHandle.midBlendRight),
+          );
+        }
       }
     }
 
