@@ -120,6 +120,9 @@ class RotaryKnob extends StatefulWidget {
   /// Width of the drag bar
   final double dragBarWidth;
 
+  /// Force snapping to integer values
+  final bool integerOnly;
+
   /// Light azimuthal angle in radians (0 = right, pi/2 = top)
   final double lightPhi;
 
@@ -153,6 +156,7 @@ class RotaryKnob extends StatefulWidget {
     this.mappingSegments,
     this.size = 80,
     this.dragBarWidth = 400,
+    this.integerOnly = false,
     this.lightPhi = math.pi / 2,    // Default: 90°
     this.lightTheta = 320 * math.pi / 180,  // Default: 320°
     this.arcWidth = 8.0,
@@ -210,7 +214,7 @@ class _RotaryKnobState extends State<RotaryKnob>
   @override
   void initState() {
     super.initState();
-    _currentValue = widget.value.clamp(widget.minValue, widget.maxValue);
+    _currentValue = _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
     _lastValue = _currentValue;
 
     _settleController = AnimationController(
@@ -276,8 +280,8 @@ class _RotaryKnobState extends State<RotaryKnob>
   @override
   void didUpdateWidget(RotaryKnob oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.value != oldWidget.value && _state == _KnobState.idle) {
-      _currentValue = widget.value.clamp(widget.minValue, widget.maxValue);
+    if (widget.value != oldWidget.value) {
+      _currentValue = _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
       if (!_isEditing) {
         _textController.text = _formatValue(_currentValue);
       }
@@ -328,7 +332,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     final text = _textController.text.replaceAll(RegExp(r'[^\d.\-+]'), '');
     final parsed = double.tryParse(text);
     if (parsed != null) {
-      final clamped = parsed.clamp(widget.minValue, widget.maxValue);
+      final clamped = _quantize(parsed.clamp(widget.minValue, widget.maxValue));
       setState(() {
         _currentValue = clamped;
         _isEditing = false;
@@ -487,10 +491,11 @@ class _RotaryKnobState extends State<RotaryKnob>
   /// Returns (prefix, mainValue) for display with different colors
   /// Prefix includes sign and leading zeros, main is the significant digits
   (String, String) _formatValueWithLeading(double value) {
-    final format = widget.format;
-    final match = RegExp(r'%(\+)?(\d*)\.?(\d*)f').firstMatch(format);
+    final format = _effectiveFormat();
+    final match = RegExp(r'%(\+)?(\d*)\.?(\d*)([fd])').firstMatch(format);
     final showPlus = match?.group(1) == '+';
-    final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
+    int precision = int.tryParse(match?.group(3) ?? '') ?? 2;
+    if (match?.group(4) == 'd') precision = 0;
 
     // Calculate total width needed for integer part
     final maxAbsInt = [widget.minValue.abs(), widget.maxValue.abs()]
@@ -536,6 +541,20 @@ class _RotaryKnobState extends State<RotaryKnob>
   String _formatValue(double value) {
     final (leading, main) = _formatValueWithLeading(value);
     return '$leading$main';
+  }
+
+  String _effectiveFormat() {
+    // Hide decimals when integerOnly; respect custom formats if provided
+    if (widget.integerOnly) {
+      // If caller already provided a 0-decimal format, keep it
+      final zeroDecMatch = RegExp(r'%[+]?\\d*\\.?0f');
+      if (zeroDecMatch.hasMatch(widget.format) || widget.format.contains('%d')) {
+        return widget.format.replaceAll('%d', '%.0f');
+      }
+      // Otherwise force no decimals
+      return '%.0f';
+    }
+    return widget.format;
   }
 
   double _measureTextWidth(String text, double fontSize) {
@@ -591,7 +610,7 @@ class _RotaryKnobState extends State<RotaryKnob>
       _lastValue = _currentValue;
 
       setState(() {
-        _currentValue = vFinal.clamp(widget.minValue, widget.maxValue);
+        _currentValue = _quantize(vFinal.clamp(widget.minValue, widget.maxValue));
         if (!_isEditing) {
           _textController.text = _formatValue(_currentValue);
         }
@@ -634,13 +653,15 @@ class _RotaryKnobState extends State<RotaryKnob>
     if (widget.defaultValue != null) {
       setState(() {
         _currentValue =
-            widget.defaultValue!.clamp(widget.minValue, widget.maxValue);
+            _quantize(widget.defaultValue!.clamp(widget.minValue, widget.maxValue));
         _textController.text = _formatValue(_currentValue);
       });
       widget.onChanged?.call(_currentValue);
       _updateDragBar();
     }
   }
+
+  double _quantize(double v) => widget.integerOnly ? v.roundToDouble() : v;
 
   void _showDragBar() {
     _removeDragBar();
@@ -754,7 +775,7 @@ class _RotaryKnobState extends State<RotaryKnob>
               startNormalized: _startNormalized,
               isBipolar: widget.isBipolar,
               neutralValue: widget.neutralValue,
-              format: widget.format,
+              format: _effectiveFormat(),
               snapPoints: widget.snapConfig.snapPoints,
               lightPhi: widget.lightPhi,
               lightTheta: widget.lightTheta,
@@ -1571,9 +1592,10 @@ class _DragBar extends StatelessWidget {
 
   String _formatValue(double value) {
     // Printf-style format with fixed-width output for stable decimal alignment
-    final match = RegExp(r'%(\+)?(\d*)\.?(\d*)f').firstMatch(format);
+    final match = RegExp(r'%(\+)?(\d*)\.?(\d*)([fd])').firstMatch(format);
     final showPlus = match?.group(1) == '+';
-    final precision = int.tryParse(match?.group(3) ?? '') ?? 2;
+    int precision = int.tryParse(match?.group(3) ?? '') ?? 2;
+    if (match?.group(4) == 'd') precision = 0;
 
     // Calculate total width needed for integer part + sign
     final maxAbsInt = [minValue.abs(), maxValue.abs()]

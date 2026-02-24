@@ -1,91 +1,86 @@
 import 'package:flutter/material.dart';
 
 import 'grid.dart';
-import 'labeled_card.dart';
 import 'osc_checkbox.dart';
-import 'osc_number_field.dart';
-import 'osc_value_dropdown.dart';
+import 'osc_rotary_knob.dart';
+import 'osc_dropdown.dart';
 import 'osc_widget_binding.dart';
+import 'panel.dart';
 
 class DacParameters extends StatelessWidget {
   const DacParameters({super.key});
 
-  Widget _numField(
-    String label,
-    String segment, {
+  // Generic knob helper with sensible defaults and integer display support
+  Widget _knob(
+    BuildContext context, {
+    required String label,
+    required String segment,
+    double min = -32768,
+    double max = 32767,
+    double initial = 0,
     int precision = 0,
+    bool isBipolar = true,
     bool readOnly = false,
   }) {
-    return SizedBox(
-      width: 150,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(width: 80, child: Text(label)),
-          SizedBox(
-            width: 60,
-            height: 24,
-            child: OscPathSegment(
-              segment: segment,
-              child: OscNumberField(precision: precision, readOnly: readOnly),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _boolField(String label, String segment) {
-    return SizedBox(
-      width: 150,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(width: 80, child: Text(label)),
-          OscPathSegment(segment: segment, child: const OscCheckbox()),
-        ],
-      ),
-    );
-  }
-
-  Widget _section(BuildContext context, String title, List<Widget> children) {
     final t = GridProvider.maybeOf(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: t?.md ?? 12),
-      child: LabeledCard(
-        title: title,
-        child: Wrap(spacing: t?.md ?? 12, runSpacing: t?.sm ?? 8, children: children),
+    final format = precision == 0 ? '%.0f' : '%.${precision}f';
+    return OscPathSegment(
+      segment: segment,
+      child: AbsorbPointer(
+        absorbing: readOnly,
+        child: OscRotaryKnob(
+          label: label,
+          minValue: min,
+          maxValue: max,
+          initialValue: initial,
+          defaultValue: initial,
+          isBipolar: isBipolar,
+          format: format,
+          preferInteger: precision == 0,
+          size: t?.knobSm ?? 55,
+          labelStyle: t?.textLabel,
+        ),
       ),
     );
   }
 
-  Widget _cscMatrix() {
-    const labels = [
-      ['r2r', 'r2g', 'r2b'],
-      ['g2r', 'g2g', 'g2b'],
-      ['b2r', 'b2g', 'b2b'],
-    ];
-    return Table(
-      border: TableBorder.all(color: Colors.grey, width: 0.5),
-      defaultColumnWidth: const FixedColumnWidth(60),
-      children: List.generate(3, (row) {
-        return TableRow(
-          children: List.generate(3, (col) {
-            final seg = 'csc/${labels[row][col]}';
-            return Padding(
-              padding: const EdgeInsets.all(2),
-              child: OscPathSegment(
-                segment: seg,
-                child: OscNumberField(precision: 2),
-              ),
-            );
-          }),
-        );
-      }),
+  Widget _horizontalKnobRow(BuildContext context, List<Widget> knobs) {
+    final t = GridProvider.maybeOf(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (int i = 0; i < knobs.length; i++) ...[
+            if (i > 0) SizedBox(width: t?.sm ?? 8),
+            knobs[i],
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _dtg2Table() {
+  Widget _toggle(BuildContext context, String label, String segment) {
+    final t = GridProvider.maybeOf(context);
+    return OscPathSegment(
+      segment: segment,
+      child: SizedBox(
+        width: t?.knobSm ?? 55,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(bottom: t?.xs ?? 4),
+              child: Text(label, style: t?.textLabel),
+            ),
+            const OscCheckbox(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dtg2Table(BuildContext context) {
     const modes = [
       'ACTIVE_VIDEO',
       'FULL_NTSP',
@@ -104,11 +99,12 @@ class DacParameters extends StatelessWidget {
       'BSP_NEQ',
       'NEQ_BSP',
     ];
+    final t = GridProvider.maybeOf(context);
     return Table(
-      border: TableBorder.all(color: Colors.grey, width: 0.5),
+      border: TableBorder.all(color: Colors.grey[700] ?? Colors.grey, width: 0.5),
       columnWidths: const {
-        0: FixedColumnWidth(140),
-        1: FixedColumnWidth(240),
+        0: FixedColumnWidth(110),
+        1: FixedColumnWidth(220),
       },
       children: List.generate(16, (i) {
         return TableRow(
@@ -117,18 +113,26 @@ class DacParameters extends StatelessWidget {
               padding: const EdgeInsets.all(4),
               child: OscPathSegment(
                 segment: 'dtg2/bp/$i',
-                child: OscNumberField(),
+                child: OscRotaryKnob(
+                  label: 'BP $i',
+                  minValue: 0,
+                  maxValue: 4096,
+                  initialValue: 0,
+                  format: '%.0f',
+                  preferInteger: true,
+                  size: t?.knobSm ?? 55,
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(4),
-              child: OscPathSegment(
-                segment: 'dtg2/linetype/$i',
-                child: OscValueDropdown<int>(
-                  values: List.generate(16, (j) => j),
-                  labels: modes,
-                  initialValue: 0,
-                ),
+              child: OscDropdown<int>(
+                label: 'LineType',
+                pathSegment: 'dtg2/linetype/$i',
+                items: List.generate(16, (j) => j),
+                itemLabels: {for (int j = 0; j < modes.length; j++) j: modes[j]},
+                defaultValue: 0,
+                width: 180,
               ),
             ),
           ],
@@ -137,124 +141,283 @@ class DacParameters extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _csmColumn(
+    BuildContext context,
+    String label, {
+    required String clipLo,
+    required String clipHi,
+    required String shift,
+    required String mult,
+  }) {
+    final t = GridProvider.maybeOf(context);
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _section(context, 'System Control', [
-          _numField('Version', 'system/version', readOnly: true),
-          _boolField('ARST_FUNC_N', 'system/ctl/arst_func_n'),
-          _boolField('Chip MS', 'system/ctl/chip_ms'),
-          _boolField('Chip Pwdn', 'system/ctl/chip_pwdn'),
-          _boolField('DAC Pwdn', 'system/ctl/dac_pwdn'),
-          _boolField('DLL Bypass', 'system/ctl/dll_bypass'),
-          _boolField('DLL Freq Sel', 'system/ctl/dll_freq_sel'),
-          _boolField('VESA Clk', 'system/ctl/vesa_clk'),
-          _boolField('VESA Bars', 'system/ctl/vesa_colorbars'),
+        Padding(
+          padding: EdgeInsets.only(bottom: t?.xs ?? 4),
+          child: Text(label, style: t?.textLabel),
+        ),
+        _knob(context, label: 'Clip Lo', segment: clipLo),
+        _knob(context, label: 'Clip Hi', segment: clipHi),
+        _knob(context, label: 'Shift', segment: shift),
+        _knob(context, label: 'Mult', segment: mult),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+
+    return CardColumn(
+      children: [
+        // Row 1
+        GridRow(columns: 4, gutter: t.md, cells: [
+          (
+            span: 1,
+              child: Panel(
+                title: 'System Control',
+                child: Wrap(
+                  spacing: t.sm,
+                  runSpacing: t.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                  _toggle(context, 'ARST_FUNC_N', 'system/ctl/arst_func_n'),
+                  _toggle(context, 'Chip MS', 'system/ctl/chip_ms'),
+                  _toggle(context, 'Chip Pwdn', 'system/ctl/chip_pwdn'),
+                  _toggle(context, 'DAC Pwdn', 'system/ctl/dac_pwdn'),
+                  _toggle(context, 'DLL Bypass', 'system/ctl/dll_bypass'),
+                  _toggle(context, 'DLL Freq Sel', 'system/ctl/dll_freq_sel'),
+                  _toggle(context, 'VESA Clk', 'system/ctl/vesa_clk'),
+                  _toggle(context, 'VESA Bars', 'system/ctl/vesa_colorbars'),
+                  ],
+                ),
+              ),
+            ),
+          (
+            span: 1,
+            child: Panel(
+              title: 'Test Control',
+              child: Wrap(
+                spacing: t.sm,
+                runSpacing: t.sm,
+                children: [
+                  _toggle(context, 'DigBypass', 'test/digbypass'),
+                  _toggle(context, 'Force Off', 'test/force_off'),
+                  _knob(context, label: 'Y Delay', segment: 'test/ydelay', min: -1024, max: 1024),
+                  _toggle(context, 'Fast Ramp', 'test/fastramp'),
+                  _toggle(context, 'Slow Ramp', 'test/slowramp'),
+                ],
+              ),
+            ),
+          ),
+          (
+            span: 1,
+            child: Panel(
+              title: 'Data Path',
+              child: Wrap(
+                spacing: t.sm,
+                runSpacing: t.sm,
+                children: [
+                  _toggle(context, 'CLK656 On', 'datapath/clk656_on'),
+                  _toggle(context, 'FS Adjust', 'datapath/fsadj'),
+                  _toggle(context, 'IFIR12 Bypass', 'datapath/ifir12_bypass'),
+                  _toggle(context, 'IFIR35 Bypass', 'datapath/ifir35_bypass'),
+                  _toggle(context, 'Tristate656', 'datapath/tristate656'),
+                  _knob(context, label: 'DMAN Cntl', segment: 'datapath/dman_cntl', min: 0, max: 1023, isBipolar: false),
+                ],
+              ),
+            ),
+          ),
+          (
+            span: 1,
+            child: Panel(
+              title: 'DAC Control',
+              child: Wrap(
+                spacing: t.sm,
+                runSpacing: t.sm,
+                children: [
+                  _knob(context, label: 'DAC1', segment: 'dac/dac1', min: 0, max: 1023, isBipolar: false),
+                  _knob(context, label: 'DAC2', segment: 'dac/dac2', min: 0, max: 1023, isBipolar: false),
+                  _knob(context, label: 'DAC3', segment: 'dac/dac3', min: 0, max: 1023, isBipolar: false),
+                  _toggle(context, 'I2C Control', 'dac/i2c_cntl'),
+                ],
+              ),
+            ),
+          ),
         ]),
-        _section(context, 'Color Space Conversion', [
-          _cscMatrix(),
-          _numField('Y Off', 'csc/yoff', precision: 2),
-          _numField('CbCr Off', 'csc/cboff', precision: 2),
-          _boolField('CSC Bypass', 'csc/csc_bypass'),
-          _boolField('CSC UOF', 'csc/csc_uof'),
+
+        // Row 2
+        GridRow(columns: 2, gutter: t.md, cells: [
+          (
+            span: 1,
+            child: Panel(
+              title: 'Color Space Conversion',
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Table(
+                      defaultColumnWidth: const FixedColumnWidth(90),
+                      children: [
+                        TableRow(children: [
+                          _knob(context, label: 'r2r', segment: 'csc/r2r', min: -4, max: 4, precision: 2),
+                          _knob(context, label: 'r2g', segment: 'csc/r2g', min: -4, max: 4, precision: 2),
+                          _knob(context, label: 'r2b', segment: 'csc/r2b', min: -4, max: 4, precision: 2),
+                        ]),
+                        TableRow(children: [
+                          _knob(context, label: 'g2r', segment: 'csc/g2r', min: -4, max: 4, precision: 2),
+                          _knob(context, label: 'g2g', segment: 'csc/g2g', min: -4, max: 4, precision: 2),
+                          _knob(context, label: 'g2b', segment: 'csc/g2b', min: -4, max: 4, precision: 2),
+                        ]),
+                        TableRow(children: [
+                          _knob(context, label: 'b2r', segment: 'csc/b2r', min: -4, max: 4, precision: 2),
+                          _knob(context, label: 'b2g', segment: 'csc/b2g', min: -4, max: 4, precision: 2),
+                          _knob(context, label: 'b2b', segment: 'csc/b2b', min: -4, max: 4, precision: 2),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: t.md),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _toggle(context, 'CSC Bypass', 'csc/csc_bypass'),
+                      SizedBox(height: t.xs),
+                      _toggle(context, 'CSC UOF', 'csc/csc_uof'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          (
+            span: 1,
+            child: Panel(
+              title: 'Clip / Scale / Multiplier',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Panel(
+                    title: 'Y',
+                    child: _horizontalKnobRow(context, [
+                      _knob(context, label: 'Y Off', segment: 'csc/yoff', precision: 2, min: -512, max: 512),
+                      _knob(context, label: 'Clip Lo', segment: 'csm/clip_gy_lo'),
+                      _knob(context, label: 'Clip Hi', segment: 'csm/clip_gy_hi'),
+                      _knob(context, label: 'Shift', segment: 'csm/shift_gy'),
+                      _knob(context, label: 'Mult', segment: 'csm/mult_gy'),
+                    ]),
+                  ),
+                  SizedBox(height: t.sm),
+                  Panel(
+                    title: 'Cb',
+                    child: _horizontalKnobRow(context, [
+                      _knob(context, label: 'CbCr Off', segment: 'csc/cboff', precision: 2, min: -512, max: 512),
+                      _knob(context, label: 'Clip Lo', segment: 'csm/clip_cb_lo'),
+                      _knob(context, label: 'Clip Hi', segment: 'csm/clip_cb_hi'),
+                      _knob(context, label: 'Shift', segment: 'csm/shift_cb'),
+                      _knob(context, label: 'Mult', segment: 'csm/mult_cb'),
+                    ]),
+                  ),
+                  SizedBox(height: t.sm),
+                  Panel(
+                    title: 'Cr',
+                    child: _horizontalKnobRow(context, [
+                      _knob(context, label: 'Clip Lo', segment: 'csm/clip_cr_lo'),
+                      _knob(context, label: 'Clip Hi', segment: 'csm/clip_cr_hi'),
+                      _knob(context, label: 'Shift', segment: 'csm/shift_cr'),
+                      _knob(context, label: 'Mult', segment: 'csm/mult_cr'),
+                      _knob(context, label: 'CSM Ctrl', segment: 'csm/csm_ctrl'),
+                    ]),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ]),
-        _section(context, 'Test Control', [
-          _boolField('DigBypass', 'test/digbypass'),
-          _boolField('Force Off', 'test/force_off'),
-          _numField('Y Delay', 'test/ydelay'),
-          _boolField('Fast Ramp', 'test/fastramp'),
-          _boolField('Slow Ramp', 'test/slowramp'),
+
+        // Row 3
+        GridRow(columns: 2, gutter: t.md, cells: [
+          (
+            span: 1,
+            child: Panel(
+              title: 'DTG1',
+              child: Wrap(
+                spacing: t.sm,
+                runSpacing: t.sm,
+                children: [
+                  _knob(context, label: 'Y Blank', segment: 'dtg1/y_blank'),
+                  _knob(context, label: 'Y Sync Lo', segment: 'dtg1/y_sync_lo'),
+                  _knob(context, label: 'Y Sync Hi', segment: 'dtg1/y_sync_hi'),
+                  _knob(context, label: 'CbCr Blank', segment: 'dtg1/cbcr_blank'),
+                  _knob(context, label: 'CbCr Sync Lo', segment: 'dtg1/cbcr_sync_lo'),
+                  _knob(context, label: 'CbCr Sync Hi', segment: 'dtg1/cbcr_sync_hi'),
+                  _toggle(context, 'DTG1 On', 'dtg1/dtg1_on'),
+                  _toggle(context, 'Pass Thru', 'dtg1/pass_thru'),
+                  _knob(context, label: 'Mode', segment: 'dtg1/mode', min: 0, max: 15, isBipolar: false),
+                  _knob(context, label: 'Spec A', segment: 'dtg1/spec_a'),
+                  _knob(context, label: 'Spec B', segment: 'dtg1/spec_b'),
+                  _knob(context, label: 'Spec C', segment: 'dtg1/spec_c'),
+                  _knob(context, label: 'Spec D', segment: 'dtg1/spec_d'),
+                  _knob(context, label: 'Spec D1', segment: 'dtg1/spec_d1'),
+                  _knob(context, label: 'Spec E', segment: 'dtg1/spec_e'),
+                  _knob(context, label: 'Spec H', segment: 'dtg1/spec_h'),
+                  _knob(context, label: 'Spec I', segment: 'dtg1/spec_i'),
+                  _knob(context, label: 'Spec K', segment: 'dtg1/spec_k'),
+                  _knob(context, label: 'Spec K1', segment: 'dtg1/spec_k1'),
+                  _knob(context, label: 'Spec G', segment: 'dtg1/spec_g'),
+                  _knob(context, label: 'Total Pixels', segment: 'dtg1/total_pixels', min: 0, max: 8192, isBipolar: false),
+                  _toggle(context, 'Field Flip', 'dtg1/field_flip'),
+                  _knob(context, label: 'Line Cnt', segment: 'dtg1/line_cnt', min: 0, max: 8192, isBipolar: false),
+                  _knob(context, label: 'Frame Size', segment: 'dtg1/frame_size', min: 0, max: 16384, isBipolar: false),
+                  _knob(context, label: 'Field Size', segment: 'dtg1/field_size', min: 0, max: 16384, isBipolar: false),
+                  _knob(context, label: 'CBar Size', segment: 'dtg1/cbar_size', min: 0, max: 8192, isBipolar: false),
+                ],
+              ),
+            ),
+          ),
+          (
+            span: 1,
+            child: Panel(
+              title: 'DTG2',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _dtg2Table(context),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: t.sm,
+                    runSpacing: t.sm,
+                    children: [
+                      _knob(context, label: 'HLength', segment: 'dtg2/hlength', min: 0, max: 8192, isBipolar: false),
+                      _knob(context, label: 'HDly', segment: 'dtg2/hdly'),
+                      _knob(context, label: 'VLength1', segment: 'dtg2/vlength1', min: 0, max: 8192, isBipolar: false),
+                      _knob(context, label: 'VDly1', segment: 'dtg2/vdly1'),
+                      _knob(context, label: 'VLength2', segment: 'dtg2/vlength2', min: 0, max: 8192, isBipolar: false),
+                      _knob(context, label: 'VDly2', segment: 'dtg2/vdly2'),
+                      _knob(context, label: 'HS In Dly', segment: 'dtg2/hs_in_dly'),
+                      _knob(context, label: 'VS In Dly', segment: 'dtg2/vs_in_dly'),
+                      _knob(context, label: 'Pixel Cnt', segment: 'dtg2/pixel_cnt', min: 0, max: 16384, isBipolar: false),
+                      _toggle(context, 'IP Fmt', 'dtg2/ctrl/ip_fmt'),
+                      _knob(context, label: 'Line Cnt', segment: 'dtg2/ctrl/line_cnt', min: 0, max: 16384, isBipolar: false),
+                      _toggle(context, 'FID DE', 'dtg2/ctrl/fid_de'),
+                      _toggle(context, 'RGB Mode', 'dtg2/ctrl/rgb_mode'),
+                      _toggle(context, 'Emb Timing', 'dtg2/ctrl/emb_timing'),
+                      _toggle(context, 'VSOut Pol', 'dtg2/ctrl/vsout_pol'),
+                      _toggle(context, 'HSOut Pol', 'dtg2/ctrl/hsout_pol'),
+                      _toggle(context, 'FID Pol', 'dtg2/ctrl/fid_pol'),
+                      _toggle(context, 'VS Pol', 'dtg2/ctrl/vs_pol'),
+                      _toggle(context, 'HS Pol', 'dtg2/ctrl/hs_pol'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ]),
-        _section(context, 'Data Path', [
-          _boolField('CLK656 On', 'datapath/clk656_on'),
-          _boolField('FS Adjust', 'datapath/fsadj'),
-          _boolField('IFIR12 Bypass', 'datapath/ifir12_bypass'),
-          _boolField('IFIR35 Bypass', 'datapath/ifir35_bypass'),
-          _boolField('Tristate656', 'datapath/tristate656'),
-          _numField('DMAN Cntl', 'datapath/dman_cntl'),
-        ]),
-        _section(context, 'DAC Control', [
-          _numField('DAC1', 'dac/dac1'),
-          _numField('DAC2', 'dac/dac2'),
-          _numField('DAC3', 'dac/dac3'),
-          _boolField('I2C Control', 'dac/i2c_cntl'),
-        ]),
-        _section(context, 'Clip/Scale/Multiplier', [
-          _numField('Clip GY Lo', 'csm/clip_gy_lo'),
-          _numField('Clip CB Lo', 'csm/clip_cb_lo'),
-          _numField('Clip CR Lo', 'csm/clip_cr_lo'),
-          _numField('Clip GY Hi', 'csm/clip_gy_hi'),
-          _numField('Clip CB Hi', 'csm/clip_cb_hi'),
-          _numField('Clip CR Hi', 'csm/clip_cr_hi'),
-          _numField('Shift GY', 'csm/shift_gy'),
-          _numField('Shift CB', 'csm/shift_cb'),
-          _numField('Shift CR', 'csm/shift_cr'),
-          _numField('Mult GY', 'csm/mult_gy'),
-          _numField('Mult CB', 'csm/mult_cb'),
-          _numField('Mult CR', 'csm/mult_cr'),
-          _numField('CSM Ctrl', 'csm/csm_ctrl'),
-        ]),
-        _section(context, 'DTG1', [
-          _numField('Y Blank', 'dtg1/y_blank'),
-          _numField('Y Sync Lo', 'dtg1/y_sync_lo'),
-          _numField('Y Sync Hi', 'dtg1/y_sync_hi'),
-          _numField('CbCr Blank', 'dtg1/cbcr_blank'),
-          _numField('CbCr Sync Lo', 'dtg1/cbcr_sync_lo'),
-          _numField('CbCr Sync Hi', 'dtg1/cbcr_sync_hi'),
-          _boolField('DTG1 On', 'dtg1/dtg1_on'),
-          _boolField('Pass Thru', 'dtg1/pass_thru'),
-          _numField('Mode', 'dtg1/mode'),
-          _numField('Spec A', 'dtg1/spec_a'),
-          _numField('Spec B', 'dtg1/spec_b'),
-          _numField('Spec C', 'dtg1/spec_c'),
-          _numField('Spec D', 'dtg1/spec_d'),
-          _numField('Spec D1', 'dtg1/spec_d1'),
-          _numField('Spec E', 'dtg1/spec_e'),
-          _numField('Spec H', 'dtg1/spec_h'),
-          _numField('Spec I', 'dtg1/spec_i'),
-          _numField('Spec K', 'dtg1/spec_k'),
-          _numField('Spec K1', 'dtg1/spec_k1'),
-          _numField('Spec G', 'dtg1/spec_g'),
-          _numField('Total Pixels', 'dtg1/total_pixels'),
-          _boolField('Field Flip', 'dtg1/field_flip'),
-          _numField('Line Cnt', 'dtg1/line_cnt'),
-          _numField('Frame Size', 'dtg1/frame_size'),
-          _numField('Field Size', 'dtg1/field_size'),
-          _numField('CBar Size', 'dtg1/cbar_size'),
-        ]),
-        _section(context, 'DTG2', [
-          _dtg2Table(),
-          _numField('HLength', 'dtg2/hlength'),
-          _numField('HDly', 'dtg2/hdly'),
-          _numField('VLength1', 'dtg2/vlength1'),
-          _numField('VDly1', 'dtg2/vdly1'),
-          _numField('VLength2', 'dtg2/vlength2'),
-          _numField('VDly2', 'dtg2/vdly2'),
-          _numField('HS In Dly', 'dtg2/hs_in_dly'),
-          _numField('VS In Dly', 'dtg2/vs_in_dly'),
-          _numField('Pixel Cnt', 'dtg2/pixel_cnt'),
-          _boolField('IP Fmt', 'dtg2/ctrl/ip_fmt'),
-          _numField('Line Cnt', 'dtg2/ctrl/line_cnt'),
-          _boolField('FID DE', 'dtg2/ctrl/fid_de'),
-          _boolField('RGB Mode', 'dtg2/ctrl/rgb_mode'),
-          _boolField('Emb Timing', 'dtg2/ctrl/emb_timing'),
-          _boolField('VSOut Pol', 'dtg2/ctrl/vsout_pol'),
-          _boolField('HSOut Pol', 'dtg2/ctrl/hsout_pol'),
-          _boolField('FID Pol', 'dtg2/ctrl/fid_pol'),
-          _boolField('VS Pol', 'dtg2/ctrl/vs_pol'),
-          _boolField('HS Pol', 'dtg2/ctrl/hs_pol'),
-        ]),
-        _section(context, 'CGMS', [
-          _boolField('Enable', 'cgms/enable'),
-          _numField('Header', 'cgms/header'),
-          _numField('Payload', 'cgms/payload'),
-        ]),
-        _section(context, 'Readback', [
-          _numField('PPL', 'readback/ppl', readOnly: true),
-          _numField('LPF', 'readback/lpf', readOnly: true),
-        ]),
+
+        // Row 5
       ],
     );
   }

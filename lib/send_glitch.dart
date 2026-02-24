@@ -30,8 +30,10 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     sendOsc(0, address: 'glitch/row_offset');
     sendOsc(0, address: 'glitch/addr_offset');
     sendOsc(0, address: 'glitch/addr_limit_disable');
-    sendOsc(0, address: 'glitch/cb_offset');
-    sendOsc(0, address: 'glitch/cr_offset');
+    sendOsc(0, address: 'glitch/write_ffc_map');
+    sendOsc(0, address: 'glitch/write_addr_offset');
+    sendOsc(0, address: 'glitch/write_phase');
+    sendOsc(0, address: 'glitch/mfc_read_buf');
     sendOsc(0, address: 'glitch/bit_precision');  // 0 = 8bpp (normal)
     sendOsc(0, address: 'glitch/map_mode');  // 0 = 1D mode (normal)
     sendOsc(0, address: 'glitch/y_freeze');
@@ -100,13 +102,13 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
   // Channel swap mode labels
   static const List<String> _channelSwapLabels = [
     'Normal',           // 0: Y<=Y, Cb<=Cb, Cr<=Cr
-    'Y↔Cb',             // 1: Y<=Cb, Cb<=Y, Cr<=Cr
-    'Y↔Cr',             // 2: Y<=Cr, Cb<=Cb, Cr<=Y
-    'Cb↔Cr',            // 3: Y<=Y, Cb<=Cr, Cr<=Cb
+    'Y/Cb',             // 1: Y<=Cb, Cb<=Y, Cr<=Cr
+    'Y/Cr',             // 2: Y<=Cr, Cb<=Cb, Cr<=Y
+    'Cb/Cr',            // 3: Y<=Y, Cb<=Cr, Cr<=Cb
     'Bit Swap',         // 4: MSB<->LSB + normal
-    'Bit + Y↔Cb',       // 5: MSB<->LSB + Y↔Cb
-    'Bit + Y↔Cr',       // 6: MSB<->LSB + Y↔Cr
-    'Bit + Cb↔Cr',      // 7: MSB<->LSB + Cb↔Cr
+    'Bit + Y/Cb',       // 5: MSB<->LSB + Y↔Cb
+    'Bit + Y/Cr',       // 6: MSB<->LSB + Y↔Cr
+    'Bit + Cb/Cr',      // 7: MSB<->LSB + Cb↔Cr
   ];
 
   // OutMux mode labels (subset of most useful modes)
@@ -223,9 +225,10 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
                 Expanded(child: Center(child: _knob(label: 'Stride',    oscAddress: 'stride_offset',   min: -50,   max: 50,   isBipolar: true))),
                 Expanded(child: Center(child: _knob(label: 'Row Ofs',   oscAddress: 'row_offset',      min: -500,  max: 500,  isBipolar: true))),
                 Expanded(child: Center(child: _knob(label: 'Addr Ofs',  oscAddress: 'addr_offset',     min: -1000, max: 1000, isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Rows/Frm',  oscAddress: 'rows_per_frame',  min: -500,  max: 500,  isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Cb Ofs',    oscAddress: 'cb_offset',       min: -5000, max: 5000, isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Cr Ofs',    oscAddress: 'cr_offset',       min: -5000, max: 5000, isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'FFC Map',   oscAddress: 'write_ffc_map',   min: 0,     max: 7))),
+                Expanded(child: Center(child: _knob(label: 'MFC Buf',   oscAddress: 'mfc_read_buf',    min: 0,     max: 7,     initial: 0))),
+                Expanded(child: Center(child: _knob(label: 'Wr Addr',   oscAddress: 'write_addr_offset', min: -65535, max: 65535, isBipolar: true))),
+                Expanded(child: Center(child: _knob(label: 'Wr Phase',  oscAddress: 'write_phase',     min: 0,     max: 6))),
               ]),
             )),
           ]),

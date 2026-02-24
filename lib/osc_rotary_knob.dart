@@ -95,7 +95,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
   @override
   void initState() {
     super.initState();
-    _value = widget.initialValue.clamp(widget.minValue, widget.maxValue);
+    _value = _quantize(widget.initialValue);
   }
 
   @override
@@ -104,19 +104,27 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
     // Clamp value if range changed
     if (widget.minValue != oldWidget.minValue ||
         widget.maxValue != oldWidget.maxValue) {
-      _value = _value.clamp(widget.minValue, widget.maxValue);
+      _value = _quantize(_value);
     }
   }
 
   /// Current value (read-only access for external use)
   double get value => _value;
 
+  double _quantize(double v) {
+    final clamped = v.clamp(widget.minValue, widget.maxValue);
+    if (widget.preferInteger) {
+      return clamped.roundToDouble();
+    }
+    return clamped;
+  }
+
   /// Programmatically set the value
   ///
   /// [emit] - whether to call onChanged callback
   /// [sendOscNow] - whether to immediately send OSC message
   void setValue(double newValue, {bool emit = true, bool sendOscNow = false}) {
-    final clamped = newValue.clamp(widget.minValue, widget.maxValue);
+    final clamped = _quantize(newValue);
     if ((clamped - _value).abs() > 0.0001) {
       setState(() => _value = clamped);
       if (emit) {
@@ -140,7 +148,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
   @override
   OscStatus onOscMessage(List<Object?> args) {
     if (args.isNotEmpty && args.first is num) {
-      final newValue = (args.first as num).toDouble();
+      final newValue = _quantize((args.first as num).toDouble());
 
       // Ignore if we're dragging - user input takes priority
       if (_isDragging) {
@@ -160,7 +168,8 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
 
   void _onChanged(double newValue) {
     _isDragging = true;
-    setState(() => _value = newValue);
+    final quantized = _quantize(newValue);
+    setState(() => _value = quantized);
     widget.onChanged?.call(_value);
 
     if (widget.sendOsc) {
@@ -175,11 +184,14 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
 
   @override
   Widget build(BuildContext context) {
+    final format =
+        (widget.preferInteger && widget.format == '%.2f') ? '%.0f' : widget.format;
+
     return RotaryKnob(
       minValue: widget.minValue,
       maxValue: widget.maxValue,
       value: _value,
-      format: widget.format,
+      format: format,
       label: widget.label,
       defaultValue: widget.defaultValue,
       isBipolar: widget.isBipolar,
@@ -189,6 +201,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
       mappingSegments: widget.mappingSegments,
       size: widget.size,
       dragBarWidth: widget.dragBarWidth,
+      integerOnly: widget.preferInteger,
       labelStyle: widget.labelStyle,
     );
   }

@@ -21,8 +21,27 @@ import 'global_rect_tracking.dart';
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
+/// Returns true for network noise we expect during idle auto-reconnects
+/// (e.g., no device reachable on the network). These should not surface a
+/// user-facing snackbar while the app silently retries.
+bool _shouldSilenceError(Object error) {
+  if (error is SocketException) {
+    final code = error.osError?.errorCode;
+    // macOS/iOS: 65 = No route to host, 51 = Network unreachable
+    if (code == 65 || code == 51) return true;
+
+    final msg = error.message.toLowerCase();
+    if (msg.contains('no route to host') ||
+        msg.contains('network is unreachable')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void _showGlobalErrorSnack(Object error, StackTrace stack) {
   if (!kDebugMode) return;
+  if (_shouldSilenceError(error)) return;
   // Keep the snack concise; full details are printed to the console.
   final msg = error.toString().split('\n').first;
   // Schedule after a frame to avoid setState during build.
