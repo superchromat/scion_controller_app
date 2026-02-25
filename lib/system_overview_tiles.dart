@@ -46,6 +46,93 @@ class _LitOverlayText extends StatelessWidget {
   }
 }
 
+/// Simple HDMI line-art badge drawn with paths
+class _HdmiGlyph extends StatelessWidget {
+  final double width;
+  final double height;
+  final Color color;
+
+  const _HdmiGlyph({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(
+        painter: _HdmiGlyphPainter(color),
+      ),
+    );
+  }
+}
+
+class _HdmiGlyphPainter extends CustomPainter {
+  final Color color;
+  const _HdmiGlyphPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Geometry tuned to match the supplied reference glyph (rounded corners, broad bottom span, thin stroke).
+    final radius = h * 0.18;
+    final neckY = h * 0.48;
+    final bottomY = h * 0.86;
+    final bottomInset = w * 0.20; // widen flat bottom span
+    final neckInset = w * 0.06; // subtle neck-in before the curves
+
+    final outer = Path()
+      ..moveTo(radius, 0)
+      ..lineTo(w - radius, 0)
+      ..quadraticBezierTo(w, 0, w, radius)
+      ..lineTo(w, neckY)
+      // Pull inward toward center as we drop to the bottom span (concave toward connector)
+      ..quadraticBezierTo(
+          w - neckInset * 0.2, neckY + h * 0.02, w - neckInset, neckY + h * 0.10)
+      ..quadraticBezierTo(
+          w - neckInset - (bottomInset - neckInset) * 0.60, bottomY, w - bottomInset, bottomY)
+      ..lineTo(bottomInset, bottomY)
+      ..quadraticBezierTo(
+          neckInset + (bottomInset - neckInset) * 0.60, bottomY, neckInset, neckY + h * 0.10)
+      ..quadraticBezierTo(
+          neckInset * 0.2, neckY + h * 0.02, 0, neckY)
+      ..lineTo(0, radius)
+      ..quadraticBezierTo(0, 0, radius, 0)
+      ..close();
+
+    final stroke = h * 0.09;
+
+    final outerPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+
+    final innerPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = stroke;
+
+    canvas.drawPath(outer, outerPaint);
+    canvas.drawLine(
+      Offset(0.22 * w, 0.44 * h),
+      Offset(0.78 * w, 0.44 * h),
+      innerPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HdmiGlyphPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 /// A generic tile that displays up to five values: resolution (String),
 /// framerate (double), bit depth (int), colorspace (String), and optional chroma subsampling.
 /// Each can be a static value or an OSC path (starting with '/').
@@ -58,6 +145,7 @@ class VideoFormatTile extends StatefulWidget {
   final String colorSpace;
   final String? chromaSubsampling;
   final String? connectedPath;
+  final bool showHdmiIcon;
 
   const VideoFormatTile({
     super.key,
@@ -68,6 +156,7 @@ class VideoFormatTile extends StatefulWidget {
     required this.colorSpace,
     this.chromaSubsampling,
     this.connectedPath,
+    this.showHdmiIcon = false,
   });
 
   @override
@@ -300,9 +389,19 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         borderRadius: 4.0,
         child: Stack(
           children: [
+            if (widget.showHdmiIcon)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: _HdmiGlyph(
+                  width: TileLayout.tileWidth * 0.17,
+                  height: TileLayout.tileWidth * 0.17 * (19 / 54),
+                  color: Colors.grey[700]!,
+                ),
+              ),
             Positioned(
               right: 4,
-              bottom: -8,
+              top: -10,
               child: _LitOverlayText(label: widget.overlayLabel),
             ),
             if (_connected)
@@ -391,6 +490,7 @@ class AnalogSendTile extends StatelessWidget {
           bitDepth: '10',
           colorSpace: '/analog_format/colorspace',
           chromaSubsampling: '4:4:4',
+          showHdmiIcon: true,
         ),
       ),
     );
@@ -409,6 +509,7 @@ class ReturnTile extends StatelessWidget {
       bitDepth: '12',
       colorSpace: '/analog_format/colorspace',
       chromaSubsampling: '4:4:4',
+      showHdmiIcon: true,
     );
   }
 }
@@ -426,6 +527,7 @@ class HDMIOutTile extends StatelessWidget {
       bitDepth: '/output/bit_depth',
       colorSpace: '/output/colorspace',
       chromaSubsampling: '/output/chroma_subsampling',
+      showHdmiIcon: true,
     );
   }
 }
@@ -539,8 +641,17 @@ class __InputTileInnerState extends State<_InputTileInner> {
         child: Stack(
           children: [
             Positioned(
+              bottom: 4,
               right: 4,
-              bottom: -8,
+              child: _HdmiGlyph(
+                width: TileLayout.tileWidth * 0.17,
+                height: TileLayout.tileWidth * 0.17 * (19 / 54),
+                color: Colors.grey[700]!,
+              ),
+            ),
+            Positioned(
+              right: 4,
+              top: -10,
               child: _LitOverlayText(label: widget.index.toString()),
             ),
             if (_connected)
