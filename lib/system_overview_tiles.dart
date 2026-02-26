@@ -145,6 +145,7 @@ class VideoFormatTile extends StatefulWidget {
   final String colorSpace;
   final String? chromaSubsampling;
   final String? connectedPath;
+  final String? iconConnectedPath;
   final bool showHdmiIcon;
 
   const VideoFormatTile({
@@ -156,6 +157,7 @@ class VideoFormatTile extends StatefulWidget {
     required this.colorSpace,
     this.chromaSubsampling,
     this.connectedPath,
+    this.iconConnectedPath,
     this.showHdmiIcon = false,
   });
 
@@ -171,6 +173,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   String _cs = '';
   String _sub = '';
   bool _connected = true;
+  bool _iconConnected = false;
 
   late final AnimationController _resController;
   late final Animation<Color?> _resColor;
@@ -372,6 +375,30 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       _connected = true;
     }
 
+    if (widget.iconConnectedPath != null) {
+      final src = widget.iconConnectedPath!;
+      if (src.startsWith('/')) {
+        registry.registerAddress(src);
+        final param = registry.allParams[src];
+        if (param != null && param.currentValue.isNotEmpty) {
+          final newVal = parseBool(param.currentValue.first);
+          if (_iconConnected != newVal) _iconConnected = newVal;
+        }
+        registry.registerListener(src, (args) {
+          final newVal = args.isNotEmpty ? parseBool(args.first) : false;
+          if (!mounted) return;
+          if (_iconConnected != newVal) {
+            setState(() => _iconConnected = newVal);
+          }
+        });
+      } else {
+        final newVal = parseBool(src);
+        if (_iconConnected != newVal) _iconConnected = newVal;
+      }
+    } else if (_iconConnected) {
+      _iconConnected = false;
+    }
+
     bindString(widget.resolution, () => _res, (v) => _res = v, _resController);
     bindDouble(widget.framerate, () => _fps, (v) => _fps = v, _fpsController);
     bindInt(widget.bitDepth, () => _bpp, (v) => _bpp = v, _bppController);
@@ -382,6 +409,10 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 
   @override
   Widget build(BuildContext context) {
+    final iconConnected = widget.iconConnectedPath != null
+        ? _iconConnected
+        : (widget.connectedPath != null && _connected);
+
     return Container(
       margin: EdgeInsets.all(TileLayout.tileOuterMargin),
       child: NeumorphicInset(
@@ -396,7 +427,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                 child: _HdmiGlyph(
                   width: TileLayout.tileWidth * 0.17,
                   height: TileLayout.tileWidth * 0.17 * (19 / 54),
-                  color: Colors.grey[700]!,
+                  color: iconConnected ? Colors.green : Colors.grey[700]!,
                 ),
               ),
             Positioned(
@@ -490,6 +521,7 @@ class AnalogSendTile extends StatelessWidget {
           bitDepth: '10',
           colorSpace: '/analog_format/colorspace',
           chromaSubsampling: '4:4:4',
+          iconConnectedPath: '/send/$index/hdmi_connected',
           showHdmiIcon: true,
         ),
       ),
@@ -509,7 +541,6 @@ class ReturnTile extends StatelessWidget {
       bitDepth: '12',
       colorSpace: '/analog_format/colorspace',
       chromaSubsampling: '4:4:4',
-      showHdmiIcon: true,
     );
   }
 }
@@ -646,7 +677,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
               child: _HdmiGlyph(
                 width: TileLayout.tileWidth * 0.17,
                 height: TileLayout.tileWidth * 0.17 * (19 / 54),
-                color: Colors.grey[700]!,
+                color: _connected ? Colors.green : Colors.grey[700]!,
               ),
             ),
             Positioned(

@@ -191,7 +191,7 @@ class _SystemOverviewState extends State<SystemOverview>
                     Row(
                       children: [
                         _sectionBox(
-                          title: 'HDMI Inputs',
+                          title: 'Inputs',
                           labelPosition: LabelPosition.top,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -209,7 +209,7 @@ class _SystemOverviewState extends State<SystemOverview>
                         SizedBox(width: TileLayout.lockColumnWidth),
                         const Spacer(),
                         _sectionBox(
-                          title: 'HDMI Out',
+                          title: 'Out',
                           labelPosition: LabelPosition.top,
                           child: sizedTile(const HDMIOutTile(), _outputKey),
                         ),
@@ -220,7 +220,7 @@ class _SystemOverviewState extends State<SystemOverview>
                     Row(
                       children: [
                         _sectionBox(
-                          title: 'Analog Sends',
+                          title: 'Sends',
                           labelPosition: LabelPosition.bottom,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
