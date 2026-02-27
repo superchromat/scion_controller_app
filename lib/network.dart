@@ -62,16 +62,29 @@ class Network extends ChangeNotifier {
 
   bool get isConnecting => _manualConnectInProgress && _handshakeInProgress;
 
+  String _normalizeHost(String host) {
+    var out = host.trim();
+    while (out.endsWith('.')) {
+      out = out.substring(0, out.length - 1);
+    }
+    return out;
+  }
+
   /// Binds a UDP socket on an ephemeral port and sets the remote host/port.
   /// Prefers IPv4 but falls back to IPv6 if necessary, and binds a socket that
   /// matches the destination address family.
   Future<void> connect(String host, int txPort,
       {Duration timeout = const Duration(seconds: 5),
       bool userInitiated = true}) async {
+    final normalizedHost = _normalizeHost(host);
+    if (normalizedHost.isEmpty) {
+      throw SocketException('Host is empty');
+    }
+
     final int generation = ++_connectGeneration;
     _connectInFlight = true;
     // remember target for auto-reconnect attempts
-    _lastHost = host;
+    _lastHost = normalizedHost;
     _lastPort = txPort;
     if (userInitiated) {
       _manualConnectInProgress = true;
@@ -92,24 +105,24 @@ class Network extends ChangeNotifier {
     try {
       // resolve remote address; prefer IPv4, fall back to IPv6
       InternetAddress dest;
-      final parsed = InternetAddress.tryParse(host);
+      final parsed = InternetAddress.tryParse(normalizedHost);
       if (parsed != null) {
         dest = parsed;
       } else {
         List<InternetAddress> addrs = [];
         try {
-          addrs = await InternetAddress.lookup(host,
+          addrs = await InternetAddress.lookup(normalizedHost,
               type: InternetAddressType.IPv4);
         } catch (_) {
           addrs = const [];
         }
         if (addrs.isEmpty) {
           // fall back to IPv6 lookup
-          addrs = await InternetAddress.lookup(host,
+          addrs = await InternetAddress.lookup(normalizedHost,
               type: InternetAddressType.IPv6);
         }
         if (addrs.isEmpty) {
-          throw SocketException('No IP address found for $host');
+          throw SocketException('No IP address found for $normalizedHost');
         }
         dest = addrs.first;
       }
@@ -208,7 +221,8 @@ class Network extends ChangeNotifier {
   }
 
   /// Sends an OSC message to the remote host, deferring if the buffer is full.
-  void sendOscMessage(String address, List<Object> arguments) {
+  /// Returns true when the message was accepted for transmit (sent or queued).
+  bool sendOscMessage(String address, List<Object> arguments) {
     // Hard block: never send Y LUT over the network
     // Matches any address ending with "/lut/Y" (e.g., "/send/1/lut/Y")
     final segs = address.split('/').where((s) => s.isNotEmpty).toList();
@@ -216,12 +230,12 @@ class Network extends ChangeNotifier {
         segs.length >= 2 && segs[segs.length - 2] == 'lut' && segs.last == 'Y';
     if (isYLut) {
       if (kDebugMode) debugPrint('Skipping send for Y LUT at "$address"');
-      return;
+      return false;
     }
 
     if (!isConnected && (address != "/sync" && address != "/ack")) {
       debugPrint('Not connected');
-      return;
+      return false;
     }
     final message = OSCMessage(address, arguments: arguments);
     final data = message.toBytes();
@@ -232,18 +246,22 @@ class Network extends ChangeNotifier {
         _pending.add(_Pending(data, _destination!, _port!));
         _socket!.writeEventsEnabled = true;
       }
+      return true;
     } on SocketException catch (e) {
       debugPrint('Deferred OSC send failed: $e');
       _pending.clear();
       _socket!.writeEventsEnabled = false;
+      return false;
     } on OSError catch (e) {
       debugPrint('OSC send failed (OSError): $e');
       _pending.clear();
       _socket!.writeEventsEnabled = false;
+      return false;
     } catch (e) {
       debugPrint('OSC send failed: $e');
       _pending.clear();
       _socket!.writeEventsEnabled = false;
+      return false;
     }
   }
 

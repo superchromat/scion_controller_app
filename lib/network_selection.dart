@@ -23,6 +23,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
 
   static const _prefKey = 'recent_endpoints';
   static const _maxRecents = 5;
+  static const _defaultPort = 9000;
 
   List<String> _recents = [];
   List<String> _discovered = [];
@@ -43,7 +44,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   }
 
   Future<void> _saveRecent(String host, int port) async {
-    final entry = port == 9000 ? host : '$host:$port';
+    final entry = _formatEndpoint(host, port);
     _recents.remove(entry);
     _recents.insert(0, entry);
     if (_recents.length > _maxRecents) _recents.removeLast();
@@ -51,14 +52,61 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     await prefs.setStringList(_prefKey, _recents);
   }
 
+  String _formatEndpoint(String host, int port) {
+    if (port == _defaultPort) return host;
+    return host.contains(':') ? '[$host]:$port' : '$host:$port';
+  }
+
+  ({String host, int port})? _parseEndpoint(String input) {
+    final text = input.trim();
+    if (text.isEmpty) return null;
+
+    String host;
+    int port = _defaultPort;
+
+    if (text.startsWith('[')) {
+      final end = text.indexOf(']');
+      if (end <= 1) return null;
+      host = text.substring(1, end).trim();
+      final tail = text.substring(end + 1).trim();
+      if (tail.isNotEmpty) {
+        if (!tail.startsWith(':')) return null;
+        final p = int.tryParse(tail.substring(1));
+        if (p == null || p <= 0 || p > 65535) return null;
+        port = p;
+      }
+    } else {
+      final colonCount = ':'.allMatches(text).length;
+      if (colonCount == 0) {
+        host = text;
+      } else if (colonCount == 1) {
+        final idx = text.lastIndexOf(':');
+        host = text.substring(0, idx).trim();
+        final p = int.tryParse(text.substring(idx + 1).trim());
+        if (p == null || p <= 0 || p > 65535) return null;
+        port = p;
+      } else {
+        // Bare IPv6 literal without explicit port.
+        host = text;
+      }
+    }
+
+    while (host.endsWith('.')) {
+      host = host.substring(0, host.length - 1);
+    }
+    if (host.isEmpty) return null;
+
+    return (host: host, port: port);
+  }
+
   Future<void> _connectTo(String input) async {
-    final parts = input.split(':');
-    if (parts.isEmpty || parts[0].isEmpty) {
+    final endpoint = _parseEndpoint(input);
+    if (endpoint == null) {
       await _showError('Enter a valid host');
       return;
     }
-    final host = parts[0];
-    final port = (parts.length == 2) ? int.tryParse(parts[1]) ?? 9000 : 9000;
+    final host = endpoint.host;
+    final port = endpoint.port;
 
     final net = context.read<Network>();
     try {
@@ -97,7 +145,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
       return;
     }
 
-    final addresses = services.map((s) => '${s.host}:${s.port}').toList();
+    final addresses = services.map((s) => _formatEndpoint(s.host, s.port)).toList();
     setState(() {
       _controller.text = addresses.first;
       _discovered = addresses.length > 1 ? addresses.sublist(1) : [];

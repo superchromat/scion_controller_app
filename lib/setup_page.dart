@@ -1,13 +1,20 @@
 import 'package:SCION_Controller/system_overview.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import 'grid.dart';
 import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
 import 'firmware_update.dart';
 import 'labeled_card.dart';
+import 'network.dart';
 import 'osc_checkbox.dart';
+import 'osc_log.dart';
+import 'osc_registry.dart';
+import 'osc_widget_binding.dart';
 
 /// System page - contains system overview, video format, and sync settings
 class SystemPage extends StatefulWidget {
@@ -98,10 +105,37 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
   final _formKey = GlobalKey<FormState>();
   final _hostnameController = TextEditingController(text: 'scion.local');
   final _ipController = TextEditingController(text: '192.168.2.75');
-  final _maskController = TextEditingController(text: '255.255.255.0');
+  final _maskController = TextEditingController(text: '255.255.0.0');
   final _routerController = TextEditingController(text: '192.168.2.1');
   bool _dhcpEnabled = true;
   bool _showValidation = false;
+
+  static const _oscNetworkHostname = '/network/hostname';
+  static const _oscNetworkDhcp = '/network/dhcp';
+  static const _oscNetworkIp = '/network/ip';
+  static const _oscNetworkNetmask = '/network/netmask';
+  static const _oscNetworkRouter = '/network/router';
+
+  @override
+  void initState() {
+    super.initState();
+    final reg = OscRegistry();
+    for (final addr in const [
+      _oscNetworkHostname,
+      _oscNetworkDhcp,
+      _oscNetworkIp,
+      _oscNetworkNetmask,
+      _oscNetworkRouter,
+    ]) {
+      reg.registerAddress(addr);
+    }
+    reg.registerListener(_oscNetworkHostname, _onHostnameOsc);
+    reg.registerListener(_oscNetworkDhcp, _onDhcpOsc);
+    reg.registerListener(_oscNetworkIp, _onIpOsc);
+    reg.registerListener(_oscNetworkNetmask, _onNetmaskOsc);
+    reg.registerListener(_oscNetworkRouter, _onRouterOsc);
+    _hydrateFromRegistry(reg);
+  }
 
   ButtonStyle _actionButtonStyle(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -127,11 +161,84 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
 
   @override
   void dispose() {
+    final reg = OscRegistry();
+    reg.unregisterListener(_oscNetworkHostname, _onHostnameOsc);
+    reg.unregisterListener(_oscNetworkDhcp, _onDhcpOsc);
+    reg.unregisterListener(_oscNetworkIp, _onIpOsc);
+    reg.unregisterListener(_oscNetworkNetmask, _onNetmaskOsc);
+    reg.unregisterListener(_oscNetworkRouter, _onRouterOsc);
     _hostnameController.dispose();
     _ipController.dispose();
     _maskController.dispose();
     _routerController.dispose();
     super.dispose();
+  }
+
+  void _setControllerText(TextEditingController controller, String next) {
+    if (controller.text == next) return;
+    controller.value = controller.value.copyWith(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  void _hydrateFromRegistry(OscRegistry reg) {
+    void push(String addr, void Function(List<Object?>) cb) {
+      final param = reg.allParams[addr];
+      final args = param?.currentValue;
+      if (args == null || args.isEmpty) return;
+      cb(List<Object?>.from(args));
+    }
+
+    push(_oscNetworkHostname, _onHostnameOsc);
+    push(_oscNetworkDhcp, _onDhcpOsc);
+    push(_oscNetworkIp, _onIpOsc);
+    push(_oscNetworkNetmask, _onNetmaskOsc);
+    push(_oscNetworkRouter, _onRouterOsc);
+  }
+
+  void _onHostnameOsc(List<Object?> args) {
+    if (!mounted || args.isEmpty || args.first is! String) return;
+    setState(() {
+      _setControllerText(_hostnameController, (args.first as String).trim());
+    });
+  }
+
+  void _onDhcpOsc(List<Object?> args) {
+    if (!mounted || args.isEmpty) return;
+    bool? v;
+    final first = args.first;
+    if (first is bool) {
+      v = first;
+    } else if (first is int) {
+      v = first != 0;
+    }
+    if (v == null) return;
+    setState(() {
+      _dhcpEnabled = v!;
+    });
+  }
+
+  void _onIpOsc(List<Object?> args) {
+    if (!mounted || args.isEmpty || args.first is! String) return;
+    setState(() {
+      _setControllerText(_ipController, (args.first as String).trim());
+    });
+  }
+
+  void _onNetmaskOsc(List<Object?> args) {
+    if (!mounted || args.isEmpty || args.first is! String) return;
+    setState(() {
+      _setControllerText(_maskController, (args.first as String).trim());
+    });
+  }
+
+  void _onRouterOsc(List<Object?> args) {
+    if (!mounted || args.isEmpty || args.first is! String) return;
+    setState(() {
+      _setControllerText(_routerController, (args.first as String).trim());
+    });
   }
 
   static final _ipv4Allowed = FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'));
@@ -195,13 +302,74 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     return null;
   }
 
+  bool _sendNetworkOsc(Network net, String address, List<Object> args) {
+    final sent = net.sendOscMessage(address, args);
+
+    if (sent) {
+      final reg = OscRegistry();
+      reg.registerAddress(address);
+      reg.dispatchLocal(address, args.cast<Object?>());
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: address,
+          arg: args,
+          status: OscStatus.ok,
+          direction: Direction.sent,
+          binary: Uint8List(0),
+        );
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oscLogKey.currentState?.logOscMessage(
+          address: address,
+          arg: args,
+          status: OscStatus.fail,
+          direction: Direction.sent,
+          binary: Uint8List(0),
+        );
+      });
+    }
+    return sent;
+  }
+
   void _apply() {
     setState(() => _showValidation = true);
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
+
+    final net = context.read<Network>();
+    if (!net.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connect to a device to apply network settings')),
+      );
+      return;
+    }
+
+    int sentCount = 0;
+
+    sentCount += _sendNetworkOsc(
+      net,
+      _oscNetworkHostname,
+      <Object>[_hostnameController.text.trim()],
+    ) ? 1 : 0;
+    sentCount += _sendNetworkOsc(net, _oscNetworkDhcp, <Object>[_dhcpEnabled]) ? 1 : 0;
+    sentCount += _sendNetworkOsc(net, _oscNetworkIp, <Object>[_ipController.text.trim()]) ? 1 : 0;
+    sentCount += _sendNetworkOsc(
+      net,
+      _oscNetworkNetmask,
+      <Object>[_maskController.text.trim()],
+    ) ? 1 : 0;
+    sentCount += _sendNetworkOsc(
+      net,
+      _oscNetworkRouter,
+      <Object>[_routerController.text.trim()],
+    ) ? 1 : 0;
+    sentCount += _sendNetworkOsc(net, '/network/apply', <Object>[1]) ? 1 : 0;
+
     final msg = _dhcpEnabled
-        ? 'DHCP enabled'
-        : 'Static network settings validated';
+        ? 'Applied network settings (DHCP) - sent $sentCount/6 OSC'
+        : 'Applied static network settings - sent $sentCount/6 OSC';
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 

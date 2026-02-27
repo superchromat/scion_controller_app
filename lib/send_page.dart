@@ -6,6 +6,7 @@ import 'shape.dart';
 import 'send_color.dart';
 import 'send_text.dart';
 import 'send_source_selector.dart';
+import 'send_overlay_source.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
 import 'send_glitch.dart';
@@ -36,6 +37,16 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     // Only register rotation for Send 1
     if (widget.pageNumber == 1) {
       registry.registerAddress('$send/rotation');
+      registry.registerAddress('$send/pip/enabled');
+      registry.registerAddress('$send/pip/source_send');
+      registry.registerAddress('$send/pip/scaleX');
+      registry.registerAddress('$send/pip/scaleY');
+      registry.registerAddress('$send/pip/posX');
+      registry.registerAddress('$send/pip/posY');
+      registry.registerAddress('$send/pip/alpha');
+      registry.registerAddress('$send/pip/opaque_blend');
+      registry.registerAddress('$send/pip/opaque_thres_y');
+      registry.registerAddress('$send/pip/opaque_thres_c');
     }
   }
 
@@ -69,14 +80,33 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          GridRow(gutter: t.md, cells: [(
-                            span: 12,
-                            child: LabeledCard(
-                              title: 'Send Source',
-                              child: SendSourceSelector(pageNumber: widget.pageNumber),
-                            ),
-                          )]),
+                          GridRow(gutter: t.md, cells: [
+                            (
+                              span: 12,
+                              child: LabeledCard(
+                                title: 'Send Source',
+                                child: SendSourceSelector(
+                                    pageNumber: widget.pageNumber),
+                              ),
+                            )
+                          ]),
                           SizedBox(height: sectionGap),
+                          if (widget.pageNumber == 1) ...[
+                            GridRow(
+                              gutter: t.md,
+                              cells: [
+                                (
+                                  span: 12,
+                                  child: LabeledCard(
+                                    title: 'Overlay Source',
+                                    child: SendOverlaySource(
+                                        pageNumber: widget.pageNumber),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: sectionGap),
+                          ],
                           GridRow(
                             gutter: t.md,
                             cells: [
@@ -104,8 +134,9 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                             ],
                           ),
                           SizedBox(height: sectionGap),
-                          GridRow(gutter: t.md, cells: [(
-                            span: 12,
+                          GridRow(gutter: t.md, cells: [
+                            (
+                              span: 12,
                               child: LabeledCard(
                                 title: 'Color',
                                 child: SendColor(
@@ -115,26 +146,34 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                       : null,
                                 ),
                               ),
-                            )]),
+                            )
+                          ]),
                           SizedBox(height: sectionGap),
-                          GridRow(gutter: t.md, cells: [(
-                            span: 12,
-                            child: LabeledCard(
-                              title: 'Glitch',
-                              action: _resetButton(() => (_glitchKey.currentState as dynamic)?.reset()),
-                              child: SendGlitch(key: _glitchKey),
-                            ),
-                          )]),
+                          GridRow(gutter: t.md, cells: [
+                            (
+                              span: 12,
+                              child: LabeledCard(
+                                title: 'Glitch',
+                                action: _resetButton(() =>
+                                    (_glitchKey.currentState as dynamic)
+                                        ?.reset()),
+                                child: SendGlitch(key: _glitchKey),
+                              ),
+                            )
+                          ]),
                         ],
                       ),
                     ),
                     SizedBox(height: sectionGap),
                     OscPathSegment(
                       segment: 'dac/${widget.pageNumber}',
-                      child: GridRow(gutter: t.md, cells: [(
-                        span: 12,
-                        child: const LabeledCard(title: 'DAC', child: DacParameters()),
-                      )]),
+                      child: GridRow(gutter: t.md, cells: [
+                        (
+                          span: 12,
+                          child: const LabeledCard(
+                              title: 'DAC', child: DacParameters()),
+                        )
+                      ]),
                     ),
                   ],
                 ),
