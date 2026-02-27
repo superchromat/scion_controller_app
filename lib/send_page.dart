@@ -6,7 +6,6 @@ import 'shape.dart';
 import 'send_color.dart';
 import 'send_text.dart';
 import 'send_source_selector.dart';
-import 'send_overlay_source.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
 import 'send_glitch.dart';
@@ -38,11 +37,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     if (widget.pageNumber == 1) {
       registry.registerAddress('$send/rotation');
       registry.registerAddress('$send/pip/enabled');
-      registry.registerAddress('$send/pip/source_send');
-      registry.registerAddress('$send/pip/scaleX');
-      registry.registerAddress('$send/pip/scaleY');
-      registry.registerAddress('$send/pip/posX');
-      registry.registerAddress('$send/pip/posY');
       registry.registerAddress('$send/pip/alpha');
       registry.registerAddress('$send/pip/opaque_blend');
       registry.registerAddress('$send/pip/opaque_thres_y');
@@ -91,22 +85,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                             )
                           ]),
                           SizedBox(height: sectionGap),
-                          if (widget.pageNumber == 1) ...[
-                            GridRow(
-                              gutter: t.md,
-                              cells: [
-                                (
-                                  span: 12,
-                                  child: LabeledCard(
-                                    title: 'Overlay Source',
-                                    child: SendOverlaySource(
-                                        pageNumber: widget.pageNumber),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: sectionGap),
-                          ],
                           GridRow(
                             gutter: t.md,
                             cells: [

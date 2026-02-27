@@ -6,6 +6,9 @@ import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'system_overview.dart';
 import 'grid.dart';
+import 'osc_rotary_knob.dart';
+import 'osc_dropdown.dart';
+import 'rotary_knob.dart';
 
 // Styles are now derived from GridTokens where possible, but these
 // status-indicator colors don't fit the standard token palette.
@@ -33,9 +36,34 @@ class SendSourceSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OscPathSegment(
+    final t = GridProvider.of(context);
+    final sourceTiles = OscPathSegment(
       segment: 'input',
       child: _SelectorInner(pageNumber: pageNumber),
+    );
+
+    if (pageNumber != 1) return sourceTiles;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        sourceTiles,
+        SizedBox(height: t.sm),
+        GridRow(
+          cells: [
+            (span: 3, child: const SizedBox.shrink()),
+            (
+              span: 3,
+              child: OscPathSegment(
+                segment: 'pip',
+                child: _Send2OverlayCompactControls(pageNumber: pageNumber),
+              ),
+            ),
+            (span: 3, child: const SizedBox.shrink()),
+            (span: 3, child: const SizedBox.shrink()),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -48,8 +76,7 @@ class _SelectorInner extends StatefulWidget {
   State<_SelectorInner> createState() => _SelectorInnerState();
 }
 
-class _SelectorInnerState extends State<_SelectorInner>
-    with OscAddressMixin {
+class _SelectorInnerState extends State<_SelectorInner> with OscAddressMixin {
   late int _selected;
 
   @override
@@ -126,8 +153,12 @@ class _InputSourceTileState extends State<_InputSourceTile> {
   String _sub = '';
 
   static const _segments = [
-    'connected', 'resolution', 'framerate',
-    'bit_depth', 'colorspace', 'chroma_subsampling',
+    'connected',
+    'resolution',
+    'framerate',
+    'bit_depth',
+    'colorspace',
+    'chroma_subsampling',
   ];
 
   late final String _base;
@@ -158,14 +189,16 @@ class _InputSourceTileState extends State<_InputSourceTile> {
     });
     listen('framerate', (args) {
       final v = double.tryParse(
-        args.isNotEmpty ? args.first.toString() : '',
-      ) ?? 0.0;
+            args.isNotEmpty ? args.first.toString() : '',
+          ) ??
+          0.0;
       if (v != _fps && mounted) setState(() => _fps = v);
     });
     listen('bit_depth', (args) {
       final v = int.tryParse(
-        args.isNotEmpty ? args.first.toString() : '',
-      ) ?? 0;
+            args.isNotEmpty ? args.first.toString() : '',
+          ) ??
+          0;
       if (v != _bpp && mounted) setState(() => _bpp = v);
     });
     listen('colorspace', (args) {
@@ -183,12 +216,18 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       if (param != null && param.currentValue.isNotEmpty) {
         final raw = param.currentValue.first;
         switch (seg) {
-          case 'connected': _connected = raw == true;
-          case 'resolution': _res = raw.toString();
-          case 'framerate': _fps = double.tryParse(raw.toString()) ?? 0.0;
-          case 'bit_depth': _bpp = int.tryParse(raw.toString()) ?? 0;
-          case 'colorspace': _cs = raw.toString();
-          case 'chroma_subsampling': _sub = raw.toString();
+          case 'connected':
+            _connected = raw == true;
+          case 'resolution':
+            _res = raw.toString();
+          case 'framerate':
+            _fps = double.tryParse(raw.toString()) ?? 0.0;
+          case 'bit_depth':
+            _bpp = int.tryParse(raw.toString()) ?? 0;
+          case 'colorspace':
+            _cs = raw.toString();
+          case 'chroma_subsampling':
+            _sub = raw.toString();
         }
       }
     }
@@ -249,8 +288,9 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
     });
     listen('/analog_format/framerate', (args) {
       final v = double.tryParse(
-        args.isNotEmpty ? args.first.toString() : '',
-      ) ?? 0.0;
+            args.isNotEmpty ? args.first.toString() : '',
+          ) ??
+          0.0;
       if (v != _fps && mounted) setState(() => _fps = v);
     });
     listen('/analog_format/colorspace', (args) {
@@ -263,9 +303,15 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
       final param = registry.allParams[path];
       if (param != null && param.currentValue.isNotEmpty) {
         final raw = param.currentValue.first;
-        if (path.endsWith('resolution')) _res = raw.toString();
-        if (path.endsWith('framerate')) _fps = double.tryParse(raw.toString()) ?? 0.0;
-        if (path.endsWith('colorspace')) _cs = raw.toString();
+        if (path.endsWith('resolution')) {
+          _res = raw.toString();
+        }
+        if (path.endsWith('framerate')) {
+          _fps = double.tryParse(raw.toString()) ?? 0.0;
+        }
+        if (path.endsWith('colorspace')) {
+          _cs = raw.toString();
+        }
       }
     }
   }
@@ -365,10 +411,12 @@ class _SelectableTile extends StatelessWidget {
                 child: ShaderMask(
                   blendMode: BlendMode.srcIn,
                   shaderCallback: (bounds) {
-                    return lighting.createPhongSurfaceGradient(
-                      baseColor: const Color(0xFF454548),
-                      intensity: 0.12,
-                    ).createShader(bounds);
+                    return lighting
+                        .createPhongSurfaceGradient(
+                          baseColor: const Color(0xFF454548),
+                          intensity: 0.12,
+                        )
+                        .createShader(bounds);
                   },
                   child: Text(overlayLabel, style: _overlayStyle),
                 ),
@@ -378,6 +426,349 @@ class _SelectableTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _Send2OverlayCompactControls extends StatelessWidget {
+  final int pageNumber;
+
+  const _Send2OverlayCompactControls({required this.pageNumber});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    final knobSize = (t.knobSm * 0.72).clamp(34.0, 56.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _OverlayModeDropdown(pageNumber: pageNumber),
+        _OverlayModeKnobs(knobSize: knobSize, pageNumber: pageNumber),
+      ],
+    );
+  }
+}
+
+class _OverlayModeKnobs extends StatefulWidget {
+  final double knobSize;
+  final int pageNumber;
+
+  const _OverlayModeKnobs({
+    required this.knobSize,
+    required this.pageNumber,
+  });
+
+  @override
+  State<_OverlayModeKnobs> createState() => _OverlayModeKnobsState();
+}
+
+class _OverlayModeKnobsState extends State<_OverlayModeKnobs> {
+  bool _enabled = false;
+  int _blendMode = 0;
+  int _mode = 0;
+  final Map<String, void Function(List<Object?>)> _listeners = {};
+
+  String get _enabledPath => '/send/${widget.pageNumber}/pip/enabled';
+  String get _blendPath => '/send/${widget.pageNumber}/pip/opaque_blend';
+
+  @override
+  void initState() {
+    super.initState();
+    _listenPath(_enabledPath, _handleEnabledUpdate);
+    _listenPath(_blendPath, _handleBlendUpdate);
+    _primeFromRegistry();
+  }
+
+  @override
+  void dispose() {
+    final registry = OscRegistry();
+    _listeners.forEach((path, cb) => registry.unregisterListener(path, cb));
+    super.dispose();
+  }
+
+  void _listenPath(String path, void Function(List<Object?>) cb) {
+    final registry = OscRegistry();
+    registry.registerAddress(path);
+    _listeners[path] = cb;
+    registry.registerListener(path, cb);
+  }
+
+  void _primeFromRegistry() {
+    final registry = OscRegistry();
+    for (final entry in _listeners.entries) {
+      final param = registry.allParams[entry.key];
+      if (param != null && param.currentValue.isNotEmpty) {
+        entry.value(param.currentValue.cast<Object?>());
+      }
+    }
+    _refreshModeFromState();
+  }
+
+  static bool _parseOscBool(Object? raw) {
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    final s = raw?.toString().toLowerCase() ?? '';
+    return s == 't' || s == 'true' || s == '1';
+  }
+
+  static int _parseOscInt(Object? raw, int fallback) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString() ?? '') ?? fallback;
+  }
+
+  void _handleEnabledUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscBool(args.first);
+    if (next != _enabled) {
+      setState(() => _enabled = next);
+      _refreshModeFromState();
+    }
+  }
+
+  void _handleBlendUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscInt(args.first, _blendMode).clamp(0, 2);
+    if (next != _blendMode) {
+      setState(() => _blendMode = next);
+      _refreshModeFromState();
+    }
+  }
+
+  void _refreshModeFromState() {
+    final resolvedMode = !_enabled
+        ? 0
+        : switch (_blendMode) {
+            1 => 2,
+            2 => 3,
+            _ => 1,
+          };
+    if (resolvedMode != _mode && mounted) {
+      setState(() => _mode = resolvedMode);
+    }
+  }
+
+  Widget _alphaKnob(TextStyle? labelStyle) {
+    return OscPathSegment(
+      segment: 'alpha',
+      child: OscRotaryKnob(
+        initialValue: 1.0,
+        minValue: 0.0,
+        maxValue: 1.0,
+        format: '%.2f',
+        label: 'Mix',
+        defaultValue: 1.0,
+        size: widget.knobSize,
+        labelStyle: labelStyle,
+        snapConfig: const SnapConfig(
+          snapPoints: [0.0, 0.25, 0.5, 0.75, 1.0],
+          snapRegionHalfWidth: 0.02,
+          snapBehavior: SnapBehavior.hard,
+        ),
+      ),
+    );
+  }
+
+  Widget _yKeyKnob(TextStyle? labelStyle) {
+    return OscPathSegment(
+      segment: 'opaque_thres_y',
+      child: OscRotaryKnob(
+        initialValue: 0.0,
+        minValue: 0.0,
+        maxValue: 4095.0,
+        format: '%.0f',
+        label: 'Y Key',
+        defaultValue: 0.0,
+        size: widget.knobSize,
+        labelStyle: labelStyle,
+        preferInteger: true,
+      ),
+    );
+  }
+
+  Widget _cKeyKnob(TextStyle? labelStyle) {
+    return OscPathSegment(
+      segment: 'opaque_thres_c',
+      child: OscRotaryKnob(
+        initialValue: 0.0,
+        minValue: 0.0,
+        maxValue: 255.0,
+        format: '%.0f',
+        label: 'C Key',
+        defaultValue: 0.0,
+        size: widget.knobSize,
+        labelStyle: labelStyle,
+        preferInteger: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+
+    if (_mode == 0) {
+      return const SizedBox.shrink();
+    }
+
+    if (_mode == 1) {
+      return Padding(
+        padding: EdgeInsets.only(top: t.xs),
+        child: Center(child: _alphaKnob(t.textLabel)),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(top: t.xs),
+      child: Row(
+        children: [
+          Expanded(child: Center(child: _alphaKnob(t.textLabel))),
+          Expanded(child: Center(child: _yKeyKnob(t.textLabel))),
+          Expanded(child: Center(child: _cKeyKnob(t.textLabel))),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverlayModeDropdown extends StatefulWidget {
+  final int pageNumber;
+
+  const _OverlayModeDropdown({required this.pageNumber});
+
+  @override
+  State<_OverlayModeDropdown> createState() => _OverlayModeDropdownState();
+}
+
+class _OverlayModeDropdownState extends State<_OverlayModeDropdown>
+    with OscAddressMixin {
+  int _mode = 0;
+  bool _enabled = false;
+  int _blendMode = 0;
+  final Map<String, void Function(List<Object?>)> _listeners = {};
+
+  String get _enabledPath => '/send/${widget.pageNumber}/pip/enabled';
+  String get _blendPath => '/send/${widget.pageNumber}/pip/opaque_blend';
+
+  @override
+  void initState() {
+    super.initState();
+    _listenPath(_enabledPath, _handleEnabledUpdate);
+    _listenPath(_blendPath, _handleBlendUpdate);
+    _primeFromRegistry();
+  }
+
+  @override
+  void dispose() {
+    final registry = OscRegistry();
+    _listeners.forEach((path, cb) => registry.unregisterListener(path, cb));
+    super.dispose();
+  }
+
+  @override
+  OscStatus onOscMessage(List<Object?> args) => OscStatus.ok;
+
+  void _listenPath(String path, void Function(List<Object?>) cb) {
+    final registry = OscRegistry();
+    registry.registerAddress(path);
+    _listeners[path] = cb;
+    registry.registerListener(path, cb);
+  }
+
+  void _primeFromRegistry() {
+    final registry = OscRegistry();
+    for (final entry in _listeners.entries) {
+      final param = registry.allParams[entry.key];
+      if (param != null && param.currentValue.isNotEmpty) {
+        entry.value(param.currentValue.cast<Object?>());
+      }
+    }
+    _refreshModeFromState();
+  }
+
+  static bool _parseOscBool(Object? raw) {
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    final s = raw?.toString().toLowerCase() ?? '';
+    return s == 't' || s == 'true' || s == '1';
+  }
+
+  static int _parseOscInt(Object? raw, int fallback) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString() ?? '') ?? fallback;
+  }
+
+  void _handleEnabledUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscBool(args.first);
+    if (next != _enabled) {
+      setState(() => _enabled = next);
+      _refreshModeFromState();
+    }
+  }
+
+  void _handleBlendUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscInt(args.first, _blendMode).clamp(0, 2);
+    if (next != _blendMode) {
+      setState(() => _blendMode = next);
+      _refreshModeFromState();
+    }
+  }
+
+  void _refreshModeFromState() {
+    final resolvedMode = !_enabled
+        ? 0
+        : switch (_blendMode) {
+            1 => 2,
+            2 => 3,
+            _ => 1,
+          };
+    if (resolvedMode != _mode && mounted) {
+      setState(() => _mode = resolvedMode);
+    }
+  }
+
+  void _sendMode(int mode) {
+    if (mode < 0 || mode > 3) return;
+
+    final enabled = mode != 0;
+    final blend = switch (mode) {
+      2 => 1,
+      3 => 2,
+      _ => 0,
+    };
+
+    setState(() {
+      _mode = mode;
+      _enabled = enabled;
+      _blendMode = blend;
+    });
+
+    sendOsc(enabled, address: _enabledPath);
+    sendOsc(blend, address: _blendPath);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OscDropdown<int>(
+      key: ValueKey<int>(_mode),
+      label: 'Mode',
+      pathSegment: '_overlay_mode',
+      items: const [0, 1, 2, 3],
+      itemLabels: const {
+        0: 'No Overlay',
+        1: 'Mix',
+        2: 'Key',
+        3: 'Key Reverse',
+      },
+      defaultValue: _mode,
+      sendOscDirect: false,
+      showLabel: false,
+      width: double.infinity,
+      onChanged: _sendMode,
     );
   }
 }

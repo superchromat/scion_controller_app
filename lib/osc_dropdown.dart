@@ -17,6 +17,8 @@ class OscDropdown<T> extends StatelessWidget {
   final String? pathSegment;
   final String? displayLabel;
   final bool enabled;
+  final bool sendOscDirect;
+  final bool showLabel;
   final double width;
   final Map<T, String>? itemLabels;
 
@@ -29,6 +31,8 @@ class OscDropdown<T> extends StatelessWidget {
     this.pathSegment,
     this.displayLabel,
     this.enabled = true,
+    this.sendOscDirect = true,
+    this.showLabel = true,
     this.width = 160,
     this.itemLabels,
   });
@@ -45,6 +49,8 @@ class OscDropdown<T> extends StatelessWidget {
         defaultValue: defaultValue,
         onChanged: onChanged,
         enabled: enabled,
+        sendOscDirect: sendOscDirect,
+        showLabel: showLabel,
         width: width,
         itemLabels: itemLabels,
       ),
@@ -58,6 +64,8 @@ class _OscDropdownInner<T> extends StatefulWidget {
   final T? defaultValue;
   final OnChangedCallback<T>? onChanged;
   final bool enabled;
+  final bool sendOscDirect;
+  final bool showLabel;
   final double width;
   final Map<T, String>? itemLabels;
 
@@ -68,6 +76,8 @@ class _OscDropdownInner<T> extends StatefulWidget {
     this.defaultValue,
     this.onChanged,
     this.enabled = true,
+    this.sendOscDirect = true,
+    this.showLabel = true,
     this.width = 160,
     this.itemLabels,
   });
@@ -141,7 +151,9 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
         onSelected: (value) {
           Navigator.of(context).pop();
           setState(() => _selected = value);
-          sendOsc(value);
+          if (widget.sendOscDirect) {
+            sendOsc(value);
+          }
           widget.onChanged?.call(value);
         },
       ),
@@ -169,17 +181,23 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
     final t = GridProvider.maybeOf(context);
-    final labelStyle = (t?.textLabel ?? const TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFFAAAAAA),
-    )).copyWith(
-      color: widget.enabled ? (t?.textLabel.color ?? const Color(0xFFAAAAAA)) : const Color(0xFF606060),
+    final labelStyle = (t?.textLabel ??
+            const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFFAAAAAA),
+            ))
+        .copyWith(
+      color: widget.enabled
+          ? (t?.textLabel.color ?? const Color(0xFFAAAAAA))
+          : const Color(0xFF606060),
     );
-    final valueStyle = (t?.textValue ?? const TextStyle(
-      fontSize: 13,
-      color: Colors.white,
-    )).copyWith(
+    final valueStyle = (t?.textValue ??
+            const TextStyle(
+              fontSize: 13,
+              color: Colors.white,
+            ))
+        .copyWith(
       fontSize: 13,
       fontFamily: 'DINPro',
       color: widget.enabled ? Colors.white : Colors.grey[600],
@@ -189,14 +207,14 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Label
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            widget.label,
-            style: labelStyle,
+        if (widget.showLabel)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              widget.label,
+              style: labelStyle,
+            ),
           ),
-        ),
         // Button
         MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
@@ -249,12 +267,12 @@ class _NeumorphicDropdownButton extends StatefulWidget {
   });
 
   @override
-  State<_NeumorphicDropdownButton> createState() => _NeumorphicDropdownButtonState();
+  State<_NeumorphicDropdownButton> createState() =>
+      _NeumorphicDropdownButtonState();
 }
 
 class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton>
     with GlobalRectTracking<_NeumorphicDropdownButton> {
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -264,7 +282,8 @@ class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         boxShadow: widget.enabled
-            ? widget.lighting.createNeumorphicShadows(elevation: widget.isHovered ? 3.0 : 2.0)
+            ? widget.lighting.createNeumorphicShadows(
+                elevation: widget.isHovered ? 3.0 : 2.0)
             : null,
       ),
       child: ClipRRect(
@@ -417,8 +436,10 @@ class _NeumorphicDropdownMenu<T> extends StatelessWidget {
     if (totalMenuHeight > maxMenuHeight) {
       // We need to scroll to show the selected item
       // Calculate how much to scroll so selected item is visible and centered
-      initialScrollOffset = selectedItemTop - (menuHeight / 2 - _itemHeight / 2);
-      initialScrollOffset = initialScrollOffset.clamp(0.0, totalMenuHeight - menuHeight);
+      initialScrollOffset =
+          selectedItemTop - (menuHeight / 2 - _itemHeight / 2);
+      initialScrollOffset =
+          initialScrollOffset.clamp(0.0, totalMenuHeight - menuHeight);
     }
 
     return Stack(
@@ -477,7 +498,8 @@ class _ScrollableMenuContent<T> extends StatefulWidget {
   });
 
   @override
-  State<_ScrollableMenuContent<T>> createState() => _ScrollableMenuContentState<T>();
+  State<_ScrollableMenuContent<T>> createState() =>
+      _ScrollableMenuContentState<T>();
 }
 
 class _ScrollableMenuContentState<T> extends State<_ScrollableMenuContent<T>> {
@@ -530,12 +552,12 @@ class _NeumorphicMenuContainer extends StatefulWidget {
   });
 
   @override
-  State<_NeumorphicMenuContainer> createState() => _NeumorphicMenuContainerState();
+  State<_NeumorphicMenuContainer> createState() =>
+      _NeumorphicMenuContainerState();
 }
 
 class _NeumorphicMenuContainerState extends State<_NeumorphicMenuContainer>
     with GlobalRectTracking<_NeumorphicMenuContainer> {
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -675,7 +697,8 @@ class _NeumorphicMenuItemState extends State<_NeumorphicMenuItem> {
               Expanded(
                 child: Text(
                   widget.label,
-                  style: (t?.textValue ?? const TextStyle(fontSize: 13)).copyWith(
+                  style:
+                      (t?.textValue ?? const TextStyle(fontSize: 13)).copyWith(
                     fontSize: 13,
                     fontFamily: 'DINPro',
                     color: widget.isSelected
