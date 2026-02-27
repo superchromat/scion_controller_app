@@ -36,6 +36,9 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     // Only register rotation for Send 1
     if (widget.pageNumber == 1) {
       registry.registerAddress('$send/rotation');
+    }
+    // PIP controls are supported on Send 1 and Send 2.
+    if (widget.pageNumber == 1 || widget.pageNumber == 2) {
       registry.registerAddress('$send/pip/enabled');
       registry.registerAddress('$send/pip/alpha');
       registry.registerAddress('$send/pip/opaque_blend');

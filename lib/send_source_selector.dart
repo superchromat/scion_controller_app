@@ -42,7 +42,9 @@ class SendSourceSelector extends StatelessWidget {
       child: _SelectorInner(pageNumber: pageNumber),
     );
 
-    if (pageNumber != 1) return sourceTiles;
+    if (pageNumber != 1 && pageNumber != 2) return sourceTiles;
+
+    final controlTileColumn = pageNumber == 1 ? 1 : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -51,16 +53,18 @@ class SendSourceSelector extends StatelessWidget {
         SizedBox(height: t.sm),
         GridRow(
           cells: [
-            (span: 3, child: const SizedBox.shrink()),
-            (
-              span: 3,
-              child: OscPathSegment(
-                segment: 'pip',
-                child: _Send2OverlayCompactControls(pageNumber: pageNumber),
+            for (int tileIdx = 0; tileIdx < 4; tileIdx++)
+              (
+                span: 3,
+                child: tileIdx == controlTileColumn
+                    ? OscPathSegment(
+                        segment: 'pip',
+                        child: _SendOverlayCompactControls(
+                          pageNumber: pageNumber,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
-            ),
-            (span: 3, child: const SizedBox.shrink()),
-            (span: 3, child: const SizedBox.shrink()),
           ],
         ),
       ],
@@ -430,10 +434,10 @@ class _SelectableTile extends StatelessWidget {
   }
 }
 
-class _Send2OverlayCompactControls extends StatelessWidget {
+class _SendOverlayCompactControls extends StatelessWidget {
   final int pageNumber;
 
-  const _Send2OverlayCompactControls({required this.pageNumber});
+  const _SendOverlayCompactControls({required this.pageNumber});
 
   @override
   Widget build(BuildContext context) {
