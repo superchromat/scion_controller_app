@@ -6,7 +6,6 @@ import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'system_overview.dart';
 import 'grid.dart';
-import 'osc_rotary_knob.dart';
 import 'osc_dropdown.dart';
 import 'rotary_knob.dart';
 
@@ -29,6 +28,28 @@ final TextStyle _overlayStyle = TextStyle(
   fontWeight: FontWeight.bold,
 );
 
+int _sourceSendForTileIndex(int tileIndex) =>
+    tileIndex == 3 ? 4 : tileIndex + 1;
+
+int _defaultOverlaySourceForPage(int pageNumber) {
+  for (int send = 1; send <= 3; send++) {
+    if (send != pageNumber) return send;
+  }
+  return 4;
+}
+
+int _normalizeOverlaySourceForPage(int pageNumber, int sourceSend) {
+  if (sourceSend >= 1 && sourceSend <= 3 && sourceSend != pageNumber) {
+    return sourceSend;
+  }
+  if (sourceSend == 4) return 4;
+  return _defaultOverlaySourceForPage(pageNumber);
+}
+
+bool _isSourceDisallowedForPage(int pageNumber, int sourceSend) {
+  return sourceSend >= 1 && sourceSend <= 3 && sourceSend == pageNumber;
+}
+
 class SendSourceSelector extends StatelessWidget {
   final int pageNumber;
 
@@ -42,9 +63,7 @@ class SendSourceSelector extends StatelessWidget {
       child: _SelectorInner(pageNumber: pageNumber),
     );
 
-    if (pageNumber != 1 && pageNumber != 2) return sourceTiles;
-
-    final controlTileColumn = pageNumber == 1 ? 1 : 0;
+    if (pageNumber < 1 || pageNumber > 3) return sourceTiles;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,14 +75,18 @@ class SendSourceSelector extends StatelessWidget {
             for (int tileIdx = 0; tileIdx < 4; tileIdx++)
               (
                 span: 3,
-                child: tileIdx == controlTileColumn
-                    ? OscPathSegment(
+                child: _isSourceDisallowedForPage(
+                  pageNumber,
+                  _sourceSendForTileIndex(tileIdx),
+                )
+                    ? const SizedBox.shrink()
+                    : OscPathSegment(
                         segment: 'pip',
                         child: _SendOverlayCompactControls(
                           pageNumber: pageNumber,
+                          sourceSend: _sourceSendForTileIndex(tileIdx),
                         ),
-                      )
-                    : const SizedBox.shrink(),
+                      ),
               ),
           ],
         ),
@@ -434,232 +457,55 @@ class _SelectableTile extends StatelessWidget {
   }
 }
 
-class _SendOverlayCompactControls extends StatelessWidget {
+class _SendOverlayCompactControls extends StatefulWidget {
   final int pageNumber;
+  final int sourceSend;
 
-  const _SendOverlayCompactControls({required this.pageNumber});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
-    final knobSize = (t.knobSm * 0.72).clamp(34.0, 56.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _OverlayModeDropdown(pageNumber: pageNumber),
-        _OverlayModeKnobs(knobSize: knobSize, pageNumber: pageNumber),
-      ],
-    );
-  }
-}
-
-class _OverlayModeKnobs extends StatefulWidget {
-  final double knobSize;
-  final int pageNumber;
-
-  const _OverlayModeKnobs({
-    required this.knobSize,
+  const _SendOverlayCompactControls({
     required this.pageNumber,
+    required this.sourceSend,
   });
 
   @override
-  State<_OverlayModeKnobs> createState() => _OverlayModeKnobsState();
+  State<_SendOverlayCompactControls> createState() =>
+      _SendOverlayCompactControlsState();
 }
 
-class _OverlayModeKnobsState extends State<_OverlayModeKnobs> {
-  bool _enabled = false;
-  int _blendMode = 0;
+class _SendOverlayCompactControlsState
+    extends State<_SendOverlayCompactControls> with OscAddressMixin {
+  late int _activeSource;
+  int _deviceSource = 0;
+  bool _deviceEnabled = false;
+  int _deviceBlend = 0;
+  double _deviceAlpha = 1.0;
+  double _deviceYKey = 0.0;
+  double _deviceCKey = 0.0;
+
   int _mode = 0;
+  double _alpha = 1.0;
+  double _yKey = 0.0;
+  double _cKey = 0.0;
+
   final Map<String, void Function(List<Object?>)> _listeners = {};
 
+  String get _sourcePath => '/send/${widget.pageNumber}/pip/source_send';
   String get _enabledPath => '/send/${widget.pageNumber}/pip/enabled';
   String get _blendPath => '/send/${widget.pageNumber}/pip/opaque_blend';
+  String get _alphaPath => '/send/${widget.pageNumber}/pip/alpha';
+  String get _yKeyPath => '/send/${widget.pageNumber}/pip/opaque_thres_y';
+  String get _cKeyPath => '/send/${widget.pageNumber}/pip/opaque_thres_c';
 
   @override
   void initState() {
     super.initState();
+    _activeSource = _defaultOverlaySourceForPage(widget.pageNumber);
+    _deviceSource = _activeSource;
+    _listenPath(_sourcePath, _handleSourceUpdate);
     _listenPath(_enabledPath, _handleEnabledUpdate);
     _listenPath(_blendPath, _handleBlendUpdate);
-    _primeFromRegistry();
-  }
-
-  @override
-  void dispose() {
-    final registry = OscRegistry();
-    _listeners.forEach((path, cb) => registry.unregisterListener(path, cb));
-    super.dispose();
-  }
-
-  void _listenPath(String path, void Function(List<Object?>) cb) {
-    final registry = OscRegistry();
-    registry.registerAddress(path);
-    _listeners[path] = cb;
-    registry.registerListener(path, cb);
-  }
-
-  void _primeFromRegistry() {
-    final registry = OscRegistry();
-    for (final entry in _listeners.entries) {
-      final param = registry.allParams[entry.key];
-      if (param != null && param.currentValue.isNotEmpty) {
-        entry.value(param.currentValue.cast<Object?>());
-      }
-    }
-    _refreshModeFromState();
-  }
-
-  static bool _parseOscBool(Object? raw) {
-    if (raw is bool) return raw;
-    if (raw is num) return raw != 0;
-    final s = raw?.toString().toLowerCase() ?? '';
-    return s == 't' || s == 'true' || s == '1';
-  }
-
-  static int _parseOscInt(Object? raw, int fallback) {
-    if (raw is int) return raw;
-    if (raw is num) return raw.toInt();
-    return int.tryParse(raw?.toString() ?? '') ?? fallback;
-  }
-
-  void _handleEnabledUpdate(List<Object?> args) {
-    if (args.isEmpty) return;
-    final next = _parseOscBool(args.first);
-    if (next != _enabled) {
-      setState(() => _enabled = next);
-      _refreshModeFromState();
-    }
-  }
-
-  void _handleBlendUpdate(List<Object?> args) {
-    if (args.isEmpty) return;
-    final next = _parseOscInt(args.first, _blendMode).clamp(0, 2);
-    if (next != _blendMode) {
-      setState(() => _blendMode = next);
-      _refreshModeFromState();
-    }
-  }
-
-  void _refreshModeFromState() {
-    final resolvedMode = !_enabled
-        ? 0
-        : switch (_blendMode) {
-            1 => 2,
-            2 => 3,
-            _ => 1,
-          };
-    if (resolvedMode != _mode && mounted) {
-      setState(() => _mode = resolvedMode);
-    }
-  }
-
-  Widget _alphaKnob(TextStyle? labelStyle) {
-    return OscPathSegment(
-      segment: 'alpha',
-      child: OscRotaryKnob(
-        initialValue: 1.0,
-        minValue: 0.0,
-        maxValue: 1.0,
-        format: '%.2f',
-        label: 'Mix',
-        defaultValue: 1.0,
-        size: widget.knobSize,
-        labelStyle: labelStyle,
-        snapConfig: const SnapConfig(
-          snapPoints: [0.0, 0.25, 0.5, 0.75, 1.0],
-          snapRegionHalfWidth: 0.02,
-          snapBehavior: SnapBehavior.hard,
-        ),
-      ),
-    );
-  }
-
-  Widget _yKeyKnob(TextStyle? labelStyle) {
-    return OscPathSegment(
-      segment: 'opaque_thres_y',
-      child: OscRotaryKnob(
-        initialValue: 0.0,
-        minValue: 0.0,
-        maxValue: 4095.0,
-        format: '%.0f',
-        label: 'Y Key',
-        defaultValue: 0.0,
-        size: widget.knobSize,
-        labelStyle: labelStyle,
-        preferInteger: true,
-      ),
-    );
-  }
-
-  Widget _cKeyKnob(TextStyle? labelStyle) {
-    return OscPathSegment(
-      segment: 'opaque_thres_c',
-      child: OscRotaryKnob(
-        initialValue: 0.0,
-        minValue: 0.0,
-        maxValue: 255.0,
-        format: '%.0f',
-        label: 'C Key',
-        defaultValue: 0.0,
-        size: widget.knobSize,
-        labelStyle: labelStyle,
-        preferInteger: true,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
-
-    if (_mode == 0) {
-      return const SizedBox.shrink();
-    }
-
-    if (_mode == 1) {
-      return Padding(
-        padding: EdgeInsets.only(top: t.xs),
-        child: Center(child: _alphaKnob(t.textLabel)),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(top: t.xs),
-      child: Row(
-        children: [
-          Expanded(child: Center(child: _alphaKnob(t.textLabel))),
-          Expanded(child: Center(child: _yKeyKnob(t.textLabel))),
-          Expanded(child: Center(child: _cKeyKnob(t.textLabel))),
-        ],
-      ),
-    );
-  }
-}
-
-class _OverlayModeDropdown extends StatefulWidget {
-  final int pageNumber;
-
-  const _OverlayModeDropdown({required this.pageNumber});
-
-  @override
-  State<_OverlayModeDropdown> createState() => _OverlayModeDropdownState();
-}
-
-class _OverlayModeDropdownState extends State<_OverlayModeDropdown>
-    with OscAddressMixin {
-  int _mode = 0;
-  bool _enabled = false;
-  int _blendMode = 0;
-  final Map<String, void Function(List<Object?>)> _listeners = {};
-
-  String get _enabledPath => '/send/${widget.pageNumber}/pip/enabled';
-  String get _blendPath => '/send/${widget.pageNumber}/pip/opaque_blend';
-
-  @override
-  void initState() {
-    super.initState();
-    _listenPath(_enabledPath, _handleEnabledUpdate);
-    _listenPath(_blendPath, _handleBlendUpdate);
+    _listenPath(_alphaPath, _handleAlphaUpdate);
+    _listenPath(_yKeyPath, _handleYKeyUpdate);
+    _listenPath(_cKeyPath, _handleCKeyUpdate);
     _primeFromRegistry();
   }
 
@@ -688,7 +534,17 @@ class _OverlayModeDropdownState extends State<_OverlayModeDropdown>
         entry.value(param.currentValue.cast<Object?>());
       }
     }
-    _refreshModeFromState();
+  }
+
+  static int _parseOscInt(Object? raw, int fallback) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString() ?? '') ?? fallback;
+  }
+
+  static double _parseOscDouble(Object? raw, double fallback) {
+    if (raw is num) return raw.toDouble();
+    return double.tryParse(raw?.toString() ?? '') ?? fallback;
   }
 
   static bool _parseOscBool(Object? raw) {
@@ -698,81 +554,350 @@ class _OverlayModeDropdownState extends State<_OverlayModeDropdown>
     return s == 't' || s == 'true' || s == '1';
   }
 
-  static int _parseOscInt(Object? raw, int fallback) {
-    if (raw is int) return raw;
-    if (raw is num) return raw.toInt();
-    return int.tryParse(raw?.toString() ?? '') ?? fallback;
+  int _modeFromEnabledBlend(bool enabled, int blend) {
+    if (!enabled) return 0;
+    return switch (blend) {
+      1 => 2,
+      2 => 3,
+      _ => 1,
+    };
+  }
+
+  bool _enabledForMode(int mode) => mode != 0;
+
+  int _blendForMode(int mode) {
+    return switch (mode) {
+      2 => 1,
+      3 => 2,
+      _ => 0,
+    };
+  }
+
+  void _syncLocalFromDevice() {
+    if (_activeSource != widget.sourceSend) return;
+    final nextMode = _modeFromEnabledBlend(_deviceEnabled, _deviceBlend);
+    final nextAlpha = _deviceAlpha.clamp(0.0, 1.0);
+    final nextY = _deviceYKey.clamp(0.0, 4095.0);
+    final nextC = _deviceCKey.clamp(0.0, 255.0);
+    if (nextMode != _mode ||
+        (nextAlpha - _alpha).abs() > 0.0001 ||
+        (nextY - _yKey).abs() > 0.0001 ||
+        (nextC - _cKey).abs() > 0.0001) {
+      setState(() {
+        _mode = nextMode;
+        _alpha = nextAlpha;
+        _yKey = nextY;
+        _cKey = nextC;
+      });
+    }
+  }
+
+  void _sendLocalPresetToDevice() {
+    sendOsc(_enabledForMode(_mode), address: _enabledPath);
+    sendOsc(_blendForMode(_mode), address: _blendPath);
+    sendOsc(_alpha, address: _alphaPath);
+    sendOsc(_yKey.round(), address: _yKeyPath);
+    sendOsc(_cKey.round(), address: _cKeyPath);
+  }
+
+  void _ensureSourceSelected({bool applyPresetIfChanged = false}) {
+    if (_activeSource == widget.sourceSend) return;
+    setState(() => _activeSource = widget.sourceSend);
+    sendOsc(widget.sourceSend, address: _sourcePath);
+    if (applyPresetIfChanged) {
+      _sendLocalPresetToDevice();
+    }
+  }
+
+  void _handleSourceUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final incoming = _parseOscInt(args.first, _deviceSource);
+    final normalized =
+        _normalizeOverlaySourceForPage(widget.pageNumber, incoming);
+    _deviceSource = normalized;
+    if (normalized != _activeSource && mounted) {
+      setState(() => _activeSource = normalized);
+    }
+    _syncLocalFromDevice();
   }
 
   void _handleEnabledUpdate(List<Object?> args) {
     if (args.isEmpty) return;
     final next = _parseOscBool(args.first);
-    if (next != _enabled) {
-      setState(() => _enabled = next);
-      _refreshModeFromState();
+    if (next != _deviceEnabled) {
+      _deviceEnabled = next;
+      _syncLocalFromDevice();
     }
   }
 
   void _handleBlendUpdate(List<Object?> args) {
     if (args.isEmpty) return;
-    final next = _parseOscInt(args.first, _blendMode).clamp(0, 2);
-    if (next != _blendMode) {
-      setState(() => _blendMode = next);
-      _refreshModeFromState();
+    final next = _parseOscInt(args.first, _deviceBlend).clamp(0, 2);
+    if (next != _deviceBlend) {
+      _deviceBlend = next;
+      _syncLocalFromDevice();
     }
   }
 
-  void _refreshModeFromState() {
-    final resolvedMode = !_enabled
-        ? 0
-        : switch (_blendMode) {
-            1 => 2,
-            2 => 3,
-            _ => 1,
-          };
-    if (resolvedMode != _mode && mounted) {
-      setState(() => _mode = resolvedMode);
+  void _handleAlphaUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscDouble(args.first, _deviceAlpha).clamp(0.0, 1.0);
+    if ((next - _deviceAlpha).abs() > 0.0001) {
+      _deviceAlpha = next;
+      _syncLocalFromDevice();
     }
   }
 
-  void _sendMode(int mode) {
+  void _handleYKeyUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscDouble(args.first, _deviceYKey).clamp(0.0, 4095.0);
+    if ((next - _deviceYKey).abs() > 0.0001) {
+      _deviceYKey = next;
+      _syncLocalFromDevice();
+    }
+  }
+
+  void _handleCKeyUpdate(List<Object?> args) {
+    if (args.isEmpty) return;
+    final next = _parseOscDouble(args.first, _deviceCKey).clamp(0.0, 255.0);
+    if ((next - _deviceCKey).abs() > 0.0001) {
+      _deviceCKey = next;
+      _syncLocalFromDevice();
+    }
+  }
+
+  void _activateSource() {
+    _ensureSourceSelected(applyPresetIfChanged: true);
+  }
+
+  void _onModeChanged(int mode) {
     if (mode < 0 || mode > 3) return;
+    if (mode != _mode) {
+      setState(() => _mode = mode);
+    }
+    _ensureSourceSelected();
+    sendOsc(_enabledForMode(mode), address: _enabledPath);
+    sendOsc(_blendForMode(mode), address: _blendPath);
+  }
 
-    final enabled = mode != 0;
-    final blend = switch (mode) {
-      2 => 1,
-      3 => 2,
-      _ => 0,
-    };
+  void _onAlphaChanged(double value) {
+    final next = value.clamp(0.0, 1.0);
+    if ((next - _alpha).abs() > 0.0001) {
+      setState(() => _alpha = next);
+    }
+    _ensureSourceSelected();
+    sendOsc(_alpha, address: _alphaPath);
+  }
 
-    setState(() {
-      _mode = mode;
-      _enabled = enabled;
-      _blendMode = blend;
-    });
+  void _onYKeyChanged(double value) {
+    final next = value.clamp(0.0, 4095.0);
+    if ((next - _yKey).abs() > 0.0001) {
+      setState(() => _yKey = next);
+    }
+    _ensureSourceSelected();
+    sendOsc(_yKey.round(), address: _yKeyPath);
+  }
 
-    sendOsc(enabled, address: _enabledPath);
-    sendOsc(blend, address: _blendPath);
+  void _onCKeyChanged(double value) {
+    final next = value.clamp(0.0, 255.0);
+    if ((next - _cKey).abs() > 0.0001) {
+      setState(() => _cKey = next);
+    }
+    _ensureSourceSelected();
+    sendOsc(_cKey.round(), address: _cKeyPath);
   }
 
   @override
   Widget build(BuildContext context) {
-    return OscDropdown<int>(
-      key: ValueKey<int>(_mode),
-      label: 'Mode',
-      pathSegment: '_overlay_mode',
-      items: const [0, 1, 2, 3],
-      itemLabels: const {
-        0: 'No Overlay',
-        1: 'Mix',
-        2: 'Key',
-        3: 'Key Reverse',
-      },
-      defaultValue: _mode,
-      sendOscDirect: false,
-      showLabel: false,
-      width: double.infinity,
-      onChanged: _sendMode,
+    final t = GridProvider.of(context);
+    final knobSize = (t.knobSm * 0.72).clamp(34.0, 56.0);
+    final isActive = _activeSource == widget.sourceSend;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      padding: EdgeInsets.all(t.xs),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isActive ? const Color(0x66FFF176) : Colors.transparent,
+          width: 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _OverlayModeDropdown(
+            mode: _mode,
+            sourceSend: widget.sourceSend,
+            onChanged: _onModeChanged,
+            onActivateSource: _activateSource,
+          ),
+          _OverlayModeKnobs(
+            knobSize: knobSize,
+            mode: _mode,
+            alphaValue: _alpha,
+            yKeyValue: _yKey,
+            cKeyValue: _cKey,
+            onAlphaChanged: _onAlphaChanged,
+            onYKeyChanged: _onYKeyChanged,
+            onCKeyChanged: _onCKeyChanged,
+            onInteract: _activateSource,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverlayModeKnobs extends StatelessWidget {
+  final double knobSize;
+  final int mode;
+  final double alphaValue;
+  final double yKeyValue;
+  final double cKeyValue;
+  final ValueChanged<double> onAlphaChanged;
+  final ValueChanged<double> onYKeyChanged;
+  final ValueChanged<double> onCKeyChanged;
+  final VoidCallback onInteract;
+
+  const _OverlayModeKnobs({
+    required this.knobSize,
+    required this.mode,
+    required this.alphaValue,
+    required this.yKeyValue,
+    required this.cKeyValue,
+    required this.onAlphaChanged,
+    required this.onYKeyChanged,
+    required this.onCKeyChanged,
+    required this.onInteract,
+  });
+
+  Widget _withSourceSelection(Widget child) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => onInteract(),
+      child: child,
+    );
+  }
+
+  Widget _alphaKnob(TextStyle? labelStyle) {
+    return _withSourceSelection(
+      RotaryKnob(
+        value: alphaValue,
+        minValue: 0.0,
+        maxValue: 1.0,
+        format: '%.2f',
+        label: 'Mix',
+        defaultValue: 1.0,
+        size: knobSize,
+        labelStyle: labelStyle,
+        onChanged: onAlphaChanged,
+        snapConfig: const SnapConfig(
+          snapPoints: [0.0, 0.25, 0.5, 0.75, 1.0],
+          snapRegionHalfWidth: 0.02,
+          snapBehavior: SnapBehavior.hard,
+        ),
+      ),
+    );
+  }
+
+  Widget _yKeyKnob(TextStyle? labelStyle) {
+    return _withSourceSelection(
+      RotaryKnob(
+        value: yKeyValue,
+        minValue: 0.0,
+        maxValue: 4095.0,
+        format: '%.0f',
+        label: 'Y Key',
+        defaultValue: 0.0,
+        size: knobSize,
+        labelStyle: labelStyle,
+        integerOnly: true,
+        onChanged: onYKeyChanged,
+      ),
+    );
+  }
+
+  Widget _cKeyKnob(TextStyle? labelStyle) {
+    return _withSourceSelection(
+      RotaryKnob(
+        value: cKeyValue,
+        minValue: 0.0,
+        maxValue: 255.0,
+        format: '%.0f',
+        label: 'C Key',
+        defaultValue: 0.0,
+        size: knobSize,
+        labelStyle: labelStyle,
+        integerOnly: true,
+        onChanged: onCKeyChanged,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+
+    if (mode == 0) {
+      return const SizedBox.shrink();
+    }
+
+    if (mode == 1) {
+      return Padding(
+        padding: EdgeInsets.only(top: t.xs),
+        child: Center(child: _alphaKnob(t.textLabel)),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(top: t.xs),
+      child: Row(
+        children: [
+          Expanded(child: Center(child: _alphaKnob(t.textLabel))),
+          Expanded(child: Center(child: _yKeyKnob(t.textLabel))),
+          Expanded(child: Center(child: _cKeyKnob(t.textLabel))),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverlayModeDropdown extends StatelessWidget {
+  final int mode;
+  final int sourceSend;
+  final ValueChanged<int> onChanged;
+  final VoidCallback onActivateSource;
+
+  const _OverlayModeDropdown({
+    required this.mode,
+    required this.sourceSend,
+    required this.onChanged,
+    required this.onActivateSource,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => onActivateSource(),
+      child: OscDropdown<int>(
+        key: ValueKey<int>(mode),
+        label: 'Mode',
+        pathSegment: '_overlay_mode_$sourceSend',
+        items: const [0, 1, 2, 3],
+        itemLabels: const {
+          0: 'No Overlay',
+          1: 'Mix',
+          2: 'Key',
+          3: 'Key Reverse',
+        },
+        defaultValue: mode,
+        sendOscDirect: false,
+        showLabel: false,
+        width: double.infinity,
+        onChanged: onChanged,
+      ),
     );
   }
 }
