@@ -18,6 +18,7 @@ import 'labeled_card.dart';
 class Panel extends StatelessWidget {
   final int? rows;
   final String? title;
+  final Widget? titleTrailing;
   final Widget child;
   final Color? baseColor;
   final bool fillChild;
@@ -26,6 +27,7 @@ class Panel extends StatelessWidget {
     super.key,
     this.rows,
     this.title,
+    this.titleTrailing,
     required this.child,
     this.fillChild = false,
   }) : baseColor = null;
@@ -34,6 +36,7 @@ class Panel extends StatelessWidget {
     super.key,
     this.rows,
     this.title,
+    this.titleTrailing,
     required this.child,
     this.fillChild = false,
   }) : baseColor = const Color(0xFF252527);
@@ -86,15 +89,25 @@ class Panel extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(left: titleInsetLeft),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                title!,
-                style: t.textHeading,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title!,
+                      style: t.textHeading,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                    ),
+                  ),
+                ),
+                if (titleTrailing != null) ...[
+                  SizedBox(width: t.xs),
+                  titleTrailing!,
+                ],
+              ],
             ),
           ),
           SizedBox(height: t.xs),

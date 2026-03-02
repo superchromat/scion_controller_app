@@ -1,10 +1,13 @@
 // shape.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'grid.dart';
+import 'network.dart';
+import 'osc_registry.dart';
 import 'panel.dart';
 
 class LinkableKnobPair extends StatefulWidget {
@@ -18,6 +21,7 @@ class LinkableKnobPair extends StatefulWidget {
   final double maxValue;
   final List<double>? snapPoints;
   final int precision;
+
   /// If true, starts linked and shows the link icon
   final bool defaultLinked;
 
@@ -176,6 +180,160 @@ class Shape extends StatefulWidget {
   ShapeState createState() => ShapeState();
 }
 
+class _RotationSend3WarningIcon extends StatefulWidget {
+  const _RotationSend3WarningIcon();
+
+  @override
+  State<_RotationSend3WarningIcon> createState() =>
+      _RotationSend3WarningIconState();
+}
+
+class _RotationSend3WarningIconState extends State<_RotationSend3WarningIcon> {
+  static const _send3InputPath = '/send/3/input';
+
+  final Map<String, void Function(List<Object?>)> _listeners = {};
+  final Map<int, bool> _inputConnected = <int, bool>{
+    1: false,
+    2: false,
+    3: false,
+  };
+
+  int _send3Input = 0;
+
+  bool get _shouldShow {
+    final selectedSource = _send3Input;
+    if (selectedSource < 1 || selectedSource > 3) return false;
+    return _inputConnected[selectedSource] == true;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final registry = OscRegistry();
+    registry.registerAddress(_send3InputPath);
+    for (int i = 1; i <= 3; i++) {
+      registry.registerAddress('/input/$i/connected');
+    }
+
+    _seedFromRegistry(registry);
+    _listenPath(_send3InputPath, _handleSend3Input);
+    for (int i = 1; i <= 3; i++) {
+      _listenPath(
+          '/input/$i/connected', (args) => _handleInputConnected(i, args));
+    }
+
+    // Explicit reads ensure warning state is available even if this page is
+    // opened after the last /sync snapshot was processed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final network = context.read<Network>();
+      if (!network.isConnected) return;
+      network.sendOscMessage(_send3InputPath, const []);
+      for (int i = 1; i <= 3; i++) {
+        network.sendOscMessage('/input/$i/connected', const []);
+      }
+    });
+  }
+
+  void _seedFromRegistry(OscRegistry registry) {
+    final routeParam = registry.allParams[_send3InputPath];
+    final route = _asInt(routeParam?.currentValue);
+    if (route != null) {
+      _send3Input = route;
+    }
+
+    for (int i = 1; i <= 3; i++) {
+      final connectedPath = '/input/$i/connected';
+      final connectedParam = registry.allParams[connectedPath];
+      _inputConnected[i] = _asBool(connectedParam?.currentValue);
+    }
+  }
+
+  void _listenPath(String path, void Function(List<Object?>) listener) {
+    _listeners[path] = listener;
+    OscRegistry().registerListener(path, listener);
+  }
+
+  int? _asInt(List<Object?>? args) {
+    if (args == null || args.isEmpty) return null;
+    final value = args.first;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  bool _asBool(List<Object?>? args) {
+    if (args == null || args.isEmpty) return false;
+    final value = args.first;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value.toString().trim().toLowerCase();
+    return normalized == 'true' || normalized == 't' || normalized == '1';
+  }
+
+  void _handleSend3Input(List<Object?> args) {
+    final next = _asInt(args);
+    if (next == null || next == _send3Input) return;
+    setState(() => _send3Input = next);
+  }
+
+  void _handleInputConnected(int inputIndex, List<Object?> args) {
+    final next = _asBool(args);
+    final current = _inputConnected[inputIndex] ?? false;
+    if (current == next) return;
+    setState(() => _inputConnected[inputIndex] = next);
+  }
+
+  @override
+  void dispose() {
+    final registry = OscRegistry();
+    _listeners.forEach((path, listener) {
+      registry.unregisterListener(path, listener);
+    });
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_shouldShow) return const SizedBox.shrink();
+    return Tooltip(
+      message: 'Adjusting rotation will disable Send 3.',
+      waitDuration: const Duration(milliseconds: 350),
+      showDuration: const Duration(milliseconds: 1200),
+      preferBelow: false,
+      verticalOffset: 14,
+      textStyle: const TextStyle(
+        fontFamily: 'DINPro',
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.08,
+        color: Color(0xFFF0F0F3),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D31),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.warning_amber,
+        color: Color(0xFFFFC107),
+        size: 16,
+      ),
+    );
+  }
+}
+
 class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<OscRotaryKnobState>();
 
@@ -239,6 +397,7 @@ class ShapeState extends State<Shape> {
                 span: 1,
                 child: Panel(
                   title: 'Rotation',
+                  titleTrailing: const _RotationSend3WarningIcon(),
                   child: Center(
                     child: OscPathSegment(
                       segment: 'rotation',
