@@ -6,7 +6,6 @@ import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'system_overview.dart';
 import 'grid.dart';
-import 'osc_dropdown.dart';
 import 'rotary_knob.dart';
 
 // Styles are now derived from GridTokens where possible, but these
@@ -28,9 +27,6 @@ final TextStyle _overlayStyle = TextStyle(
   fontWeight: FontWeight.bold,
 );
 
-int _sourceSendForTileIndex(int tileIndex) =>
-    tileIndex == 3 ? 4 : tileIndex + 1;
-
 int _defaultOverlaySourceForPage(int pageNumber) {
   for (int send = 1; send <= 3; send++) {
     if (send != pageNumber) return send;
@@ -39,15 +35,11 @@ int _defaultOverlaySourceForPage(int pageNumber) {
 }
 
 int _normalizeOverlaySourceForPage(int pageNumber, int sourceSend) {
-  if (sourceSend >= 1 && sourceSend <= 3 && sourceSend != pageNumber) {
+  if (sourceSend >= 1 && sourceSend <= 3) {
     return sourceSend;
   }
   if (sourceSend == 4) return 4;
   return _defaultOverlaySourceForPage(pageNumber);
-}
-
-bool _isSourceDisallowedForPage(int pageNumber, int sourceSend) {
-  return sourceSend >= 1 && sourceSend <= 3 && sourceSend == pageNumber;
 }
 
 class SendSourceSelector extends StatelessWidget {
@@ -57,40 +49,9 @@ class SendSourceSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
-    final sourceTiles = OscPathSegment(
+    return OscPathSegment(
       segment: 'input',
       child: _SelectorInner(pageNumber: pageNumber),
-    );
-
-    if (pageNumber < 1 || pageNumber > 3) return sourceTiles;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        sourceTiles,
-        SizedBox(height: t.sm),
-        GridRow(
-          cells: [
-            for (int tileIdx = 0; tileIdx < 4; tileIdx++)
-              (
-                span: 3,
-                child: _isSourceDisallowedForPage(
-                  pageNumber,
-                  _sourceSendForTileIndex(tileIdx),
-                )
-                    ? const SizedBox.shrink()
-                    : OscPathSegment(
-                        segment: 'pip',
-                        child: _SendOverlayCompactControls(
-                          pageNumber: pageNumber,
-                          sourceSend: _sourceSendForTileIndex(tileIdx),
-                        ),
-                      ),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }
@@ -457,22 +418,23 @@ class _SelectableTile extends StatelessWidget {
   }
 }
 
-class _SendOverlayCompactControls extends StatefulWidget {
+class SendOverlayCompactControls extends StatefulWidget {
   final int pageNumber;
   final int sourceSend;
 
-  const _SendOverlayCompactControls({
+  const SendOverlayCompactControls({
+    super.key,
     required this.pageNumber,
     required this.sourceSend,
   });
 
   @override
-  State<_SendOverlayCompactControls> createState() =>
+  State<SendOverlayCompactControls> createState() =>
       _SendOverlayCompactControlsState();
 }
 
 class _SendOverlayCompactControlsState
-    extends State<_SendOverlayCompactControls> with OscAddressMixin {
+    extends State<SendOverlayCompactControls> with OscAddressMixin {
   late int _activeSource;
   int _deviceSource = 0;
   bool _deviceEnabled = false;
@@ -481,10 +443,10 @@ class _SendOverlayCompactControlsState
   double _deviceYKey = 0.0;
   double _deviceCKey = 0.0;
 
-  int _mode = 0;
   double _alpha = 1.0;
   double _yKey = 0.0;
   double _cKey = 0.0;
+  bool _keyReverse = false;
 
   final Map<String, void Function(List<Object?>)> _listeners = {};
 
@@ -554,50 +516,41 @@ class _SendOverlayCompactControlsState
     return s == 't' || s == 'true' || s == '1';
   }
 
-  int _modeFromEnabledBlend(bool enabled, int blend) {
-    if (!enabled) return 0;
-    return switch (blend) {
-      1 => 2,
-      2 => 3,
-      _ => 1,
-    };
-  }
-
-  bool _enabledForMode(int mode) => mode != 0;
-
-  int _blendForMode(int mode) {
-    return switch (mode) {
-      2 => 1,
-      3 => 2,
-      _ => 0,
-    };
-  }
+  bool get _hasMix => _alpha > 0.0001;
+  bool get _hasKey => _yKey > 0.0001 || _cKey > 0.0001;
 
   void _syncLocalFromDevice() {
     if (_activeSource != widget.sourceSend) return;
-    final nextMode = _modeFromEnabledBlend(_deviceEnabled, _deviceBlend);
-    final nextAlpha = _deviceAlpha.clamp(0.0, 1.0);
-    final nextY = _deviceYKey.clamp(0.0, 4095.0);
-    final nextC = _deviceCKey.clamp(0.0, 255.0);
-    if (nextMode != _mode ||
-        (nextAlpha - _alpha).abs() > 0.0001 ||
+    final nextAlpha =
+        _deviceEnabled ? _deviceAlpha.clamp(0.0, 1.0) : 0.0;
+    final nextY = _deviceEnabled ? _deviceYKey.clamp(0.0, 4095.0) : 0.0;
+    final nextC = _deviceEnabled ? _deviceCKey.clamp(0.0, 255.0) : 0.0;
+    final nextReverse = _deviceBlend == 2;
+    if ((nextAlpha - _alpha).abs() > 0.0001 ||
         (nextY - _yKey).abs() > 0.0001 ||
-        (nextC - _cKey).abs() > 0.0001) {
+        (nextC - _cKey).abs() > 0.0001 ||
+        nextReverse != _keyReverse) {
       setState(() {
-        _mode = nextMode;
         _alpha = nextAlpha;
         _yKey = nextY;
         _cKey = nextC;
+        _keyReverse = nextReverse;
       });
     }
   }
 
+  void _sendDerivedModeToDevice() {
+    final enabled = _hasMix || _hasKey;
+    final blend = _hasKey ? (_keyReverse ? 2 : 1) : 0;
+    sendOsc(enabled, address: _enabledPath);
+    sendOsc(blend, address: _blendPath);
+  }
+
   void _sendLocalPresetToDevice() {
-    sendOsc(_enabledForMode(_mode), address: _enabledPath);
-    sendOsc(_blendForMode(_mode), address: _blendPath);
     sendOsc(_alpha, address: _alphaPath);
     sendOsc(_yKey.round(), address: _yKeyPath);
     sendOsc(_cKey.round(), address: _cKeyPath);
+    _sendDerivedModeToDevice();
   }
 
   void _ensureSourceSelected({bool applyPresetIfChanged = false}) {
@@ -670,16 +623,6 @@ class _SendOverlayCompactControlsState
     _ensureSourceSelected(applyPresetIfChanged: true);
   }
 
-  void _onModeChanged(int mode) {
-    if (mode < 0 || mode > 3) return;
-    if (mode != _mode) {
-      setState(() => _mode = mode);
-    }
-    _ensureSourceSelected();
-    sendOsc(_enabledForMode(mode), address: _enabledPath);
-    sendOsc(_blendForMode(mode), address: _blendPath);
-  }
-
   void _onAlphaChanged(double value) {
     final next = value.clamp(0.0, 1.0);
     if ((next - _alpha).abs() > 0.0001) {
@@ -687,6 +630,7 @@ class _SendOverlayCompactControlsState
     }
     _ensureSourceSelected();
     sendOsc(_alpha, address: _alphaPath);
+    _sendDerivedModeToDevice();
   }
 
   void _onYKeyChanged(double value) {
@@ -696,6 +640,7 @@ class _SendOverlayCompactControlsState
     }
     _ensureSourceSelected();
     sendOsc(_yKey.round(), address: _yKeyPath);
+    _sendDerivedModeToDevice();
   }
 
   void _onCKeyChanged(double value) {
@@ -705,42 +650,37 @@ class _SendOverlayCompactControlsState
     }
     _ensureSourceSelected();
     sendOsc(_cKey.round(), address: _cKeyPath);
+    _sendDerivedModeToDevice();
+  }
+
+  void _onKeyReverseChanged(bool value) {
+    if (value != _keyReverse) {
+      setState(() => _keyReverse = value);
+    }
+    _ensureSourceSelected();
+    _sendDerivedModeToDevice();
   }
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    final knobSize = (t.knobSm * 0.72).clamp(34.0, 56.0);
-    final isActive = _activeSource == widget.sourceSend;
+    final knobSize = (t.knobSm * 0.92).clamp(44.0, 68.0);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
+    return Padding(
       padding: EdgeInsets.all(t.xs),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: isActive ? const Color(0x66FFF176) : Colors.transparent,
-          width: 1.0,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _OverlayModeDropdown(
-            mode: _mode,
-            sourceSend: widget.sourceSend,
-            onChanged: _onModeChanged,
-            onActivateSource: _activateSource,
-          ),
           _OverlayModeKnobs(
             knobSize: knobSize,
-            mode: _mode,
             alphaValue: _alpha,
             yKeyValue: _yKey,
             cKeyValue: _cKey,
+            keyReverse: _keyReverse,
             onAlphaChanged: _onAlphaChanged,
             onYKeyChanged: _onYKeyChanged,
             onCKeyChanged: _onCKeyChanged,
+            onKeyReverseChanged: _onKeyReverseChanged,
             onInteract: _activateSource,
           ),
         ],
@@ -751,24 +691,26 @@ class _SendOverlayCompactControlsState
 
 class _OverlayModeKnobs extends StatelessWidget {
   final double knobSize;
-  final int mode;
   final double alphaValue;
   final double yKeyValue;
   final double cKeyValue;
+  final bool keyReverse;
   final ValueChanged<double> onAlphaChanged;
   final ValueChanged<double> onYKeyChanged;
   final ValueChanged<double> onCKeyChanged;
+  final ValueChanged<bool> onKeyReverseChanged;
   final VoidCallback onInteract;
 
   const _OverlayModeKnobs({
     required this.knobSize,
-    required this.mode,
     required this.alphaValue,
     required this.yKeyValue,
     required this.cKeyValue,
+    required this.keyReverse,
     required this.onAlphaChanged,
     required this.onYKeyChanged,
     required this.onCKeyChanged,
+    required this.onKeyReverseChanged,
     required this.onInteract,
   });
 
@@ -835,69 +777,64 @@ class _OverlayModeKnobs extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
-
-    if (mode == 0) {
-      return const SizedBox.shrink();
-    }
-
-    if (mode == 1) {
-      return Padding(
-        padding: EdgeInsets.only(top: t.xs),
-        child: Center(child: _alphaKnob(t.textLabel)),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(top: t.xs),
-      child: Row(
+  Widget _keyReverseToggle(TextStyle? labelStyle) {
+    return _withSourceSelection(
+      Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(child: Center(child: _alphaKnob(t.textLabel))),
-          Expanded(child: Center(child: _yKeyKnob(t.textLabel))),
-          Expanded(child: Center(child: _cKeyKnob(t.textLabel))),
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: Checkbox(
+              value: keyReverse,
+              onChanged: (v) => onKeyReverseChanged(v ?? false),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              side: const BorderSide(color: Color(0x66FFFFFF)),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Reverse',
+            style: labelStyle?.copyWith(fontSize: (labelStyle.fontSize ?? 11) * 0.9),
+          ),
         ],
       ),
     );
   }
-}
-
-class _OverlayModeDropdown extends StatelessWidget {
-  final int mode;
-  final int sourceSend;
-  final ValueChanged<int> onChanged;
-  final VoidCallback onActivateSource;
-
-  const _OverlayModeDropdown({
-    required this.mode,
-    required this.sourceSend,
-    required this.onChanged,
-    required this.onActivateSource,
-  });
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => onActivateSource(),
-      child: OscDropdown<int>(
-        key: ValueKey<int>(mode),
-        label: 'Mode',
-        pathSegment: '_overlay_mode_$sourceSend',
-        items: const [0, 1, 2, 3],
-        itemLabels: const {
-          0: 'No Overlay',
-          1: 'Mix',
-          2: 'Key',
-          3: 'Key Reverse',
-        },
-        defaultValue: mode,
-        sendOscDirect: false,
-        showLabel: false,
-        width: double.infinity,
-        onChanged: onChanged,
-      ),
+    final t = GridProvider.of(context);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Center(child: _alphaKnob(t.textLabel)),
+            ),
+            Expanded(
+              child: Center(child: _yKeyKnob(t.textLabel)),
+            ),
+            Expanded(
+              child: Center(child: _cKeyKnob(t.textLabel)),
+            ),
+          ],
+        ),
+        SizedBox(height: t.xs),
+        Row(
+          children: [
+            const Expanded(child: SizedBox.shrink()),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: _keyReverseToggle(t.textLabel),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -12,6 +12,7 @@ import 'network_selection.dart';
 import 'file_selection.dart';
 import 'setup_page.dart';
 import 'send_page.dart';
+import 'mixer_page.dart';
 import 'osc_log.dart';
 import 'return_page.dart';
 import 'lighting_settings.dart';
@@ -20,6 +21,9 @@ import 'global_rect_tracking.dart';
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
+
+/// Debug/testing toggle: set false to hide disconnected UI scrim + dimming.
+const bool kShowDisconnectedOverlay = false;
 
 /// Returns true for network noise we expect during idle auto-reconnects
 /// (e.g., no device reachable on the network). These should not surface a
@@ -327,15 +331,17 @@ class _MyHomePageState extends State<MyHomePage> {
       const SystemPage(),
       // 1–3 → Send 1–3
       for (var i = 1; i <= 3; i++) SendPage(key: ValueKey(i), pageNumber: i),
-      // 4 → Return
+      // 4 → Mixer
+      const MixerPage(),
+      // 5 → Return
       const ReturnPage(),
-      // 5 → Setup
+      // 6 → Setup
       const SetupPage(),
-      // 6 → OSC Log
+      // 7 → OSC Log
       OscLogTable(
         key: oscLogKey,
         onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 6,
+        isActive: selectedIndex == 7,
       ),
     ];
   }
@@ -345,6 +351,8 @@ class _MyHomePageState extends State<MyHomePage> {
     final allPages = pages;
     return LayoutBuilder(builder: (context, constraints) {
       final network = context.watch<Network>();
+      final showDisconnectedOverlay =
+          kShowDisconnectedOverlay && !network.isConnected;
       // Determine whether rail is extended
       final bool isRailExtended = constraints.maxWidth >= 1000;
       // Use the same constants passed to NavigationRail:
@@ -425,6 +433,10 @@ class _MyHomePageState extends State<MyHomePage> {
                             label: Text('Send 3'),
                           ),
                           NavigationRailDestination(
+                            icon: Icon(Icons.tune),
+                            label: Text('Mixer'),
+                          ),
+                          NavigationRailDestination(
                             icon: Icon(Icons.input),
                             label: Text('Return'),
                           ),
@@ -444,7 +456,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: Stack(
                       children: [
                         AnimatedOpacity(
-                          opacity: network.isConnected ? 1.0 : 0.4,
+                          opacity: showDisconnectedOverlay ? 0.4 : 1.0,
                           duration: const Duration(milliseconds: 220),
                           child: Container(
                             color: Theme.of(context).colorScheme.surface,
@@ -454,7 +466,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ),
                         ),
-                        if (!network.isConnected)
+                        if (showDisconnectedOverlay)
                           const Positioned.fill(child: _DisconnectedScrim()),
                       ],
                     ),
