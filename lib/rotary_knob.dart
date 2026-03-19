@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'grid.dart';
+import 'app_alert.dart';
 
 /// A segment for piecewise value mapping between normalized [0,1] and value space.
 class MappingSegment {
@@ -141,6 +142,9 @@ class RotaryKnob extends StatefulWidget {
   /// Optional style override for the label below the knob
   final TextStyle? labelStyle;
 
+  /// Optional OSC path to display in the drag bar overlay
+  final String? oscPath;
+
   const RotaryKnob({
     super.key,
     required this.minValue,
@@ -163,6 +167,7 @@ class RotaryKnob extends StatefulWidget {
     this.notchDepth = 4.0,
     this.notchHalfAngle = 0.055,    // ~3.15 degrees
     this.labelStyle,
+    this.oscPath,
   });
 
   @override
@@ -688,6 +693,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     barX = barX.clamp(8.0, screenSize.width - widget.dragBarWidth - 8);
 
     // If not enough space below, try above
+    final hasOscPath = widget.oscPath != null && widget.oscPath!.isNotEmpty;
     final barHeight = 60.0;
     bool barBelow = true;
     if (barY + barHeight > screenSize.height) {
@@ -782,6 +788,46 @@ class _RotaryKnobState extends State<RotaryKnob>
               noiseImage: _noiseImage,
             ),
           ),
+          // OSC path label (centered in padding area on the far side from the knob)
+          if (hasOscPath)
+            Positioned(
+              left: barX,
+              top: barBelow
+                  ? barY + barHeight - 8  // below: between drag bar bottom and background bottom
+                  : barY - 16,            // above: between background top and drag bar top
+              width: widget.dragBarWidth,
+              height: 24, // 8 (drag bar padding) + 16 (background padding)
+              child: Center(
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (_) {
+                    Clipboard.setData(ClipboardData(text: widget.oscPath!));
+                    showAppAlert(this.context, 'Copied to clipboard');
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.content_copy,
+                        size: 10,
+                        color: Colors.white54,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.oscPath!,
+                        style: const TextStyle(
+                          fontFamily: 'Courier',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w300,
+                          color: Colors.white54,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
     );

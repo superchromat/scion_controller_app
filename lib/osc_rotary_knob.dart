@@ -203,6 +203,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
       dragBarWidth: widget.dragBarWidth,
       integerOnly: widget.preferInteger,
       labelStyle: widget.labelStyle,
+      oscPath: oscAddress,
     );
   }
 }
