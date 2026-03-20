@@ -426,11 +426,11 @@ class _SendOverlayCompactControlsState
     extends State<SendOverlayCompactControls> with OscAddressMixin {
   bool _deviceEnabled = false;
   int _deviceBlend = 0;
-  double _deviceAlpha = 1.0;
+  double _deviceAlpha = 0.0;
   double _deviceYKey = 0.0;
   double _deviceCKey = 0.0;
 
-  double _alpha = 1.0;
+  double _alpha = 0.0;
   double _yKey = 0.0;
   double _cKey = 0.0;
   bool _keyReverse = false;
