@@ -27,20 +27,9 @@ final TextStyle _overlayStyle = TextStyle(
   fontWeight: FontWeight.bold,
 );
 
-int _defaultOverlaySourceForPage(int pageNumber) {
-  for (int send = 1; send <= 3; send++) {
-    if (send != pageNumber) return send;
-  }
-  return 4;
-}
-
-int _normalizeOverlaySourceForPage(int pageNumber, int sourceSend) {
-  if (sourceSend >= 1 && sourceSend <= 3) {
-    return sourceSend;
-  }
-  if (sourceSend == 4) return 4;
-  return _defaultOverlaySourceForPage(pageNumber);
-}
+/// PIP layer number (1-based) for a given source.
+/// Sources 1..3 => Send 1..3, source 4 => Return.
+/// Layer number matches source number in the new OSC API.
 
 class SendSourceSelector extends StatelessWidget {
   final int pageNumber;
@@ -435,8 +424,6 @@ class SendOverlayCompactControls extends StatefulWidget {
 
 class _SendOverlayCompactControlsState
     extends State<SendOverlayCompactControls> with OscAddressMixin {
-  late int _activeSource;
-  int _deviceSource = 0;
   bool _deviceEnabled = false;
   int _deviceBlend = 0;
   double _deviceAlpha = 1.0;
@@ -450,19 +437,18 @@ class _SendOverlayCompactControlsState
 
   final Map<String, void Function(List<Object?>)> _listeners = {};
 
-  String get _sourcePath => '/send/${widget.pageNumber}/pip/source_send';
-  String get _enabledPath => '/send/${widget.pageNumber}/pip/enabled';
-  String get _blendPath => '/send/${widget.pageNumber}/pip/opaque_blend';
-  String get _alphaPath => '/send/${widget.pageNumber}/pip/alpha';
-  String get _yKeyPath => '/send/${widget.pageNumber}/pip/opaque_thres_y';
-  String get _cKeyPath => '/send/${widget.pageNumber}/pip/opaque_thres_c';
+  /// PIP layer number matches the source number (1..4).
+  int get _layer => widget.sourceSend;
+
+  String get _enabledPath => '/send/${widget.pageNumber}/pip/$_layer/enabled';
+  String get _blendPath => '/send/${widget.pageNumber}/pip/$_layer/opaque_blend';
+  String get _alphaPath => '/send/${widget.pageNumber}/pip/$_layer/alpha';
+  String get _yKeyPath => '/send/${widget.pageNumber}/pip/$_layer/opaque_thres_y';
+  String get _cKeyPath => '/send/${widget.pageNumber}/pip/$_layer/opaque_thres_c';
 
   @override
   void initState() {
     super.initState();
-    _activeSource = _defaultOverlaySourceForPage(widget.pageNumber);
-    _deviceSource = _activeSource;
-    _listenPath(_sourcePath, _handleSourceUpdate);
     _listenPath(_enabledPath, _handleEnabledUpdate);
     _listenPath(_blendPath, _handleBlendUpdate);
     _listenPath(_alphaPath, _handleAlphaUpdate);
@@ -498,15 +484,15 @@ class _SendOverlayCompactControlsState
     }
   }
 
+  static double _parseOscDouble(Object? raw, double fallback) {
+    if (raw is num) return raw.toDouble();
+    return double.tryParse(raw?.toString() ?? '') ?? fallback;
+  }
+
   static int _parseOscInt(Object? raw, int fallback) {
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
     return int.tryParse(raw?.toString() ?? '') ?? fallback;
-  }
-
-  static double _parseOscDouble(Object? raw, double fallback) {
-    if (raw is num) return raw.toDouble();
-    return double.tryParse(raw?.toString() ?? '') ?? fallback;
   }
 
   static bool _parseOscBool(Object? raw) {
@@ -520,7 +506,6 @@ class _SendOverlayCompactControlsState
   bool get _hasKey => _yKey > 0.0001 || _cKey > 0.0001;
 
   void _syncLocalFromDevice() {
-    if (_activeSource != widget.sourceSend) return;
     final nextAlpha =
         _deviceEnabled ? _deviceAlpha.clamp(0.0, 1.0) : 0.0;
     final nextY = _deviceEnabled ? _deviceYKey.clamp(0.0, 4095.0) : 0.0;
@@ -544,34 +529,6 @@ class _SendOverlayCompactControlsState
     final blend = _hasKey ? (_keyReverse ? 2 : 1) : 0;
     sendOsc(enabled, address: _enabledPath);
     sendOsc(blend, address: _blendPath);
-  }
-
-  void _sendLocalPresetToDevice() {
-    sendOsc(_alpha, address: _alphaPath);
-    sendOsc(_yKey.round(), address: _yKeyPath);
-    sendOsc(_cKey.round(), address: _cKeyPath);
-    _sendDerivedModeToDevice();
-  }
-
-  void _ensureSourceSelected({bool applyPresetIfChanged = false}) {
-    if (_activeSource == widget.sourceSend) return;
-    setState(() => _activeSource = widget.sourceSend);
-    sendOsc(widget.sourceSend, address: _sourcePath);
-    if (applyPresetIfChanged) {
-      _sendLocalPresetToDevice();
-    }
-  }
-
-  void _handleSourceUpdate(List<Object?> args) {
-    if (args.isEmpty) return;
-    final incoming = _parseOscInt(args.first, _deviceSource);
-    final normalized =
-        _normalizeOverlaySourceForPage(widget.pageNumber, incoming);
-    _deviceSource = normalized;
-    if (normalized != _activeSource && mounted) {
-      setState(() => _activeSource = normalized);
-    }
-    _syncLocalFromDevice();
   }
 
   void _handleEnabledUpdate(List<Object?> args) {
@@ -619,16 +576,11 @@ class _SendOverlayCompactControlsState
     }
   }
 
-  void _activateSource() {
-    _ensureSourceSelected(applyPresetIfChanged: true);
-  }
-
   void _onAlphaChanged(double value) {
     final next = value.clamp(0.0, 1.0);
     if ((next - _alpha).abs() > 0.0001) {
       setState(() => _alpha = next);
     }
-    _ensureSourceSelected();
     sendOsc(_alpha, address: _alphaPath);
     _sendDerivedModeToDevice();
   }
@@ -638,7 +590,6 @@ class _SendOverlayCompactControlsState
     if ((next - _yKey).abs() > 0.0001) {
       setState(() => _yKey = next);
     }
-    _ensureSourceSelected();
     sendOsc(_yKey.round(), address: _yKeyPath);
     _sendDerivedModeToDevice();
   }
@@ -648,7 +599,6 @@ class _SendOverlayCompactControlsState
     if ((next - _cKey).abs() > 0.0001) {
       setState(() => _cKey = next);
     }
-    _ensureSourceSelected();
     sendOsc(_cKey.round(), address: _cKeyPath);
     _sendDerivedModeToDevice();
   }
@@ -657,7 +607,6 @@ class _SendOverlayCompactControlsState
     if (value != _keyReverse) {
       setState(() => _keyReverse = value);
     }
-    _ensureSourceSelected();
     _sendDerivedModeToDevice();
   }
 
@@ -681,7 +630,10 @@ class _SendOverlayCompactControlsState
             onYKeyChanged: _onYKeyChanged,
             onCKeyChanged: _onCKeyChanged,
             onKeyReverseChanged: _onKeyReverseChanged,
-            onInteract: _activateSource,
+            onInteract: () {},
+            alphaOscPath: _alphaPath,
+            yKeyOscPath: _yKeyPath,
+            cKeyOscPath: _cKeyPath,
           ),
         ],
       ),
@@ -700,6 +652,9 @@ class _OverlayModeKnobs extends StatelessWidget {
   final ValueChanged<double> onCKeyChanged;
   final ValueChanged<bool> onKeyReverseChanged;
   final VoidCallback onInteract;
+  final String? alphaOscPath;
+  final String? yKeyOscPath;
+  final String? cKeyOscPath;
 
   const _OverlayModeKnobs({
     required this.knobSize,
@@ -712,6 +667,9 @@ class _OverlayModeKnobs extends StatelessWidget {
     required this.onCKeyChanged,
     required this.onKeyReverseChanged,
     required this.onInteract,
+    this.alphaOscPath,
+    this.yKeyOscPath,
+    this.cKeyOscPath,
   });
 
   Widget _withSourceSelection(Widget child) {
@@ -734,6 +692,7 @@ class _OverlayModeKnobs extends StatelessWidget {
         size: knobSize,
         labelStyle: labelStyle,
         onChanged: onAlphaChanged,
+        oscPath: alphaOscPath,
         snapConfig: const SnapConfig(
           snapPoints: [0.0, 0.25, 0.5, 0.75, 1.0],
           snapRegionHalfWidth: 0.02,
@@ -756,6 +715,7 @@ class _OverlayModeKnobs extends StatelessWidget {
         labelStyle: labelStyle,
         integerOnly: true,
         onChanged: onYKeyChanged,
+        oscPath: yKeyOscPath,
       ),
     );
   }
@@ -773,6 +733,7 @@ class _OverlayModeKnobs extends StatelessWidget {
         labelStyle: labelStyle,
         integerOnly: true,
         onChanged: onCKeyChanged,
+        oscPath: cKeyOscPath,
       ),
     );
   }

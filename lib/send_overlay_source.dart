@@ -7,16 +7,27 @@ import 'osc_value_dropdown.dart';
 import 'osc_widget_binding.dart';
 import 'rotary_knob.dart';
 
+/// Controls for a single PIP layer on a send.
+/// [pageNumber] is the destination send (1..3).
+/// [layer] is the PIP source layer (1..4: 1-3=Send, 4=Return).
 class SendOverlaySource extends StatelessWidget {
   final int pageNumber;
+  final int layer;
 
-  const SendOverlaySource({super.key, required this.pageNumber});
+  const SendOverlaySource({
+    super.key,
+    required this.pageNumber,
+    required this.layer,
+  });
 
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
       segment: 'pip',
-      child: const _SendOverlaySourceInner(),
+      child: OscPathSegment(
+        segment: '$layer',
+        child: const _SendOverlaySourceInner(),
+      ),
     );
   }
 }
@@ -45,10 +56,6 @@ class _SendOverlaySourceInner extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-            SizedBox(width: t.sm),
-            Expanded(
-              child: _FixedSourceBadge(),
             ),
             SizedBox(width: t.sm),
             Expanded(
@@ -133,36 +140,6 @@ class _SendOverlaySourceInner extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-class _FixedSourceBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('Source', style: t.textLabel),
-        SizedBox(height: t.xs),
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs),
-          decoration: BoxDecoration(
-            color: const Color(0x22222222),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0x55A0A0A0)),
-          ),
-          child: Text(
-            'Send 2 (Fixed)',
-            style: t.textValue,
-            overflow: TextOverflow.ellipsis,
-          ),
         ),
       ],
     );

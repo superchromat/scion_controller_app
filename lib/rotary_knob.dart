@@ -288,7 +288,13 @@ class _RotaryKnobState extends State<RotaryKnob>
     if (widget.value != oldWidget.value) {
       _currentValue = _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
       if (!_isEditing) {
-        _textController.text = _formatValue(_currentValue);
+        // Defer the text controller update to avoid triggering
+        // markNeedsBuild during the build/update phase.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_isEditing) {
+            _textController.text = _formatValue(_currentValue);
+          }
+        });
       }
     }
   }
