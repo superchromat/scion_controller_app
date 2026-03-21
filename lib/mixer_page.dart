@@ -121,19 +121,12 @@ class _MixerCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
 
-    // A send cannot PIP itself (source layer == destination is invalid).
-    final isSelf = sourceSend == targetSend;
-
     return Padding(
       padding: EdgeInsets.all(t.xs),
-      child: isSelf
-          ? Center(
-              child: Text('—', style: t.textLabel.copyWith(fontSize: 24)),
-            )
-          : SendOverlayCompactControls(
-              pageNumber: targetSend,
-              sourceSend: sourceSend,
-            ),
+      child: SendOverlayCompactControls(
+        pageNumber: targetSend,
+        sourceSend: sourceSend,
+      ),
     );
   }
 }
