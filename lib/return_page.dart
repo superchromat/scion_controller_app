@@ -235,8 +235,8 @@ class _AdcAdjustmentsContent extends StatelessWidget {
             (
               span: 4,
               child: Panel(
-                title: 'LLC Phase',
-                child: _AdvPhaseCard(embedded: true),
+                title: 'Pixel Clock',
+                child: _PixelClockOffsetCard(),
               ),
             ),
           ],
@@ -253,11 +253,84 @@ class _AdcAdjustmentsContent extends StatelessWidget {
             ),
             (
               span: 4,
-              child: SizedBox.shrink(),
+              child: Panel(
+                title: 'LLC Phase',
+                child: _AdvPhaseCard(embedded: true),
+              ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _PixelClockOffsetCard extends StatefulWidget {
+  const _PixelClockOffsetCard();
+
+  @override
+  State<_PixelClockOffsetCard> createState() => _PixelClockOffsetCardState();
+}
+
+class _PixelClockOffsetCardState extends State<_PixelClockOffsetCard> {
+  int _offset = 0;
+  final _knobKey = GlobalKey<OscRotaryKnobState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final reg = OscRegistry();
+    reg.registerAddress('/clock_offset');
+    reg.registerListener('/clock_offset', _onMsg);
+  }
+
+  @override
+  void dispose() {
+    OscRegistry().unregisterListener('/clock_offset', _onMsg);
+    super.dispose();
+  }
+
+  void _onMsg(List<Object?> args) {
+    if (args.isEmpty || args.first is! num) return;
+    final v = (args.first as num).toInt().clamp(-50, 50);
+    if (!mounted) return;
+    setState(() => _offset = v);
+    _knobKey.currentState?.setValue(v.toDouble(), emit: false);
+  }
+
+  void _send(int v) {
+    context.read<Network>().sendOscMessage('/clock_offset', [v]);
+    OscRegistry().dispatchLocal('/clock_offset', [v]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: OscRotaryKnob(
+          key: _knobKey,
+          initialValue: _offset.toDouble(),
+          minValue: -50,
+          maxValue: 50,
+          format: '%.0f',
+          label: 'Offset',
+          labelStyle: t.textLabel,
+          defaultValue: 0,
+          isBipolar: true,
+          size: t.knobSm,
+          sendOsc: false,
+          preferInteger: true,
+          oscPathOverride: '/clock_offset',
+          onChanged: (v) {
+            final iv = v.round().clamp(-50, 50);
+            _offset = iv;
+            _send(iv);
+          },
+        ),
+      ),
     );
   }
 }
@@ -353,6 +426,7 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
       size: phaseKnobSize,
       sendOsc: false,  // Manual OSC handling
       preferInteger: true,
+      oscPathOverride: '/adv/phase',
       onChanged: (v) {
         final iv = v.round().clamp(0, 63);
         _phase = iv;

@@ -130,6 +130,7 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
       sendOsc: false,
       preferInteger: true,
       isBipolar: min < 0,
+      oscPathOverride: '/adv/de',
       snapConfig: SnapConfig(
         snapPoints: const [0.0],
         snapRegionHalfWidth: (max - min) * 0.02,

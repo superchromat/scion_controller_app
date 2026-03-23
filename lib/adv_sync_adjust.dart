@@ -130,6 +130,7 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
       sendOsc: false,
       preferInteger: true,
       isBipolar: min < 0,
+      oscPathOverride: '/adv/sync',
       snapConfig: SnapConfig(
         snapPoints: const [0.0],
         snapRegionHalfWidth: (max - min) * 0.02,

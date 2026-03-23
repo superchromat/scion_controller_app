@@ -59,6 +59,10 @@ class OscRotaryKnob extends StatefulWidget {
   /// Optional style override for the label below the knob
   final TextStyle? labelStyle;
 
+  /// Optional override for the OSC path shown in the drag bar.
+  /// When set, this takes priority over the path resolved from [OscPathSegment].
+  final String? oscPathOverride;
+
   const OscRotaryKnob({
     super.key,
     required this.minValue,
@@ -77,6 +81,7 @@ class OscRotaryKnob extends StatefulWidget {
     this.sendOsc = true,
     this.preferInteger = false,
     this.labelStyle,
+    this.oscPathOverride,
   });
 
   @override
@@ -203,7 +208,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
       dragBarWidth: widget.dragBarWidth,
       integerOnly: widget.preferInteger,
       labelStyle: widget.labelStyle,
-      oscPath: oscAddress,
+      oscPath: widget.oscPathOverride ?? oscAddress,
     );
   }
 }
