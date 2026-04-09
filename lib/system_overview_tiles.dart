@@ -147,6 +147,7 @@ class VideoFormatTile extends StatefulWidget {
   final String? connectedPath;
   final String? iconConnectedPath;
   final bool showHdmiIcon;
+  final String? interlaced;
 
   const VideoFormatTile({
     super.key,
@@ -159,6 +160,7 @@ class VideoFormatTile extends StatefulWidget {
     this.connectedPath,
     this.iconConnectedPath,
     this.showHdmiIcon = false,
+    this.interlaced,
   });
 
   @override
@@ -172,6 +174,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   int _bpp = 0;
   String _cs = '';
   String _sub = '';
+  bool _interlaced = false;
   bool _connected = true;
   bool _iconConnected = false;
 
@@ -399,12 +402,45 @@ class _VideoFormatTileState extends State<VideoFormatTile>
       _iconConnected = false;
     }
 
+    void bindBool(
+      String? src,
+      bool Function() getOld,
+      ValueSetter<bool> setter,
+      AnimationController ctl,
+    ) {
+      if (src == null) return;
+      if (src.startsWith('/')) {
+        registry.registerAddress(src);
+        final param = registry.allParams[src];
+        if (param != null && param.currentValue.isNotEmpty) {
+          final newVal = parseBool(param.currentValue.first);
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
+        }
+        registry.registerListener(src, (args) {
+          final newVal = args.isNotEmpty ? parseBool(args.first) : false;
+          if (!mounted) return;
+          if (getOld() != newVal) {
+            setState(() => setter(newVal));
+            ctl.forward(from: 0);
+          }
+        });
+      } else {
+        final newVal = parseBool(src);
+        if (getOld() != newVal) setState(() => setter(newVal));
+      }
+    }
+
     bindString(widget.resolution, () => _res, (v) => _res = v, _resController);
     bindDouble(widget.framerate, () => _fps, (v) => _fps = v, _fpsController);
     bindInt(widget.bitDepth, () => _bpp, (v) => _bpp = v, _bppController);
     bindString(widget.colorSpace, () => _cs, (v) => _cs = v, _csController);
     bindString(
         widget.chromaSubsampling, () => _sub, (v) => _sub = v, _subController);
+    bindBool(
+        widget.interlaced, () => _interlaced, (v) => _interlaced = v, _fpsController);
   }
 
   @override
@@ -454,7 +490,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                       AnimatedBuilder(
                         animation: _fpsColor,
                         builder: (ctx, _) => Text(
-                          _fps.toStringAsFixed(2),
+                          '${_fps.toStringAsFixed(2)}${widget.interlaced != null ? (_interlaced ? 'i' : 'p') : ''}',
                           style:
                               _systemTextStyle.copyWith(color: _fpsColor.value),
                         ),
@@ -518,6 +554,7 @@ class AnalogSendTile extends StatelessWidget {
           overlayLabel: index.toString(),
           resolution: '/analog_format/resolution',
           framerate: '/analog_format/framerate',
+          interlaced: '/analog_format/interlaced',
           bitDepth: '10',
           colorSpace: '/analog_format/colorspace',
           chromaSubsampling: '4:4:4',
@@ -538,6 +575,7 @@ class ReturnTile extends StatelessWidget {
       overlayLabel: 'R',
       resolution: '/analog_format/resolution',
       framerate: '/analog_format/framerate',
+      interlaced: '/analog_format/interlaced',
       bitDepth: '12',
       colorSpace: '/analog_format/colorspace',
       chromaSubsampling: '4:4:4',

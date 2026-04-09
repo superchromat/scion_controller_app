@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_dropdown.dart';
+import 'osc_registry.dart';
 import 'grid.dart';
 import 'panel.dart';
 
@@ -21,41 +22,48 @@ class SendGlitch extends StatefulWidget {
 }
 
 class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
-  /// Reset all glitch controls to defaults (no glitch)
+  /// Reset all glitch controls to defaults (no glitch).
+  /// Sends a /glitch/reset command that clears all stored state,
+  /// restores hardware registers, and forces a full frame buffer reinit.
+  /// Also dispatches default values so all knobs/dropdowns update.
   void reset() {
-    sendOsc(0, address: 'glitch/channel_swap');
-    sendOsc(0, address: 'glitch/bit_swap');
-    sendOsc(0, address: 'glitch/stride_offset');
-    sendOsc(0, address: 'glitch/frame_delay');
-    sendOsc(0, address: 'glitch/row_offset');
-    sendOsc(0, address: 'glitch/addr_offset');
-    sendOsc(0, address: 'glitch/addr_limit_disable');
-    sendOsc(0, address: 'glitch/write_ffc_map');
-    sendOsc(0, address: 'glitch/write_addr_offset');
-    sendOsc(0, address: 'glitch/write_phase');
-    sendOsc(0, address: 'glitch/mfc_read_buf');
-    sendOsc(0, address: 'glitch/bit_precision');  // 0 = 8bpp (normal)
-    sendOsc(0, address: 'glitch/map_mode');  // 0 = 1D mode (normal)
-    sendOsc(0, address: 'glitch/y_freeze');
-    sendOsc(0, address: 'glitch/c_freeze');
-    sendOsc(0, address: 'glitch/test_pattern');
-    sendOsc(0, address: 'glitch/y_buf_type');  // 0 = Y (normal)
-    sendOsc(1, address: 'glitch/cb_buf_type');  // 1 = Cb (normal)
-    sendOsc(2, address: 'glitch/cr_buf_type');  // 2 = Cr (normal)
-    sendOsc(1, address: 'glitch/outmux_mode');  // 1 = single pixel mode
-    sendOsc(0, address: 'glitch/outmux_port');
-    // MFC structural glitches
-    sendOsc(0, address: 'glitch/mfc_in_roi_x');
-    sendOsc(0, address: 'glitch/mfc_in_roi_y');
-    sendOsc(0, address: 'glitch/valid_lines');
-    sendOsc(0, address: 'glitch/rows_per_frame');
-    sendOsc(0, address: 'glitch/col_window');
-    sendOsc(4, address: 'glitch/buf_id');  // 4 = Out 0 (normal for Send 1)
-    // Genlock
-    sendOsc(0, address: 'glitch/gen_dlyH');
-    sendOsc(0, address: 'glitch/gen_dlyV');
-    sendOsc(32, address: 'glitch/gen_hyst');
-    sendOsc(2, address: 'glitch/gen_fine');  // 2 = frame-lock
+    // Tell firmware to hard-reset this channel's glitch state
+    sendOsc(true, address: 'glitch/reset');
+
+    // Dispatch default values so UI controls update immediately.
+    // Uses dispatch() (not dispatchLocal) so knob echo-suppression
+    // doesn't filter out the value.
+    final reg = OscRegistry();
+    final base = '$oscAddress/glitch';
+
+    void _set(String seg, Object? value) {
+      final addr = '$base/$seg';
+      reg.registerAddress(addr);
+      reg.dispatch(addr, <Object?>[value]);
+    }
+
+    for (final seg in [
+      'channel_swap', 'bit_swap', 'stride_offset', 'frame_delay',
+      'row_offset', 'addr_offset', 'addr_limit_disable',
+      'write_addr_offset', 'write_phase', 'row_repeat',
+      'bit_precision', 'map_mode',
+      'y_freeze', 'c_freeze',
+      'mfc_in_roi_x', 'mfc_in_roi_y',
+      'valid_lines', 'rows_per_frame', 'col_window',
+      'gen_dlyH', 'gen_dlyV',
+      'outmux_port', 'write_ffc_map', 'mfc_read_buf',
+      'y_buf_type',
+      'even_odd_swap', 'cbcr_swap',
+    ]) {
+      _set(seg, 0);
+    }
+    _set('cb_buf_type', 1);
+    _set('cr_buf_type', 2);
+    _set('outmux_mode', 1);
+    _set('buf_id', 4);
+    _set('gen_hyst', 32);
+    _set('gen_fine', 2);
+    _set('enable', false);
   }
 
   // Bit precision labels
@@ -70,14 +78,6 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
   static const List<String> _mapModeLabels = [
     '0: 1D Map',
     '1: 2D Map',
-  ];
-
-  // Test pattern labels
-  static const List<String> _testPatternLabels = [
-    '0: Off',
-    '1: Pattern 1',
-    '2: Pattern 2',
-    '3: Pattern 3',
   ];
 
   // Buffer type labels (what buffer type Y/Cb/Cr reads from)
@@ -229,6 +229,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
                 Expanded(child: Center(child: _knob(label: 'MFC Buf',   oscAddress: 'mfc_read_buf',    min: 0,     max: 7,     initial: 0))),
                 Expanded(child: Center(child: _knob(label: 'Wr Addr',   oscAddress: 'write_addr_offset', min: -65535, max: 65535, isBipolar: true))),
                 Expanded(child: Center(child: _knob(label: 'Wr Phase',  oscAddress: 'write_phase',     min: 0,     max: 6))),
+                Expanded(child: Center(child: _knob(label: 'Row Rpt',   oscAddress: 'row_repeat',      min: 0,     max: 2160))),
               ]),
             )),
           ]),
@@ -258,7 +259,6 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
                     segment: 'c_freeze',
                     child: const _ToggleWidget(label: 'C Freeze'),
                   ),
-                  _intDropdown(label: 'Test Pattern', options: _testPatternLabels, oscAddress: 'test_pattern', width: 100),
                 ],
               ),
             )),

@@ -7,6 +7,7 @@ import 'lighting_settings.dart';
 import 'system_overview.dart';
 import 'grid.dart';
 import 'rotary_knob.dart';
+import 'neumorphic_slider.dart';
 
 // Styles are now derived from GridTokens where possible, but these
 // status-indicator colors don't fit the standard token palette.
@@ -245,6 +246,7 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
   String _res = '';
   double _fps = 0.0;
   String _cs = '';
+  bool _interlaced = false;
 
   final Map<String, void Function(List<Object?>)> _listeners = {};
 
@@ -274,6 +276,10 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
       final v = args.isNotEmpty ? args.first.toString() : '';
       if (v != _cs && mounted) setState(() => _cs = v);
     });
+    listen('/analog_format/interlaced', (args) {
+      final v = args.isNotEmpty && args.first.toString().toUpperCase() == 'T';
+      if (v != _interlaced && mounted) setState(() => _interlaced = v);
+    });
 
     // Read initial values
     for (var path in _listeners.keys) {
@@ -288,6 +294,9 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
         }
         if (path.endsWith('colorspace')) {
           _cs = raw.toString();
+        }
+        if (path.endsWith('interlaced')) {
+          _interlaced = raw.toString().toUpperCase() == 'T';
         }
       }
     }
@@ -306,7 +315,7 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
       overlayLabel: 'R',
       selected: widget.selected,
       onTap: widget.onTap,
-      child: _FormatInfo(res: _res, fps: _fps, bpp: 12, cs: _cs, sub: '4:4:4'),
+      child: _FormatInfo(res: _res, fps: _fps, bpp: 12, cs: _cs, sub: '4:4:4', interlaced: _interlaced),
     );
   }
 }
@@ -318,6 +327,7 @@ class _FormatInfo extends StatelessWidget {
   final int bpp;
   final String cs;
   final String sub;
+  final bool interlaced;
 
   const _FormatInfo({
     required this.res,
@@ -325,24 +335,22 @@ class _FormatInfo extends StatelessWidget {
     required this.bpp,
     required this.cs,
     required this.sub,
+    this.interlaced = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.maybeOf(context);
     return Padding(
-      padding: EdgeInsets.all(t?.sm ?? 8),
+      padding: EdgeInsets.all(t?.xs ?? 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(res, style: _greenText),
-          Text(fps.toStringAsFixed(2), style: _greenText),
+          Text(res, style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('${fps.toStringAsFixed(2)}${interlaced ? 'i' : 'p'}', style: _greenText),
           Text('$bpp bit', style: _greenText),
-          Row(children: [
-            Text(cs, style: _greenText),
-            const SizedBox(width: 8),
-            Text(sub, style: _greenText),
-          ]),
+          Text('$cs $sub', style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -377,29 +385,33 @@ class _SelectableTile extends StatelessWidget {
             width: 2,
           ),
         ),
-        child: NeumorphicInset(
-          baseColor: const Color(0xFF262628),
-          borderRadius: 4.0,
-          child: Stack(
-            children: [
-              Positioned(
-                right: 4,
-                bottom: -8,
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) {
-                    return lighting
-                        .createPhongSurfaceGradient(
-                          baseColor: const Color(0xFF454548),
-                          intensity: 0.12,
-                        )
-                        .createShader(bounds);
-                  },
-                  child: Text(overlayLabel, style: _overlayStyle),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: NeumorphicInset(
+            baseColor: const Color(0xFF262628),
+            borderRadius: 4.0,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned(
+                  right: 4,
+                  bottom: -8,
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (bounds) {
+                      return lighting
+                          .createPhongSurfaceGradient(
+                            baseColor: const Color(0xFF454548),
+                            intensity: 0.12,
+                          )
+                          .createShader(bounds);
+                    },
+                    child: Text(overlayLabel, style: _overlayStyle),
+                  ),
                 ),
-              ),
-              child,
-            ],
+                child,
+              ],
+            ),
           ),
         ),
       ),
@@ -411,10 +423,21 @@ class SendOverlayCompactControls extends StatefulWidget {
   final int pageNumber;
   final int sourceSend;
 
+  /// Crossfade weight (0.0–1.0). When [crossfadeActive] is true, this
+  /// directly controls the effective alpha sent to the device (0→100%).
+  final double alphaWeight;
+
+  /// True when this cell is assigned to an A/B group. When active, the
+  /// crossfader overrides the Mix slider — effective alpha = [alphaWeight].
+  /// When false, effective alpha = user's Mix slider value.
+  final bool crossfadeActive;
+
   const SendOverlayCompactControls({
     super.key,
     required this.pageNumber,
     required this.sourceSend,
+    this.alphaWeight = 1.0,
+    this.crossfadeActive = false,
   });
 
   @override
@@ -424,7 +447,7 @@ class SendOverlayCompactControls extends StatefulWidget {
 
 class _SendOverlayCompactControlsState
     extends State<SendOverlayCompactControls> with OscAddressMixin {
-  bool _deviceEnabled = false;
+  // Device echo state (for tracking what firmware reports back)
   int _deviceBlend = 0;
   double _deviceAlpha = 0.0;
   double _deviceYKey = 0.0;
@@ -495,94 +518,96 @@ class _SendOverlayCompactControlsState
     return int.tryParse(raw?.toString() ?? '') ?? fallback;
   }
 
-  static bool _parseOscBool(Object? raw) {
-    if (raw is bool) return raw;
-    if (raw is num) return raw != 0;
-    final s = raw?.toString().toLowerCase() ?? '';
-    return s == 't' || s == 'true' || s == '1';
-  }
+  /// When crossfade is active, the weight IS the alpha (0→100%).
+  /// When inactive (unassigned), the user's Mix slider controls alpha.
+  double get _effectiveAlpha =>
+      widget.crossfadeActive ? widget.alphaWeight : _alpha;
 
-  bool get _hasMix => _alpha > 0.0001;
+  /// PIP should be enabled if there's any mix intent OR keying.
+  /// When crossfade-active, any non-zero weight counts as mix intent.
+  bool get _hasMix => widget.crossfadeActive
+      ? widget.alphaWeight > 0.0001
+      : _alpha > 0.0001;
   bool get _hasKey => _yKey > 0.0001 || _cKey > 0.0001;
 
-  void _syncLocalFromDevice() {
-    final nextAlpha =
-        _deviceEnabled ? _deviceAlpha.clamp(0.0, 1.0) : 0.0;
-    final nextY = _deviceEnabled ? _deviceYKey.clamp(0.0, 4095.0) : 0.0;
-    final nextC = _deviceEnabled ? _deviceCKey.clamp(0.0, 255.0) : 0.0;
-    final nextReverse = _deviceBlend == 2;
-    if ((nextAlpha - _alpha).abs() > 0.0001 ||
-        (nextY - _yKey).abs() > 0.0001 ||
-        (nextC - _cKey).abs() > 0.0001 ||
-        nextReverse != _keyReverse) {
-      setState(() {
-        _alpha = nextAlpha;
-        _yKey = nextY;
-        _cKey = nextC;
-        _keyReverse = nextReverse;
-      });
+  @override
+  void didUpdateWidget(SendOverlayCompactControls old) {
+    super.didUpdateWidget(old);
+    if ((old.alphaWeight - widget.alphaWeight).abs() > 0.0001 ||
+        old.crossfadeActive != widget.crossfadeActive) {
+      _sendAll();
     }
   }
 
-  void _sendDerivedModeToDevice() {
+  /// Send everything to device: effective alpha, key values, enabled, blend.
+  void _sendAll() {
     final enabled = _hasMix || _hasKey;
     final blend = _hasKey ? (_keyReverse ? 2 : 1) : 0;
     sendOsc(enabled, address: _enabledPath);
     sendOsc(blend, address: _blendPath);
+    sendOsc(_effectiveAlpha, address: _alphaPath);
+    sendOsc(_yKey.round(), address: _yKeyPath);
+    sendOsc(_cKey.round(), address: _cKeyPath);
   }
 
+  // --- Device echo handlers ---
+  // enabled/blend echoes just track device state; they don't touch local values.
+  // Value echoes (alpha/yKey/cKey) update local state directly.
+
   void _handleEnabledUpdate(List<Object?> args) {
-    if (args.isEmpty) return;
-    final next = _parseOscBool(args.first);
-    if (next != _deviceEnabled) {
-      _deviceEnabled = next;
-      _syncLocalFromDevice();
-    }
+    // enabled is a derived output — we don't sync from it.
   }
 
   void _handleBlendUpdate(List<Object?> args) {
     if (args.isEmpty) return;
     final next = _parseOscInt(args.first, _deviceBlend).clamp(0, 2);
-    if (next != _deviceBlend) {
-      _deviceBlend = next;
-      _syncLocalFromDevice();
+    _deviceBlend = next;
+    final nextReverse = next == 2;
+    if (nextReverse != _keyReverse) {
+      setState(() => _keyReverse = nextReverse);
     }
   }
 
   void _handleAlphaUpdate(List<Object?> args) {
     if (args.isEmpty) return;
     final next = _parseOscDouble(args.first, _deviceAlpha).clamp(0.0, 1.0);
-    if ((next - _deviceAlpha).abs() > 0.0001) {
-      _deviceAlpha = next;
-      _syncLocalFromDevice();
+    _deviceAlpha = next;
+    // Ignore echoes that match what we sent (not an external change).
+    if ((next - _effectiveAlpha).abs() < 0.01) return;
+    // External change — recover user alpha from effective.
+    final w = widget.alphaWeight;
+    final userAlpha = w > 0.0001 ? (next / w).clamp(0.0, 1.0) : _alpha;
+    if ((userAlpha - _alpha).abs() > 0.0001) {
+      setState(() => _alpha = userAlpha);
     }
   }
 
   void _handleYKeyUpdate(List<Object?> args) {
     if (args.isEmpty) return;
     final next = _parseOscDouble(args.first, _deviceYKey).clamp(0.0, 4095.0);
-    if ((next - _deviceYKey).abs() > 0.0001) {
-      _deviceYKey = next;
-      _syncLocalFromDevice();
+    _deviceYKey = next;
+    if ((next - _yKey).abs() > 0.0001) {
+      setState(() => _yKey = next);
     }
   }
 
   void _handleCKeyUpdate(List<Object?> args) {
     if (args.isEmpty) return;
     final next = _parseOscDouble(args.first, _deviceCKey).clamp(0.0, 255.0);
-    if ((next - _deviceCKey).abs() > 0.0001) {
-      _deviceCKey = next;
-      _syncLocalFromDevice();
+    _deviceCKey = next;
+    if ((next - _cKey).abs() > 0.0001) {
+      setState(() => _cKey = next);
     }
   }
+
+  // --- User interaction handlers ---
 
   void _onAlphaChanged(double value) {
     final next = value.clamp(0.0, 1.0);
     if ((next - _alpha).abs() > 0.0001) {
       setState(() => _alpha = next);
     }
-    sendOsc(_alpha, address: _alphaPath);
-    _sendDerivedModeToDevice();
+    _sendAll();
   }
 
   void _onYKeyChanged(double value) {
@@ -590,8 +615,7 @@ class _SendOverlayCompactControlsState
     if ((next - _yKey).abs() > 0.0001) {
       setState(() => _yKey = next);
     }
-    sendOsc(_yKey.round(), address: _yKeyPath);
-    _sendDerivedModeToDevice();
+    _sendAll();
   }
 
   void _onCKeyChanged(double value) {
@@ -599,15 +623,14 @@ class _SendOverlayCompactControlsState
     if ((next - _cKey).abs() > 0.0001) {
       setState(() => _cKey = next);
     }
-    sendOsc(_cKey.round(), address: _cKeyPath);
-    _sendDerivedModeToDevice();
+    _sendAll();
   }
 
   void _onKeyReverseChanged(bool value) {
     if (value != _keyReverse) {
       setState(() => _keyReverse = value);
     }
-    _sendDerivedModeToDevice();
+    _sendAll();
   }
 
   @override
@@ -617,12 +640,12 @@ class _SendOverlayCompactControlsState
 
     return Padding(
       padding: EdgeInsets.all(t.xs),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _OverlayModeKnobs(
+      child: Center(
+        child: _OverlayModeKnobs(
             knobSize: knobSize,
             alphaValue: _alpha,
+            alphaWeight: widget.alphaWeight,
+            crossfadeActive: widget.crossfadeActive,
             yKeyValue: _yKey,
             cKeyValue: _cKey,
             keyReverse: _keyReverse,
@@ -635,7 +658,6 @@ class _SendOverlayCompactControlsState
             yKeyOscPath: _yKeyPath,
             cKeyOscPath: _cKeyPath,
           ),
-        ],
       ),
     );
   }
@@ -643,7 +665,9 @@ class _SendOverlayCompactControlsState
 
 class _OverlayModeKnobs extends StatelessWidget {
   final double knobSize;
-  final double alphaValue;
+  final double alphaValue;      // user intent (0-1)
+  final double alphaWeight;     // crossfade weight (0-1)
+  final bool crossfadeActive;   // true when cell is in an A/B group
   final double yKeyValue;
   final double cKeyValue;
   final bool keyReverse;
@@ -659,6 +683,8 @@ class _OverlayModeKnobs extends StatelessWidget {
   const _OverlayModeKnobs({
     required this.knobSize,
     required this.alphaValue,
+    this.alphaWeight = 1.0,
+    this.crossfadeActive = false,
     required this.yKeyValue,
     required this.cKeyValue,
     required this.keyReverse,
@@ -680,24 +706,23 @@ class _OverlayModeKnobs extends StatelessWidget {
     );
   }
 
-  Widget _alphaKnob(TextStyle? labelStyle) {
+  Widget _alphaSlider(double trackLength) {
+    // When crossfade-active, slider shows the crossfade weight directly.
+    // When inactive, slider shows the user's alpha value.
+    final display = crossfadeActive ? alphaWeight : alphaValue;
     return _withSourceSelection(
-      RotaryKnob(
-        value: alphaValue,
+      NeumorphicSlider(
+        value: display * 100,
         minValue: 0.0,
-        maxValue: 1.0,
-        format: '%.2f',
+        maxValue: 100.0,
+        format: '%.0f%%',
         label: 'Mix',
-        defaultValue: 1.0,
-        size: knobSize,
-        labelStyle: labelStyle,
-        onChanged: onAlphaChanged,
-        oscPath: alphaOscPath,
-        snapConfig: const SnapConfig(
-          snapPoints: [0.0, 0.25, 0.5, 0.75, 1.0],
-          snapRegionHalfWidth: 0.02,
-          snapBehavior: SnapBehavior.hard,
-        ),
+        defaultValue: 100.0,
+        axis: SliderAxis.vertical,
+        trackLength: trackLength,
+        trackWidth: 8,
+        thumbLength: 24,
+        onChanged: (v) => onAlphaChanged(v / 100.0),
       ),
     );
   }
@@ -767,35 +792,144 @@ class _OverlayModeKnobs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    // Slider height sized to fit two knobs + gap + reverse checkbox
+    final sliderHeight = knobSize * 2 + t.sm * 2 + 20;
 
-    return Column(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
+        // Vertical Mix % slider
+        _alphaSlider(sliderHeight),
+        SizedBox(width: t.xs),
+        // Key knobs stacked vertically with Reverse checkbox
+        Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Center(child: _alphaKnob(t.textLabel)),
-            ),
-            Expanded(
-              child: Center(child: _yKeyKnob(t.textLabel)),
-            ),
-            Expanded(
-              child: Center(child: _cKeyKnob(t.textLabel)),
-            ),
-          ],
-        ),
-        SizedBox(height: t.xs),
-        Row(
-          children: [
-            const Expanded(child: SizedBox.shrink()),
-            Expanded(
-              flex: 2,
-              child: Center(
-                child: _keyReverseToggle(t.textLabel),
-              ),
-            ),
+            _yKeyKnob(t.textLabel),
+            SizedBox(height: t.xs),
+            _cKeyKnob(t.textLabel),
+            SizedBox(height: t.xs),
+            _keyReverseToggle(t.textLabel),
           ],
         ),
       ],
     );
   }
 }
+
+/// Compact 2×2 source selector for the mixer page.
+///
+/// Lays out four tiles (Input 1, Input 2, Input 3, Return) in a 2-column grid.
+/// Sends the selected source index to `/send/<pageNumber>/input`.
+class SendSourceSelector2x2 extends StatelessWidget {
+  final int pageNumber;
+  /// Height of each tile row. Defaults to [TileLayout.tileHeight].
+  final double? tileHeight;
+
+  const SendSourceSelector2x2({super.key, required this.pageNumber, this.tileHeight});
+
+  @override
+  Widget build(BuildContext context) {
+    return OscPathSegment(
+      segment: 'send/$pageNumber/input',
+      child: _Selector2x2Inner(pageNumber: pageNumber, tileHeight: tileHeight),
+    );
+  }
+}
+
+class _Selector2x2Inner extends StatefulWidget {
+  final int pageNumber;
+  final double? tileHeight;
+  const _Selector2x2Inner({required this.pageNumber, this.tileHeight});
+
+  @override
+  State<_Selector2x2Inner> createState() => _Selector2x2InnerState();
+}
+
+class _Selector2x2InnerState extends State<_Selector2x2Inner>
+    with OscAddressMixin {
+  late int _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.pageNumber;
+  }
+
+  @override
+  OscStatus onOscMessage(List<Object?> args) {
+    final incoming = args.isNotEmpty ? args.first : null;
+    if (incoming is int) {
+      setState(() => _selected = incoming);
+      return OscStatus.ok;
+    }
+    return OscStatus.error;
+  }
+
+  void _select(int value) {
+    setState(() => _selected = value);
+    sendOsc(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    final gap = t.xs;
+
+    final tileHeight = widget.tileHeight ?? TileLayout.tileHeight;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: tileHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _InputSourceTile(
+                  inputIndex: 1,
+                  selected: _selected == 1,
+                  onTap: () => _select(1),
+                ),
+              ),
+              SizedBox(width: gap),
+              Expanded(
+                child: _InputSourceTile(
+                  inputIndex: 2,
+                  selected: _selected == 2,
+                  onTap: () => _select(2),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: gap),
+        SizedBox(
+          height: tileHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _InputSourceTile(
+                  inputIndex: 3,
+                  selected: _selected == 3,
+                  onTap: () => _select(3),
+                ),
+              ),
+              SizedBox(width: gap),
+              Expanded(
+                child: _ReturnSourceTile(
+                  selected: _selected == 4,
+                  onTap: () => _select(4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+

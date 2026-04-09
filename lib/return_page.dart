@@ -235,8 +235,8 @@ class _AdcAdjustmentsContent extends StatelessWidget {
             (
               span: 4,
               child: Panel(
-                title: 'Pixel Clock',
-                child: _PixelClockOffsetCard(),
+                title: 'Offset',
+                child: _OffsetCard(),
               ),
             ),
           ],
@@ -265,42 +265,61 @@ class _AdcAdjustmentsContent extends StatelessWidget {
   }
 }
 
-class _PixelClockOffsetCard extends StatefulWidget {
-  const _PixelClockOffsetCard();
+class _OffsetCard extends StatefulWidget {
+  const _OffsetCard();
 
   @override
-  State<_PixelClockOffsetCard> createState() => _PixelClockOffsetCardState();
+  State<_OffsetCard> createState() => _OffsetCardState();
 }
 
-class _PixelClockOffsetCardState extends State<_PixelClockOffsetCard> {
-  int _offset = 0;
-  final _knobKey = GlobalKey<OscRotaryKnobState>();
+class _OffsetCardState extends State<_OffsetCard> {
+  int _hOffset = 0;
+  int _vOffset = 0;
+  final _hKnobKey = GlobalKey<OscRotaryKnobState>();
+  final _vKnobKey = GlobalKey<OscRotaryKnobState>();
 
   @override
   void initState() {
     super.initState();
     final reg = OscRegistry();
-    reg.registerAddress('/clock_offset');
-    reg.registerListener('/clock_offset', _onMsg);
+    reg.registerAddress('/adv/h_offset');
+    reg.registerListener('/adv/h_offset', _onHMsg);
+    reg.registerAddress('/adv/v_offset');
+    reg.registerListener('/adv/v_offset', _onVMsg);
   }
 
   @override
   void dispose() {
-    OscRegistry().unregisterListener('/clock_offset', _onMsg);
+    final reg = OscRegistry();
+    reg.unregisterListener('/adv/h_offset', _onHMsg);
+    reg.unregisterListener('/adv/v_offset', _onVMsg);
     super.dispose();
   }
 
-  void _onMsg(List<Object?> args) {
+  void _onHMsg(List<Object?> args) {
     if (args.isEmpty || args.first is! num) return;
     final v = (args.first as num).toInt().clamp(-50, 50);
     if (!mounted) return;
-    setState(() => _offset = v);
-    _knobKey.currentState?.setValue(v.toDouble(), emit: false);
+    setState(() => _hOffset = v);
+    _hKnobKey.currentState?.setValue(v.toDouble(), emit: false);
   }
 
-  void _send(int v) {
-    context.read<Network>().sendOscMessage('/clock_offset', [v]);
-    OscRegistry().dispatchLocal('/clock_offset', [v]);
+  void _onVMsg(List<Object?> args) {
+    if (args.isEmpty || args.first is! num) return;
+    final v = (args.first as num).toInt().clamp(-50, 50);
+    if (!mounted) return;
+    setState(() => _vOffset = v);
+    _vKnobKey.currentState?.setValue(v.toDouble(), emit: false);
+  }
+
+  void _sendH(int v) {
+    context.read<Network>().sendOscMessage('/adv/h_offset', [v]);
+    OscRegistry().dispatchLocal('/adv/h_offset', [v]);
+  }
+
+  void _sendV(int v) {
+    context.read<Network>().sendOscMessage('/adv/v_offset', [v]);
+    OscRegistry().dispatchLocal('/adv/v_offset', [v]);
   }
 
   @override
@@ -310,25 +329,51 @@ class _PixelClockOffsetCardState extends State<_PixelClockOffsetCard> {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.center,
-        child: OscRotaryKnob(
-          key: _knobKey,
-          initialValue: _offset.toDouble(),
-          minValue: -50,
-          maxValue: 50,
-          format: '%.0f',
-          label: 'Offset',
-          labelStyle: t.textLabel,
-          defaultValue: 0,
-          isBipolar: true,
-          size: t.knobSm,
-          sendOsc: false,
-          preferInteger: true,
-          oscPathOverride: '/clock_offset',
-          onChanged: (v) {
-            final iv = v.round().clamp(-50, 50);
-            _offset = iv;
-            _send(iv);
-          },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OscRotaryKnob(
+              key: _hKnobKey,
+              initialValue: _hOffset.toDouble(),
+              minValue: -50,
+              maxValue: 50,
+              format: '%.0f',
+              label: 'H',
+              labelStyle: t.textLabel,
+              defaultValue: 0,
+              isBipolar: true,
+              size: t.knobSm,
+              sendOsc: false,
+              preferInteger: true,
+              oscPathOverride: '/adv/h_offset',
+              onChanged: (v) {
+                final iv = v.round().clamp(-50, 50);
+                _hOffset = iv;
+                _sendH(iv);
+              },
+            ),
+            SizedBox(width: t.md),
+            OscRotaryKnob(
+              key: _vKnobKey,
+              initialValue: _vOffset.toDouble(),
+              minValue: -50,
+              maxValue: 50,
+              format: '%.0f',
+              label: 'V',
+              labelStyle: t.textLabel,
+              defaultValue: 0,
+              isBipolar: true,
+              size: t.knobSm,
+              sendOsc: false,
+              preferInteger: true,
+              oscPathOverride: '/adv/v_offset',
+              onChanged: (v) {
+                final iv = v.round().clamp(-50, 50);
+                _vOffset = iv;
+                _sendV(iv);
+              },
+            ),
+          ],
         ),
       ),
     );

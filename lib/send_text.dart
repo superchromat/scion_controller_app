@@ -111,9 +111,9 @@ class OscColorControl extends StatefulWidget {
 
   const OscColorControl({
     super.key,
-    this.initialR = 128,
-    this.initialG = 128,
-    this.initialB = 128,
+    this.initialR = 255,
+    this.initialG = 255,
+    this.initialB = 255,
     this.size = 90,
   });
 

@@ -693,7 +693,7 @@ class _VideoFormatSelectionSectionState
   Widget build(BuildContext context) {
     // Measurements
     const double colWidth = 190.0;
-    const double resFrameHeight = 124.0; // Resolution + Framerate height (tighter)
+    const double resFrameHeight = 186.0; // Resolution + Framerate + Interlaced height
     const double colorspaceBoxHeight = 75.0;
     const double wheelsBoxWidth = 310.0;
     const double r = 12.0;
@@ -752,6 +752,19 @@ class _VideoFormatSelectionSectionState
                       label: 'Framerate',
                       items: framerates,
                       defaultValue: framerates[0],
+                      enabled: _formatControlsEnabled,
+                    ),
+                  ),
+                  // Interlaced
+                  Positioned(
+                    left: 0, top: 124,
+                    width: colWidth,
+                    child: OscDropdown<bool>(
+                      label: 'Scan',
+                      pathSegment: 'interlaced',
+                      items: const [false, true],
+                      itemLabels: const {false: 'Progressive', true: 'Interlaced'},
+                      defaultValue: false,
                       enabled: _formatControlsEnabled,
                     ),
                   ),
