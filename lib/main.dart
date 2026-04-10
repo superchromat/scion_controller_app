@@ -18,7 +18,7 @@ import 'perf_page.dart';
 import 'return_page.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
-import 'slider_page.dart';
+import 'thumbnail_page.dart';
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -345,8 +345,8 @@ class _MyHomePageState extends State<MyHomePage> {
         onDownload: (bytes) {/* … */},
         isActive: selectedIndex == 7,
       ),
-      // 8 → Slider Demo
-      const SliderPage(),
+      // 8 → Thumbnails
+      const ThumbnailPage(),
       // 9 → Perf
 //      const PerfPage(),
     ];
@@ -455,8 +455,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             label: Text('OSC Log'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.linear_scale),
-                            label: Text('Sliders'),
+                            icon: Icon(Icons.image),
+                            label: Text('Thumbnails'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.speed),
