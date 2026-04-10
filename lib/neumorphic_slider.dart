@@ -30,6 +30,10 @@ class NeumorphicSlider extends StatefulWidget {
   /// Thumb length along the track axis.
   final double thumbLength;
 
+  /// Number of graduation divisions inside the track (0 = none).
+  /// A bold mark is drawn at the 50% position.
+  final int graduations;
+
   const NeumorphicSlider({
     super.key,
     required this.minValue,
@@ -44,6 +48,7 @@ class NeumorphicSlider extends StatefulWidget {
     this.trackLength,
     this.trackWidth = 10,
     this.thumbLength = 28,
+    this.graduations = 0,
   });
 
   @override
@@ -80,37 +85,62 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
   double _travelFor(double length) => length - widget.thumbLength;
 
   double _resolvedLength = 200; // updated by build/LayoutBuilder
+  int _activePointer = -1; // tracks which pointer is dragging
 
-  void _updateFromPos(double pos) {
+  void _applyDelta(double deltaPx) {
     final travel = _travelFor(_resolvedLength);
-    final clamped = pos.clamp(0.0, travel);
-    double norm;
-    if (widget.axis == SliderAxis.vertical) {
-      norm = 1.0 - clamped / travel; // invert for vertical
-    } else {
-      norm = clamped / travel;
-    }
-    final raw = widget.minValue + norm * (widget.maxValue - widget.minValue);
-    final v = raw.clamp(widget.minValue, widget.maxValue);
+    if (travel <= 0) return;
+    // Convert pixel delta to value delta
+    final range = widget.maxValue - widget.minValue;
+    final valueDelta = (deltaPx / travel) * range;
+    // For vertical, dragging down = decrease
+    final directed = widget.axis == SliderAxis.vertical ? -valueDelta : valueDelta;
+    final v = (_value + directed).clamp(widget.minValue, widget.maxValue);
     if (v != _value) {
       setState(() => _value = v);
       widget.onChanged?.call(v);
     }
   }
 
-  void _onPanStart(DragStartDetails d) {
+  void _onPointerDown(PointerDownEvent e) {
+    if (_activePointer >= 0) return; // already tracking a pointer
+    _activePointer = e.pointer;
     _dragging = true;
-  }
-
-  void _onPanUpdate(DragUpdateDetails d) {
-    final local = d.localPosition;
+    // Jump to tapped position
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final local = box.globalToLocal(e.position);
+    final travel = _travelFor(_resolvedLength);
     final pos = widget.axis == SliderAxis.vertical
         ? local.dy - widget.thumbLength / 2
         : local.dx - widget.thumbLength / 2;
-    _updateFromPos(pos);
+    final clamped = pos.clamp(0.0, travel);
+    final norm = widget.axis == SliderAxis.vertical
+        ? 1.0 - clamped / travel
+        : clamped / travel;
+    final v = (widget.minValue + norm * (widget.maxValue - widget.minValue))
+        .clamp(widget.minValue, widget.maxValue);
+    if (v != _value) {
+      setState(() => _value = v);
+      widget.onChanged?.call(v);
+    }
   }
 
-  void _onPanEnd(DragEndDetails d) {
+  void _onPointerMove(PointerMoveEvent e) {
+    if (e.pointer != _activePointer) return;
+    final delta = widget.axis == SliderAxis.vertical ? e.delta.dy : e.delta.dx;
+    _applyDelta(delta);
+  }
+
+  void _onPointerUp(PointerUpEvent e) {
+    if (e.pointer != _activePointer) return;
+    _activePointer = -1;
+    _dragging = false;
+  }
+
+  void _onPointerCancel(PointerCancelEvent e) {
+    if (e.pointer != _activePointer) return;
+    _activePointer = -1;
     _dragging = false;
   }
 
@@ -134,10 +164,34 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
     }
   }
 
-  Widget _buildTrack(double trackLength) {
+  @override
+  Widget build(BuildContext context) {
     final isVertical = widget.axis == SliderAxis.vertical;
-    final crossSize = widget.trackWidth + 24;
+    final explicitLength = widget.trackLength;
+    // Horizontal T-bar handle extends well beyond the track;
+    // vertical capsule thumb only needs modest overhang.
+    final crossSize = isVertical
+        ? widget.trackWidth + 24
+        : (widget.trackWidth / 2 + 18) * 2 + 8; // match handle halfH + shadow margin
 
+    // For null trackLength in horizontal mode, measure once via LayoutBuilder
+    // but keep the GestureDetector outside so drags aren't interrupted by rebuilds.
+    if (explicitLength == null && !isVertical) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final len = constraints.maxWidth.isFinite ? constraints.maxWidth : 200.0;
+          _resolvedLength = len;
+          return _buildBody(len, crossSize, isVertical);
+        },
+      );
+    }
+
+    final len = (explicitLength ?? 200).toDouble();
+    _resolvedLength = len;
+    return _buildBody(len, crossSize, isVertical);
+  }
+
+  Widget _buildBody(double trackLength, double crossSize, bool isVertical) {
     final painter = _SliderPainter(
       normalized: _normalized,
       neutralNormalized: widget.isBipolar ? _neutralNormalized : null,
@@ -147,43 +201,23 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
       trackLength: trackLength,
       trackWidth: widget.trackWidth,
       thumbLength: widget.thumbLength,
+      graduations: widget.graduations,
     );
 
-    return GestureDetector(
-      onPanStart: _onPanStart,
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      onDoubleTap: _onDoubleTap,
-      child: SizedBox(
-        width: isVertical ? crossSize : trackLength,
-        height: isVertical ? trackLength : crossSize,
-        child: CustomPaint(painter: painter),
+    final track = Listener(
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
+      child: GestureDetector(
+        onDoubleTap: _onDoubleTap,
+        child: SizedBox(
+          width: isVertical ? crossSize : trackLength,
+          height: isVertical ? trackLength : crossSize,
+          child: CustomPaint(painter: painter),
+        ),
       ),
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isVertical = widget.axis == SliderAxis.vertical;
-    final explicitLength = widget.trackLength;
-
-    // For null trackLength in horizontal mode, use LayoutBuilder to fill width.
-    final bool useLayoutBuilder = explicitLength == null && !isVertical;
-
-    Widget track;
-    if (useLayoutBuilder) {
-      track = LayoutBuilder(
-        builder: (context, constraints) {
-          final len = constraints.maxWidth.isFinite ? constraints.maxWidth : 200.0;
-          _resolvedLength = len;
-          return _buildTrack(len);
-        },
-      );
-    } else {
-      final len = explicitLength ?? 200;
-      _resolvedLength = len.toDouble();
-      track = _buildTrack(len.toDouble());
-    }
 
     // Value label
     final valueText = Text(
@@ -209,6 +243,9 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
         : null;
 
     if (isVertical) {
+      if (labelText == null && widget.format.isEmpty) {
+        return track;
+      }
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -250,6 +287,7 @@ class _SliderPainter extends CustomPainter {
   final double trackLength;
   final double trackWidth;
   final double thumbLength;
+  final int graduations;
 
   static const Color _activeColor = Color(0xFFF0B830); // amber/gold
   static const Color _inactiveColor = Color(0xFFE8E8E8);
@@ -263,6 +301,7 @@ class _SliderPainter extends CustomPainter {
     required this.trackLength,
     required this.trackWidth,
     required this.thumbLength,
+    this.graduations = 0,
   });
 
   @override
@@ -288,6 +327,11 @@ class _SliderPainter extends CustomPainter {
 
     // ─── Slot (recessed channel) ───
     _drawSlot(canvas, size, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
+
+    // ─── Graduations inside the slot ───
+    if (graduations > 0) {
+      _drawGraduations(canvas, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
+    }
 
     // ─── Value fill ───
     _drawValueFill(canvas, size, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
@@ -384,6 +428,39 @@ class _SliderPainter extends CustomPainter {
       ).createShader(slotInner.outerRect);
     }
     canvas.drawRRect(slotInner.deflate(0.5), shadowPaint);
+  }
+
+  void _drawGraduations(Canvas canvas, bool isVertical,
+      double cx, double cy, double trackStart, double trackEnd, double halfSlot) {
+    final travel = trackEnd - trackStart;
+    final markHalf = halfSlot * 0.5; // half-width of each graduation line
+
+    for (int i = 0; i <= graduations; i++) {
+      final t = i / graduations;
+      final isMid = i == graduations ~/ 2;
+      final pos = trackStart + t * travel;
+
+      final paint = Paint()
+        ..color = isMid
+            ? const Color(0xFF666669)
+            : const Color(0xFF4A4A4D)
+        ..strokeWidth = isMid ? 1.5 : 1.0
+        ..strokeCap = StrokeCap.round;
+
+      if (isVertical) {
+        canvas.drawLine(
+          Offset(cx - markHalf, pos),
+          Offset(cx + markHalf, pos),
+          paint,
+        );
+      } else {
+        canvas.drawLine(
+          Offset(pos, cy - markHalf),
+          Offset(pos, cy + markHalf),
+          paint,
+        );
+      }
+    }
   }
 
   void _drawValueFill(Canvas canvas, Size size, bool isVertical,
@@ -505,43 +582,137 @@ class _SliderPainter extends CustomPainter {
       thumbCentre = normalized * travel + thumbLength / 2;
     }
 
-    final thumbHalf = thumbLength / 2;
-    final thumbCrossHalf = halfSlot + 5; // wider than slot
-    final thumbRadius = math.min(thumbCrossHalf, thumbHalf);
-
-    RRect thumbRect;
-    if (isVertical) {
-      thumbRect = RRect.fromRectAndRadius(
-        Rect.fromLTRB(
-          cx - thumbCrossHalf,
-          thumbCentre - thumbHalf,
-          cx + thumbCrossHalf,
-          thumbCentre + thumbHalf,
-        ),
-        Radius.circular(thumbRadius),
-      );
-    } else {
-      thumbRect = RRect.fromRectAndRadius(
-        Rect.fromLTRB(
-          thumbCentre - thumbHalf,
-          cy - thumbCrossHalf,
-          thumbCentre + thumbHalf,
-          cy + thumbCrossHalf,
-        ),
-        Radius.circular(thumbRadius),
-      );
+    if (!isVertical) {
+      _drawTBarThumb(canvas, thumbCentre, cy, halfSlot);
+      return;
     }
 
-    // Shadow under thumb
-    final shadowRect = thumbRect.shift(const Offset(0, 2));
+    // Vertical: standard capsule thumb
+    final thumbHalf = thumbLength / 2;
+    final thumbCrossHalf = halfSlot + 5;
+    final thumbRadius = math.min(thumbCrossHalf, thumbHalf);
+
+    final thumbRect = RRect.fromRectAndRadius(
+      Rect.fromLTRB(
+        cx - thumbCrossHalf,
+        thumbCentre - thumbHalf,
+        cx + thumbCrossHalf,
+        thumbCentre + thumbHalf,
+      ),
+      Radius.circular(thumbRadius),
+    );
+
+    _drawCapsuleThumb(canvas, thumbRect, isVertical, cx, thumbCentre, halfSlot);
+  }
+
+  /// T-bar handle for horizontal sliders. Fully convex rounded rectangle shape —
+  /// like a smooth pebble or bar of soap. Tall, narrow, rounded corners,
+  /// no concavities. Straddles the slot track.
+  void _drawTBarThumb(Canvas canvas, double thumbX, double cy, double halfSlot) {
+    final halfW = thumbLength * 0.32;
+    final halfH = halfSlot + 18;
+    final r = halfW; // corner radius = half width → fully rounded short sides
+
+    final thumbRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(thumbX, cy), width: halfW * 2, height: halfH * 2),
+      Radius.circular(r),
+    );
+
+    // Drop shadow
     canvas.drawRRect(
-      shadowRect,
+      thumbRect.shift(const Offset(0, 2)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    // Body — metallic left-to-right gradient (cylindrical shading)
+    canvas.drawRRect(
+      thumbRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color(0xFF48484B),
+            Color(0xFF5E5E62),
+            Color(0xFF7E7E82),
+            Color(0xFF919196),
+            Color(0xFF7E7E82),
+            Color(0xFF5E5E62),
+            Color(0xFF48484B),
+          ],
+          stops: [0.0, 0.12, 0.32, 0.48, 0.64, 0.85, 1.0],
+        ).createShader(thumbRect.outerRect),
+    );
+
+    // Top specular highlight
+    canvas.save();
+    canvas.clipRRect(thumbRect);
+    canvas.drawRect(
+      thumbRect.outerRect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.2),
+            Colors.white.withValues(alpha: 0.03),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.2, 0.45],
+        ).createShader(thumbRect.outerRect),
+    );
+    canvas.restore();
+
+    // Subtle outline
+    canvas.drawRRect(
+      thumbRect.deflate(0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.75
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.12),
+            Colors.white.withValues(alpha: 0.03),
+            Colors.black.withValues(alpha: 0.08),
+          ],
+        ).createShader(thumbRect.outerRect),
+    );
+
+    // Centre groove line
+    final grooveHalf = halfW * 0.55;
+    canvas.drawLine(
+      Offset(thumbX - grooveHalf, cy),
+      Offset(thumbX + grooveHalf, cy),
+      Paint()
+        ..color = const Color(0xFF2A2A2D)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      Offset(thumbX - grooveHalf, cy - 1),
+      Offset(thumbX + grooveHalf, cy - 1),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.06)
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  /// Standard capsule thumb for vertical sliders.
+  void _drawCapsuleThumb(Canvas canvas, RRect thumbRect, bool isVertical,
+      double cx, double thumbCentre, double halfSlot) {
+    // Shadow
+    canvas.drawRRect(
+      thumbRect.shift(const Offset(0, 2)),
       Paint()
         ..color = Colors.black.withValues(alpha: 0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
 
-    // Thumb body — raised capsule with gradient
+    // Body
     final thumbGradient = isVertical
         ? const LinearGradient(
             begin: Alignment.centerLeft,
@@ -553,97 +724,63 @@ class _SliderPainter extends CustomPainter {
             end: Alignment.bottomCenter,
             colors: [Color(0xFF555558), Color(0xFF4A4A4D), Color(0xFF3E3E41)],
           );
-
     canvas.drawRRect(
       thumbRect,
       Paint()..shader = thumbGradient.createShader(thumbRect.outerRect),
     );
 
-    // Highlight edge on lit side
-    final highlightPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    if (isVertical) {
-      highlightPaint.shader = LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          Colors.white.withValues(alpha: 0.18),
-          Colors.white.withValues(alpha: 0.06),
-          Colors.transparent,
-        ],
-      ).createShader(thumbRect.outerRect);
-    } else {
-      highlightPaint.shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withValues(alpha: 0.18),
-          Colors.white.withValues(alpha: 0.06),
-          Colors.transparent,
-        ],
-      ).createShader(thumbRect.outerRect);
-    }
-    canvas.drawRRect(thumbRect.deflate(0.5), highlightPaint);
+    // Highlight
+    canvas.drawRRect(
+      thumbRect.deflate(0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.18),
+            Colors.white.withValues(alpha: 0.06),
+            Colors.transparent,
+          ],
+        ).createShader(thumbRect.outerRect),
+    );
 
-    // Shadow edge on opposite side
-    final shadowEdgePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    if (isVertical) {
-      shadowEdgePaint.shader = LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          Colors.transparent,
-          Colors.black.withValues(alpha: 0.06),
-          Colors.black.withValues(alpha: 0.12),
-        ],
-      ).createShader(thumbRect.outerRect);
-    } else {
-      shadowEdgePaint.shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.transparent,
-          Colors.black.withValues(alpha: 0.06),
-          Colors.black.withValues(alpha: 0.12),
-        ],
-      ).createShader(thumbRect.outerRect);
-    }
-    canvas.drawRRect(thumbRect.deflate(0.5), shadowEdgePaint);
+    // Shadow edge
+    canvas.drawRRect(
+      thumbRect.deflate(0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.06),
+            Colors.black.withValues(alpha: 0.12),
+          ],
+        ).createShader(thumbRect.outerRect),
+    );
 
-    // Centre grip line on thumb
-    final gripPaint = Paint()
-      ..color = const Color(0xFF2A2A2D)
-      ..strokeWidth = 1.0
-      ..strokeCap = StrokeCap.round;
-    if (isVertical) {
-      final gripLen = thumbCrossHalf * 0.6;
-      canvas.drawLine(
-        Offset(cx - gripLen, thumbCentre),
-        Offset(cx + gripLen, thumbCentre),
-        gripPaint,
-      );
-      // Highlight line above
-      canvas.drawLine(
-        Offset(cx - gripLen, thumbCentre - 1),
-        Offset(cx + gripLen, thumbCentre - 1),
-        Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeCap = StrokeCap.round,
-      );
-    } else {
-      final gripLen = thumbCrossHalf * 0.6;
-      canvas.drawLine(
-        Offset(thumbCentre, cy - gripLen),
-        Offset(thumbCentre, cy + gripLen),
-        gripPaint,
-      );
-      canvas.drawLine(
-        Offset(thumbCentre - 1, cy - gripLen),
-        Offset(thumbCentre - 1, cy + gripLen),
-        Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeCap = StrokeCap.round,
-      );
-    }
+    // Centre grip line
+    final thumbCrossHalf = halfSlot + 5;
+    final gripLen = thumbCrossHalf * 0.6;
+    canvas.drawLine(
+      Offset(cx - gripLen, thumbCentre),
+      Offset(cx + gripLen, thumbCentre),
+      Paint()
+        ..color = const Color(0xFF2A2A2D)
+        ..strokeWidth = 1.0
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      Offset(cx - gripLen, thumbCentre - 1),
+      Offset(cx + gripLen, thumbCentre - 1),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.08)
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override

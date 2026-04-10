@@ -533,10 +533,20 @@ class _SendOverlayCompactControlsState
   @override
   void didUpdateWidget(SendOverlayCompactControls old) {
     super.didUpdateWidget(old);
-    if ((old.alphaWeight - widget.alphaWeight).abs() > 0.0001 ||
-        old.crossfadeActive != widget.crossfadeActive) {
+    if (old.crossfadeActive != widget.crossfadeActive) {
+      // Mode changed — send everything
       _sendAll();
+    } else if ((old.alphaWeight - widget.alphaWeight).abs() > 0.0001) {
+      // Crossfade moving — only send alpha + enabled (fast path)
+      _sendAlphaOnly();
     }
+  }
+
+  /// Send just the alpha and enabled state (fast path for crossfader drag).
+  void _sendAlphaOnly() {
+    final enabled = _hasMix || _hasKey;
+    sendOsc(enabled, address: _enabledPath);
+    sendOsc(_effectiveAlpha, address: _alphaPath);
   }
 
   /// Send everything to device: effective alpha, key values, enabled, blend.
@@ -715,13 +725,14 @@ class _OverlayModeKnobs extends StatelessWidget {
         value: display * 100,
         minValue: 0.0,
         maxValue: 100.0,
-        format: '%.0f%%',
-        label: 'Mix',
+        format: '',
+        label: '',
         defaultValue: 100.0,
         axis: SliderAxis.vertical,
         trackLength: trackLength,
         trackWidth: 8,
         thumbLength: 24,
+        graduations: 10,
         onChanged: (v) => onAlphaChanged(v / 100.0),
       ),
     );
@@ -765,26 +776,15 @@ class _OverlayModeKnobs extends StatelessWidget {
 
   Widget _keyReverseToggle(TextStyle? labelStyle) {
     return _withSourceSelection(
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: Checkbox(
-              value: keyReverse,
-              onChanged: (v) => onKeyReverseChanged(v ?? false),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              side: const BorderSide(color: Color(0x66FFFFFF)),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Reverse',
-            style: labelStyle?.copyWith(fontSize: (labelStyle.fontSize ?? 11) * 0.9),
-          ),
-        ],
+      GestureDetector(
+        onTap: () => onKeyReverseChanged(!keyReverse),
+        child: Icon(
+          Icons.invert_colors,
+          size: (labelStyle?.fontSize ?? 11) * 1.6,
+          color: keyReverse
+              ? const Color(0xFFF0B830)
+              : const Color(0xFFD2D2D4),
+        ),
       ),
     );
   }
@@ -824,24 +824,21 @@ class _OverlayModeKnobs extends StatelessWidget {
 /// Sends the selected source index to `/send/<pageNumber>/input`.
 class SendSourceSelector2x2 extends StatelessWidget {
   final int pageNumber;
-  /// Height of each tile row. Defaults to [TileLayout.tileHeight].
-  final double? tileHeight;
 
-  const SendSourceSelector2x2({super.key, required this.pageNumber, this.tileHeight});
+  const SendSourceSelector2x2({super.key, required this.pageNumber});
 
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
       segment: 'send/$pageNumber/input',
-      child: _Selector2x2Inner(pageNumber: pageNumber, tileHeight: tileHeight),
+      child: _Selector2x2Inner(pageNumber: pageNumber),
     );
   }
 }
 
 class _Selector2x2Inner extends StatefulWidget {
   final int pageNumber;
-  final double? tileHeight;
-  const _Selector2x2Inner({required this.pageNumber, this.tileHeight});
+  const _Selector2x2Inner({required this.pageNumber});
 
   @override
   State<_Selector2x2Inner> createState() => _Selector2x2InnerState();
@@ -877,13 +874,11 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
     final t = GridProvider.of(context);
     final gap = t.xs;
 
-    final tileHeight = widget.tileHeight ?? TileLayout.tileHeight;
-
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      // Fill parent height when inside Expanded (mixer page),
+      // otherwise use natural height (send page).
       children: [
-        SizedBox(
-          height: tileHeight,
+        Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -906,8 +901,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
           ),
         ),
         SizedBox(height: gap),
-        SizedBox(
-          height: tileHeight,
+        Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

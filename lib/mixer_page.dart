@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'grid.dart';
 import 'labeled_card.dart';
@@ -71,8 +72,18 @@ class _MixerMatrixState extends State<_MixerMatrix> {
   void _setGroup(int row, int sourceSend, ABGroup group) {
     setState(() {
       final current = _groups[row][sourceSend]!;
-      // Toggle off if tapping the active group
-      _groups[row][sourceSend] = (current == group) ? ABGroup.none : group;
+      if (current == group) {
+        // Toggle off
+        _groups[row][sourceSend] = ABGroup.none;
+      } else {
+        // Clear any other cell that had this group in the same row
+        for (final s in MixerPage.sources) {
+          if (_groups[row][s] == group) {
+            _groups[row][s] = ABGroup.none;
+          }
+        }
+        _groups[row][sourceSend] = group;
+      }
     });
   }
 
@@ -130,7 +141,7 @@ class _MixerMatrixState extends State<_MixerMatrix> {
   }
 }
 
-class _MixerRow extends StatelessWidget {
+class _MixerRow extends StatefulWidget {
   final int targetSend;
   final Map<int, ABGroup> groups;
   final double crossfade;
@@ -148,6 +159,31 @@ class _MixerRow extends StatelessWidget {
   });
 
   @override
+  State<_MixerRow> createState() => _MixerRowState();
+}
+
+class _MixerRowState extends State<_MixerRow> {
+  // Incremented to trigger a flash on all A/B toggle buttons in this row.
+  final ValueNotifier<int> _flashTrigger = ValueNotifier<int>(0);
+
+  bool get _hasA => widget.groups.values.any((g) => g == ABGroup.a);
+  bool get _hasB => widget.groups.values.any((g) => g == ABGroup.b);
+  bool get _hasBothAB => _hasA && _hasB;
+
+  /// If A/B groups aren't both assigned, flash the buttons and return true.
+  bool _guardCrossfade() {
+    if (_hasBothAB) return false;
+    _flashTrigger.value++;
+    return true; // blocked
+  }
+
+  @override
+  void dispose() {
+    _flashTrigger.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
 
@@ -157,11 +193,9 @@ class _MixerRow extends StatelessWidget {
         (
           span: 12,
           child: Panel.dark(
-            title: 'Send $targetSend',
+            title: 'Send ${widget.targetSend}',
             child: Column(
               children: [
-                // Cell row — IntrinsicHeight + stretch so all cells
-                // match the tallest, then A/B buttons align at bottom.
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,22 +204,29 @@ class _MixerRow extends StatelessWidget {
                         if (i > 0) SizedBox(width: t.xs),
                         Expanded(
                           child: _MixerCell(
-                            targetSend: targetSend,
+                            targetSend: widget.targetSend,
                             sourceSend: MixerPage.sources[i],
-                            group: groups[MixerPage.sources[i]]!,
-                            alphaWeight: weightFor(MixerPage.sources[i]),
-                            onGroupChanged: (g) => onGroupChanged(MixerPage.sources[i], g),
+                            group: widget.groups[MixerPage.sources[i]]!,
+                            alphaWeight: widget.weightFor(MixerPage.sources[i]),
+                            onGroupChanged: (g) => widget.onGroupChanged(MixerPage.sources[i], g),
+                            flashTrigger: _flashTrigger,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                // Crossfader — always visible
                 SizedBox(height: t.sm),
-                _Crossfader(
-                  value: crossfade,
-                  onChanged: onCrossfadeChanged,
+                FractionallySizedBox(
+                  widthFactor: 3 / 4,
+                  child: _Crossfader(
+                    value: widget.crossfade,
+                    onChanged: (v) {
+                      if (_guardCrossfade()) return;
+                      widget.onCrossfadeChanged(v);
+                    },
+                    onAutoRequest: (target) => _guardCrossfade(),
+                  ),
                 ),
               ],
             ),
@@ -197,60 +238,181 @@ class _MixerRow extends StatelessWidget {
 }
 
 /// A/B toggle buttons for a single mixer cell.
-class _ABToggle extends StatelessWidget {
+/// Listens to [flashTrigger] to briefly flash yellow when crossfade is
+/// attempted without both A and B assigned.
+class _ABToggle extends StatefulWidget {
   final ABGroup group;
   final ValueChanged<ABGroup> onChanged;
+  final ValueNotifier<int> flashTrigger;
 
-  const _ABToggle({required this.group, required this.onChanged});
+  const _ABToggle({
+    required this.group,
+    required this.onChanged,
+    required this.flashTrigger,
+  });
+
+  @override
+  State<_ABToggle> createState() => _ABToggleState();
+}
+
+class _ABToggleState extends State<_ABToggle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _flashCtrl;
+  late final Animation<double> _flashAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _flashCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _flashAnim = CurvedAnimation(parent: _flashCtrl, curve: Curves.easeOut);
+    widget.flashTrigger.addListener(_onFlash);
+  }
+
+  @override
+  void didUpdateWidget(_ABToggle old) {
+    super.didUpdateWidget(old);
+    if (old.flashTrigger != widget.flashTrigger) {
+      old.flashTrigger.removeListener(_onFlash);
+      widget.flashTrigger.addListener(_onFlash);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.flashTrigger.removeListener(_onFlash);
+    _flashCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onFlash() {
+    _flashCtrl.reverse(from: 1);
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
     final btnStyle = t.textCaption.copyWith(fontWeight: FontWeight.w700);
-    const aColor = Color(0xFF5B8DEF); // blue
-    const bColor = Color(0xFFEF7B5B); // orange
+    const aColor = Color(0xFF5B8DEF);
+    const bColor = Color(0xFFEF7B5B);
+    const flashColor = Color(0xFFFFF176); // yellow
 
-    Widget btn(String label, ABGroup target, Color color) {
-      final active = group == target;
-      return GestureDetector(
-        onTap: () => onChanged(target),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.5),
-          decoration: BoxDecoration(
-            color: active ? color : const Color(0xFF2A2A2C),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: active ? color : Colors.grey[700]!,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: btnStyle.copyWith(
-              color: active ? Colors.white : Colors.grey[500],
-            ),
-          ),
-        ),
-      );
-    }
+    return AnimatedBuilder(
+      animation: _flashAnim,
+      builder: (context, _) {
+        final flash = _flashAnim.value; // 1.0 → 0.0
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        btn('A', ABGroup.a, aColor),
-        SizedBox(width: t.xs),
-        btn('B', ABGroup.b, bColor),
-      ],
+        Widget btn(String label, ABGroup target, Color color) {
+          final active = widget.group == target;
+          // Flash border only on unassigned buttons
+          final showFlash = !active && flash > 0.01;
+          final bgColor = active ? color : const Color(0xFF2A2A2C);
+          final borderColor = active
+              ? color
+              : showFlash
+                  ? Color.lerp(Colors.grey[700]!, flashColor, flash)!
+                  : Colors.grey[700]!;
+          final textColor = active ? Colors.white : Colors.grey[500]!;
+
+          return GestureDetector(
+            onTap: () => widget.onChanged(target),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.5),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: borderColor, width: 1),
+              ),
+              child: Text(label, style: btnStyle.copyWith(color: textColor)),
+            ),
+          );
+        }
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            btn('A', ABGroup.a, aColor),
+            SizedBox(width: t.xs),
+            btn('B', ABGroup.b, bColor),
+          ],
+        );
+      },
     );
   }
 }
 
-/// Horizontal A/B crossfader with labels.
-class _Crossfader extends StatelessWidget {
+/// Horizontal A/B crossfader with AUTO buttons and labels.
+class _Crossfader extends StatefulWidget {
   final double value;
   final ValueChanged<double> onChanged;
+  /// Called before auto-crossfade starts. Return true to block it.
+  final bool Function(double target)? onAutoRequest;
 
-  const _Crossfader({required this.value, required this.onChanged});
+  const _Crossfader({
+    required this.value,
+    required this.onChanged,
+    this.onAutoRequest,
+  });
+
+  @override
+  State<_Crossfader> createState() => _CrossfaderState();
+}
+
+class _CrossfaderState extends State<_Crossfader>
+    with SingleTickerProviderStateMixin {
+  static const _autoDuration = Duration(seconds: 1);
+  // ~30 fps: update every ~33ms for smooth motion without flooding OSC
+  static const _autoStepInterval = Duration(milliseconds: 33);
+
+  late final Ticker _ticker;
+  double _autoFrom = 0;
+  double _autoTo = 0;
+  bool _autoRunning = false;
+  Duration _lastStep = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick);
+  }
+
+  void _onTick(Duration elapsed) {
+    // Throttle: only call onChanged at ~30fps intervals
+    if (elapsed - _lastStep < _autoStepInterval && elapsed < _autoDuration) {
+      return;
+    }
+    _lastStep = elapsed;
+
+    final t = (elapsed.inMicroseconds / _autoDuration.inMicroseconds).clamp(0.0, 1.0);
+    // Ease in-out
+    final eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) * (-2 * t + 2) / 2;
+    final v = _autoFrom + (_autoTo - _autoFrom) * eased;
+    widget.onChanged(v.clamp(0.0, 1.0));
+
+    if (t >= 1.0) {
+      widget.onChanged(_autoTo);
+      _ticker.stop();
+      _autoRunning = false;
+    }
+  }
+
+  void _startAuto(double target) {
+    if (widget.onAutoRequest?.call(target) == true) return; // blocked
+    _autoFrom = widget.value;
+    _autoTo = target;
+    _autoRunning = true;
+    _lastStep = Duration.zero;
+    if (_ticker.isActive) _ticker.stop();
+    _ticker.start();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -258,27 +420,65 @@ class _Crossfader extends StatelessWidget {
     const aColor = Color(0xFF5B8DEF);
     const bColor = Color(0xFFEF7B5B);
     final labelStyle = t.textLabel.copyWith(fontWeight: FontWeight.w700, fontSize: t.u * 1.4);
+    final btnStyle = t.textCaption.copyWith(fontWeight: FontWeight.w700, fontSize: t.u * 0.9);
+
+    Widget autoBtn(String label, Color color, double target) {
+      return GestureDetector(
+        onTap: () => _startAuto(target),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2C),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[700]!, width: 1),
+          ),
+          child: Text('AUTO', style: btnStyle.copyWith(color: color)),
+        ),
+      );
+    }
 
     return Row(
       children: [
-        Text('A', style: labelStyle.copyWith(color: aColor)),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('A', style: labelStyle.copyWith(color: aColor)),
+            SizedBox(height: t.xs),
+            autoBtn('AUTO', aColor, 0.0),
+          ],
+        ),
         SizedBox(width: t.sm),
         Expanded(
           child: NeumorphicSlider(
             axis: SliderAxis.horizontal,
             minValue: 0.0,
             maxValue: 1.0,
-            value: value,
+            value: widget.value,
             defaultValue: 0.5,
             label: '',
             format: '',
             trackWidth: 14,
             thumbLength: 36,
-            onChanged: onChanged,
+            graduations: 10,
+            onChanged: (v) {
+              // Manual drag cancels any running auto-crossfade
+              if (_autoRunning) {
+                _ticker.stop();
+                _autoRunning = false;
+              }
+              widget.onChanged(v);
+            },
           ),
         ),
         SizedBox(width: t.sm),
-        Text('B', style: labelStyle.copyWith(color: bColor)),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('B', style: labelStyle.copyWith(color: bColor)),
+            SizedBox(height: t.xs),
+            autoBtn('AUTO', bColor, 1.0),
+          ],
+        ),
       ],
     );
   }
@@ -290,6 +490,7 @@ class _MixerCell extends StatelessWidget {
   final ABGroup group;
   final double alphaWeight;
   final ValueChanged<ABGroup> onGroupChanged;
+  final ValueNotifier<int> flashTrigger;
 
   const _MixerCell({
     required this.targetSend,
@@ -297,6 +498,7 @@ class _MixerCell extends StatelessWidget {
     required this.group,
     required this.alphaWeight,
     required this.onGroupChanged,
+    required this.flashTrigger,
   });
 
   @override
@@ -306,23 +508,25 @@ class _MixerCell extends StatelessWidget {
 
     // Column stretches to row height (via IntrinsicHeight + stretch).
     // Expanded pushes A/B buttons to the bottom.
-    return Column(
-      children: [
-        // Cell content fills available space
-        Expanded(
-          child: isIdentity
-              ? SendSourceSelector2x2(pageNumber: targetSend)
-              : SendOverlayCompactControls(
-                  pageNumber: targetSend,
-                  sourceSend: sourceSend,
-                  alphaWeight: alphaWeight,
-                  crossfadeActive: group != ABGroup.none,
-                ),
-        ),
-        SizedBox(height: t.xs),
-        // A/B toggle pinned at bottom
-        _ABToggle(group: group, onChanged: onGroupChanged),
-      ],
+    return NeumorphicInset(
+      padding: EdgeInsets.all(t.xs),
+      child: Column(
+        children: [
+          Expanded(
+            child: isIdentity
+                ? SendSourceSelector2x2(pageNumber: targetSend)
+                : SendOverlayCompactControls(
+                    pageNumber: targetSend,
+                    sourceSend: sourceSend,
+                    alphaWeight: alphaWeight,
+                    crossfadeActive: group != ABGroup.none,
+                  ),
+          ),
+          SizedBox(height: t.xs),
+          _ABToggle(group: group, onChanged: onGroupChanged, flashTrigger: flashTrigger),
+          SizedBox(height: t.sm),
+        ],
+      ),
     );
   }
 }
