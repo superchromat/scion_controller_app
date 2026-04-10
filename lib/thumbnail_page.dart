@@ -58,23 +58,59 @@ class _ThumbnailPageState extends State<ThumbnailPage> {
     return _listeners.putIfAbsent(addr, () => (args) => _onThumbnail(addr, args));
   }
 
-  void _onThumbnail(String addr, List<Object?> args) {
-    if (args.isEmpty) return;
-    final blob = args.first;
-    if (blob is! Uint8List) return;
+  // Track width/height and accumulating buffer per channel
+  final Map<String, int> _thumbW = {};
+  final Map<String, int> _thumbH = {};
+  final Map<String, Uint8List> _thumbAccum = {};
 
-    setState(() {
-      switch (addr) {
-        case '/output/thumbnail':
-          _outputData = blob;
-        case '/send/1/thumbnail':
-          _send1Data = blob;
-        case '/send/2/thumbnail':
-          _send2Data = blob;
-        case '/send/3/thumbnail':
-          _send3Data = blob;
+  void _onThumbnail(String addr, List<Object?> args) {
+    // New chunked protocol: (int width, int height, int offset, blob chunk)
+    if (args.length >= 4 &&
+        args[0] is int && args[1] is int && args[2] is int && args[3] is Uint8List) {
+      final w = args[0] as int;
+      final h = args[1] as int;
+      final offset = args[2] as int;
+      final chunk = args[3] as Uint8List;
+      final total = w * h * 3;
+
+      // Allocate or reset buffer if dimensions changed
+      if (_thumbW[addr] != w || _thumbH[addr] != h ||
+          _thumbAccum[addr] == null || _thumbAccum[addr]!.length != total) {
+        _thumbW[addr] = w;
+        _thumbH[addr] = h;
+        _thumbAccum[addr] = Uint8List(total);
       }
-    });
+
+      final buf = _thumbAccum[addr]!;
+      final end = (offset + chunk.length).clamp(0, total);
+      buf.setRange(offset, end, chunk);
+
+      // When last chunk received, update display
+      if (end >= total || offset + chunk.length >= total) {
+        setState(() {
+          switch (addr) {
+            case '/output/thumbnail': _outputData = Uint8List.fromList(buf);
+            case '/send/1/thumbnail': _send1Data = Uint8List.fromList(buf);
+            case '/send/2/thumbnail': _send2Data = Uint8List.fromList(buf);
+            case '/send/3/thumbnail': _send3Data = Uint8List.fromList(buf);
+          }
+        });
+      }
+      return;
+    }
+
+    // Legacy: single blob (old protocol)
+    if (args.isNotEmpty && args.first is Uint8List) {
+      final blob = args.first as Uint8List;
+      setState(() {
+        switch (addr) {
+          case '/output/thumbnail': _outputData = blob;
+          case '/send/1/thumbnail': _send1Data = blob;
+          case '/send/2/thumbnail': _send2Data = blob;
+          case '/send/3/thumbnail': _send3Data = blob;
+        }
+      });
+    }
   }
 
   Uint8List? _dataFor(String addr) {
@@ -197,29 +233,30 @@ class _ThumbnailTile extends StatelessWidget {
   }
 
   Widget _buildImage(int _) {
-    // Derive thumbnail dimensions from blob size.
-    // Firmware sends W*H*3 bytes of interleaved RGB.
-    // Try to find a square size that matches.
     final bytes = data!;
-    int thumbSize = 0;
-    // Check if it's RGB (divisible by 3, and sqrt is integer)
+
+    // Determine dimensions: prefer stored w/h, else infer from size
+    int thumbW = 0, thumbH = 0;
+    // Check parent's stored dimensions
+    // (passed via the tile — we'll use data length heuristic)
     if (bytes.length % 3 == 0) {
       final pixels = bytes.length ~/ 3;
-      final side = _isqrt(pixels);
-      if (side * side == pixels) thumbSize = side;
-    }
-    // Fallback: treat as grayscale
-    if (thumbSize == 0) {
-      final side = _isqrt(bytes.length);
-      if (side * side == bytes.length) {
-        thumbSize = side;
-      } else {
-        thumbSize = side > 0 ? side : 1;
+      // Try common non-square sizes first
+      if (pixels == 64 * 32) { thumbW = 64; thumbH = 32; }
+      else if (pixels == 64 * 64) { thumbW = 64; thumbH = 64; }
+      else {
+        final side = _isqrt(pixels);
+        if (side * side == pixels) { thumbW = side; thumbH = side; }
       }
     }
+    if (thumbW == 0) {
+      final side = _isqrt(bytes.length);
+      thumbW = side > 0 ? side : 1;
+      thumbH = thumbW;
+    }
 
-    final isRgb = bytes.length >= thumbSize * thumbSize * 3;
-    final pixelCount = thumbSize * thumbSize;
+    final isRgb = bytes.length >= thumbW * thumbH * 3;
+    final pixelCount = thumbW * thumbH;
     final rgba = Uint8List(pixelCount * 4);
 
     if (isRgb) {
@@ -246,11 +283,11 @@ class _ThumbnailTile extends StatelessWidget {
       }
     }
 
-    final bmp = _encodeBmp(rgba, thumbSize, thumbSize);
+    final bmp = _encodeBmp(rgba, thumbW, thumbH);
     return Image(
       image: MemoryImage(bmp),
-      width: 192,
-      height: 192,
+      width: 256,
+      height: 256.0 * thumbH / thumbW,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.none, // Nearest-neighbor for crisp pixels
     );
