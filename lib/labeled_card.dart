@@ -10,6 +10,7 @@ class LabeledCard extends StatelessWidget {
   final bool networkIndependent;
   final Widget? action;
   final bool fillChild;
+  final Color? borderColor;
 
   const LabeledCard({
     super.key,
@@ -18,6 +19,7 @@ class LabeledCard extends StatelessWidget {
     this.networkIndependent = false,
     this.action,
     this.fillChild = false,
+    this.borderColor,
   });
 
   @override
@@ -37,7 +39,7 @@ class LabeledCard extends StatelessWidget {
     final contentPadBot = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
     final titleStyle = t?.textTitle ?? Theme.of(context).textTheme.titleLarge!;
 
-    return _NeumorphicCard(
+    Widget card = _NeumorphicCard(
       lighting: lighting,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,6 +78,26 @@ class LabeledCard extends StatelessWidget {
         ],
       ),
     );
+    if (borderColor != null) {
+      card = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          card,
+          Positioned(
+            left: 1, top: 1, right: 1, bottom: 1,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: borderColor!, width: 1),
+                  borderRadius: BorderRadius.circular(7.0),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return card;
   }
 }
 

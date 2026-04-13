@@ -87,25 +87,43 @@ class _SystemOverviewState extends State<SystemOverview>
     required String title,
     required Widget child,
     required LabelPosition labelPosition,
+    Color? borderColor,
   }) {
     final label = Text(
       title,
       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     );
-    return Container(
-      margin: EdgeInsets.all(TileLayout.tileOuterMargin),
-      child: NeumorphicContainer(
-        baseColor: const Color(0xFF323234),
-        borderRadius: 6.0,
-        elevation: 3.0,
-        padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: labelPosition == LabelPosition.top
-              ? [label, const SizedBox(height: 4), child]
-              : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
-        ),
+    return Padding(
+      padding: EdgeInsets.all(TileLayout.tileOuterMargin),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          NeumorphicContainer(
+            baseColor: const Color(0xFF323234),
+            borderRadius: 6.0,
+            elevation: 3.0,
+            padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: labelPosition == LabelPosition.top
+                  ? [label, const SizedBox(height: 4), child]
+                  : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
+            ),
+          ),
+          if (borderColor != null)
+            Positioned(
+              left: 1, top: 1, right: 1, bottom: 1,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: borderColor.withOpacity(0.5), width: 1),
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -193,6 +211,7 @@ class _SystemOverviewState extends State<SystemOverview>
                         _sectionBox(
                           title: 'Inputs',
                           labelPosition: LabelPosition.top,
+                          borderColor: Colors.white,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(
@@ -211,6 +230,7 @@ class _SystemOverviewState extends State<SystemOverview>
                         _sectionBox(
                           title: 'Out',
                           labelPosition: LabelPosition.top,
+                          borderColor: const Color(0xFF49A0F8),
                           child: sizedTile(const HDMIOutTile(), _outputKey),
                         ),
                         SizedBox(width: rightOffset.clamp(0, double.infinity)),
@@ -222,6 +242,7 @@ class _SystemOverviewState extends State<SystemOverview>
                         _sectionBox(
                           title: 'Sends',
                           labelPosition: LabelPosition.bottom,
+                          borderColor: const Color(0xFFF8BA00),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(
@@ -240,6 +261,7 @@ class _SystemOverviewState extends State<SystemOverview>
                         _sectionBox(
                           title: 'Return',
                           labelPosition: LabelPosition.bottom,
+                          borderColor: const Color(0xFF49A0F8),
                           child: sizedTile(const ReturnTile(), _returnKey),
                         ),
                         SizedBox(width: rightOffset.clamp(0, double.infinity)),

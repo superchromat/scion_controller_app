@@ -508,25 +508,45 @@ class _MixerCell extends StatelessWidget {
 
     // Column stretches to row height (via IntrinsicHeight + stretch).
     // Expanded pushes A/B buttons to the bottom.
-    return NeumorphicInset(
-      padding: EdgeInsets.all(t.xs),
-      child: Column(
-        children: [
-          Expanded(
-            child: isIdentity
-                ? SendSourceSelector2x2(pageNumber: targetSend)
-                : SendOverlayCompactControls(
-                    pageNumber: targetSend,
-                    sourceSend: sourceSend,
-                    alphaWeight: alphaWeight,
-                    crossfadeActive: group != ABGroup.none,
-                  ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        NeumorphicInset(
+          padding: EdgeInsets.all(t.xs),
+          child: Column(
+            children: [
+              Expanded(
+                child: isIdentity
+                    ? SendSourceSelector2x2(pageNumber: targetSend)
+                    : SendOverlayCompactControls(
+                        pageNumber: targetSend,
+                        sourceSend: sourceSend,
+                        alphaWeight: alphaWeight,
+                        crossfadeActive: group != ABGroup.none,
+                      ),
+              ),
+              SizedBox(height: t.xs),
+              _ABToggle(group: group, onChanged: onGroupChanged, flashTrigger: flashTrigger),
+              SizedBox(height: t.sm),
+            ],
           ),
-          SizedBox(height: t.xs),
-          _ABToggle(group: group, onChanged: onGroupChanged, flashTrigger: flashTrigger),
-          SizedBox(height: t.sm),
-        ],
-      ),
+        ),
+        if (isIdentity)
+          Positioned(
+            left: 1, top: 1, right: 1, bottom: 1,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: const Color(0xFFF8BA00).withOpacity(0.5),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(5.0),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -111,11 +111,13 @@ class _InputSourceTile extends StatefulWidget {
   final int inputIndex;
   final bool selected;
   final VoidCallback onTap;
+  final Color selectedBorderColor;
 
   const _InputSourceTile({
     required this.inputIndex,
     required this.selected,
     required this.onTap,
+    this.selectedBorderColor = Colors.white,
   });
 
   @override
@@ -224,6 +226,7 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       overlayLabel: widget.inputIndex.toString(),
       selected: widget.selected,
       onTap: widget.onTap,
+      selectedBorderColor: widget.selectedBorderColor,
       child: _connected
           ? _FormatInfo(res: _res, fps: _fps, bpp: _bpp, cs: _cs, sub: _sub)
           : Center(child: Text('Disconnected', style: _redText)),
@@ -235,8 +238,13 @@ class _InputSourceTileState extends State<_InputSourceTile> {
 class _ReturnSourceTile extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
+  final Color selectedBorderColor;
 
-  const _ReturnSourceTile({required this.selected, required this.onTap});
+  const _ReturnSourceTile({
+    required this.selected,
+    required this.onTap,
+    this.selectedBorderColor = Colors.white,
+  });
 
   @override
   State<_ReturnSourceTile> createState() => _ReturnSourceTileState();
@@ -315,6 +323,7 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
       overlayLabel: 'R',
       selected: widget.selected,
       onTap: widget.onTap,
+      selectedBorderColor: widget.selectedBorderColor,
       child: _FormatInfo(res: _res, fps: _fps, bpp: 12, cs: _cs, sub: '4:4:4', interlaced: _interlaced),
     );
   }
@@ -363,12 +372,14 @@ class _SelectableTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final Widget child;
+  final Color selectedBorderColor;
 
   const _SelectableTile({
     required this.overlayLabel,
     required this.selected,
     required this.onTap,
     required this.child,
+    this.selectedBorderColor = Colors.white,
   });
 
   @override
@@ -381,7 +392,7 @@ class _SelectableTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: selected ? const Color(0xFFFFF176) : Colors.transparent,
+            color: selected ? selectedBorderColor : Colors.transparent,
             width: 2,
           ),
         ),
@@ -887,6 +898,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 1,
                   selected: _selected == 1,
                   onTap: () => _select(1),
+                  selectedBorderColor: const Color(0xFFF8BA00),
                 ),
               ),
               SizedBox(width: gap),
@@ -895,6 +907,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 2,
                   selected: _selected == 2,
                   onTap: () => _select(2),
+                  selectedBorderColor: const Color(0xFFF8BA00),
                 ),
               ),
             ],
@@ -910,6 +923,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 3,
                   selected: _selected == 3,
                   onTap: () => _select(3),
+                  selectedBorderColor: const Color(0xFFF8BA00),
                 ),
               ),
               SizedBox(width: gap),
@@ -917,6 +931,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                 child: _ReturnSourceTile(
                   selected: _selected == 4,
                   onTap: () => _select(4),
+                  selectedBorderColor: const Color(0xFFF8BA00),
                 ),
               ),
             ],
