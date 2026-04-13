@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'system_overview_tiles.dart';
 import 'arrow.dart';
 import 'osc_registry.dart';
+import 'network.dart';
+import 'thumbnail_service.dart';
 
 /// Centralized layout constants
 class TileLayout {
@@ -50,11 +53,20 @@ class _SystemOverviewState extends State<SystemOverview>
 
   List<Arrow> _arrows = [];
   Timer? _resizeArrowDebounce;
+  Timer? _thumbnailTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Ensure the thumbnail service singleton is created
+    ThumbnailService();
+    // Periodically request thumbnail refreshes
+    _thumbnailTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      final network = context.read<Network>();
+      ThumbnailService().requestAll(network);
+    });
     // Listen for changes in mappings
     final registry = OscRegistry();
     for (var i = 1; i <= _sendKeys.length; i++) {
@@ -69,6 +81,7 @@ class _SystemOverviewState extends State<SystemOverview>
 
   @override
   void dispose() {
+    _thumbnailTimer?.cancel();
     _resizeArrowDebounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
@@ -5,6 +6,7 @@ import 'system_overview.dart'; // for TileLayout
 import 'osc_registry.dart';
 import 'labeled_card.dart'; // for NeumorphicInset
 import 'lighting_settings.dart';
+import 'thumbnail_service.dart';
 
 const TextStyle _systemTextStyle = TextStyle(
   color: Colors.green,
@@ -148,6 +150,7 @@ class VideoFormatTile extends StatefulWidget {
   final String? iconConnectedPath;
   final bool showHdmiIcon;
   final String? interlaced;
+  final String? thumbnailAddress;
 
   const VideoFormatTile({
     super.key,
@@ -161,6 +164,7 @@ class VideoFormatTile extends StatefulWidget {
     this.iconConnectedPath,
     this.showHdmiIcon = false,
     this.interlaced,
+    this.thumbnailAddress,
   });
 
   @override
@@ -177,6 +181,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   bool _interlaced = false;
   bool _connected = true;
   bool _iconConnected = false;
+  Uint8List? _thumbnailBmp;
 
   late final AnimationController _resController;
   late final Animation<Color?> _resColor;
@@ -189,9 +194,20 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   late final AnimationController _subController;
   late final Animation<Color?> _subColor;
 
+  void _onThumbnailUpdate() {
+    if (widget.thumbnailAddress == null) return;
+    final bmp = ThumbnailService().getBmp(widget.thumbnailAddress!);
+    if (bmp != _thumbnailBmp) {
+      setState(() => _thumbnailBmp = bmp);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.thumbnailAddress != null) {
+      ThumbnailService().addListener(_onThumbnailUpdate);
+    }
     const flashTime = 500; // ms
 
     _resController = AnimationController(
@@ -237,6 +253,9 @@ class _VideoFormatTileState extends State<VideoFormatTile>
 
   @override
   void dispose() {
+    if (widget.thumbnailAddress != null) {
+      ThumbnailService().removeListener(_onThumbnailUpdate);
+    }
     _resController.dispose();
     _fpsController.dispose();
     _bppController.dispose();
@@ -456,6 +475,21 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         borderRadius: 4.0,
         child: Stack(
           children: [
+            if (_thumbnailBmp != null)
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4.0),
+                  child: Opacity(
+                    opacity: 0.6,
+                    child: Image.memory(
+                      _thumbnailBmp!,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.low,
+                      gaplessPlayback: true,
+                    ),
+                  ),
+                ),
+              ),
             if (widget.showHdmiIcon)
               Positioned(
                 bottom: 4,
@@ -560,6 +594,7 @@ class AnalogSendTile extends StatelessWidget {
           chromaSubsampling: '4:4:4',
           iconConnectedPath: '/send/$index/hdmi_connected',
           showHdmiIcon: true,
+          thumbnailAddress: '/send/$index/thumbnail',
         ),
       ),
     );
@@ -579,6 +614,7 @@ class ReturnTile extends StatelessWidget {
       bitDepth: '12',
       colorSpace: '/analog_format/colorspace',
       chromaSubsampling: '4:4:4',
+      thumbnailAddress: '/output/thumbnail',
     );
   }
 }
