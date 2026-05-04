@@ -131,6 +131,7 @@ class _InputSourceTileState extends State<_InputSourceTile> {
   int _bpp = 0;
   String _cs = '';
   String _sub = '';
+  bool _interlaced = false;
 
   static const _segments = [
     'connected',
@@ -139,6 +140,7 @@ class _InputSourceTileState extends State<_InputSourceTile> {
     'bit_depth',
     'colorspace',
     'chroma_subsampling',
+    'interlaced',
   ];
 
   late final String _base;
@@ -189,6 +191,10 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       final v = args.isNotEmpty ? args.first.toString() : '';
       if (v != _sub && mounted) setState(() => _sub = v);
     });
+    listen('interlaced', (args) {
+      final v = args.isNotEmpty && args.first == true;
+      if (v != _interlaced && mounted) setState(() => _interlaced = v);
+    });
 
     // Read initial values from registry
     for (var seg in _segments) {
@@ -208,6 +214,8 @@ class _InputSourceTileState extends State<_InputSourceTile> {
             _cs = raw.toString();
           case 'chroma_subsampling':
             _sub = raw.toString();
+          case 'interlaced':
+            _interlaced = raw == true;
         }
       }
     }
@@ -228,7 +236,7 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       onTap: widget.onTap,
       selectedBorderColor: widget.selectedBorderColor,
       child: _connected
-          ? _FormatInfo(res: _res, fps: _fps, bpp: _bpp, cs: _cs, sub: _sub)
+          ? _FormatInfo(res: _res, fps: _fps, bpp: _bpp, cs: _cs, sub: _sub, interlaced: _interlaced)
           : Center(child: Text('Disconnected', style: _redText)),
     );
   }
@@ -898,7 +906,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 1,
                   selected: _selected == 1,
                   onTap: () => _select(1),
-                  selectedBorderColor: const Color(0xFFF8BA00),
+                  selectedBorderColor: Colors.white,
                 ),
               ),
               SizedBox(width: gap),
@@ -907,7 +915,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 2,
                   selected: _selected == 2,
                   onTap: () => _select(2),
-                  selectedBorderColor: const Color(0xFFF8BA00),
+                  selectedBorderColor: Colors.white,
                 ),
               ),
             ],
@@ -923,7 +931,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 3,
                   selected: _selected == 3,
                   onTap: () => _select(3),
-                  selectedBorderColor: const Color(0xFFF8BA00),
+                  selectedBorderColor: Colors.white,
                 ),
               ),
               SizedBox(width: gap),
@@ -931,7 +939,7 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                 child: _ReturnSourceTile(
                   selected: _selected == 4,
                   onTap: () => _select(4),
-                  selectedBorderColor: const Color(0xFFF8BA00),
+                  selectedBorderColor: Colors.white,
                 ),
               ),
             ],

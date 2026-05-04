@@ -538,10 +538,21 @@ class _MixerCell extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: const Color(0xFFF8BA00).withOpacity(0.5),
+                    color: Colors.white.withOpacity(0.5),
                     width: 1,
                   ),
                   borderRadius: BorderRadius.circular(5.0),
+                ),
+              ),
+            ),
+          ),
+        if (!isIdentity)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8BA00).withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(6.0),
                 ),
               ),
             ),

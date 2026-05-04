@@ -37,10 +37,28 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   Future<void> _loadRecents() async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_prefKey) ?? <String>[];
+    if (!mounted) return;
     setState(() {
       _recents = list;
       _controller.text = _recents.isNotEmpty ? _recents.first : '192.168.2.75';
     });
+    if (_recents.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _autoConnect(_recents.first);
+      });
+    }
+  }
+
+  Future<void> _autoConnect(String input) async {
+    final endpoint = _parseEndpoint(input);
+    if (endpoint == null) return;
+    final net = context.read<Network>();
+    try {
+      await net.connect(endpoint.host, endpoint.port);
+    } catch (_) {
+      // Silent on startup — user can connect manually if the device is unreachable
+    }
   }
 
   Future<void> _saveRecent(String host, int port) async {

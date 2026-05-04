@@ -99,7 +99,9 @@ class _SystemOverviewState extends State<SystemOverview>
         clipBehavior: Clip.none,
         children: [
           NeumorphicContainer(
-            baseColor: const Color(0xFF323234),
+            baseColor: borderColor != null
+                ? Color.lerp(const Color(0xFF323234), borderColor, 0.07)!
+                : const Color(0xFF323234),
             borderRadius: 6.0,
             elevation: 3.0,
             padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
@@ -117,7 +119,7 @@ class _SystemOverviewState extends State<SystemOverview>
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    border: Border.all(color: borderColor.withOpacity(0.5), width: 1),
+                    border: Border.all(color: borderColor.withOpacity(0.2), width: 1),
                     borderRadius: BorderRadius.circular(4.0),
                   ),
                 ),

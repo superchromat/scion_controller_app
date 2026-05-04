@@ -633,6 +633,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
   int _bpp = 0;
   String _cs = '';
   String _sub = '';
+  bool _interlaced = false;
 
   @override
   void didChangeDependencies() {
@@ -646,6 +647,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
       'bit_depth',
       'colorspace',
       'chroma_subsampling',
+      'interlaced',
     ];
     for (var seg in segments) {
       registry.registerAddress('$base/$seg');
@@ -681,6 +683,10 @@ class __InputTileInnerState extends State<_InputTileInner> {
       final v = args.isNotEmpty ? args.first.toString() : '';
       if (v != _sub) setState(() => _sub = v);
     });
+    registry.registerListener('$base/interlaced', (args) {
+      final v = args.isNotEmpty && args.first == true;
+      if (v != _interlaced) setState(() => _interlaced = v);
+    });
   }
 
   @override
@@ -694,6 +700,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
       'bit_depth',
       'colorspace',
       'chroma_subsampling',
+      'interlaced',
     ]) {
       registry.unregisterListener('$base/$seg', (_) {});
     }
@@ -730,7 +737,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(_res, style: _systemTextStyle),
-                    Text(_fps.toStringAsFixed(2), style: _systemTextStyle),
+                    Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}', style: _systemTextStyle),
                     Text('$_bpp bpp', style: _systemTextStyle),
                     Row(children: [
                       Text(_cs, style: _systemTextStyle),

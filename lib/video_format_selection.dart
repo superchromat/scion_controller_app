@@ -8,8 +8,10 @@ import 'osc_registry.dart';
 
 import 'color_space_matrix.dart';
 import 'color_wheel.dart';
+import 'grid.dart';
 import 'labeled_card.dart';
 import 'lighting_settings.dart';
+import 'osc_checkbox.dart';
 import 'osc_dropdown.dart';
 
 /// Compute the required ADC output bias for a matrix.
@@ -693,7 +695,7 @@ class _VideoFormatSelectionSectionState
   Widget build(BuildContext context) {
     // Measurements
     const double colWidth = 190.0;
-    const double resFrameHeight = 186.0; // Resolution + Framerate + Interlaced height
+    const double resFrameHeight = 124.0; // Resolution + Framerate row height
     const double colorspaceBoxHeight = 75.0;
     const double wheelsBoxWidth = 310.0;
     const double r = 12.0;
@@ -744,28 +746,62 @@ class _VideoFormatSelectionSectionState
                       enabled: _formatControlsEnabled,
                     ),
                   ),
-                  // Framerate (outside grey)
+                  // Framerate + Interlaced checkbox (same row, right edge matches dropdown buttons)
                   Positioned(
                     left: 0, top: 62,
-                    width: colWidth,
-                    child: OscDropdown<double>(
-                      label: 'Framerate',
-                      items: framerates,
-                      defaultValue: framerates[0],
-                      enabled: _formatControlsEnabled,
-                    ),
-                  ),
-                  // Interlaced
-                  Positioned(
-                    left: 0, top: 124,
-                    width: colWidth,
-                    child: OscDropdown<bool>(
-                      label: 'Scan',
-                      pathSegment: 'interlaced',
-                      items: const [false, true],
-                      itemLabels: const {false: 'Progressive', true: 'Interlaced'},
-                      defaultValue: false,
-                      enabled: _formatControlsEnabled,
+                    width: 160,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Labels row
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Framerate',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: _formatControlsEnabled
+                                        ? const Color(0xFFAAAAAA)
+                                        : const Color(0xFF606060),
+                                  )),
+                              Text('Interlaced',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: _formatControlsEnabled
+                                        ? const Color(0xFFAAAAAA)
+                                        : const Color(0xFF606060),
+                                  )),
+                            ],
+                          ),
+                        ),
+                        // Controls row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            OscDropdown<double>(
+                              label: 'Framerate',
+                              showLabel: false,
+                              items: framerates,
+                              defaultValue: framerates[0],
+                              enabled: _formatControlsEnabled,
+                              width: 100,
+                            ),
+                            OscPathSegment(
+                              segment: 'interlaced',
+                              child: OscCheckbox(
+                                size: 22,
+                                readOnly: !_formatControlsEnabled,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   // Colorspace (inside grey L, bottom-left) - aligned with dropdowns above

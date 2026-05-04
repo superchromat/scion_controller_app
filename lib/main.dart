@@ -30,17 +30,9 @@ const bool kShowDisconnectedOverlay = false;
 /// (e.g., no device reachable on the network). These should not surface a
 /// user-facing snackbar while the app silently retries.
 bool _shouldSilenceError(Object error) {
-  if (error is SocketException) {
-    final code = error.osError?.errorCode;
-    // macOS/iOS: 65 = No route to host, 51 = Network unreachable
-    if (code == 65 || code == 51) return true;
-
-    final msg = error.message.toLowerCase();
-    if (msg.contains('no route to host') ||
-        msg.contains('network is unreachable')) {
-      return true;
-    }
-  }
+  // All socket/OS errors are network-level; the reconnect logic handles them.
+  if (error is SocketException) return true;
+  if (error is OSError) return true;
   return false;
 }
 
@@ -418,40 +410,40 @@ class _MyHomePageState extends State<MyHomePage> {
                         onDestinationSelected: (value) {
                           setState(() => selectedIndex = value);
                         },
-                        destinations: const [
-                          NavigationRailDestination(
+                        destinations: [
+                          const NavigationRailDestination(
                             icon: Icon(Icons.memory),
                             label: Text('System'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.output),
-                            label: Text('Send 1'),
+                            icon: const Icon(Icons.output, color: Color(0xFFC9B066)),
+                            label: const Text('Send 1', style: TextStyle(color: Color(0xFFC9B066))),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.output),
-                            label: Text('Send 2'),
+                            icon: const Icon(Icons.output, color: Color(0xFFC9B066)),
+                            label: const Text('Send 2', style: TextStyle(color: Color(0xFFC9B066))),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.output),
-                            label: Text('Send 3'),
+                            icon: const Icon(Icons.output, color: Color(0xFFC9B066)),
+                            label: const Text('Send 3', style: TextStyle(color: Color(0xFFC9B066))),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.tune),
                             label: Text('Mixer'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.input),
-                            label: Text('Return'),
+                            icon: const Icon(Icons.input, color: Color(0xFF83A6C9)),
+                            label: const Text('Return', style: TextStyle(color: Color(0xFF83A6C9))),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.settings),
                             label: Text('Setup'),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.view_list),
                             label: Text('OSC Log'),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.speed),
                             label: Text('Perf'),
                           ),
