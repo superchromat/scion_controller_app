@@ -93,19 +93,7 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
     });
   }
 
-  /// Generate blur coefficients for Front NR C (7-tap symmetric, 4 unique coefficients)
-  List<double> _frontNrCBlurCoeffs(double amount, double shape) {
-    const identity = [1.0, 0.0, 0.0, 0.0];
-    const triangular = [0.25, 0.1875, 0.125, 0.0625];
-    const box = [0.143, 0.143, 0.143, 0.143];
-
-    return List<double>.generate(4, (i) {
-      final blur = triangular[i] + (box[i] - triangular[i]) * shape;
-      return identity[i] + (blur - identity[i]) * amount;
-    });
-  }
-
-  /// Generate sharpening kernel for H-Peak
+/// Generate sharpening kernel for H-Peak
   List<double> _hpeakKernel(double shape) {
     const narrow = [1.0, -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     const wide = [1.0, -0.3, -0.2, -0.15, -0.1, -0.05, 0.0, 0.0];
@@ -123,24 +111,25 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
     if (_hBlur > 0.001) {
       final blurAmount = _hBlur;
 
+      // Front NR Y only — bit 3 (enable_c / cFNR) must NOT be set here.
+      // It is the MDIN chroma decimation flag for 4:4:4→4:2:2 conversion;
+      // enabling it on a 4:2:2 input corrupts chroma output.
+      // C blur is handled through HAA (enable_y + enable_c) below.
       final frontNrYCoeffs = _frontNrYBlurCoeffs(blurAmount, _hBlurShape);
       sendOsc(frontNrYCoeffs, address: 'filter/front_nr/y');
       sendOsc(true, address: 'filter/front_nr/enable_y');
       sendOsc(false, address: 'filter/front_nr/bypass_y');
 
-      final frontNrCCoeffs = _frontNrCBlurCoeffs(blurAmount, _hBlurShape);
-      sendOsc(frontNrCCoeffs, address: 'filter/front_nr/c');
-      sendOsc(true, address: 'filter/front_nr/enable_c');
-      sendOsc(false, address: 'filter/front_nr/bypass_cb');
-      sendOsc(false, address: 'filter/front_nr/bypass_cr');
-
+      // HAA Y+C must be enabled together — hardware zeros C if only Y is set.
       final haaCoeffs = _haaBlurCoeffs(blurAmount, _hBlurShape);
       sendOsc(haaCoeffs, address: 'filter/haa/y');
+      sendOsc(haaCoeffs, address: 'filter/haa/c');
       sendOsc(true, address: 'filter/haa/enable_y');
+      sendOsc(true, address: 'filter/haa/enable_c');
     } else {
       sendOsc(false, address: 'filter/haa/enable_y');
+      sendOsc(false, address: 'filter/haa/enable_c');
       sendOsc(const [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], address: 'filter/front_nr/y');
-      sendOsc(const [1.0, 0.0, 0.0, 0.0], address: 'filter/front_nr/c');
       sendOsc(true, address: 'filter/front_nr/enable_y');
       sendOsc(false, address: 'filter/front_nr/bypass_y');
     }
@@ -164,12 +153,13 @@ class _SendTextureState extends State<SendTexture> with OscAddressMixin {
   void _applyVerticalBlur() {
     if (_vBlur > 0.001) {
       final coeffs = _vaaBlurCoeffs(_vBlur, _vBlurShape);
-      debugPrint('VAA blur: amount=$_vBlur shape=$_vBlurShape coeffs=$coeffs');
-
       sendOsc(coeffs, address: 'filter/vaa/y');
+      sendOsc(coeffs, address: 'filter/vaa/c');
       sendOsc(true, address: 'filter/vaa/enable_y');
+      sendOsc(true, address: 'filter/vaa/enable_c');
     } else {
       sendOsc(false, address: 'filter/vaa/enable_y');
+      sendOsc(false, address: 'filter/vaa/enable_c');
     }
   }
 
