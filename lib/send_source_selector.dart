@@ -84,7 +84,7 @@ class _SelectorInnerState extends State<_SelectorInner> with OscAddressMixin {
       height: TileLayout.tileHeight,
       child: GridRow(
         cells: [
-          for (int i = 1; i <= 3; i++)
+          for (int i = 1; i <= 4; i++)
             (
               span: 3,
               child: _InputSourceTile(
@@ -96,8 +96,8 @@ class _SelectorInnerState extends State<_SelectorInner> with OscAddressMixin {
           (
             span: 3,
             child: _ReturnSourceTile(
-              selected: _selected == 4,
-              onTap: () => _select(4),
+              selected: _selected == 5,
+              onTap: () => _select(5),
             ),
           ),
         ],

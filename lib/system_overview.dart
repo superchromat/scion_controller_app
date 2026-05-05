@@ -43,7 +43,7 @@ class SystemOverview extends StatefulWidget {
 class _SystemOverviewState extends State<SystemOverview>
     with WidgetsBindingObserver {
   final GlobalKey _stackKey = GlobalKey();
-  final List<GlobalKey> _inputKeys = List.generate(3, (_) => GlobalKey());
+  final List<GlobalKey> _inputKeys = List.generate(4, (_) => GlobalKey());
   final List<GlobalKey> _sendKeys = List.generate(3, (_) => GlobalKey());
   final GlobalKey _returnKey = GlobalKey();
   final GlobalKey _outputKey = GlobalKey();
@@ -88,6 +88,7 @@ class _SystemOverviewState extends State<SystemOverview>
     required Widget child,
     required LabelPosition labelPosition,
     Color? borderColor,
+    bool alignLabelRight = false,
   }) {
     final label = Text(
       title,
@@ -107,10 +108,12 @@ class _SystemOverviewState extends State<SystemOverview>
             padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: alignLabelRight
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: labelPosition == LabelPosition.top
                   ? [label, const SizedBox(height: 4), child]
-                  : [child, const SizedBox(height: 4), Align(alignment: Alignment.centerLeft, child: label)],
+                  : [child, const SizedBox(height: 4), label],
             ),
           ),
           if (borderColor != null)
@@ -138,7 +141,7 @@ class _SystemOverviewState extends State<SystemOverview>
     final registry = OscRegistry();
     final List<Arrow> newArrows = [];
 
-    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset, Offset toOffset) {
+    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset, Offset toOffset, {double arcUp = 0}) {
       final fromBox = fromKey.currentContext?.findRenderObject() as RenderBox?;
       final toBox = toKey.currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
@@ -146,7 +149,7 @@ class _SystemOverviewState extends State<SystemOverview>
       final toGlobal = toBox.localToGlobal(toOffset);
       final fromLocal = box.globalToLocal(fromGlobal);
       final toLocal = box.globalToLocal(toGlobal);
-      newArrows.add(Arrow(fromLocal, toLocal));
+      newArrows.add(Arrow(fromLocal, toLocal, arcUp: arcUp));
     }
 
     // dynamic input->send arrows based on registry values
@@ -164,12 +167,13 @@ class _SystemOverviewState extends State<SystemOverview>
             Offset(tileWidth / 2, tileHeight),
             Offset(tileWidth / 2, 0),
           );
-        } else if (inIdx == 4) {
+        } else if (inIdx == 5) {
           connect(
-            _outputKey,
+            _returnKey,
             _sendKeys[i],
-            Offset(tileWidth / 2, tileHeight),
             Offset(tileWidth / 2, 0),
+            Offset(tileWidth / 2, 0),
+            arcUp: TileLayout.rowSpacing / 2,
           );
         }
       }
@@ -203,6 +207,16 @@ class _SystemOverviewState extends State<SystemOverview>
             const tileWidth = TileLayout.tileWidth;
             const tileHeight = TileLayout.tileHeight;
             final rightOffset = TileLayout.computeRightOffset(contentPadding);
+            // Clamp rightOffset so it never pushes content past the available width.
+            const inputSectionMinWidth = 4 * (TileLayout.tileWidth + TileLayout.marginPerTile)
+                + 2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
+            const rightColMinWidth = TileLayout.tileWidth
+                + 2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
+            final safeRightOffset = (constraints.maxWidth
+                    - inputSectionMinWidth
+                    - TileLayout.lockColumnWidth
+                    - rightColMinWidth)
+                .clamp(0.0, rightOffset);
             Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
                   key: key,
                   width: tileWidth,
@@ -212,10 +226,12 @@ class _SystemOverviewState extends State<SystemOverview>
             return Stack(
               key: _stackKey,
               children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         _sectionBox(
                           title: 'Inputs',
@@ -224,7 +240,7 @@ class _SystemOverviewState extends State<SystemOverview>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(
-                              3,
+                              4,
                               (i) => Padding(
                                 padding: EdgeInsets.symmetric(
                                     horizontal: TileLayout.marginPerTile / 2),
@@ -234,20 +250,7 @@ class _SystemOverviewState extends State<SystemOverview>
                             ),
                           ),
                         ),
-                        SizedBox(width: TileLayout.lockColumnWidth),
-                        const Spacer(),
-                        _sectionBox(
-                          title: 'Out',
-                          labelPosition: LabelPosition.top,
-                          borderColor: const Color(0xFF49A0F8),
-                          child: sizedTile(const HDMIOutTile(), _outputKey),
-                        ),
-                        SizedBox(width: rightOffset.clamp(0, double.infinity)),
-                      ],
-                    ),
-                    SizedBox(height: TileLayout.rowSpacing),
-                    Row(
-                      children: [
+                        SizedBox(height: TileLayout.rowSpacing),
                         _sectionBox(
                           title: 'Sends',
                           labelPosition: LabelPosition.bottom,
@@ -265,17 +268,31 @@ class _SystemOverviewState extends State<SystemOverview>
                             ),
                           ),
                         ),
-                        SizedBox(width: TileLayout.lockColumnWidth),
-                        const Spacer(),
+                      ],
+                    ),
+                    SizedBox(width: TileLayout.lockColumnWidth),
+                    const Spacer(),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _sectionBox(
+                          title: 'Out',
+                          labelPosition: LabelPosition.top,
+                          borderColor: const Color(0xFF49A0F8),
+                          alignLabelRight: true,
+                          child: sizedTile(const HDMIOutTile(), _outputKey),
+                        ),
+                        SizedBox(height: TileLayout.rowSpacing),
                         _sectionBox(
                           title: 'Return',
                           labelPosition: LabelPosition.bottom,
                           borderColor: const Color(0xFF49A0F8),
+                          alignLabelRight: true,
                           child: sizedTile(const ReturnTile(), _returnKey),
                         ),
-                        SizedBox(width: rightOffset.clamp(0, double.infinity)),
                       ],
                     ),
+                    SizedBox(width: safeRightOffset),
                   ],
                 ),
                 Positioned.fill(

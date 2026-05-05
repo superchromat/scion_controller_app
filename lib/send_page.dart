@@ -190,6 +190,7 @@ class _Send3RotationDisabledOverlayState
     1: false,
     2: false,
     3: false,
+    4: false,
   };
 
   double _send1Rotation = 0.0;
@@ -199,7 +200,7 @@ class _Send3RotationDisabledOverlayState
 
   bool get _send3ConnectedToActiveSource {
     final source = _send3Input;
-    if (source < 1 || source > 3) return false;
+    if (source < 1 || source > 4) return false;
     return _inputConnected[source] == true;
   }
 
@@ -211,14 +212,14 @@ class _Send3RotationDisabledOverlayState
     final registry = OscRegistry();
     registry.registerAddress(_send1RotationPath);
     registry.registerAddress(_send3InputPath);
-    for (int i = 1; i <= 3; i++) {
+    for (int i = 1; i <= 4; i++) {
       registry.registerAddress('/input/$i/connected');
     }
 
     _seedFromRegistry(registry);
     _listenPath(_send1RotationPath, _handleSend1Rotation);
     _listenPath(_send3InputPath, _handleSend3Input);
-    for (int i = 1; i <= 3; i++) {
+    for (int i = 1; i <= 4; i++) {
       _listenPath(
           '/input/$i/connected', (args) => _handleInputConnected(i, args));
     }
@@ -229,7 +230,7 @@ class _Send3RotationDisabledOverlayState
       if (!network.isConnected) return;
       network.sendOscMessage(_send1RotationPath, const []);
       network.sendOscMessage(_send3InputPath, const []);
-      for (int i = 1; i <= 3; i++) {
+      for (int i = 1; i <= 4; i++) {
         network.sendOscMessage('/input/$i/connected', const []);
       }
     });
@@ -240,7 +241,7 @@ class _Send3RotationDisabledOverlayState
         _asDouble(registry.allParams[_send1RotationPath]?.currentValue);
     final routed = _asInt(registry.allParams[_send3InputPath]?.currentValue);
     if (routed != null) _send3Input = routed;
-    for (int i = 1; i <= 3; i++) {
+    for (int i = 1; i <= 4; i++) {
       _inputConnected[i] =
           _asBool(registry.allParams['/input/$i/connected']?.currentValue);
     }

@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 
 class Arrow {
   final Offset from, to;
-  Arrow(this.from, this.to);
+  // When > 0, both bezier control points are lifted this many pixels above
+  // the from/to Y coordinates, forcing a symmetric upward arch regardless of
+  // the vertical distance between endpoints.
+  final double arcUp;
+  Arrow(this.from, this.to, {this.arcUp = 0});
 }
 
 class ArrowsPainter extends CustomPainter {
@@ -33,10 +37,19 @@ class ArrowsPainter extends CustomPainter {
       final baseCenter = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
 
       // draw spline shaft with vertical start/end tangents
-      final dy = baseCenter.dy - a.from.dy;
-      final ctrlOffset = dy * 0.5;
-      final c1 = Offset(a.from.dx, a.from.dy + ctrlOffset);
-      final c2 = Offset(baseCenter.dx, baseCenter.dy - ctrlOffset);
+      final Offset c1, c2;
+      if (a.arcUp > 0) {
+        // Symmetric upward arch: lift both control points equally above endpoints.
+        // Bezier peak ≈ 0.75 × arcUp, so multiply by 4/3 to hit the target height.
+        final lift = a.arcUp * 4 / 3;
+        c1 = Offset(a.from.dx, a.from.dy - lift);
+        c2 = Offset(baseCenter.dx, baseCenter.dy - lift);
+      } else {
+        final dy = baseCenter.dy - a.from.dy;
+        final ctrlOffset = dy * 0.5;
+        c1 = Offset(a.from.dx, a.from.dy + ctrlOffset);
+        c2 = Offset(baseCenter.dx, baseCenter.dy - ctrlOffset);
+      }
 
       final shaftPath = Path()
         ..moveTo(a.from.dx, a.from.dy)
