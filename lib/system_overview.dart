@@ -164,6 +164,13 @@ class _SystemOverviewState extends State<SystemOverview>
             Offset(tileWidth / 2, tileHeight),
             Offset(tileWidth / 2, 0),
           );
+        } else if (inIdx == 4) {
+          connect(
+            _outputKey,
+            _sendKeys[i],
+            Offset(tileWidth / 2, tileHeight),
+            Offset(tileWidth / 2, 0),
+          );
         }
       }
     }
