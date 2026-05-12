@@ -148,6 +148,9 @@ class VideoFormatTile extends StatefulWidget {
   final String? iconConnectedPath;
   final bool showHdmiIcon;
   final String? interlaced;
+  /// If non-null, the tile subscribes to this bool OSC path and renders
+  /// "SYNC" on the colorspace row — green when true, red when false.
+  final String? syncValidPath;
 
   const VideoFormatTile({
     super.key,
@@ -161,6 +164,7 @@ class VideoFormatTile extends StatefulWidget {
     this.iconConnectedPath,
     this.showHdmiIcon = false,
     this.interlaced,
+    this.syncValidPath,
   });
 
   @override
@@ -177,6 +181,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
   bool _interlaced = false;
   bool _connected = true;
   bool _iconConnected = false;
+  bool _syncValid = false;
+  bool _syncValidKnown = false;
 
   late final AnimationController _resController;
   late final Animation<Color?> _resColor;
@@ -441,6 +447,30 @@ class _VideoFormatTileState extends State<VideoFormatTile>
         widget.chromaSubsampling, () => _sub, (v) => _sub = v, _subController);
     bindBool(
         widget.interlaced, () => _interlaced, (v) => _interlaced = v, _fpsController);
+
+    // Optional sync-valid binding (read-only).  Colour is driven directly
+    // by _syncValid; firmware broadcasts the address whenever CH2 STDI
+    // changes state, plus /sync at boot supplies the initial value.
+    if (widget.syncValidPath != null) {
+      final src = widget.syncValidPath!;
+      registry.registerAddress(src);
+      final param = registry.allParams[src];
+      if (param != null && param.currentValue.isNotEmpty) {
+        final v = parseBool(param.currentValue.first);
+        _syncValid = v;
+        _syncValidKnown = true;
+      }
+      registry.registerListener(src, (args) {
+        if (!mounted || args.isEmpty) return;
+        final v = parseBool(args.first);
+        if (v != _syncValid || !_syncValidKnown) {
+          setState(() {
+            _syncValid = v;
+            _syncValidKnown = true;
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -464,6 +494,18 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                   width: TileLayout.tileWidth * 0.17,
                   height: TileLayout.tileWidth * 0.17 * (19 / 54),
                   color: iconConnected ? Colors.green : Colors.grey[700]!,
+                ),
+              ),
+            if (widget.syncValidPath != null)
+              Positioned(
+                bottom: 4,
+                right: 8,
+                child: Text(
+                  'SYNC',
+                  style: _systemTextStyle.copyWith(
+                    fontFamily: 'DINPro',
+                    color: _syncValid ? Colors.green : Colors.red,
+                  ),
                 ),
               ),
             Positioned(
@@ -579,6 +621,7 @@ class ReturnTile extends StatelessWidget {
       bitDepth: '12',
       colorSpace: '/analog_format/colorspace',
       chromaSubsampling: '4:4:4',
+      syncValidPath: '/return/tbc/source_valid',
     );
   }
 }

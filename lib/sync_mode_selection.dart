@@ -18,6 +18,7 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
     with OscAddressMixin {
   String _selectedSync = 'locked';
   bool _dacGenlock = false;
+  bool _tbcEnabled = true;
 
   @override
   void initState() {
@@ -26,12 +27,15 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
     OscRegistry().registerListener('/sync_mode', _onSyncModeChanged);
     OscRegistry().registerAddress('/dac_genlock');
     OscRegistry().registerListener('/dac_genlock', _onDacGenlockChanged);
+    OscRegistry().registerAddress('/return/tbc/enabled');
+    OscRegistry().registerListener('/return/tbc/enabled', _onTbcEnabledChanged);
   }
 
   @override
   void dispose() {
     OscRegistry().unregisterListener('/sync_mode', _onSyncModeChanged);
     OscRegistry().unregisterListener('/dac_genlock', _onDacGenlockChanged);
+    OscRegistry().unregisterListener('/return/tbc/enabled', _onTbcEnabledChanged);
     super.dispose();
   }
 
@@ -50,6 +54,19 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
       });
     }
   }
+
+  void _onTbcEnabledChanged(List<Object?> args) {
+    if (args.isNotEmpty && args.first is bool) {
+      setState(() {
+        _tbcEnabled = args.first as bool;
+      });
+    }
+  }
+
+  // STM32 TBC is only meaningful in COMPONENT mode (it drives the chip's
+  // analog-input HSync/VSync from STM32 PWM).  Disable the toggle in
+  // LOCKED/EXTERNAL modes.
+  bool get _tbcEnableEditable => _selectedSync == 'component';
 
   void _selectSyncMode(String mode) {
     setState(() => _selectedSync = mode);
@@ -116,29 +133,67 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
               ],
             ),
           const SizedBox(height: 16),
-          // DAC Genlock checkbox
-          Opacity(
-            opacity: _dacGenlockEnabled ? 1.0 : 0.5,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OscPathSegment(
-                  segment: 'dac_genlock',
-                  child: OscCheckbox(
-                    initialValue: _dacGenlock,
-                    readOnly: !_dacGenlockEnabled,
-                  ),
+          // TBC + Genlock checkboxes, side-by-side
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // STM32 TBC enable
+              Opacity(
+                opacity: _tbcEnableEditable ? 1.0 : 0.5,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OscPathSegment(
+                      segment: 'return',
+                      child: OscPathSegment(
+                        segment: 'tbc',
+                        child: OscPathSegment(
+                          segment: 'enabled',
+                          child: OscCheckbox(
+                            initialValue: _tbcEnabled,
+                            readOnly: !_tbcEnableEditable,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'TBC',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _tbcEnableEditable ? null : Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'Genlock DAC to external source',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _dacGenlockEnabled ? null : Colors.grey,
-                  ),
+              ),
+              const SizedBox(width: 24),
+              // DAC Genlock
+              Opacity(
+                opacity: _dacGenlockEnabled ? 1.0 : 0.5,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OscPathSegment(
+                      segment: 'dac_genlock',
+                      child: OscCheckbox(
+                        initialValue: _dacGenlock,
+                        readOnly: !_dacGenlockEnabled,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Genlock Sends to Return',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _dacGenlockEnabled ? null : Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
         ),
