@@ -20,6 +20,7 @@ class OscDropdown<T> extends StatelessWidget {
   final bool sendOscDirect;
   final bool showLabel;
   final double width;
+  final double valueFontSize;
   final Map<T, String>? itemLabels;
 
   const OscDropdown({
@@ -34,6 +35,7 @@ class OscDropdown<T> extends StatelessWidget {
     this.sendOscDirect = true,
     this.showLabel = true,
     this.width = 160,
+    this.valueFontSize = 13,
     this.itemLabels,
   });
 
@@ -52,6 +54,7 @@ class OscDropdown<T> extends StatelessWidget {
         sendOscDirect: sendOscDirect,
         showLabel: showLabel,
         width: width,
+        valueFontSize: valueFontSize,
         itemLabels: itemLabels,
       ),
     );
@@ -67,6 +70,7 @@ class _OscDropdownInner<T> extends StatefulWidget {
   final bool sendOscDirect;
   final bool showLabel;
   final double width;
+  final double valueFontSize;
   final Map<T, String>? itemLabels;
 
   const _OscDropdownInner({
@@ -79,6 +83,7 @@ class _OscDropdownInner<T> extends StatefulWidget {
     this.sendOscDirect = true,
     this.showLabel = true,
     this.width = 160,
+    this.valueFontSize = 13,
     this.itemLabels,
   });
 
@@ -89,7 +94,6 @@ class _OscDropdownInner<T> extends StatefulWidget {
 class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
     with OscAddressMixin {
   late T _selected;
-  bool _isHovered = false;
 
   @override
   void initState() {
@@ -120,6 +124,62 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
     return OscStatus.error;
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return NeumorphicDropdown<T>(
+      label: widget.label,
+      items: widget.items,
+      value: _selected,
+      enabled: widget.enabled,
+      showLabel: widget.showLabel,
+      width: widget.width,
+      valueFontSize: widget.valueFontSize,
+      itemLabels: widget.itemLabels,
+      onChanged: (value) {
+        setState(() => _selected = value);
+        if (widget.sendOscDirect) {
+          sendOsc(value);
+        }
+        widget.onChanged?.call(value);
+      },
+    );
+  }
+}
+
+/// Pure-presentation neumorphic dropdown. Controlled via [value]/[onChanged]
+/// with no OSC binding of its own, so callers that need custom value handling
+/// (e.g. one control fronting several OSC addresses) can reuse the styling.
+class NeumorphicDropdown<T> extends StatefulWidget {
+  final String label;
+  final List<T> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final bool enabled;
+  final bool showLabel;
+  final double width;
+  final double valueFontSize;
+  final Map<T, String>? itemLabels;
+
+  const NeumorphicDropdown({
+    super.key,
+    required this.label,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+    this.showLabel = true,
+    this.width = 160,
+    this.valueFontSize = 13,
+    this.itemLabels,
+  });
+
+  @override
+  State<NeumorphicDropdown<T>> createState() => _NeumorphicDropdownState<T>();
+}
+
+class _NeumorphicDropdownState<T> extends State<NeumorphicDropdown<T>> {
+  bool _isHovered = false;
+
   void _showDropdownMenu() {
     if (!widget.enabled) return;
 
@@ -130,7 +190,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
     final lighting = context.read<LightingSettings>();
 
     // Find index of current selection
-    final selectedIndex = widget.items.indexOf(_selected);
+    final selectedIndex = widget.items.indexOf(widget.value);
 
     showDialog(
       context: context,
@@ -138,7 +198,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
       barrierDismissible: true,
       builder: (context) => _NeumorphicDropdownMenu<T>(
         items: widget.items,
-        selected: _selected,
+        selected: widget.value,
         selectedIndex: selectedIndex,
         buttonRect: Rect.fromLTWH(
           buttonPos.dx,
@@ -150,11 +210,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
         formatLabel: _formatLabel,
         onSelected: (value) {
           Navigator.of(context).pop();
-          setState(() => _selected = value);
-          if (widget.sendOscDirect) {
-            sendOsc(value);
-          }
-          widget.onChanged?.call(value);
+          widget.onChanged(value);
         },
       ),
     );
@@ -198,7 +254,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
               color: Colors.white,
             ))
         .copyWith(
-      fontSize: 13,
+      fontSize: widget.valueFontSize,
       fontFamily: 'DINPro',
       color: widget.enabled ? Colors.white : Colors.grey[600],
     );
@@ -230,7 +286,7 @@ class _OscDropdownInnerState<T> extends State<_OscDropdownInner<T>>
                 children: [
                   Expanded(
                     child: Text(
-                      _formatLabel(_selected),
+                      _formatLabel(widget.value),
                       style: valueStyle,
                       overflow: TextOverflow.ellipsis,
                     ),

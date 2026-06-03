@@ -11,7 +11,6 @@ import 'color_wheel.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'lighting_settings.dart';
-import 'osc_checkbox.dart';
 import 'osc_dropdown.dart';
 
 /// Compute the required ADC output bias for a matrix.
@@ -746,60 +745,29 @@ class _VideoFormatSelectionSectionState
                       enabled: _formatControlsEnabled,
                     ),
                   ),
-                  // Framerate + Interlaced checkbox (same row, right edge matches dropdown buttons)
+                  // Framerate + Format mode (Progressive / Interlaced / Composite).
+                  // Width matches the 160px dropdown buttons above/below so the
+                  // right edge lines up; the mode dropdown uses a smaller value
+                  // font so "Progressive" fits its narrow share of the row.
                   Positioned(
                     left: 0, top: 62,
                     width: 160,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Labels row
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4, bottom: 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Framerate',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: _formatControlsEnabled
-                                        ? const Color(0xFFAAAAAA)
-                                        : const Color(0xFF606060),
-                                  )),
-                              Text('Interlaced',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: _formatControlsEnabled
-                                        ? const Color(0xFFAAAAAA)
-                                        : const Color(0xFF606060),
-                                  )),
-                            ],
-                          ),
+                        OscDropdown<double>(
+                          label: 'Framerate',
+                          items: framerates,
+                          defaultValue: framerates[0],
+                          enabled: _formatControlsEnabled,
+                          width: 58,
+                          valueFontSize: 11,
                         ),
-                        // Controls row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            OscDropdown<double>(
-                              label: 'Framerate',
-                              showLabel: false,
-                              items: framerates,
-                              defaultValue: framerates[0],
-                              enabled: _formatControlsEnabled,
-                              width: 100,
-                            ),
-                            OscPathSegment(
-                              segment: 'interlaced',
-                              child: OscCheckbox(
-                                size: 22,
-                                readOnly: !_formatControlsEnabled,
-                              ),
-                            ),
-                          ],
+                        _AnalogFormatModeDropdown(
+                          enabled: _formatControlsEnabled,
+                          width: 100,
+                          valueFontSize: 11,
                         ),
                       ],
                     ),
@@ -852,6 +820,134 @@ class _VideoFormatSelectionSectionState
   );
   }
 
+}
+
+/// Scan/format mode of the analog input. Fronts two boolean OSC params:
+/// `/analog_format/interlaced` and `/analog_format/composite`.
+enum _AnalogFormatMode { progressive, interlaced, composite }
+
+/// Dropdown replacing the old "Interlaced" checkbox. Composite implies
+/// interlaced scan, so selecting it sends both `composite=T` and
+/// `interlaced=T`; the other modes drive both params explicitly so switching
+/// away from composite always clears it.
+class _AnalogFormatModeDropdown extends StatefulWidget {
+  final bool enabled;
+  final double width;
+  final double valueFontSize;
+
+  const _AnalogFormatModeDropdown({
+    required this.enabled,
+    this.width = 110,
+    this.valueFontSize = 13,
+  });
+
+  @override
+  State<_AnalogFormatModeDropdown> createState() =>
+      _AnalogFormatModeDropdownState();
+}
+
+class _AnalogFormatModeDropdownState extends State<_AnalogFormatModeDropdown>
+    with OscAddressMixin {
+  static const String _interlacedAddr = '/analog_format/interlaced';
+  static const String _compositeAddr = '/analog_format/composite';
+
+  bool _interlaced = false;
+  bool _composite = false;
+  bool _listenersRegistered = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_listenersRegistered) return;
+    _listenersRegistered = true;
+    final reg = OscRegistry();
+    reg.registerAddress(_interlacedAddr);
+    reg.registerAddress(_compositeAddr);
+    reg.registerListener(_interlacedAddr, _onInterlaced);
+    reg.registerListener(_compositeAddr, _onComposite);
+    // Seed from any value already cached in the registry.
+    _interlaced =
+        _boolFrom(reg.allParams[_interlacedAddr]?.currentValue) ?? _interlaced;
+    _composite =
+        _boolFrom(reg.allParams[_compositeAddr]?.currentValue) ?? _composite;
+  }
+
+  @override
+  void dispose() {
+    final reg = OscRegistry();
+    reg.unregisterListener(_interlacedAddr, _onInterlaced);
+    reg.unregisterListener(_compositeAddr, _onComposite);
+    super.dispose();
+  }
+
+  // This widget drives sub-addresses directly; its own address is unused.
+  @override
+  OscStatus onOscMessage(List<Object?> args) => OscStatus.ok;
+
+  void _onInterlaced(List<Object?> args) {
+    final v = _boolFrom(args);
+    if (v != null && v != _interlaced && mounted) {
+      setState(() => _interlaced = v);
+    }
+  }
+
+  void _onComposite(List<Object?> args) {
+    final v = _boolFrom(args);
+    if (v != null && v != _composite && mounted) {
+      setState(() => _composite = v);
+    }
+  }
+
+  static bool? _boolFrom(List<Object?>? args) {
+    if (args == null || args.isEmpty) return null;
+    final v = args.first;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    final s = v.toString().toUpperCase();
+    if (s == 'T' || s == 'TRUE' || s == '1') return true;
+    if (s == 'F' || s == 'FALSE' || s == '0') return false;
+    return null;
+  }
+
+  _AnalogFormatMode get _mode {
+    if (_composite) return _AnalogFormatMode.composite;
+    if (_interlaced) return _AnalogFormatMode.interlaced;
+    return _AnalogFormatMode.progressive;
+  }
+
+  void _select(_AnalogFormatMode mode) {
+    final bool composite = mode == _AnalogFormatMode.composite;
+    // Composite is always interlaced; otherwise follow the explicit choice.
+    final bool interlaced = composite || mode == _AnalogFormatMode.interlaced;
+    setState(() {
+      _composite = composite;
+      _interlaced = interlaced;
+    });
+    sendOsc(interlaced, address: _interlacedAddr);
+    sendOsc(composite, address: _compositeAddr);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NeumorphicDropdown<_AnalogFormatMode>(
+      label: 'Scan / Format',
+      width: widget.width,
+      valueFontSize: widget.valueFontSize,
+      enabled: widget.enabled,
+      value: _mode,
+      items: const [
+        _AnalogFormatMode.progressive,
+        _AnalogFormatMode.interlaced,
+        _AnalogFormatMode.composite,
+      ],
+      itemLabels: const {
+        _AnalogFormatMode.progressive: 'Progressive',
+        _AnalogFormatMode.interlaced: 'Interlaced',
+        _AnalogFormatMode.composite: 'Composite',
+      },
+      onChanged: _select,
+    );
+  }
 }
 
 /// Draws L-shape using two overlapping rounded rectangles with lighting
