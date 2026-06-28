@@ -375,14 +375,15 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 NeumorphicButton(
                   label: 'Select Firmware',
                   onPressed:
                       _stage == FirmwareStage.uploading ? null : () => _pickFile(),
                 ),
-                const SizedBox(width: 12),
                 NeumorphicButton(
                   label: 'Begin Upgrade',
                   primary: true,
@@ -392,17 +393,16 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
                       ? () => _startUpgrade(context)
                       : null,
                 ),
-                const SizedBox(width: 12),
-                if (_fileName != null)
-                  Expanded(
-                    child: Text(
-                      _fileName!,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                  ),
               ],
             ),
+            if (_fileName != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _fileName!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
             // Progress bar + status only appear once an upload is underway —
             // no bar or "Ready" text sitting around in the idle state.
             if (_showBar) ...[

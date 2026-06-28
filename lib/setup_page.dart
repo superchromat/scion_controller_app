@@ -10,6 +10,7 @@ import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
 import 'device_settings.dart';
 import 'device_diagnostics.dart';
+import 'front_panel_section.dart';
 import 'firmware_update.dart';
 import 'labeled_card.dart';
 import 'neumorphic_button.dart';
@@ -81,25 +82,18 @@ class SetupPage extends StatelessWidget {
                 children: [
                   GridRow(
                     gutter: t.md,
+                    equalHeight: true,
                     cells: const [
-                      (span: 12, child: DeviceSettingsSection()),
-                    ],
-                  ),
-                  SizedBox(height: t.md),
-                  GridRow(
-                    gutter: t.md,
-                    cells: const [
+                      (span: 3, child: DeviceSettingsSection()),
                       (
-                        span: 6,
+                        span: 3,
                         child: LabeledCard(
                           title: 'Network Setup',
                           child: _NetworkSetupSection(),
                         ),
                       ),
-                      (
-                        span: 6,
-                        child: FirmwareUpdateSection(),
-                      ),
+                      (span: 3, child: FirmwareUpdateSection()),
+                      (span: 3, child: FrontPanelSection()),
                     ],
                   ),
                   SizedBox(height: t.md),

@@ -6,9 +6,7 @@ import 'package:provider/provider.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
-import 'osc_rotary_knob.dart';
 import 'osc_registry.dart';
-import 'osc_widget_binding.dart';
 import 'panel.dart';
 
 /// Device card for the Setup page.
@@ -30,7 +28,6 @@ class _DeviceSettingsSectionState extends State<DeviceSettingsSection> {
   static const _oscHwRevision = '/device/hw_revision';
   static const _oscSerial = '/device/serial';
   static const _oscUptime = '/device/uptime';
-  static const _oscLedBrightness = '/device/led_brightness';
 
   static const _readAddresses = [
     _oscModel,
@@ -98,14 +95,12 @@ class _DeviceSettingsSectionState extends State<DeviceSettingsSection> {
   void _queryStatic() {
     final net = context.read<Network>();
     if (!net.isConnected) return;
-    // Pull identity + current brightness in case /sync already happened before
-    // this page mounted. The knob picks up the led_brightness reply itself.
+    // Pull identity in case /sync already happened before this page mounted.
     for (final addr in const [
       _oscModel,
       _oscFwVersion,
       _oscHwRevision,
       _oscSerial,
-      _oscLedBrightness,
     ]) {
       net.sendOscMessage(addr, const []);
     }
@@ -212,9 +207,8 @@ class _DeviceSettingsSectionState extends State<DeviceSettingsSection> {
     String orDash(String? v) => (v == null || v.isEmpty) ? '—' : v;
 
     final identity = Panel(
-      title: 'Identity',
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: t.xs, vertical: t.xs),
+        padding: EdgeInsets.symmetric(horizontal: t.xs, vertical: t.xs * 0.5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -230,44 +224,11 @@ class _DeviceSettingsSectionState extends State<DeviceSettingsSection> {
       ),
     );
 
-    final ledKnob = Panel(
-      title: 'Front Panel',
-      child: Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: t.sm),
-          child: OscPathSegment(
-            segment: 'device',
-            child: OscPathSegment(
-              segment: 'led_brightness',
-              child: OscRotaryKnob(
-                minValue: 0,
-                maxValue: 100,
-                initialValue: 50,
-                defaultValue: 50,
-                format: '%.0f',
-                label: 'LED Brightness',
-                size: t.knobLg,
-                labelStyle: t.textLabel,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
     return LabeledCard(
       title: 'Device',
-      child: CardColumn(
-        children: [
-          GridRow(
-            columns: 12,
-            gutter: t.md,
-            cells: [
-              (span: 8, child: identity),
-              (span: 4, child: ledKnob),
-            ],
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(t.md, t.xs, t.md, t.md),
+        child: identity,
       ),
     );
   }
