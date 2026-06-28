@@ -44,6 +44,27 @@ class DacParameters extends StatelessWidget {
     );
   }
 
+  // Knob bound to an unsigned N-bit hardware register. Clamps the knob to the
+  // register's real range (0..2^bits-1) so the UI can't send out-of-range
+  // values. Widths come from the THS8200 register map (ths8200.h).
+  Widget _reg(
+    BuildContext context, {
+    required String label,
+    required String segment,
+    required int bits,
+    bool readOnly = false,
+  }) {
+    return _knob(
+      context,
+      label: label,
+      segment: segment,
+      min: 0,
+      max: ((1 << bits) - 1).toDouble(),
+      isBipolar: false,
+      readOnly: readOnly,
+    );
+  }
+
   Widget _horizontalKnobRow(BuildContext context, List<Widget> knobs) {
     final t = GridProvider.maybeOf(context);
     return SingleChildScrollView(
@@ -116,7 +137,7 @@ class DacParameters extends StatelessWidget {
                 child: OscRotaryKnob(
                   label: 'BP $i',
                   minValue: 0,
-                  maxValue: 4096,
+                  maxValue: 2047, // dtg2 breakpoint: 11-bit
                   initialValue: 0,
                   format: '%.0f',
                   preferInteger: true,
@@ -141,28 +162,64 @@ class DacParameters extends StatelessWidget {
     );
   }
 
-  Widget _csmColumn(
-    BuildContext context,
-    String label, {
-    required String clipLo,
-    required String clipHi,
-    required String shift,
-    required String mult,
+  // CSM per-channel controls: value knobs clamped to each register's real range
+  // (clip/shift are 8-bit 0..255, mult is 11-bit 0..2047) plus the enable
+  // toggles for that channel's clip/shift/mult functions. The enable-bit
+  // segment names differ from the value-register prefix (gy/cb/cr vs
+  // gy/bcb/rcr), so they are passed explicitly.
+  Widget _csmChannel(
+    BuildContext context, {
+    required String title,
+    Widget? leading,
+    required String valPrefix, // gy/cb/cr -> clip_<p>_lo/hi, shift_<p>, mult_<p>
+    required String multOn,
+    required String shiftOn,
+    required String clipHiOn,
+    required String clipLoOn,
   }) {
     final t = GridProvider.maybeOf(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(bottom: t?.xs ?? 4),
-          child: Text(label, style: t?.textLabel),
-        ),
-        _knob(context, label: 'Clip Lo', segment: clipLo),
-        _knob(context, label: 'Clip Hi', segment: clipHi),
-        _knob(context, label: 'Shift', segment: shift),
-        _knob(context, label: 'Mult', segment: mult),
-      ],
+    return Panel(
+      title: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _horizontalKnobRow(context, [
+            if (leading != null) leading,
+            _knob(context,
+                label: 'Clip Lo',
+                segment: 'csm/clip_${valPrefix}_lo',
+                min: 0,
+                max: 255,
+                isBipolar: false),
+            _knob(context,
+                label: 'Clip Hi',
+                segment: 'csm/clip_${valPrefix}_hi',
+                min: 0,
+                max: 255,
+                isBipolar: false),
+            _knob(context,
+                label: 'Shift',
+                segment: 'csm/shift_$valPrefix',
+                min: 0,
+                max: 255,
+                isBipolar: false),
+            _knob(context,
+                label: 'Mult',
+                segment: 'csm/mult_$valPrefix',
+                min: 0,
+                max: 2047,
+                isBipolar: false),
+          ]),
+          SizedBox(height: t?.xs ?? 4),
+          // Per-function enable bits (independent — checkboxes, not radios).
+          _horizontalKnobRow(context, [
+            _toggle(context, 'Clip Lo', 'csm/$clipLoOn'),
+            _toggle(context, 'Clip Hi', 'csm/$clipHiOn'),
+            _toggle(context, 'Shift', 'csm/$shiftOn'),
+            _toggle(context, 'Mult', 'csm/$multOn'),
+          ]),
+        ],
+      ),
     );
   }
 
@@ -205,7 +262,7 @@ class DacParameters extends StatelessWidget {
                 children: [
                   _toggle(context, 'DigBypass', 'test/digbypass'),
                   _toggle(context, 'Force Off', 'test/force_off'),
-                  _knob(context, label: 'Y Delay', segment: 'test/ydelay', min: -1024, max: 1024),
+                  _reg(context, label: 'Y Delay', segment: 'test/ydelay', bits: 2),
                   _toggle(context, 'Fast Ramp', 'test/fastramp'),
                   _toggle(context, 'Slow Ramp', 'test/slowramp'),
                 ],
@@ -225,7 +282,7 @@ class DacParameters extends StatelessWidget {
                   _toggle(context, 'IFIR12 Bypass', 'datapath/ifir12_bypass'),
                   _toggle(context, 'IFIR35 Bypass', 'datapath/ifir35_bypass'),
                   _toggle(context, 'Tristate656', 'datapath/tristate656'),
-                  _knob(context, label: 'DMAN Cntl', segment: 'datapath/dman_cntl', min: 0, max: 1023, isBipolar: false),
+                  _reg(context, label: 'DMAN Cntl', segment: 'datapath/dman_cntl', bits: 3),
                 ],
               ),
             ),
@@ -238,9 +295,9 @@ class DacParameters extends StatelessWidget {
                 spacing: t.sm,
                 runSpacing: t.sm,
                 children: [
-                  _knob(context, label: 'DAC1', segment: 'dac/dac1', min: 0, max: 1023, isBipolar: false),
-                  _knob(context, label: 'DAC2', segment: 'dac/dac2', min: 0, max: 1023, isBipolar: false),
-                  _knob(context, label: 'DAC3', segment: 'dac/dac3', min: 0, max: 1023, isBipolar: false),
+                  _reg(context, label: 'DAC1', segment: 'dac/dac1', bits: 10),
+                  _reg(context, label: 'DAC2', segment: 'dac/dac2', bits: 10),
+                  _reg(context, label: 'DAC3', segment: 'dac/dac3', bits: 10),
                   _toggle(context, 'I2C Control', 'dac/i2c_cntl'),
                 ],
               ),
@@ -299,38 +356,48 @@ class DacParameters extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Panel(
-                    title: 'Y',
-                    child: _horizontalKnobRow(context, [
-                      _knob(context, label: 'Y Off', segment: 'csc/yoff', precision: 2, min: -512, max: 512),
-                      _knob(context, label: 'Clip Lo', segment: 'csm/clip_gy_lo'),
-                      _knob(context, label: 'Clip Hi', segment: 'csm/clip_gy_hi'),
-                      _knob(context, label: 'Shift', segment: 'csm/shift_gy'),
-                      _knob(context, label: 'Mult', segment: 'csm/mult_gy'),
-                    ]),
-                  ),
+                  _csmChannel(context,
+                      title: 'Y',
+                      leading: _knob(context,
+                          label: 'Y Off',
+                          segment: 'csc/yoff',
+                          precision: 2,
+                          min: -128, // Q2.8 signed offset
+                          max: 128),
+                      valPrefix: 'gy',
+                      multOn: 'mult_gy_on',
+                      shiftOn: 'shift_gy_on',
+                      clipHiOn: 'clip_gy_hi_on',
+                      clipLoOn: 'clip_gy_lo_on'),
                   SizedBox(height: t.sm),
-                  Panel(
-                    title: 'Cb',
-                    child: _horizontalKnobRow(context, [
-                      _knob(context, label: 'CbCr Off', segment: 'csc/cboff', precision: 2, min: -512, max: 512),
-                      _knob(context, label: 'Clip Lo', segment: 'csm/clip_cb_lo'),
-                      _knob(context, label: 'Clip Hi', segment: 'csm/clip_cb_hi'),
-                      _knob(context, label: 'Shift', segment: 'csm/shift_cb'),
-                      _knob(context, label: 'Mult', segment: 'csm/mult_cb'),
-                    ]),
-                  ),
+                  _csmChannel(context,
+                      title: 'Cb',
+                      leading: _knob(context,
+                          label: 'CbCr Off',
+                          segment: 'csc/cboff',
+                          precision: 2,
+                          min: -128, // Q2.8 signed offset
+                          max: 128),
+                      valPrefix: 'cb',
+                      multOn: 'mult_bcb_on',
+                      shiftOn: 'shift_bcb_on',
+                      clipHiOn: 'clip_bcb_hi_on',
+                      clipLoOn: 'clip_bcb_lo_on'),
                   SizedBox(height: t.sm),
-                  Panel(
-                    title: 'Cr',
-                    child: _horizontalKnobRow(context, [
-                      _knob(context, label: 'Clip Lo', segment: 'csm/clip_cr_lo'),
-                      _knob(context, label: 'Clip Hi', segment: 'csm/clip_cr_hi'),
-                      _knob(context, label: 'Shift', segment: 'csm/shift_cr'),
-                      _knob(context, label: 'Mult', segment: 'csm/mult_cr'),
-                      _knob(context, label: 'CSM Ctrl', segment: 'csm/csm_ctrl'),
-                    ]),
-                  ),
+                  _csmChannel(context,
+                      title: 'Cr',
+                      valPrefix: 'cr',
+                      multOn: 'mult_rcr_on',
+                      shiftOn: 'shift_rcr_on',
+                      clipHiOn: 'clip_rcr_hi_on',
+                      clipLoOn: 'clip_rcr_lo_on'),
+                  SizedBox(height: t.sm),
+                  // Global CSM overflow control (0x4A[3]). Replaces the raw
+                  // 'CSM Ctrl' knob, which just exposed the packed Cb/Cr enable
+                  // byte (0x4F) now broken out into the per-channel toggles above.
+                  Row(children: [
+                    _toggle(context, 'CSM OF Control', 'csm/csm_of_control'),
+                  ]),
                 ],
               ),
             ),
@@ -347,32 +414,32 @@ class DacParameters extends StatelessWidget {
                 spacing: t.sm,
                 runSpacing: t.sm,
                 children: [
-                  _knob(context, label: 'Y Blank', segment: 'dtg1/y_blank'),
-                  _knob(context, label: 'Y Sync Lo', segment: 'dtg1/y_sync_lo'),
-                  _knob(context, label: 'Y Sync Hi', segment: 'dtg1/y_sync_hi'),
-                  _knob(context, label: 'CbCr Blank', segment: 'dtg1/cbcr_blank'),
-                  _knob(context, label: 'CbCr Sync Lo', segment: 'dtg1/cbcr_sync_lo'),
-                  _knob(context, label: 'CbCr Sync Hi', segment: 'dtg1/cbcr_sync_hi'),
+                  _reg(context, label: 'Y Blank', segment: 'dtg1/y_blank', bits: 10),
+                  _reg(context, label: 'Y Sync Lo', segment: 'dtg1/y_sync_lo', bits: 10),
+                  _reg(context, label: 'Y Sync Hi', segment: 'dtg1/y_sync_hi', bits: 10),
+                  _reg(context, label: 'CbCr Blank', segment: 'dtg1/cbcr_blank', bits: 10),
+                  _reg(context, label: 'CbCr Sync Lo', segment: 'dtg1/cbcr_sync_lo', bits: 10),
+                  _reg(context, label: 'CbCr Sync Hi', segment: 'dtg1/cbcr_sync_hi', bits: 10),
                   _toggle(context, 'DTG1 On', 'dtg1/dtg1_on'),
                   _toggle(context, 'Pass Thru', 'dtg1/pass_thru'),
-                  _knob(context, label: 'Mode', segment: 'dtg1/mode', min: 0, max: 15, isBipolar: false),
-                  _knob(context, label: 'Spec A', segment: 'dtg1/spec_a'),
-                  _knob(context, label: 'Spec B', segment: 'dtg1/spec_b'),
-                  _knob(context, label: 'Spec C', segment: 'dtg1/spec_c'),
-                  _knob(context, label: 'Spec D', segment: 'dtg1/spec_d'),
-                  _knob(context, label: 'Spec D1', segment: 'dtg1/spec_d1'),
-                  _knob(context, label: 'Spec E', segment: 'dtg1/spec_e'),
-                  _knob(context, label: 'Spec H', segment: 'dtg1/spec_h'),
-                  _knob(context, label: 'Spec I', segment: 'dtg1/spec_i'),
-                  _knob(context, label: 'Spec K', segment: 'dtg1/spec_k'),
-                  _knob(context, label: 'Spec K1', segment: 'dtg1/spec_k1'),
-                  _knob(context, label: 'Spec G', segment: 'dtg1/spec_g'),
-                  _knob(context, label: 'Total Pixels', segment: 'dtg1/total_pixels', min: 0, max: 8192, isBipolar: false),
+                  _reg(context, label: 'Mode', segment: 'dtg1/mode', bits: 4),
+                  _reg(context, label: 'Spec A', segment: 'dtg1/spec_a', bits: 8),
+                  _reg(context, label: 'Spec B', segment: 'dtg1/spec_b', bits: 8),
+                  _reg(context, label: 'Spec C', segment: 'dtg1/spec_c', bits: 8),
+                  _reg(context, label: 'Spec D', segment: 'dtg1/spec_d', bits: 9),
+                  _reg(context, label: 'Spec D1', segment: 'dtg1/spec_d1', bits: 8),
+                  _reg(context, label: 'Spec E', segment: 'dtg1/spec_e', bits: 9),
+                  _reg(context, label: 'Spec H', segment: 'dtg1/spec_h', bits: 10),
+                  _reg(context, label: 'Spec I', segment: 'dtg1/spec_i', bits: 12),
+                  _reg(context, label: 'Spec K', segment: 'dtg1/spec_k', bits: 11),
+                  _reg(context, label: 'Spec K1', segment: 'dtg1/spec_k1', bits: 8),
+                  _reg(context, label: 'Spec G', segment: 'dtg1/spec_g', bits: 12),
+                  _reg(context, label: 'Total Pixels', segment: 'dtg1/total_pixels', bits: 13),
                   _toggle(context, 'Field Flip', 'dtg1/field_flip'),
-                  _knob(context, label: 'Line Cnt', segment: 'dtg1/line_cnt', min: 0, max: 8192, isBipolar: false),
-                  _knob(context, label: 'Frame Size', segment: 'dtg1/frame_size', min: 0, max: 16384, isBipolar: false),
-                  _knob(context, label: 'Field Size', segment: 'dtg1/field_size', min: 0, max: 16384, isBipolar: false),
-                  _knob(context, label: 'CBar Size', segment: 'dtg1/cbar_size', min: 0, max: 8192, isBipolar: false),
+                  _reg(context, label: 'Line Cnt', segment: 'dtg1/line_cnt', bits: 11),
+                  _reg(context, label: 'Frame Size', segment: 'dtg1/frame_size', bits: 11),
+                  _reg(context, label: 'Field Size', segment: 'dtg1/field_size', bits: 11),
+                  _reg(context, label: 'CBar Size', segment: 'dtg1/cbar_size', bits: 8),
                 ],
               ),
             ),
@@ -390,17 +457,17 @@ class DacParameters extends StatelessWidget {
                     spacing: t.sm,
                     runSpacing: t.sm,
                     children: [
-                      _knob(context, label: 'HLength', segment: 'dtg2/hlength', min: 0, max: 8192, isBipolar: false),
-                      _knob(context, label: 'HDly', segment: 'dtg2/hdly'),
-                      _knob(context, label: 'VLength1', segment: 'dtg2/vlength1', min: 0, max: 8192, isBipolar: false),
-                      _knob(context, label: 'VDly1', segment: 'dtg2/vdly1'),
-                      _knob(context, label: 'VLength2', segment: 'dtg2/vlength2', min: 0, max: 8192, isBipolar: false),
-                      _knob(context, label: 'VDly2', segment: 'dtg2/vdly2'),
-                      _knob(context, label: 'HS In Dly', segment: 'dtg2/hs_in_dly'),
-                      _knob(context, label: 'VS In Dly', segment: 'dtg2/vs_in_dly'),
-                      _knob(context, label: 'Pixel Cnt', segment: 'dtg2/pixel_cnt', min: 0, max: 16384, isBipolar: false),
+                      _reg(context, label: 'HLength', segment: 'dtg2/hlength', bits: 10),
+                      _reg(context, label: 'HDly', segment: 'dtg2/hdly', bits: 13),
+                      _reg(context, label: 'VLength1', segment: 'dtg2/vlength1', bits: 10),
+                      _reg(context, label: 'VDly1', segment: 'dtg2/vdly1', bits: 11),
+                      _reg(context, label: 'VLength2', segment: 'dtg2/vlength2', bits: 10),
+                      _reg(context, label: 'VDly2', segment: 'dtg2/vdly2', bits: 11),
+                      _reg(context, label: 'HS In Dly', segment: 'dtg2/hs_in_dly', bits: 13),
+                      _reg(context, label: 'VS In Dly', segment: 'dtg2/vs_in_dly', bits: 11),
+                      _reg(context, label: 'Pixel Cnt', segment: 'dtg2/pixel_cnt', bits: 16, readOnly: true),
                       _toggle(context, 'IP Fmt', 'dtg2/ctrl/ip_fmt'),
-                      _knob(context, label: 'Line Cnt', segment: 'dtg2/ctrl/line_cnt', min: 0, max: 16384, isBipolar: false),
+                      _reg(context, label: 'Line Cnt', segment: 'dtg2/ctrl/line_cnt', bits: 11, readOnly: true),
                       _toggle(context, 'FID DE', 'dtg2/ctrl/fid_de'),
                       _toggle(context, 'RGB Mode', 'dtg2/ctrl/rgb_mode'),
                       _toggle(context, 'Emb Timing', 'dtg2/ctrl/emb_timing'),

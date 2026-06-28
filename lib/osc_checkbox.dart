@@ -11,6 +11,12 @@ class OscCheckbox extends StatefulWidget {
   final double size;
   final ValueChanged<bool>? onChanged;
 
+  /// When false, the checkbox does not bind to the ambient OSC path (no
+  /// auto send/listen). Use for checkboxes whose OSC is handled manually via
+  /// [onChanged] with an explicit absolute address — otherwise they would
+  /// also fire/listen on the surrounding path and cross-link siblings.
+  final bool bindOsc;
+
   const OscCheckbox({
     super.key,
     this.initialValue = false,
@@ -18,6 +24,7 @@ class OscCheckbox extends StatefulWidget {
     this.label,
     this.size = 22,
     this.onChanged,
+    this.bindOsc = true,
   });
 
   @override
@@ -27,6 +34,9 @@ class OscCheckbox extends StatefulWidget {
 class _OscCheckboxState extends State<OscCheckbox> with OscAddressMixin {
   late bool _value;
   bool _isHovered = false;
+
+  @override
+  bool get oscBindEnabled => widget.bindOsc;
 
   @override
   void initState() {

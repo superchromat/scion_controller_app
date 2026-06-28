@@ -56,6 +56,10 @@ class OscRotaryKnob extends StatefulWidget {
   /// If true, send integers when value is a whole number
   final bool preferInteger;
 
+  /// Hard detents: when set (non-empty), all values (drag, OSC, setValue) are
+  /// quantized to the nearest entry. See [RotaryKnob.detentValues].
+  final List<double>? detentValues;
+
   /// Optional style override for the label below the knob
   final TextStyle? labelStyle;
 
@@ -80,6 +84,7 @@ class OscRotaryKnob extends StatefulWidget {
     this.dragBarWidth = 400,
     this.sendOsc = true,
     this.preferInteger = false,
+    this.detentValues,
     this.labelStyle,
     this.oscPathOverride,
   });
@@ -118,6 +123,19 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
 
   double _quantize(double v) {
     final clamped = v.clamp(widget.minValue, widget.maxValue);
+    final detents = widget.detentValues;
+    if (detents != null && detents.isNotEmpty) {
+      var best = detents.first;
+      var bestDist = (clamped - best).abs();
+      for (final d in detents.skip(1)) {
+        final dist = (clamped - d).abs();
+        if (dist < bestDist) {
+          best = d;
+          bestDist = dist;
+        }
+      }
+      return best;
+    }
     if (widget.preferInteger) {
       return clamped.roundToDouble();
     }
@@ -207,6 +225,7 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
       size: widget.size,
       dragBarWidth: widget.dragBarWidth,
       integerOnly: widget.preferInteger,
+      detentValues: widget.detentValues,
       labelStyle: widget.labelStyle,
       oscPath: widget.oscPathOverride ?? oscAddress,
     );

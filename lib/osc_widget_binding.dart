@@ -43,11 +43,22 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   late final String oscAddress;
   bool _registered = false;
 
+  /// Override and return false to make the widget a pure UI control that does
+  /// NOT bind to the ambient OSC path — no auto send-on-change, no listener.
+  /// Used when OSC is handled manually (explicit absolute address via
+  /// onChanged), so the widget doesn't also fire/listen on the surrounding
+  /// path context (which would cross-link sibling controls).
+  bool get oscBindEnabled => true;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_registered) return;
     _registered = true;
+    if (!oscBindEnabled) {
+      oscAddress = '';
+      return;
+    }
     // Resolve path once all OscPathSegments are available
     final segs = OscPathSegment.resolvePath(context);
     oscAddress = segs.isEmpty ? '' : '/${segs.join('/')}';

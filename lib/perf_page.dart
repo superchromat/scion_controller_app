@@ -15,7 +15,6 @@ class PerfPage extends StatefulWidget {
 class _PerfPageState extends State<PerfPage> {
   Timer? _statsTimer;
   Timer? _resourceTimer;
-  DateTime? _startTime;
 
   // --- Stats endpoint values (13 ints) ---
   int _rxPackets = 0;
@@ -31,6 +30,8 @@ class _PerfPageState extends State<PerfPage> {
   int _pendingHw = 0;
   int _pendingResp = 0;
   double _cpuTemp = 0;
+  int? _deviceUptimeSec;   // device-reported uptime (from /stats), not app session time
+  int _ddrTempCode = -1;   // coarse MDIN/DDR temp code 0..7 (-1 = N/A)
 
   // Previous values + timestamps for rate computation
   int? _prevRxPackets;
@@ -119,7 +120,6 @@ class _PerfPageState extends State<PerfPage> {
   @override
   void initState() {
     super.initState();
-    _startTime = DateTime.now();
     _registerCallbacks();
 
     _statsTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -194,7 +194,9 @@ class _PerfPageState extends State<PerfPage> {
       _respDropped = ints[10];
       _pendingHw = ints[11];
       _pendingResp = ints[12];
+      _deviceUptimeSec = ints[13]; // arg13: device uptime (s); older fw sent 0 here
       _cpuTemp = temp;
+      _ddrTempCode = args.length >= 16 ? (args[15] as num).toInt() : -1;
     });
   }
 
@@ -290,15 +292,38 @@ class _PerfPageState extends State<PerfPage> {
     _callbacks.clear();
   }
 
+  // Device uptime, reported by the firmware via /stats (NOT app session time),
+  // so it correctly resets when the device reboots.
   String _formatUptime() {
-    final elapsed = DateTime.now().difference(_startTime!);
-    final hours = elapsed.inHours;
-    final minutes = elapsed.inMinutes % 60;
-    final seconds = elapsed.inSeconds % 60;
+    final s = _deviceUptimeSec;
+    if (s == null) return '—';
+    final days = s ~/ 86400;
+    final hours = (s % 86400) ~/ 3600;
+    final minutes = (s % 3600) ~/ 60;
+    final seconds = s % 60;
+    if (days > 0) {
+      return '${days}d ${hours}h ${minutes.toString().padLeft(2, '0')}m';
+    }
     if (hours > 0) {
       return '${hours}h ${minutes.toString().padLeft(2, '0')}m ${seconds.toString().padLeft(2, '0')}s';
     }
     return '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+  }
+
+  // Coarse MDIN temperature from the DDR MR4 thermal code (0..7), each band
+  // ~15°C. Approximate — it's the SDRAM sensor in the MDIN's thermal zone.
+  String _mdinTempStr() {
+    switch (_ddrTempCode) {
+      case 0: return '<10°C lo!';
+      case 1: return '~15°C';
+      case 2: return '~30°C';
+      case 3: return '~45°C';
+      case 4: return '~60°C';
+      case 5: return '~75°C !';
+      case 6: return '~85°C !!';
+      case 7: return '>90°C hi!';
+      default: return '---';
+    }
   }
 
   String _fmtCount(int v, int width) {
@@ -366,7 +391,7 @@ class _PerfPageState extends State<PerfPage> {
     final thinLine = '\u2500' * 61;
 
     final tempStr = _cpuTemp > -900 ? '${_cpuTemp.toStringAsFixed(1)}°C' : '---';
-    buf.writeln('SCION Performance Monitor            CPU: $tempStr   uptime: ${_formatUptime()}');
+    buf.writeln('SCION Performance Monitor   CPU: $tempStr   MDIN: ${_mdinTempStr()}   uptime: ${_formatUptime()}');
     buf.writeln(line);
     buf.writeln();
 

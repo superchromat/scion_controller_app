@@ -124,6 +124,12 @@ class RotaryKnob extends StatefulWidget {
   /// Force snapping to integer values
   final bool integerOnly;
 
+  /// Hard detents: when set (non-empty), the knob value is always quantized
+  /// to the nearest entry — dragging, typed entry, and reset can only land on
+  /// these values. Takes precedence over [integerOnly]. Combine with
+  /// [mappingSegments] to give unevenly spaced detents equal drag travel.
+  final List<double>? detentValues;
+
   /// Light azimuthal angle in radians (0 = right, pi/2 = top)
   final double lightPhi;
 
@@ -161,6 +167,7 @@ class RotaryKnob extends StatefulWidget {
     this.size = 80,
     this.dragBarWidth = 400,
     this.integerOnly = false,
+    this.detentValues,
     this.lightPhi = math.pi / 2,    // Default: 90°
     this.lightTheta = 320 * math.pi / 180,  // Default: 320°
     this.arcWidth = 8.0,
@@ -672,7 +679,22 @@ class _RotaryKnobState extends State<RotaryKnob>
     }
   }
 
-  double _quantize(double v) => widget.integerOnly ? v.roundToDouble() : v;
+  double _quantize(double v) {
+    final detents = widget.detentValues;
+    if (detents != null && detents.isNotEmpty) {
+      var best = detents.first;
+      var bestDist = (v - best).abs();
+      for (final d in detents.skip(1)) {
+        final dist = (v - d).abs();
+        if (dist < bestDist) {
+          best = d;
+          bestDist = dist;
+        }
+      }
+      return best;
+    }
+    return widget.integerOnly ? v.roundToDouble() : v;
+  }
 
   void _showDragBar() {
     _removeDragBar();
