@@ -8,8 +8,11 @@ import 'package:provider/provider.dart';
 import 'grid.dart';
 import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
+import 'device_settings.dart';
+import 'device_diagnostics.dart';
 import 'firmware_update.dart';
 import 'labeled_card.dart';
+import 'neumorphic_button.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
 import 'osc_log.dart';
@@ -57,7 +60,10 @@ class _SystemPageState extends State<SystemPage> {
 
 /// Setup page - contains firmware update
 class SetupPage extends StatelessWidget {
-  const SetupPage({super.key});
+  /// True when the Setup tab is the visible page; forwarded to the diagnostics
+  /// panel so it only polls the device while on-screen.
+  final bool isActive;
+  const SetupPage({super.key, this.isActive = true});
 
   @override
   Widget build(BuildContext context) {
@@ -70,19 +76,38 @@ class SetupPage extends StatelessWidget {
             tokens: t,
             child: SingleChildScrollView(
               padding: EdgeInsets.all(t.md),
-              child: GridRow(
-                gutter: t.md,
-                cells: const [
-                  (
-                    span: 6,
-                    child: LabeledCard(
-                      title: 'Network Setup',
-                      child: _NetworkSetupSection(),
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridRow(
+                    gutter: t.md,
+                    cells: const [
+                      (span: 12, child: DeviceSettingsSection()),
+                    ],
                   ),
-                  (
-                    span: 6,
-                    child: FirmwareUpdateSection(),
+                  SizedBox(height: t.md),
+                  GridRow(
+                    gutter: t.md,
+                    cells: const [
+                      (
+                        span: 6,
+                        child: LabeledCard(
+                          title: 'Network Setup',
+                          child: _NetworkSetupSection(),
+                        ),
+                      ),
+                      (
+                        span: 6,
+                        child: FirmwareUpdateSection(),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: t.md),
+                  GridRow(
+                    gutter: t.md,
+                    cells: [
+                      (span: 12, child: DeviceDiagnosticsSection(isActive: isActive)),
+                    ],
                   ),
                 ],
               ),
@@ -137,27 +162,6 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     _hydrateFromRegistry(reg);
   }
 
-  ButtonStyle _actionButtonStyle(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ElevatedButton.styleFrom(
-      elevation: 0,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      minimumSize: const Size(0, 48),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      backgroundColor: const Color(0xFF2A2A30),
-      disabledBackgroundColor: const Color(0xFF57575E),
-      foregroundColor: scheme.primary,
-      disabledForegroundColor: const Color(0xFFB5B5BA),
-      textStyle: const TextStyle(
-        fontFamily: 'DINPro',
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-        letterSpacing: 0.05,
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -474,7 +478,6 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context, defaultWidth: 1000);
-    final buttonStyle = _actionButtonStyle(context);
 
     return Form(
       key: _formKey,
@@ -553,12 +556,11 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
             ),
             SizedBox(height: t.xs),
             Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                style: buttonStyle,
+              alignment: Alignment.centerLeft,
+              child: NeumorphicButton(
+                label: 'Apply',
+                primary: true,
                 onPressed: _apply,
-                icon: const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('Apply'),
               ),
             ),
           ],

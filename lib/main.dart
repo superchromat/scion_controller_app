@@ -329,7 +329,7 @@ class _MyHomePageState extends State<MyHomePage> {
       // 5 → Return
       const ReturnPage(),
       // 6 → Setup
-      const SetupPage(),
+      SetupPage(isActive: selectedIndex == 6),
       // 7 → OSC Log
       OscLogTable(
         key: oscLogKey,

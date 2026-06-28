@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import 'labeled_card.dart';
 import 'network.dart';
+import 'neumorphic_button.dart';
 import 'osc_registry.dart';
 import 'grid.dart';
 
@@ -36,28 +37,6 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
   Completer<void>? _endAck;
   Completer<void>? _chunkAck;
   int _expectedChunkSeq = -1;
-
-  ButtonStyle _actionButtonStyle(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ElevatedButton.styleFrom(
-      elevation: 0,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      minimumSize: const Size(0, 48),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      backgroundColor: const Color(0xFF2A2A30),
-      disabledBackgroundColor: const Color(0xFF57575E),
-      foregroundColor: scheme.primary,
-      disabledForegroundColor: const Color(0xFFB5B5BA),
-      textStyle: const TextStyle(
-        fontFamily: 'DINPro',
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-        letterSpacing: 0.05,
-      ),
-    );
-  }
 
   @override
   void initState() {
@@ -383,7 +362,6 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     final contentPadH = ((t?.md ?? 16.0) < 24.0) ? 24.0 : (t?.md ?? 16.0);
     final contentPadTop = t?.xs ?? 8.0;
     final contentPadBottom = t?.md ?? 16.0;
-    final buttonStyle = _actionButtonStyle(context);
 
     return LabeledCard(
       title: 'Firmware Update',
@@ -399,24 +377,20 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
           children: [
             Row(
               children: [
-                ElevatedButton.icon(
-                  style: buttonStyle,
-                  onPressed: _stage == FirmwareStage.uploading
-                      ? null
-                      : () => _pickFile(),
-                  icon: const Icon(Icons.file_open),
-                  label: const Text('Select Firmware'),
+                NeumorphicButton(
+                  label: 'Select Firmware',
+                  onPressed:
+                      _stage == FirmwareStage.uploading ? null : () => _pickFile(),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  style: buttonStyle,
+                NeumorphicButton(
+                  label: 'Begin Upgrade',
+                  primary: true,
                   onPressed: (_path != null && connected &&
                           (_stage == FirmwareStage.ready ||
                               _stage == FirmwareStage.error))
                       ? () => _startUpgrade(context)
                       : null,
-                  icon: const Icon(Icons.system_update_alt),
-                  label: const Text('Begin Upgrade'),
                 ),
                 const SizedBox(width: 12),
                 if (_fileName != null)
@@ -429,44 +403,51 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: (_stage == FirmwareStage.uploading ||
-                      _stage == FirmwareStage.finalizing ||
-                      _stage == FirmwareStage.done)
-                  ? progress.clamp(0.0, 1.0)
-                  : 0.0,
-              minHeight: 8,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    _statusText ??
-                        (_stage == FirmwareStage.uploading
-                            ? 'Uploading...'
-                            : _stage == FirmwareStage.finalizing
-                                ? 'Finalizing...'
-                                : _stage == FirmwareStage.done
-                                    ? 'Done'
-                                    : connected
-                                        ? 'Ready'
-                                        : 'Not connected'),
-                    overflow: TextOverflow.ellipsis,
+            // Progress bar + status only appear once an upload is underway —
+            // no bar or "Ready" text sitting around in the idle state.
+            if (_showBar) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                minHeight: 8,
+              ),
+            ],
+            if (_showStatus) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _statusText ??
+                          (_stage == FirmwareStage.uploading
+                              ? 'Uploading...'
+                              : _stage == FirmwareStage.finalizing
+                                  ? 'Finalizing...'
+                                  : _stage == FirmwareStage.done
+                                      ? 'Done'
+                                      : ''),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                if (_totalBytes > 0) ...[
-                  const SizedBox(width: 12),
-                  Text('${_sentBytes}/${_totalBytes} bytes'
-                      ' (${(progress * 100).toStringAsFixed(1)}%)'),
+                  if (_totalBytes > 0 && _showBar) ...[
+                    const SizedBox(width: 12),
+                    Text('${_sentBytes}/${_totalBytes} bytes'
+                        ' (${(progress * 100).toStringAsFixed(1)}%)'),
+                  ],
                 ],
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  bool get _showBar =>
+      _stage == FirmwareStage.uploading ||
+      _stage == FirmwareStage.finalizing ||
+      _stage == FirmwareStage.done;
+
+  bool get _showStatus => _showBar || _stage == FirmwareStage.error;
 }
