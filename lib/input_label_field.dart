@@ -89,20 +89,20 @@ class _InputLabelFieldState extends State<InputLabelField> {
   void _commit() {
     var v = _ctrl.text.trim();
     if (v.length > _maxLen) v = v.substring(0, _maxLen);
-    final next = v.isEmpty ? _committed : v; // empty reverts
-    final changed = next != _committed;
-    setState(() {
-      _committed = next;
-      _editing = false;
-    });
-    if (!changed) return;
+    setState(() => _editing = false);
+    if (v == _committed) return; // unchanged
 
     final net = context.read<Network>();
-    final sent = net.sendOscMessage(_addr, <Object>[next]);
-    if (sent) {
+    // An empty value clears the override → the device auto-fills the label from
+    // the HDMI source name (SPD), or "Input N" if none.
+    final sent = net.sendOscMessage(_addr, <Object>[v]);
+    if (sent && v.isNotEmpty) {
+      // Optimistic update for a real name; an empty clear waits for the device
+      // to echo back the effective (auto) label.
+      setState(() => _committed = v);
       final reg = OscRegistry();
       reg.registerAddress(_addr);
-      reg.dispatchLocal(_addr, <Object?>[next]);
+      reg.dispatchLocal(_addr, <Object?>[v]);
     }
   }
 
