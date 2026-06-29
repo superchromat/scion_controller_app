@@ -11,7 +11,6 @@ import 'sync_mode_selection.dart';
 import 'device_settings.dart';
 import 'device_diagnostics.dart';
 import 'front_panel_section.dart';
-import 'firmware_update.dart';
 import 'labeled_card.dart';
 import 'neumorphic_button.dart';
 import 'network.dart';
@@ -84,15 +83,14 @@ class SetupPage extends StatelessWidget {
                     gutter: t.md,
                     equalHeight: true,
                     cells: const [
-                      (span: 3, child: DeviceSettingsSection()),
+                      (span: 5, child: DeviceSettingsSection()),
                       (
-                        span: 3,
+                        span: 4,
                         child: LabeledCard(
                           title: 'Network Setup',
                           child: _NetworkSetupSection(),
                         ),
                       ),
-                      (span: 3, child: FirmwareUpdateSection()),
                       (span: 3, child: FrontPanelSection()),
                     ],
                   ),

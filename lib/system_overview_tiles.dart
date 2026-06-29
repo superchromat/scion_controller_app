@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'system_overview.dart'; // for TileLayout
+import 'input_label_field.dart';
 import 'osc_registry.dart';
 import 'labeled_card.dart'; // for NeumorphicInset
 import 'lighting_settings.dart';
@@ -750,6 +751,13 @@ class __InputTileInnerState extends State<_InputTileInner> {
     super.dispose();
   }
 
+  // Wrap a format row in a fixed-height slot with its text vertically centred,
+  // matching the editable label's slot for even row spacing.
+  Widget _slot(Widget child) => SizedBox(
+        height: kInputRowSlot,
+        child: Align(alignment: Alignment.centerLeft, child: child),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -773,27 +781,33 @@ class __InputTileInnerState extends State<_InputTileInner> {
               top: -10,
               child: _LitOverlayText(label: widget.index.toString()),
             ),
-            if (_connected)
-              Padding(
-                padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_res, style: _systemTextStyle),
-                    Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}', style: _systemTextStyle),
-                    Text('$_bpp bpp', style: _systemTextStyle),
-                    Row(children: [
-                      Text(_cs, style: _systemTextStyle),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: TileLayout.sectionBoxPadding),
+              // Every row gets an identical fixed-height slot with its content
+              // vertically centred, so the editable label (an EditableText,
+              // which positions text differently from a Text) lines up exactly
+              // with the format rows. The group is centred vertically so the
+              // top and bottom margins are equal.
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InputLabelField(inputIndex: widget.index),
+                  if (_connected) ...[
+                    _slot(Text(_res, style: kInputRowStyle, strutStyle: kInputRowStrut)),
+                    _slot(Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}', style: kInputRowStyle, strutStyle: kInputRowStrut)),
+                    _slot(Text('$_bpp bpp', style: kInputRowStyle, strutStyle: kInputRowStrut)),
+                    _slot(Row(children: [
+                      Text(_cs, style: kInputRowStyle, strutStyle: kInputRowStrut),
                       const SizedBox(width: 8),
-                      Text(_sub, style: _systemTextStyle),
-                    ]),
-                  ],
-                ),
-              )
-            else
-              Center(
-                child: Text('Disconnected', style: _systemTextStyleRed),
+                      Text(_sub, style: kInputRowStyle, strutStyle: kInputRowStrut),
+                    ])),
+                  ] else
+                    _slot(Text('Disconnected', style: _systemTextStyleRed)),
+                ],
               ),
+            ),
           ],
         ),
       ),

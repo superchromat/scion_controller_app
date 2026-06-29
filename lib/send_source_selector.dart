@@ -5,6 +5,7 @@ import 'osc_registry.dart';
 import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'system_overview.dart';
+import 'input_label_field.dart';
 import 'grid.dart';
 import 'rotary_knob.dart';
 import 'neumorphic_slider.dart';
@@ -235,9 +236,23 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       selected: widget.selected,
       onTap: widget.onTap,
       selectedBorderColor: widget.selectedBorderColor,
-      child: _connected
-          ? _FormatInfo(res: _res, fps: _fps, bpp: _bpp, cs: _cs, sub: _sub, interlaced: _interlaced)
-          : Center(child: Text('Disconnected', style: _redText)),
+      child: Padding(
+        padding: EdgeInsets.all(GridProvider.maybeOf(context)?.xs ?? 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InputLabelField(inputIndex: widget.inputIndex),
+            if (_connected) ...[
+              Text(_res, style: kInputRowStyle, strutStyle: kInputRowStrut, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}', style: kInputRowStyle, strutStyle: kInputRowStrut),
+              Text('$_bpp bit', style: kInputRowStyle, strutStyle: kInputRowStrut),
+              Text('$_cs $_sub', style: kInputRowStyle, strutStyle: kInputRowStrut, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ] else
+              Text('Disconnected', style: _redText),
+          ],
+        ),
+      ),
     );
   }
 }

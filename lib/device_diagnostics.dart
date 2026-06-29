@@ -74,7 +74,15 @@ class _DeviceDiagnosticsSectionState extends State<DeviceDiagnosticsSection> {
   // periodic tick.
   void _onNet() {
     final connected = _net?.isConnected ?? false;
-    if (connected && !_wasConnected) _request();
+    if (connected && !_wasConnected) {
+      // A new link may be a rebooted device, whose shell_info gen counter has
+      // reset to 0. Forget the old capture so the fresh (lower-gen) one isn't
+      // mistaken for a straggler and discarded.
+      _gen = -1;
+      _chunks = null;
+      _expectedTotal = 0;
+      _request();
+    }
     _wasConnected = connected;
   }
 
@@ -121,8 +129,10 @@ class _DeviceDiagnosticsSectionState extends State<DeviceDiagnosticsSection> {
     final chunk = _decodeChunk(args[3]);
     if (total <= 0 || seq < 0 || seq >= total) return;
 
-    // Ignore stragglers from an older capture; start fresh on a newer one.
-    if (gen < _gen) return;
+    // Ignore late stragglers from the immediately-preceding capture. But a large
+    // backwards jump means the device rebooted (its gen counter resets to 0 on
+    // boot), so adopt that capture instead of discarding it forever.
+    if (gen < _gen && (_gen - gen) < 16) return;
     if (gen != _gen || _chunks == null || _expectedTotal != total) {
       _gen = gen;
       _chunks = List<String?>.filled(total, null);

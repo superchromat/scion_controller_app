@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'firmware_update.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
@@ -12,9 +13,8 @@ import 'panel.dart';
 /// Device card for the Setup page.
 ///
 /// Read-only identity reported by the firmware (model, firmware version,
-/// hardware revision, serial, uptime) in an inset panel, plus the one
-/// device-level setting — front-panel LED brightness — as a rotary knob bound
-/// to `/device/led_brightness` (0–100%, default 50%).
+/// hardware revision, serial, uptime) in an inset panel, followed by the
+/// firmware-update controls ([FirmwareUpdateSection]) in the same card.
 class DeviceSettingsSection extends StatefulWidget {
   const DeviceSettingsSection({super.key});
 
@@ -228,7 +228,15 @@ class _DeviceSettingsSectionState extends State<DeviceSettingsSection> {
       title: 'Device',
       child: Padding(
         padding: EdgeInsets.fromLTRB(t.md, t.xs, t.md, t.md),
-        child: identity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            identity,
+            SizedBox(height: t.md),
+            const FirmwareUpdateSection(),
+          ],
+        ),
       ),
     );
   }

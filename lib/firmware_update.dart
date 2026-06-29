@@ -29,7 +29,6 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
   int _totalBytes = 0;
   int _sentBytes = 0;
   FirmwareStage _stage = FirmwareStage.idle;
-  String? _statusText;
   int _chunkSize = 1024; // default; will be confirmed by ack_begin
 
   // Ack handling
@@ -37,6 +36,13 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
   Completer<void>? _endAck;
   Completer<void>? _chunkAck;
   int _expectedChunkSeq = -1;
+
+  // Fixed dimensions for the status region so the card never resizes between
+  // stages (idle → file picked → uploading → done).
+  static const double _kFileLineHeight = 20;
+  static const double _kBarHeight = 18; // 12px bar + 2×3px inset padding
+  static const double _kStatusRegionHeight =
+      _kFileLineHeight + 8 + _kBarHeight;
 
   @override
   void initState() {
@@ -72,10 +78,45 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     // Only surface errors prominently when we're in an active firmware flow
     if (!(_stage == FirmwareStage.uploading || _stage == FirmwareStage.finalizing)) return;
     final msg = args.isNotEmpty ? args.first?.toString() ?? 'Firmware error' : 'Firmware error';
+    // Break any in-flight await so the upload stops promptly, then alert.
+    _failPendingCompleters(msg);
+    _fail(msg);
+  }
+
+  /// Move to the error state and raise a modal alert. Every firmware failure —
+  /// device-reported (e.g. "invalid MCUBoot header"), transport, or local —
+  /// funnels through here. Guards against stacking a second dialog when one
+  /// failure has already been reported for this attempt.
+  void _fail(String message) {
+    if (!mounted) return;
+    final alreadyError = _stage == FirmwareStage.error;
     setState(() {
       _stage = FirmwareStage.error;
-      _statusText = msg;
     });
+    if (!alreadyError) _showErrorDialog(message);
+  }
+
+  Future<void> _showErrorDialog(String message) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Firmware Update Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _failPendingCompleters(Object error) {
+    if (_beginAck != null && !_beginAck!.isCompleted) _beginAck!.completeError(error);
+    if (_chunkAck != null && !_chunkAck!.isCompleted) _chunkAck!.completeError(error);
+    if (_endAck != null && !_endAck!.isCompleted) _endAck!.completeError(error);
   }
 
   void _onAckBegin(List<Object?> args) {
@@ -141,14 +182,10 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
         _totalBytes = stat.size;
         _sentBytes = 0;
         _stage = FirmwareStage.ready;
-        _statusText = null;
       });
     } catch (e, st) {
       if (kDebugMode) debugPrint('File pick error: $e\n$st');
-      setState(() {
-        _stage = FirmwareStage.error;
-        _statusText = 'File selection failed: $e';
-      });
+      _fail('File selection failed: $e');
     }
   }
 
@@ -156,27 +193,20 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     if (_path == null) return;
     final net = Provider.of<Network>(context, listen: false);
     if (!net.isConnected) {
-      setState(() {
-        _stage = FirmwareStage.error;
-        _statusText = 'Not connected to device';
-      });
+      _fail('Not connected to device');
       return;
     }
 
     setState(() {
       _stage = FirmwareStage.uploading;
       _sentBytes = 0;
-      _statusText = 'Computing SHA-256...';
     });
 
     late Uint8List bytes;
     try {
       bytes = await File(_path!).readAsBytes();
     } catch (e) {
-      setState(() {
-        _stage = FirmwareStage.error;
-        _statusText = 'Failed to read file: $e';
-      });
+      _fail('Failed to read file: $e');
       return;
     }
 
@@ -193,12 +223,7 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     try {
       await _beginAck!.future.timeout(const Duration(seconds: 3));
     } catch (e) {
-      setState(() {
-        if (_stage != FirmwareStage.error) {
-          _stage = FirmwareStage.error;
-          _statusText = 'Firmware begin failed: $e';
-        }
-      });
+      _fail('Firmware begin failed: $e');
       return;
     }
 
@@ -209,10 +234,6 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
       final end = (offset + _chunkSize < total) ? offset + _chunkSize : total;
       final chunk = bytes.sublist(offset, end);
       final crc = _crc32(chunk);
-
-      setState(() {
-        _statusText = 'Uploading...';
-      });
 
       _expectedChunkSeq = seq;
       _chunkAck = Completer<void>();
@@ -225,12 +246,7 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
       try {
         await _chunkAck!.future.timeout(const Duration(seconds: 2));
       } catch (e) {
-        setState(() {
-          if (_stage != FirmwareStage.error) {
-            _stage = FirmwareStage.error;
-            _statusText = 'Chunk $seq not acknowledged: $e';
-          }
-        });
+        _fail('Chunk $seq not acknowledged: $e');
         return;
       }
 
@@ -242,27 +258,17 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     // Finalize
     setState(() {
       _stage = FirmwareStage.finalizing;
-      _statusText = 'Finalizing...';
     });
     _endAck = Completer<void>();
     net.sendOscMessage('/firmware/end', []);
     try {
       await _endAck!.future.timeout(const Duration(seconds: 3));
-      setState(() {
-        _stage = FirmwareStage.finalizing;
-        _statusText = 'Upgrade initiated. Device will reboot...';
-      });
       // Suppress disconnect due to inactivity while we await device reboot
       net.suppressTimeoutsFor(const Duration(seconds: 90));
       // Wait for first /ack after this point to consider reconnect successful
       await _awaitRebootAndReport(context, net, timeout: const Duration(seconds: 90));
     } catch (e) {
-      setState(() {
-        if (_stage != FirmwareStage.error) {
-          _stage = FirmwareStage.error;
-          _statusText = 'Finalize failed: $e';
-        }
-      });
+      _fail('Finalize failed: $e');
     }
   }
 
@@ -288,7 +294,6 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     if (ok) {
       setState(() {
         _stage = FirmwareStage.done;
-        _statusText = 'Device reconnected after upgrade';
       });
       await showDialog(
         context: context,
@@ -306,7 +311,6 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     } else {
       setState(() {
         _stage = FirmwareStage.error;
-        _statusText = 'Device did not reconnect after upgrade. Please reboot.';
       });
       await showDialog(
         context: context,
@@ -359,88 +363,74 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     final connected = net.isConnected;
     final progress = _totalBytes == 0 ? 0.0 : _sentBytes / _totalBytes;
     final t = GridProvider.maybeOf(context);
-    final contentPadH = ((t?.md ?? 16.0) < 24.0) ? 24.0 : (t?.md ?? 16.0);
-    final contentPadTop = t?.xs ?? 8.0;
-    final contentPadBottom = t?.md ?? 16.0;
 
-    return LabeledCard(
-      title: 'Firmware Update',
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          contentPadH,
-          contentPadTop,
-          contentPadH,
-          contentPadBottom,
+    // Embedded inside the Device card — no card/title of its own; the parent
+    // owns the outer padding. Errors and completion are modal alerts (see
+    // _fail / _awaitRebootAndReport), so the only inline UI is the styled bar.
+    // The filename + bar live in a fixed-height region that's always allotted
+    // its space, so the card never resizes as the upload progresses.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'FIRMWARE UPDATE',
+          style: t?.textCaption ??
+              const TextStyle(fontSize: 11, letterSpacing: 0.5),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        SizedBox(height: t?.sm ?? 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                NeumorphicButton(
-                  label: 'Select Firmware',
-                  onPressed:
-                      _stage == FirmwareStage.uploading ? null : () => _pickFile(),
-                ),
-                NeumorphicButton(
-                  label: 'Begin Upgrade',
-                  primary: true,
-                  onPressed: (_path != null && connected &&
-                          (_stage == FirmwareStage.ready ||
-                              _stage == FirmwareStage.error))
-                      ? () => _startUpgrade(context)
-                      : null,
-                ),
-              ],
+            NeumorphicButton(
+              label: 'Select Firmware',
+              onPressed:
+                  _stage == FirmwareStage.uploading ? null : () => _pickFile(),
             ),
-            if (_fileName != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _fileName!,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ],
-            // Progress bar + status only appear once an upload is underway —
-            // no bar or "Ready" text sitting around in the idle state.
-            if (_showBar) ...[
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 8,
-              ),
-            ],
-            if (_showStatus) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      _statusText ??
-                          (_stage == FirmwareStage.uploading
-                              ? 'Uploading...'
-                              : _stage == FirmwareStage.finalizing
-                                  ? 'Finalizing...'
-                                  : _stage == FirmwareStage.done
-                                      ? 'Done'
-                                      : ''),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_totalBytes > 0 && _showBar) ...[
-                    const SizedBox(width: 12),
-                    Text('${_sentBytes}/${_totalBytes} bytes'
-                        ' (${(progress * 100).toStringAsFixed(1)}%)'),
-                  ],
-                ],
-              ),
-            ],
+            NeumorphicButton(
+              label: 'Begin Upgrade',
+              primary: true,
+              onPressed: (_path != null &&
+                      connected &&
+                      (_stage == FirmwareStage.ready ||
+                          _stage == FirmwareStage.error))
+                  ? () => _startUpgrade(context)
+                  : null,
+            ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: _kStatusRegionHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: _kFileLineHeight,
+                child: _fileName == null
+                    ? null
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _fileName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: _kBarHeight,
+                child: _showBar
+                    ? _StyledProgressBar(value: progress.clamp(0.0, 1.0))
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -448,6 +438,38 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
       _stage == FirmwareStage.uploading ||
       _stage == FirmwareStage.finalizing ||
       _stage == FirmwareStage.done;
+}
 
-  bool get _showStatus => _showBar || _stage == FirmwareStage.error;
+/// Neumorphic determinate progress bar: an inset track with a solid,
+/// hard-edged accent fill that eases toward the target as chunks ack.
+class _StyledProgressBar extends StatelessWidget {
+  final double value;
+  const _StyledProgressBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return NeumorphicInset(
+      borderRadius: 4,
+      depth: 2,
+      padding: const EdgeInsets.all(3),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: SizedBox(
+          height: 12,
+          width: double.infinity,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: value.clamp(0.0, 1.0)),
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            builder: (context, v, _) => FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: v <= 0 ? 0.0 : v,
+              heightFactor: 1.0,
+              child: const ColoredBox(color: Color(0xFFFFC400)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

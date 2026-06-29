@@ -295,8 +295,12 @@ class _SystemOverviewState extends State<SystemOverview>
                     SizedBox(width: safeRightOffset),
                   ],
                 ),
+                // Decorative arrow overlay — must never absorb pointer events,
+                // or the (now-interactive) input tiles below it can't be tapped.
                 Positioned.fill(
-                  child: CustomPaint(painter: ArrowsPainter(_arrows)),
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: ArrowsPainter(_arrows)),
+                  ),
                 ),
               ],
             );
