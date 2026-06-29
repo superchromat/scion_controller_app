@@ -28,7 +28,5 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>FLTEnableWideGamut</key>
-	<true/>
 </dict>
 </plist>

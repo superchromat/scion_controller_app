@@ -781,16 +781,25 @@ class __InputTileInnerState extends State<_InputTileInner> {
               top: -10,
               child: _LitOverlayText(label: widget.index.toString()),
             ),
+            // When disconnected, "Disconnected" is centred in the whole tile
+            // while the input label stays pinned at the top (see Column below).
+            if (!_connected)
+              Center(
+                child: Text('Disconnected', style: _systemTextStyleRed),
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(
                   horizontal: TileLayout.sectionBoxPadding),
-              // Every row gets an identical fixed-height slot with its content
-              // vertically centred, so the editable label (an EditableText,
-              // which positions text differently from a Text) lines up exactly
-              // with the format rows. The group is centred vertically so the
-              // top and bottom margins are equal.
+              // When connected, every row gets an identical fixed-height slot
+              // with its content vertically centred, so the editable label (an
+              // EditableText, which positions text differently from a Text)
+              // lines up exactly with the format rows, and the group is centred
+              // vertically so the top and bottom margins are equal. When
+              // disconnected, the label is pinned to the top of the tile.
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: _connected
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   InputLabelField(inputIndex: widget.index),
@@ -803,8 +812,7 @@ class __InputTileInnerState extends State<_InputTileInner> {
                       const SizedBox(width: 8),
                       Text(_sub, style: kInputRowStyle, strutStyle: kInputRowStrut),
                     ])),
-                  ] else
-                    _slot(Text('Disconnected', style: _systemTextStyleRed)),
+                  ],
                 ],
               ),
             ),

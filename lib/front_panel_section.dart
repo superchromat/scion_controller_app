@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
-import 'neumorphic_button.dart';
+import 'osc_checkbox.dart';
 import 'osc_log.dart';
 import 'osc_registry.dart';
 import 'osc_rotary_knob.dart';
@@ -91,8 +91,8 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
     setState(() => _locked = locked!);
   }
 
-  void _toggleLock() {
-    final next = !_locked;
+  void _setLock(bool next) {
+    if (next == _locked) return;
     setState(() => _locked = next);
 
     final net = context.read<Network>();
@@ -117,34 +117,61 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
   Widget build(BuildContext context) {
     final t = GridProvider.of(context, defaultWidth: 1000);
 
+    final labelStyle = t.textLabel.copyWith(color: Colors.white);
+    // Fixed label column so the controls line up in their own column right
+    // beside the labels, instead of being flung to the far edge of the card.
+    final labelW = (t.u * 8).clamp(110.0, 150.0);
+
+    Widget row(String label, Widget control) => Row(
+          children: [
+            SizedBox(width: labelW, child: Text(label, style: labelStyle)),
+            control,
+          ],
+        );
+
     return LabeledCard(
       title: 'Front Panel',
+      fillChild: true,
       child: Padding(
         padding: EdgeInsets.fromLTRB(t.md, t.xs, t.md, t.md),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          // Centre the controls vertically — the card is stretched to share
+          // Network Setup's height with Firmware Update.
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: t.sm),
-            const OscPathSegment(
-              segment: 'device',
-              child: OscPathSegment(
-                segment: 'led_brightness',
-                child: OscRotaryKnob(
-                  minValue: 0,
-                  maxValue: 100,
-                  initialValue: 50,
-                  defaultValue: 50,
-                  format: '%.0f',
-                  label: 'LED Brightness',
-                  size: 84,
+            row(
+              'LED Brightness',
+              const OscPathSegment(
+                segment: 'device',
+                child: OscPathSegment(
+                  segment: 'led_brightness',
+                  child: OscRotaryKnob(
+                    minValue: 0,
+                    maxValue: 100,
+                    initialValue: 50,
+                    defaultValue: 50,
+                    format: '%.0f',
+                    label: '',
+                    size: 48,
+                  ),
                 ),
               ),
             ),
-            SizedBox(height: t.lg),
-            NeumorphicButton(
-              label: _locked ? 'Unlock Buttons' : 'Lock Buttons',
-              primary: _locked,
-              onPressed: _toggleLock,
+            SizedBox(height: t.md),
+            // Lock toggle as a checkbox ("radio box") rather than a button, so
+            // its on/off state reads at a glance. OSC is handled manually via
+            // _setLock (bindOsc: false); the ValueKey re-seeds the checkbox when
+            // the device reports a new /device/buttons_locked value.
+            row(
+              'Lock Buttons',
+              OscCheckbox(
+                key: ValueKey(_locked),
+                initialValue: _locked,
+                bindOsc: false,
+                onChanged: _setLock,
+              ),
             ),
           ],
         ),

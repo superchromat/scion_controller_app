@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import 'package:archive/archive.dart' show getCrc32;
+import 'app_button.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_registry.dart';
@@ -300,27 +301,25 @@ class _SendImageState extends State<SendImage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ElevatedButton.icon(
+                  AppButton(
                     onPressed: _isUploading ? null : _pickAndLoadImage,
-                    icon: const Icon(Icons.folder_open, size: 16),
-                    label: const Text('Load Image'),
+                    icon: Icons.folder_open,
+                    label: 'Load Image',
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton.icon(
+                  AppButton(
                     onPressed: (_isUploading || _loadedImage == null)
                         ? null
                         : _uploadImage,
-                    icon: const Icon(Icons.upload, size: 16),
-                    label: const Text('Upload'),
+                    icon: Icons.upload,
+                    label: 'Upload',
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton.icon(
+                  AppButton(
                     onPressed: _toggleEnable,
-                    icon: Icon(
-                      _imageEnabled ? Icons.visibility : Icons.visibility_off,
-                      size: 16,
-                    ),
-                    label: Text(_imageEnabled ? 'Hide' : 'Show'),
+                    selected: _imageEnabled,
+                    icon: _imageEnabled ? Icons.visibility : Icons.visibility_off,
+                    label: _imageEnabled ? 'Hide' : 'Show',
                   ),
                 ],
               ),

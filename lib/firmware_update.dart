@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:file_picker/file_picker.dart';
@@ -9,13 +8,22 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'labeled_card.dart';
+import 'app_button.dart';
 import 'network.dart';
-import 'neumorphic_button.dart';
 import 'osc_registry.dart';
 import 'grid.dart';
 
-enum FirmwareStage { idle, ready, uploading, finalizing, done, error }
+enum FirmwareStage { idle, uploading, finalizing, done, error }
 
+/// Firmware Update card for the Setup page.
+///
+/// Shows the device's current firmware version and a single "Firmware Update"
+/// button. Pressing it opens a file picker; the chosen file is validated
+/// locally as an MCUboot image (header magic) before anything is sent. An
+/// invalid file raises a modal alert and nothing is uploaded. A valid file
+/// starts the upload immediately, replacing the button with a progress bar.
+/// On completion the device reboots to apply the image and a confirmation
+/// dialog is shown.
 class FirmwareUpdateSection extends StatefulWidget {
   const FirmwareUpdateSection({super.key});
 
@@ -24,6 +32,13 @@ class FirmwareUpdateSection extends StatefulWidget {
 }
 
 class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
+  static const _oscFwVersion = '/device/fw_version';
+
+  /// MCUboot image header magic (`IMAGE_MAGIC`), stored little-endian at the
+  /// very start of a signed image. Header is 32 bytes.
+  static const int _mcubootMagic = 0x96f3b83d;
+  static const int _mcubootHeaderBytes = 32;
+
   String? _path;
   String? _fileName;
   int _totalBytes = 0;
@@ -31,23 +46,26 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
   FirmwareStage _stage = FirmwareStage.idle;
   int _chunkSize = 1024; // default; will be confirmed by ack_begin
 
+  String? _fwVersion;
+  Network? _net;
+  bool _wasConnected = false;
+
   // Ack handling
   Completer<void>? _beginAck;
   Completer<void>? _endAck;
   Completer<void>? _chunkAck;
   int _expectedChunkSeq = -1;
 
-  // Fixed dimensions for the status region so the card never resizes between
-  // stages (idle → file picked → uploading → done).
+  // Fixed dimensions for the control region so the card never resizes between
+  // stages (button ↔ progress bar).
   static const double _kFileLineHeight = 20;
   static const double _kBarHeight = 18; // 12px bar + 2×3px inset padding
-  static const double _kStatusRegionHeight =
+  static const double _kControlRegionHeight =
       _kFileLineHeight + 8 + _kBarHeight;
 
   @override
   void initState() {
     super.initState();
-    // Register listeners for firmware acks
     final reg = OscRegistry();
     reg.registerAddress('/firmware/ack_begin');
     reg.registerAddress('/firmware/ack_chunk');
@@ -55,29 +73,69 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     reg.registerAddress('/firmware/status');
     reg.registerAddress('/firmware/error');
     reg.registerAddress('/error');
+    reg.registerAddress(_oscFwVersion);
     reg.registerListener('/firmware/ack_begin', _onAckBegin);
     reg.registerListener('/firmware/ack_chunk', _onAckChunk);
     reg.registerListener('/firmware/ack_end', _onAckEnd);
     reg.registerListener('/firmware/error', _onErrorMsg);
     reg.registerListener('/error', _onErrorMsg);
+    reg.registerListener(_oscFwVersion, _onFwVersion);
+
+    final args = reg.allParams[_oscFwVersion]?.currentValue;
+    if (args != null && args.isNotEmpty) _onFwVersion(List<Object?>.from(args));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final net = context.read<Network>();
+    if (!identical(_net, net)) {
+      _net?.removeListener(_onNet);
+      _net = net;
+      _wasConnected = net.isConnected;
+      _net!.addListener(_onNet);
+    }
   }
 
   @override
   void dispose() {
+    _net?.removeListener(_onNet);
     final reg = OscRegistry();
     reg.unregisterListener('/firmware/ack_begin', _onAckBegin);
     reg.unregisterListener('/firmware/ack_chunk', _onAckChunk);
     reg.unregisterListener('/firmware/ack_end', _onAckEnd);
     reg.unregisterListener('/firmware/error', _onErrorMsg);
     reg.unregisterListener('/error', _onErrorMsg);
+    reg.unregisterListener(_oscFwVersion, _onFwVersion);
     super.dispose();
+  }
+
+  // fw_version isn't always part of /sync, so pull it the moment the link
+  // comes up — otherwise a page opened after connect would show "—".
+  void _onNet() {
+    final connected = _net?.isConnected ?? false;
+    if (connected && !_wasConnected) {
+      _net?.sendOscMessage(_oscFwVersion, const []);
+    }
+    _wasConnected = connected;
+  }
+
+  void _onFwVersion(List<Object?> args) {
+    if (!mounted || args.isEmpty) return;
+    final v = args.first?.toString().trim();
+    setState(() => _fwVersion = (v == null || v.isEmpty) ? null : v);
   }
 
   void _onErrorMsg(List<Object?> args) {
     if (!mounted) return;
     // Only surface errors prominently when we're in an active firmware flow
-    if (!(_stage == FirmwareStage.uploading || _stage == FirmwareStage.finalizing)) return;
-    final msg = args.isNotEmpty ? args.first?.toString() ?? 'Firmware error' : 'Firmware error';
+    if (!(_stage == FirmwareStage.uploading ||
+        _stage == FirmwareStage.finalizing)) {
+      return;
+    }
+    final msg = args.isNotEmpty
+        ? args.first?.toString() ?? 'Firmware error'
+        : 'Firmware error';
     // Break any in-flight await so the upload stops promptly, then alert.
     _failPendingCompleters(msg);
     _fail(msg);
@@ -104,9 +162,35 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
         title: const Text('Firmware Update Error'),
         content: Text(message),
         actions: [
-          TextButton(
+          AppButton(
+            label: 'OK',
+            dense: true,
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    // Return to idle so the button comes back for another attempt.
+    if (mounted && _stage == FirmwareStage.error) {
+      setState(() => _stage = FirmwareStage.idle);
+    }
+  }
+
+  Future<void> _showRebootDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Firmware Update'),
+        content: const Text(
+          'The firmware was uploaded successfully. The device is now '
+          'rebooting to apply the update.',
+        ),
+        actions: [
+          AppButton(
+            label: 'OK',
+            dense: true,
+            onPressed: () => Navigator.of(ctx).pop(),
           ),
         ],
       ),
@@ -114,8 +198,12 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
   }
 
   void _failPendingCompleters(Object error) {
-    if (_beginAck != null && !_beginAck!.isCompleted) _beginAck!.completeError(error);
-    if (_chunkAck != null && !_chunkAck!.isCompleted) _chunkAck!.completeError(error);
+    if (_beginAck != null && !_beginAck!.isCompleted) {
+      _beginAck!.completeError(error);
+    }
+    if (_chunkAck != null && !_chunkAck!.isCompleted) {
+      _chunkAck!.completeError(error);
+    }
     if (_endAck != null && !_endAck!.isCompleted) _endAck!.completeError(error);
   }
 
@@ -166,30 +254,75 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     }
   }
 
-  Future<void> _pickFile() async {
+  /// Open the picker, locally validate the choice as an MCUboot image, and —
+  /// if valid — start the upload immediately. Invalid files raise an alert and
+  /// nothing is sent.
+  Future<void> _pickAndStart() async {
+    final path = await _pickFile();
+    if (path == null) return; // user cancelled
+
+    final valid = await _isValidMcubootImage(path);
+    if (!mounted) return;
+    if (!valid) {
+      await _showErrorDialog(
+        'The selected file is not a valid SCION firmware image '
+        '(missing MCUboot header).',
+      );
+      return;
+    }
+
+    final stat = await File(path).stat();
+    if (!mounted) return;
+    setState(() {
+      _path = path;
+      _fileName = path.split(Platform.pathSeparator).last;
+      _totalBytes = stat.size;
+      _sentBytes = 0;
+    });
+    await _startUpgrade();
+  }
+
+  /// Returns the chosen file path, or null if the user cancelled / it failed.
+  Future<String?> _pickFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         dialogTitle: 'Select Firmware Image',
         withData: false,
         type: FileType.any,
       );
-      final path = result?.files.single.path;
-      if (path == null) return;
-      final stat = await File(path).stat();
-      setState(() {
-        _path = path;
-        _fileName = path.split(Platform.pathSeparator).last;
-        _totalBytes = stat.size;
-        _sentBytes = 0;
-        _stage = FirmwareStage.ready;
-      });
+      return result?.files.single.path;
     } catch (e, st) {
       if (kDebugMode) debugPrint('File pick error: $e\n$st');
-      _fail('File selection failed: $e');
+      await _showErrorDialog('File selection failed: $e');
+      return null;
     }
   }
 
-  Future<void> _startUpgrade(BuildContext context) async {
+  /// Validate the file as an MCUboot image: at least a full header, with the
+  /// little-endian magic `0x96f3b83d` at offset 0.
+  Future<bool> _isValidMcubootImage(String path) async {
+    RandomAccessFile? raf;
+    try {
+      final file = File(path);
+      if (await file.length() < _mcubootHeaderBytes) return false;
+      raf = await file.open();
+      final head = await raf.read(4);
+      if (head.length < 4) return false;
+      final magic = (head[0] |
+              (head[1] << 8) |
+              (head[2] << 16) |
+              (head[3] << 24)) &
+          0xFFFFFFFF;
+      return magic == _mcubootMagic;
+    } catch (e, st) {
+      if (kDebugMode) debugPrint('Firmware validation error: $e\n$st');
+      return false;
+    } finally {
+      await raf?.close();
+    }
+  }
+
+  Future<void> _startUpgrade() async {
     if (_path == null) return;
     final net = Provider.of<Network>(context, listen: false);
     if (!net.isConnected) {
@@ -263,68 +396,26 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     net.sendOscMessage('/firmware/end', []);
     try {
       await _endAck!.future.timeout(const Duration(seconds: 3));
-      // Suppress disconnect due to inactivity while we await device reboot
-      net.suppressTimeoutsFor(const Duration(seconds: 90));
-      // Wait for first /ack after this point to consider reconnect successful
-      await _awaitRebootAndReport(context, net, timeout: const Duration(seconds: 90));
     } catch (e) {
       _fail('Finalize failed: $e');
+      return;
     }
-  }
 
-  Future<void> _awaitRebootAndReport(BuildContext context, Network net,
-      {required Duration timeout}) async {
-    final start = DateTime.now();
-    final completer = Completer<bool>();
-    void listener() {
-      final t = net.lastAckTime;
-      if (t != null && t.isAfter(start) && !completer.isCompleted) {
-        completer.complete(true);
-      }
-    }
-    net.addListener(listener);
-    Timer(timeout, () {
-      if (!completer.isCompleted) completer.complete(false);
-    });
-
-    final ok = await completer.future;
-    net.removeListener(listener);
-
+    // Upload accepted — the device now reboots to apply the image. Suppress
+    // the inactivity-disconnect overlay during the reboot window and tell the
+    // user what's happening.
+    net.suppressTimeoutsFor(const Duration(seconds: 90));
     if (!mounted) return;
-    if (ok) {
+    setState(() => _stage = FirmwareStage.done);
+    await _showRebootDialog();
+    if (mounted) {
       setState(() {
-        _stage = FirmwareStage.done;
+        _stage = FirmwareStage.idle;
+        _fileName = null;
+        _path = null;
+        _sentBytes = 0;
+        _totalBytes = 0;
       });
-      await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Firmware Upgrade'),
-          content: const Text('Upgrade completed and device is back online.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      setState(() {
-        _stage = FirmwareStage.error;
-      });
-      await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Firmware Upgrade Failed'),
-          content: const Text('The device did not reconnect within the configured window. The upgrade likely failed or the device is taking longer to reboot.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
     }
   }
 
@@ -357,6 +448,40 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     return (c ^ 0xFFFFFFFF) >>> 0;
   }
 
+  bool get _showBar =>
+      _stage == FirmwareStage.uploading ||
+      _stage == FirmwareStage.finalizing ||
+      _stage == FirmwareStage.done;
+
+  Widget _versionRow(GridTokens? t) {
+    final labelStyle = t?.textCaption ??
+        const TextStyle(fontSize: 11, letterSpacing: 0.5);
+    final valueStyle = TextStyle(
+      fontFamily: 'Courier',
+      fontFamilyFallback: const ['Courier New', 'monospace'],
+      fontSize: (t != null ? (t.u * 1.15).clamp(13.0, 17.0) : 15.0),
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.3,
+      color: const Color(0xFFE9E9EC),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text('FIRMWARE', style: labelStyle),
+        SizedBox(width: t?.sm ?? 8),
+        Expanded(
+          child: Text(
+            _fwVersion ?? '—',
+            style: valueStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final net = Provider.of<Network>(context);
@@ -364,80 +489,69 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
     final progress = _totalBytes == 0 ? 0.0 : _sentBytes / _totalBytes;
     final t = GridProvider.maybeOf(context);
 
-    // Embedded inside the Device card — no card/title of its own; the parent
-    // owns the outer padding. Errors and completion are modal alerts (see
-    // _fail / _awaitRebootAndReport), so the only inline UI is the styled bar.
-    // The filename + bar live in a fixed-height region that's always allotted
-    // its space, so the card never resizes as the upload progresses.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'FIRMWARE UPDATE',
-          style: t?.textCaption ??
-              const TextStyle(fontSize: 11, letterSpacing: 0.5),
+    return LabeledCard(
+      title: 'Firmware Update',
+      fillChild: true,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          t?.md ?? 16,
+          t?.xs ?? 8,
+          t?.md ?? 16,
+          t?.md ?? 16,
         ),
-        SizedBox(height: t?.sm ?? 8),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        child: Column(
+          // Centre content vertically — the card shares Network Setup's
+          // height with Front Panel.
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.max,
           children: [
-            NeumorphicButton(
-              label: 'Select Firmware',
-              onPressed:
-                  _stage == FirmwareStage.uploading ? null : () => _pickFile(),
-            ),
-            NeumorphicButton(
-              label: 'Begin Upgrade',
-              primary: true,
-              onPressed: (_path != null &&
-                      connected &&
-                      (_stage == FirmwareStage.ready ||
-                          _stage == FirmwareStage.error))
-                  ? () => _startUpgrade(context)
-                  : null,
+            _versionRow(t),
+            SizedBox(height: t?.md ?? 12),
+            // Fixed-height region so the card doesn't jump as we swap the
+            // button for the progress bar.
+            SizedBox(
+              height: _kControlRegionHeight,
+              child: _showBar
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: _kFileLineHeight,
+                          child: _fileName == null
+                              ? null
+                              : Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _fileName!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: _kBarHeight,
+                          child: _StyledProgressBar(
+                              value: progress.clamp(0.0, 1.0)),
+                        ),
+                      ],
+                    )
+                  : Align(
+                      alignment: Alignment.centerLeft,
+                      child: AppButton(
+                        label: 'Firmware Update',
+                        onPressed: connected ? _pickAndStart : null,
+                      ),
+                    ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: _kStatusRegionHeight,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: _kFileLineHeight,
-                child: _fileName == null
-                    ? null
-                    : Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _fileName!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontStyle: FontStyle.italic),
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: _kBarHeight,
-                child: _showBar
-                    ? _StyledProgressBar(value: progress.clamp(0.0, 1.0))
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
-
-  bool get _showBar =>
-      _stage == FirmwareStage.uploading ||
-      _stage == FirmwareStage.finalizing ||
-      _stage == FirmwareStage.done;
 }
 
 /// Neumorphic determinate progress bar: an inset track with a solid,

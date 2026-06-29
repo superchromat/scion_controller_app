@@ -14,7 +14,6 @@ import 'setup_page.dart';
 import 'send_page.dart';
 import 'mixer_page.dart';
 import 'osc_log.dart';
-import 'perf_page.dart';
 import 'return_page.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
@@ -336,8 +335,6 @@ class _MyHomePageState extends State<MyHomePage> {
         onDownload: (bytes) {/* … */},
         isActive: selectedIndex == 7,
       ),
-      // 8 → Perf
-      const PerfPage(),
     ];
   }
 
@@ -442,10 +439,6 @@ class _MyHomePageState extends State<MyHomePage> {
                           const NavigationRailDestination(
                             icon: Icon(Icons.view_list),
                             label: Text('OSC Log'),
-                          ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.speed),
-                            label: Text('Perf'),
                           ),
                         ],
                       ),

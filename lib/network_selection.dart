@@ -7,6 +7,7 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'network.dart';
 import 'nsd_client.dart';
+import 'app_button.dart';
 
 class NetworkConnectionSection extends StatefulWidget {
   const NetworkConnectionSection({super.key});
@@ -183,9 +184,10 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
         title: const Text('Error'),
         content: Text(message),
         actions: [
-          TextButton(
+          AppButton(
+            label: 'OK',
+            dense: true,
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
           ),
         ],
       ),

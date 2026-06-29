@@ -6,8 +6,8 @@ import 'package:provider/provider.dart';
 
 import 'grid.dart';
 import 'labeled_card.dart';
+import 'app_button.dart';
 import 'network.dart';
-import 'neumorphic_button.dart';
 import 'osc_registry.dart';
 import 'panel.dart';
 
@@ -226,7 +226,7 @@ class _DeviceDiagnosticsSectionState extends State<DeviceDiagnosticsSection> {
                 span: 12,
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: NeumorphicButton(
+                  child: AppButton(
                     label: 'Copy',
                     onPressed: _rawText.isEmpty ? null : _copy,
                   ),

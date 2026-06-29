@@ -1,5 +1,4 @@
 import 'package:SCION_Controller/system_overview.dart';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,11 +7,11 @@ import 'package:provider/provider.dart';
 import 'grid.dart';
 import 'video_format_selection.dart';
 import 'sync_mode_selection.dart';
-import 'device_settings.dart';
 import 'device_diagnostics.dart';
+import 'firmware_update.dart';
 import 'front_panel_section.dart';
 import 'labeled_card.dart';
-import 'neumorphic_button.dart';
+import 'app_button.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
 import 'osc_log.dart';
@@ -82,16 +81,30 @@ class SetupPage extends StatelessWidget {
                   GridRow(
                     gutter: t.md,
                     equalHeight: true,
-                    cells: const [
-                      (span: 5, child: DeviceSettingsSection()),
+                    cells: [
+                      // Left column: Network settings drives the row height
+                      // (its content is taller than the compact right cards).
                       (
-                        span: 4,
+                        span: 6,
                         child: LabeledCard(
                           title: 'Network Setup',
                           child: _NetworkSetupSection(),
                         ),
                       ),
-                      (span: 3, child: FrontPanelSection()),
+                      // Right column: Front Panel over Firmware Update. Both
+                      // cards are Expanded so they split Network Setup's height
+                      // equally; each centres its (compact) content.
+                      (
+                        span: 6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Expanded(child: FrontPanelSection()),
+                            SizedBox(height: t.md),
+                            const Expanded(child: FirmwareUpdateSection()),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   SizedBox(height: t.md),
@@ -549,9 +562,8 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
             SizedBox(height: t.xs),
             Align(
               alignment: Alignment.centerLeft,
-              child: NeumorphicButton(
+              child: AppButton(
                 label: 'Apply',
-                primary: true,
                 onPressed: _apply,
               ),
             ),

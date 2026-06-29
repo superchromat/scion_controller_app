@@ -1,0 +1,12 @@
+{
+    "dart.flutterSdkPath": "/Users/joshreich/src/flutter",
+    "dart.openDevTools": "flutter",
+    "editor.formatOnSave": true,
+    "editor.rulers": [80],
+    "[dart]": {
+        "editor.defaultFormatter": "Dart-Code.dart-code",
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit"
+        }
+    }
+}

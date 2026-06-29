@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'osc_widget_binding.dart';
 import 'app_alert.dart';
+import 'app_button.dart';
 
 final GlobalKey<OscLogTableState> oscLogKey = GlobalKey<OscLogTableState>();
 
@@ -342,7 +343,7 @@ class OscLogTableState extends State<OscLogTable> {
       Row(
         children: [
           const Spacer(),
-          TextButton(onPressed: _clearAll, child: const Text('Clear All')),
+          AppButton(label: 'Clear All', dense: true, onPressed: _clearAll),
         ],
       ),
       Row(children: [const SizedBox(width: _toggleAreaWidth), Expanded(child: _buildHeader())]),

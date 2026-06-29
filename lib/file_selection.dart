@@ -6,7 +6,7 @@ import 'app_alert.dart';
 import 'osc_registry.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
-import 'labeled_card.dart';
+import 'app_button.dart';
 
 final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileManagementSectionState>();
 
@@ -198,11 +198,15 @@ class FileManagementSectionState extends State<FileManagementSection> {
         title: const Text('Confirm Restore'),
         content: const Text('Are you sure you want to restore all settings?'),
         actions: [
-          TextButton(
+          AppButton(
+            label: 'Cancel',
+            dense: true,
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppButton(
+            label: 'Confirm',
+            dense: true,
+            accentColor: const Color(0xFFB56A77),
             onPressed: () {
               // Send OSC message to reset configuration to defaults
               try {
@@ -210,7 +214,6 @@ class FileManagementSectionState extends State<FileManagementSection> {
               } catch (_) {}
               Navigator.of(ctx).pop();
             },
-            child: const Text('Confirm'),
           ),
         ],
       ),
@@ -256,54 +259,37 @@ class FileManagementSectionState extends State<FileManagementSection> {
           Row(
             children: [
               if (!isIos) ...[
-                Tooltip(
-                  message: 'Save',
-                  child: _NeumorphicFileActionButton(
-                    borderColor: Theme.of(context).colorScheme.primary,
-                    onPressed: () => _save(context),
-                    icon: Icons.save,
-                  ),
+                AppButton(
+                  tooltip: 'Save',
+                  icon: Icons.save,
+                  onPressed: () => _save(context),
                 ),
                 const SizedBox(width: 10),
-                Tooltip(
-                  message: 'Save As',
-                  child: _NeumorphicFileActionButton(
-                    borderColor: Theme.of(context).colorScheme.primary,
-                    onPressed: () => _saveAs(context),
-                    icon: Icons.save_as,
-                  ),
+                AppButton(
+                  tooltip: 'Save As',
+                  icon: Icons.save_as,
+                  onPressed: () => _saveAs(context),
                 ),
                 const SizedBox(width: 10),
               ] else ...[
-                Tooltip(
-                  message: 'Export',
-                  child: _NeumorphicFileActionButton(
-                    borderColor: Theme.of(context).colorScheme.primary,
-                    onPressed: () => _export(context),
-                    icon: Icons.ios_share,
-                  ),
+                AppButton(
+                  tooltip: 'Export',
+                  icon: Icons.ios_share,
+                  onPressed: () => _export(context),
                 ),
                 const SizedBox(width: 10),
               ],
-              Tooltip(
-                message: 'Load',
-                child: _NeumorphicFileActionButton(
-                  borderColor: Theme.of(context).colorScheme.primary,
-                  onPressed: () => _load(context),
-                  icon: Icons.folder_open,
-                ),
+              AppButton(
+                tooltip: 'Load',
+                icon: Icons.folder_open,
+                onPressed: () => _load(context),
               ),
               const Spacer(),
-              Tooltip(
-                message: 'Reset to defaults',
-                child: _NeumorphicFileActionButton(
-                  icon: Icons.restore,
-                  onPressed: () => _reset(context),
-                  borderColor: const Color(0xFFB56A77),
-                  iconColor: const Color(0xFFE7E7EA),
-                  baseColor: const Color(0xFF514249),
-                  textureTint: const Color(0x226A2D38),
-                ),
+              AppButton(
+                tooltip: 'Reset to defaults',
+                icon: Icons.restore,
+                accentColor: const Color(0xFFB56A77),
+                onPressed: () => _reset(context),
               ),
             ],
           ),
@@ -313,95 +299,3 @@ class FileManagementSectionState extends State<FileManagementSection> {
   }
 }
 
-class _NeumorphicFileActionButton extends StatelessWidget {
-  const _NeumorphicFileActionButton({
-    required this.icon,
-    required this.onPressed,
-    required this.borderColor,
-    this.iconColor,
-    this.baseColor = const Color(0xFF5A5A5E),
-    this.textureTint = const Color(0x00000000),
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final Color borderColor;
-  final Color? iconColor;
-  final Color baseColor;
-  final Color textureTint;
-
-  @override
-  Widget build(BuildContext context) {
-    final iconFg = iconColor ?? const Color(0xFFE7E7EA);
-    final insetBase = Color.alphaBlend(
-      const Color(0x22000000),
-      baseColor,
-    );
-
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: NeumorphicContainer(
-        baseColor: baseColor,
-        borderRadius: 5,
-        elevation: 4.0,
-        child: Padding(
-          padding: const EdgeInsets.all(1.5),
-          child: NeumorphicInset(
-            baseColor: insetBase,
-            borderRadius: 4,
-            depth: 1.6,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: onPressed,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: borderColor.withValues(alpha: 0.78),
-                          width: 1.0,
-                        ),
-                      ),
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.08),
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.05),
-                          ],
-                          stops: const [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.09),
-                          width: 0.6,
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Icon(icon, color: iconFg, size: 20),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
