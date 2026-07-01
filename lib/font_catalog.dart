@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'network.dart';
 import 'osc_registry.dart';
@@ -20,6 +21,7 @@ class FontCatalog extends ChangeNotifier {
 
   final List<FontEntry?> _entries = [];
   int _expected = 0;
+  bool _gotCount = false;
   bool _listenersWired = false;
   Network? _net;
 
@@ -27,7 +29,7 @@ class FontCatalog extends ChangeNotifier {
   List<FontEntry> get entries =>
       _entries.whereType<FontEntry>().toList()..sort((a, b) => a.index - b.index);
 
-  bool get isLoaded => _expected > 0 && entries.length == _expected;
+  bool get isLoaded => _gotCount && entries.length == _expected;
 
   /// Unique families in first-seen order.
   List<String> get families {
@@ -48,13 +50,27 @@ class FontCatalog extends ChangeNotifier {
     return null;
   }
 
-  /// Query the device. Safe to call repeatedly; refetches the catalog.
+  Timer? _retry;
+
+  /// Query the device, retrying until loaded (survives connect-timing races and
+  /// dropped datagrams). Safe to call repeatedly.
   void loadWith(Network net) {
     _net = net;
     _wireListeners();
+    _gotCount = false;
     _expected = 0;
     _entries.clear();
-    net.sendOscMessage('/fonts/count', []);
+    _sendCount();
+    _retry?.cancel();
+    _retry = Timer.periodic(const Duration(milliseconds: 1500), (t) {
+      if (isLoaded || _net == null) { t.cancel(); return; }
+      _sendCount();               // re-query count (+ re-request missing infos)
+    });
+  }
+
+  void _sendCount() {
+    if (_net == null || !_net!.isConnected) return;
+    _net!.sendOscMessage('/fonts/count', []);
   }
 
   void _wireListeners() {
@@ -69,16 +85,17 @@ class FontCatalog extends ChangeNotifier {
   void _onCount(List<Object?> args) {
     if (args.isEmpty || args.first is! int) return;
     final n = args.first as int;
-    _expected = n;
-    for (int i = 0; i < n; i++) {
-      _entries.add(null);
+    _gotCount = true;
+    if (n != _expected || _entries.length != n) {
+      _expected = n;
+      _entries
+        ..clear()
+        ..addAll(List<FontEntry?>.filled(n, null));
     }
-    if (n == 0) {
-      notifyListeners();
-      return;
-    }
+    if (n == 0) { notifyListeners(); return; }
+    // Request any entries we don't have yet (idempotent; covers dropped replies).
     for (int i = 0; i < n; i++) {
-      _net?.sendOscMessage('/fonts/info', [i]);
+      if (_entries[i] == null) _net?.sendOscMessage('/fonts/info', [i]);
     }
   }
 
