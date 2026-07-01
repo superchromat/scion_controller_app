@@ -292,10 +292,10 @@ class SendText extends StatelessWidget {
                             segment: 'size',
                             child: OscRotaryKnob(
                               label: 'Size',
-                              minValue: 16,
+                              minValue: 32,
                               maxValue: 96,
-                              initialValue: 32,
-                              defaultValue: 32,
+                              initialValue: 64,
+                              defaultValue: 64,
                               format: '%.0fpx',
                               size: t.knobMd,
                               labelStyle: t.textLabel,
@@ -355,6 +355,59 @@ class SendText extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          GridRow(
+            columns: 1,
+            gutter: t.md,
+            cells: [
+              (
+                span: 1,
+                child: Panel.dark(
+                  title: 'Spacing',
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: OscPathSegment(
+                            segment: 'tracking',
+                            child: OscRotaryKnob(
+                              label: 'Tracking',
+                              minValue: -20,
+                              maxValue: 40,
+                              initialValue: 0,
+                              defaultValue: 0,
+                              format: '%.0f',
+                              size: t.knobMd,
+                              labelStyle: t.textLabel,
+                              preferInteger: true,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: t.md),
+                      Expanded(
+                        child: Center(
+                          child: OscPathSegment(
+                            segment: 'leading',
+                            child: OscRotaryKnob(
+                              label: 'Leading',
+                              minValue: -20,
+                              maxValue: 60,
+                              initialValue: 0,
+                              defaultValue: 0,
+                              format: '%.0f',
+                              size: t.knobMd,
+                              labelStyle: t.textLabel,
+                              preferInteger: true,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
