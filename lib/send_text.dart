@@ -5,6 +5,7 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
+import 'osc_dropdown.dart';
 import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
@@ -221,6 +222,31 @@ class SendText extends StatelessWidget {
                       hintText: 'Enter overlay text...',
                       expands: true,
                     ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          GridRow(
+            columns: 1,
+            gutter: t.md,
+            cells: [
+              (
+                span: 1,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OscDropdown<int>(
+                    label: 'Typeface',
+                    pathSegment: 'font',
+                    items: const [0, 1, 2, 3],
+                    itemLabels: const {
+                      0: 'DINPro',
+                      1: 'Inter',
+                      2: 'JetBrains Mono',
+                      3: 'Source Serif',
+                    },
+                    defaultValue: 0,
+                    width: 220,
                   ),
                 ),
               ),
