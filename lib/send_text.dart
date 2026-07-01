@@ -260,6 +260,24 @@ class SendText extends StatelessWidget {
                           ),
                         ),
                       ),
+                      Expanded(
+                        child: Center(
+                          child: OscPathSegment(
+                            segment: 'size',
+                            child: OscRotaryKnob(
+                              label: 'Size',
+                              minValue: 16,
+                              maxValue: 96,
+                              initialValue: 32,
+                              defaultValue: 32,
+                              format: '%.0fpx',
+                              size: t.knobMd,
+                              labelStyle: t.textLabel,
+                              preferInteger: true,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
