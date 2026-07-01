@@ -5,7 +5,7 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
-import 'osc_dropdown.dart';
+import 'font_controls.dart';
 import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
@@ -233,21 +233,9 @@ class SendText extends StatelessWidget {
             cells: [
               (
                 span: 1,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: OscDropdown<int>(
-                    label: 'Typeface',
-                    pathSegment: 'font',
-                    items: const [0, 1, 2, 3],
-                    itemLabels: const {
-                      0: 'DINPro',
-                      1: 'Inter',
-                      2: 'JetBrains Mono',
-                      3: 'Source Serif',
-                    },
-                    defaultValue: 0,
-                    width: 220,
-                  ),
+                child: Panel.dark(
+                  title: 'Font',
+                  child: const FontControls(),
                 ),
               ),
             ],
@@ -279,24 +267,6 @@ class SendText extends StatelessWidget {
                               initialValue: 255,
                               defaultValue: 255,
                               format: '%.0f',
-                              size: t.knobMd,
-                              labelStyle: t.textLabel,
-                              preferInteger: true,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: OscPathSegment(
-                            segment: 'size',
-                            child: OscRotaryKnob(
-                              label: 'Size',
-                              minValue: 32,
-                              maxValue: 96,
-                              initialValue: 64,
-                              defaultValue: 64,
-                              format: '%.0fpx',
                               size: t.knobMd,
                               labelStyle: t.textLabel,
                               preferInteger: true,
