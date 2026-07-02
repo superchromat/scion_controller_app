@@ -66,6 +66,16 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     _set('gac_y', 476);
     _set('gac_size', 128);
     _set('gac_grid', 4);
+    // Warp defaults (Send 1 only; firmware reset doesn't know warp)
+    sendOsc(0, address: 'glitch/warp_enable');
+    for (final seg in ['warp_enable', 'warp_key_h', 'warp_key_v',
+                       'warp_shear_x', 'warp_shear_y', 'warp_barrel',
+                       'warp_lens_x', 'warp_lens_y', 'warp_radius',
+                       'warp_wobble', 'warp_breathe', 'warp_roam']) {
+      _set(seg, 0);
+    }
+    _set('warp_zoom', 1000);
+    _set('warp_speed', 250);
     // Color Field defaults (Send 1 only; firmware reset doesn't know UC)
     sendOsc(0, address: 'glitch/uc_enable');
     sendOsc(0, address: 'glitch/uc_fx');
@@ -366,6 +376,42 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
                     _knob(label: 'Center Y', oscAddress: 'uc_cy',    min: 0, max: 1080, initial: 540),
                     _knob(label: 'Res',     oscAddress: 'uc_res',    min: 4, max: 63,   initial: 16),
                     _knob(label: 'Bias',    oscAddress: 'uc_bias',   min: 0, max: 1023, initial: 1023),
+                  ],
+                ),
+              )),
+            ]),
+          // Row: Warp (MFC geometric distortion; Send 1 only). Keystone/shear
+          // run on the homography path (7ms updates, frame-rate animatable);
+          // barrel/lens run on the radial-LUT path (~170ms per update). The
+          // two families are mutually exclusive — the last-touched knob's
+          // family wins. Wobble animates corners (homography); Breathe/Roam
+          // animate the lens (radial).
+          if (isSend1)
+            GridRow(columns: 1, gutter: t.md, cells: [
+              (span: 1, child: Panel(
+                title: 'Warp',
+                child: Wrap(
+                  spacing: t.sm,
+                  runSpacing: t.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OscPathSegment(
+                      segment: 'warp_enable',
+                      child: const _ToggleWidget(label: 'Enable'),
+                    ),
+                    _knob(label: 'Key H',   oscAddress: 'warp_key_h',   min: -600, max: 600, isBipolar: true),
+                    _knob(label: 'Key V',   oscAddress: 'warp_key_v',   min: -400, max: 400, isBipolar: true),
+                    _knob(label: 'Shear X', oscAddress: 'warp_shear_x', min: -600, max: 600, isBipolar: true),
+                    _knob(label: 'Shear Y', oscAddress: 'warp_shear_y', min: -400, max: 400, isBipolar: true),
+                    _knob(label: 'Barrel',  oscAddress: 'warp_barrel',  min: -400, max: 400, isBipolar: true),
+                    _knob(label: 'Zoom',    oscAddress: 'warp_zoom',    min: 400, max: 1600, initial: 1000),
+                    _knob(label: 'Lens X',  oscAddress: 'warp_lens_x',  min: -960, max: 960, isBipolar: true),
+                    _knob(label: 'Lens Y',  oscAddress: 'warp_lens_y',  min: -540, max: 540, isBipolar: true),
+                    _knob(label: 'Radius',  oscAddress: 'warp_radius',  min: 0, max: 960),
+                    _knob(label: 'Wobble',  oscAddress: 'warp_wobble',  min: 0, max: 200),
+                    _knob(label: 'Breathe', oscAddress: 'warp_breathe', min: 0, max: 300),
+                    _knob(label: 'Roam',    oscAddress: 'warp_roam',    min: 0, max: 500),
+                    _knob(label: 'Speed',   oscAddress: 'warp_speed',   min: -2000, max: 2000, initial: 250, defaultValue: 250, isBipolar: true),
                   ],
                 ),
               )),
