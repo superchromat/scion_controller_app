@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'network.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_dropdown.dart';
 import 'osc_registry.dart';
 import 'grid.dart';
 import 'panel.dart';
+import 'poster_editor.dart';
 
 /// Glitch effects controls for pixel bus bit and channel ordering.
 ///
@@ -66,6 +69,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     _set('gac_y', 476);
     _set('gac_size', 128);
     _set('gac_grid', 4);
+    // Posterizer off (global endpoint — firmware reset doesn't know it)
+    context.read<Network>().sendOscMessage('/poster/enable', [0]);
     // Warp defaults (Send 1 only; firmware reset doesn't know warp)
     sendOsc(0, address: 'glitch/warp_enable');
     for (final seg in ['warp_enable', 'warp_key_h', 'warp_key_v',
@@ -414,6 +419,16 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
                     _knob(label: 'Speed',   oscAddress: 'warp_speed',   min: -2000, max: 2000, initial: 250, defaultValue: 250, isBipolar: true),
                   ],
                 ),
+              )),
+            ]),
+          // Row: Posterize (monitor zebra block; Send 1 output only).
+          // Band editor: drag dividers to move thresholds, tap a band to
+          // select, then set its type/colour below the strip.
+          if (isSend1)
+            GridRow(columns: 1, gutter: t.md, cells: [
+              (span: 1, child: Panel(
+                title: 'Posterize',
+                child: const PosterEditor(),
               )),
             ]),
           // Row 4: Memory Control (2/3) | Output Mux (1/3)
