@@ -66,6 +66,19 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     _set('gac_y', 476);
     _set('gac_size', 128);
     _set('gac_grid', 4);
+    // Color Field defaults (Send 1 only; firmware reset doesn't know UC)
+    sendOsc(0, address: 'glitch/uc_enable');
+    sendOsc(0, address: 'glitch/uc_fx');
+    for (final seg in ['uc_enable', 'uc_fx', 'uc_amp_r', 'uc_amp_g',
+                       'uc_amp_b', 'uc_angle', 'uc_speed']) {
+      _set(seg, 0);
+    }
+    _set('uc_amount', 127);
+    _set('uc_freq', 100);
+    _set('uc_cx', 960);
+    _set('uc_cy', 540);
+    _set('uc_res', 16);
+    _set('uc_bias', 1023);
     _set('cb_buf_type', 1);
     _set('cr_buf_type', 2);
     _set('outmux_mode', 1);
@@ -201,9 +214,19 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     );
   }
 
+  // Basis functions for the uniformity-correction color field (Send 1 only)
+  static const List<String> _ucFxLabels = [
+    '0: Flat',
+    '1: Gradient',
+    '2: Rings',
+    '3: Plaid',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    final segs = OscPathSegment.resolvePath(context);
+    final isSend1 = segs.length >= 2 && segs[0] == 'send' && segs[1] == '1';
 
     return OscPathSegment(
       segment: 'glitch',
@@ -309,6 +332,44 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
               ),
             )),
           ]),
+          // Row: Color Field (uniformity-correction grid; hardware exists
+          // only on Send 1's output). Animated per-channel gain fields —
+          // gains are darken-only (1023 = unity), so amplitudes tint by
+          // attenuating the other channels.
+          if (isSend1)
+            GridRow(columns: 1, gutter: t.md, cells: [
+              (span: 1, child: Panel(
+                title: 'Color Field',
+                child: Wrap(
+                  spacing: t.sm,
+                  runSpacing: t.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OscPathSegment(
+                      segment: 'uc_enable',
+                      child: const _ToggleWidget(label: 'Enable'),
+                    ),
+                    _intDropdown(
+                      label: 'Basis',
+                      options: _ucFxLabels,
+                      oscAddress: 'uc_fx',
+                      width: 110,
+                    ),
+                    _knob(label: 'Amount',  oscAddress: 'uc_amount', min: 0, max: 127,  initial: 127),
+                    _knob(label: 'Amp R',   oscAddress: 'uc_amp_r',  min: -1023, max: 1023, isBipolar: true),
+                    _knob(label: 'Amp G',   oscAddress: 'uc_amp_g',  min: -1023, max: 1023, isBipolar: true),
+                    _knob(label: 'Amp B',   oscAddress: 'uc_amp_b',  min: -1023, max: 1023, isBipolar: true),
+                    _knob(label: 'Freq',    oscAddress: 'uc_freq',   min: 10, max: 800,  initial: 100),
+                    _knob(label: 'Angle',   oscAddress: 'uc_angle',  min: 0, max: 360),
+                    _knob(label: 'Speed',   oscAddress: 'uc_speed',  min: -2000, max: 2000, isBipolar: true),
+                    _knob(label: 'Center X', oscAddress: 'uc_cx',    min: 0, max: 1920, initial: 960),
+                    _knob(label: 'Center Y', oscAddress: 'uc_cy',    min: 0, max: 1080, initial: 540),
+                    _knob(label: 'Res',     oscAddress: 'uc_res',    min: 4, max: 63,   initial: 16),
+                    _knob(label: 'Bias',    oscAddress: 'uc_bias',   min: 0, max: 1023, initial: 1023),
+                  ],
+                ),
+              )),
+            ]),
           // Row 4: Memory Control (2/3) | Output Mux (1/3)
           GridRow(columns: 3, gutter: t.md, cells: [
             (span: 2, child: Panel(
