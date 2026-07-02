@@ -20,6 +20,7 @@ class _FontControlsState extends State<FontControls> {
   String _base = '';
   int _fontIndex = 0;
   int _size = 64;
+  int _osd = 0; // /text/osd: 2=Layer 1 (Font OSD), 1=Layer 2 (Window), 0=Layer 3 (Output)
   bool _wired = false;
 
   @override
@@ -34,6 +35,8 @@ class _FontControlsState extends State<FontControls> {
       OscRegistry().registerListener('$_base/font', _onFont);
       OscRegistry().registerAddress('$_base/size');
       OscRegistry().registerListener('$_base/size', _onSize);
+      OscRegistry().registerAddress('$_base/osd');
+      OscRegistry().registerListener('$_base/osd', _onOsd);
     }
     // Kick off (or refresh) the catalog fetch.
     final net = context.read<Network>();
@@ -45,6 +48,7 @@ class _FontControlsState extends State<FontControls> {
     if (_base.isNotEmpty) {
       OscRegistry().unregisterListener('$_base/font', _onFont);
       OscRegistry().unregisterListener('$_base/size', _onSize);
+      OscRegistry().unregisterListener('$_base/osd', _onOsd);
     }
     super.dispose();
   }
@@ -58,6 +62,12 @@ class _FontControlsState extends State<FontControls> {
   void _onSize(List<Object?> args) {
     if (args.isNotEmpty && args.first is int && mounted) {
       setState(() => _size = args.first as int);
+    }
+  }
+
+  void _onOsd(List<Object?> args) {
+    if (args.isNotEmpty && args.first is int && mounted) {
+      setState(() => _osd = (args.first as int).clamp(0, 2));
     }
   }
 
@@ -151,6 +161,23 @@ class _FontControlsState extends State<FontControls> {
                 if (s == null) return;
                 _send('size', s);
                 setState(() => _size = s);
+              }),
+            ),
+            SizedBox(width: t.sm),
+            Expanded(
+              flex: 2,
+              // Which OSD block renders the text. Layer 1 = Font OSD (input
+              // stage: text is processed with the video), Layer 2 = Window
+              // OSD, Layer 3 = Output OSD (final stage).
+              child: dd<int>(
+                  'Layer',
+                  _osd,
+                  const [2, 1, 0],
+                  (v) => const {2: 'Layer 1', 1: 'Layer 2', 0: 'Layer 3'}[v]!,
+                  (v) {
+                if (v == null) return;
+                _send('osd', v);
+                setState(() => _osd = v);
               }),
             ),
           ],
