@@ -236,23 +236,35 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       selected: widget.selected,
       onTap: widget.onTap,
       selectedBorderColor: widget.selectedBorderColor,
-      child: Padding(
-        padding: EdgeInsets.all(GridProvider.maybeOf(context)?.xs ?? 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InputLabelField(inputIndex: widget.inputIndex),
-            if (_connected) ...[
-              Text(_res, style: kInputRowStyle, strutStyle: kInputRowStrut, maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}', style: kInputRowStyle, strutStyle: kInputRowStrut),
-              Text('$_bpp bit', style: kInputRowStyle, strutStyle: kInputRowStrut),
-              Text('$_cs $_sub', style: kInputRowStyle, strutStyle: kInputRowStrut, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ] else
-              Text('Disconnected', style: _redText),
-          ],
-        ),
-      ),
+      // Connected: top-aligned format rows. Disconnected: a tile-filling Center
+      // (direct Stack child) so "Disconnected" sits dead-centre vertically and
+      // horizontally, matching the System Overview tile.
+      child: _connected
+          ? Padding(
+              padding: EdgeInsets.all(GridProvider.maybeOf(context)?.xs ?? 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InputLabelField(inputIndex: widget.inputIndex),
+                  Text(_res,
+                      style: kInputRowStyle,
+                      strutStyle: kInputRowStrut,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}',
+                      style: kInputRowStyle, strutStyle: kInputRowStrut),
+                  Text('$_bpp bit',
+                      style: kInputRowStyle, strutStyle: kInputRowStrut),
+                  Text('$_cs $_sub',
+                      style: kInputRowStyle,
+                      strutStyle: kInputRowStrut,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            )
+          : const Center(child: Text('Disconnected', style: _redText)),
     );
   }
 }
@@ -347,7 +359,13 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
       selected: widget.selected,
       onTap: widget.onTap,
       selectedBorderColor: widget.selectedBorderColor,
-      child: _FormatInfo(res: _res, fps: _fps, bpp: 12, cs: _cs, sub: '4:4:4', interlaced: _interlaced),
+      child: _FormatInfo(
+          res: _res,
+          fps: _fps,
+          bpp: 12,
+          cs: _cs,
+          sub: '4:4:4',
+          interlaced: _interlaced),
     );
   }
 }
@@ -379,10 +397,13 @@ class _FormatInfo extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(res, style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text('${fps.toStringAsFixed(2)}${interlaced ? 'i' : 'p'}', style: _greenText),
+          Text(res,
+              style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('${fps.toStringAsFixed(2)}${interlaced ? 'i' : 'p'}',
+              style: _greenText),
           Text('$bpp bit', style: _greenText),
-          Text('$cs $sub', style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('$cs $sub',
+              style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -479,8 +500,8 @@ class SendOverlayCompactControls extends StatefulWidget {
       _SendOverlayCompactControlsState();
 }
 
-class _SendOverlayCompactControlsState
-    extends State<SendOverlayCompactControls> with OscAddressMixin {
+class _SendOverlayCompactControlsState extends State<SendOverlayCompactControls>
+    with OscAddressMixin {
   // Device echo state (for tracking what firmware reports back)
   int _deviceBlend = 0;
   double _deviceAlpha = 0.0;
@@ -498,10 +519,13 @@ class _SendOverlayCompactControlsState
   int get _layer => widget.sourceSend;
 
   String get _enabledPath => '/send/${widget.pageNumber}/pip/$_layer/enabled';
-  String get _blendPath => '/send/${widget.pageNumber}/pip/$_layer/opaque_blend';
+  String get _blendPath =>
+      '/send/${widget.pageNumber}/pip/$_layer/opaque_blend';
   String get _alphaPath => '/send/${widget.pageNumber}/pip/$_layer/alpha';
-  String get _yKeyPath => '/send/${widget.pageNumber}/pip/$_layer/opaque_thres_y';
-  String get _cKeyPath => '/send/${widget.pageNumber}/pip/$_layer/opaque_thres_c';
+  String get _yKeyPath =>
+      '/send/${widget.pageNumber}/pip/$_layer/opaque_thres_y';
+  String get _cKeyPath =>
+      '/send/${widget.pageNumber}/pip/$_layer/opaque_thres_c';
 
   @override
   void initState() {
@@ -559,9 +583,8 @@ class _SendOverlayCompactControlsState
 
   /// PIP should be enabled if there's any mix intent OR keying.
   /// When crossfade-active, any non-zero weight counts as mix intent.
-  bool get _hasMix => widget.crossfadeActive
-      ? widget.alphaWeight > 0.0001
-      : _alpha > 0.0001;
+  bool get _hasMix =>
+      widget.crossfadeActive ? widget.alphaWeight > 0.0001 : _alpha > 0.0001;
   bool get _hasKey => _yKey > 0.0001 || _cKey > 0.0001;
 
   @override
@@ -686,22 +709,22 @@ class _SendOverlayCompactControlsState
       padding: EdgeInsets.all(t.xs),
       child: Center(
         child: _OverlayModeKnobs(
-            knobSize: knobSize,
-            alphaValue: _alpha,
-            alphaWeight: widget.alphaWeight,
-            crossfadeActive: widget.crossfadeActive,
-            yKeyValue: _yKey,
-            cKeyValue: _cKey,
-            keyReverse: _keyReverse,
-            onAlphaChanged: _onAlphaChanged,
-            onYKeyChanged: _onYKeyChanged,
-            onCKeyChanged: _onCKeyChanged,
-            onKeyReverseChanged: _onKeyReverseChanged,
-            onInteract: () {},
-            alphaOscPath: _alphaPath,
-            yKeyOscPath: _yKeyPath,
-            cKeyOscPath: _cKeyPath,
-          ),
+          knobSize: knobSize,
+          alphaValue: _alpha,
+          alphaWeight: widget.alphaWeight,
+          crossfadeActive: widget.crossfadeActive,
+          yKeyValue: _yKey,
+          cKeyValue: _cKey,
+          keyReverse: _keyReverse,
+          onAlphaChanged: _onAlphaChanged,
+          onYKeyChanged: _onYKeyChanged,
+          onCKeyChanged: _onCKeyChanged,
+          onKeyReverseChanged: _onKeyReverseChanged,
+          onInteract: () {},
+          alphaOscPath: _alphaPath,
+          yKeyOscPath: _yKeyPath,
+          cKeyOscPath: _cKeyPath,
+        ),
       ),
     );
   }
@@ -709,9 +732,9 @@ class _SendOverlayCompactControlsState
 
 class _OverlayModeKnobs extends StatelessWidget {
   final double knobSize;
-  final double alphaValue;      // user intent (0-1)
-  final double alphaWeight;     // crossfade weight (0-1)
-  final bool crossfadeActive;   // true when cell is in an A/B group
+  final double alphaValue; // user intent (0-1)
+  final double alphaWeight; // crossfade weight (0-1)
+  final bool crossfadeActive; // true when cell is in an A/B group
   final double yKeyValue;
   final double cKeyValue;
   final bool keyReverse;
@@ -815,9 +838,7 @@ class _OverlayModeKnobs extends StatelessWidget {
         child: Icon(
           Icons.invert_colors,
           size: (labelStyle?.fontSize ?? 11) * 1.6,
-          color: keyReverse
-              ? const Color(0xFFF0B830)
-              : const Color(0xFFD2D2D4),
+          color: keyReverse ? const Color(0xFFF0B830) : const Color(0xFFD2D2D4),
         ),
       ),
     );
@@ -964,4 +985,3 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
     );
   }
 }
-

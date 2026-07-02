@@ -54,9 +54,18 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       'outmux_port', 'write_ffc_map', 'mfc_read_buf',
       'y_buf_type',
       'even_odd_swap', 'cbcr_swap',
+      'gac_enable', 'gac_shear_src', 'gac_shear_dst',
     ]) {
       _set(seg, 0);
     }
+    // Rect Copy defaults (mirror firmware boot state). gac_enable=0 above
+    // stops the blit loop; the firmware reset command doesn't know about GAC,
+    // so also push the disable explicitly.
+    sendOsc(0, address: 'glitch/gac_enable');
+    _set('gac_x', 896);
+    _set('gac_y', 476);
+    _set('gac_size', 128);
+    _set('gac_grid', 4);
     _set('cb_buf_type', 1);
     _set('cr_buf_type', 2);
     _set('outmux_mode', 1);
@@ -277,7 +286,30 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
               ),
             )),
           ]),
-          // Row 3: Memory Control (2/3) | Output Mux (1/3)
+          // Row 3: Rect Copy (GAC blitter) — live tile grid from a source rect
+          GridRow(columns: 3, gutter: t.md, cells: [
+            (span: 3, child: Panel(
+              title: 'Rect Copy',
+              child: Wrap(
+                spacing: t.sm,
+                runSpacing: t.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OscPathSegment(
+                    segment: 'gac_enable',
+                    child: const _ToggleWidget(label: 'Enable'),
+                  ),
+                  _knob(label: 'From X',  oscAddress: 'gac_x',    min: 0, max: 1912, initial: 896),
+                  _knob(label: 'From Y',  oscAddress: 'gac_y',    min: 0, max: 1072, initial: 476),
+                  _knob(label: 'Size',    oscAddress: 'gac_size', min: 8, max: 512,  initial: 128),
+                  _knob(label: 'Grid',    oscAddress: 'gac_grid', min: 1, max: 16,   initial: 4),
+                  _knob(label: 'Shear In',  oscAddress: 'gac_shear_src', min: -192, max: 192, isBipolar: true),
+                  _knob(label: 'Shear Out', oscAddress: 'gac_shear_dst', min: -192, max: 192, isBipolar: true),
+                ],
+              ),
+            )),
+          ]),
+          // Row 4: Memory Control (2/3) | Output Mux (1/3)
           GridRow(columns: 3, gutter: t.md, cells: [
             (span: 2, child: Panel(
               title: 'Memory Control',

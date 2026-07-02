@@ -37,10 +37,13 @@ class _LitOverlayText extends StatelessWidget {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) {
-        return lighting.createPhongSurfaceGradient(
-          baseColor: const Color(0xFF454548),  // Darker grey matching tile background
-          intensity: 0.12,
-        ).createShader(bounds);
+        return lighting
+            .createPhongSurfaceGradient(
+              baseColor: const Color(
+                  0xFF454548), // Darker grey matching tile background
+              intensity: 0.12,
+            )
+            .createShader(bounds);
       },
       child: Text(label, style: kOverlayTextStyle),
     );
@@ -93,15 +96,14 @@ class _HdmiGlyphPainter extends CustomPainter {
       ..quadraticBezierTo(w, 0, w, radius)
       ..lineTo(w, neckY)
       // Pull inward toward center as we drop to the bottom span (concave toward connector)
-      ..quadraticBezierTo(
-          w - neckInset * 0.2, neckY + h * 0.02, w - neckInset, neckY + h * 0.10)
-      ..quadraticBezierTo(
-          w - neckInset - (bottomInset - neckInset) * 0.60, bottomY, w - bottomInset, bottomY)
+      ..quadraticBezierTo(w - neckInset * 0.2, neckY + h * 0.02, w - neckInset,
+          neckY + h * 0.10)
+      ..quadraticBezierTo(w - neckInset - (bottomInset - neckInset) * 0.60,
+          bottomY, w - bottomInset, bottomY)
       ..lineTo(bottomInset, bottomY)
-      ..quadraticBezierTo(
-          neckInset + (bottomInset - neckInset) * 0.60, bottomY, neckInset, neckY + h * 0.10)
-      ..quadraticBezierTo(
-          neckInset * 0.2, neckY + h * 0.02, 0, neckY)
+      ..quadraticBezierTo(neckInset + (bottomInset - neckInset) * 0.60, bottomY,
+          neckInset, neckY + h * 0.10)
+      ..quadraticBezierTo(neckInset * 0.2, neckY + h * 0.02, 0, neckY)
       ..lineTo(0, radius)
       ..quadraticBezierTo(0, 0, radius, 0)
       ..close();
@@ -149,6 +151,7 @@ class VideoFormatTile extends StatefulWidget {
   final String? iconConnectedPath;
   final bool showHdmiIcon;
   final String? interlaced;
+
   /// If non-null, the tile subscribes to this bool OSC path and renders
   /// "SYNC" on the colorspace row — green when true, red when false.
   final String? syncValidPath;
@@ -446,8 +449,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
     bindString(widget.colorSpace, () => _cs, (v) => _cs = v, _csController);
     bindString(
         widget.chromaSubsampling, () => _sub, (v) => _sub = v, _subController);
-    bindBool(
-        widget.interlaced, () => _interlaced, (v) => _interlaced = v, _fpsController);
+    bindBool(widget.interlaced, () => _interlaced, (v) => _interlaced = v,
+        _fpsController);
 
     // Optional sync-valid binding (read-only).  Colour is driven directly
     // by _syncValid; firmware broadcasts the address whenever CH2 STDI
@@ -542,7 +545,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                       animation: _bppColor,
                       builder: (ctx, _) => Text(
                         '$_bpp bit',
-                        style: _systemTextStyle.copyWith(color: _bppColor.value),
+                        style:
+                            _systemTextStyle.copyWith(color: _bppColor.value),
                       ),
                     ),
                     Row(
@@ -551,8 +555,8 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                           animation: _csColor,
                           builder: (ctx, _) => Text(
                             _cs,
-                            style:
-                                _systemTextStyle.copyWith(color: _csColor.value),
+                            style: _systemTextStyle.copyWith(
+                                color: _csColor.value),
                           ),
                         ),
                         if (widget.chromaSubsampling != null) ...[
@@ -802,15 +806,22 @@ class __InputTileInnerState extends State<_InputTileInner> {
                     : MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InputLabelField(inputIndex: widget.index),
                   if (_connected) ...[
-                    _slot(Text(_res, style: kInputRowStyle, strutStyle: kInputRowStrut)),
-                    _slot(Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}', style: kInputRowStyle, strutStyle: kInputRowStrut)),
-                    _slot(Text('$_bpp bpp', style: kInputRowStyle, strutStyle: kInputRowStrut)),
+                    InputLabelField(inputIndex: widget.index),
+                    _slot(Text(_res,
+                        style: kInputRowStyle, strutStyle: kInputRowStrut)),
+                    _slot(Text(
+                        '${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}',
+                        style: kInputRowStyle,
+                        strutStyle: kInputRowStrut)),
+                    _slot(Text('$_bpp bpp',
+                        style: kInputRowStyle, strutStyle: kInputRowStrut)),
                     _slot(Row(children: [
-                      Text(_cs, style: kInputRowStyle, strutStyle: kInputRowStrut),
+                      Text(_cs,
+                          style: kInputRowStyle, strutStyle: kInputRowStrut),
                       const SizedBox(width: 8),
-                      Text(_sub, style: kInputRowStyle, strutStyle: kInputRowStrut),
+                      Text(_sub,
+                          style: kInputRowStyle, strutStyle: kInputRowStrut),
                     ])),
                   ],
                 ],
