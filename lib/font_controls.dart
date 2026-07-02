@@ -4,6 +4,7 @@ import 'network.dart';
 import 'osc_registry.dart';
 import 'osc_widget_binding.dart';
 import 'font_catalog.dart';
+import 'asset_upload_ui.dart';
 import 'grid.dart';
 
 /// Typeface / Variant / Size dropdowns for the text overlay, driven by the
@@ -179,6 +180,19 @@ class _FontControlsState extends State<FontControls> {
                 _send('osd', v);
                 setState(() => _osd = v);
               }),
+            ),
+            SizedBox(width: t.xs),
+            // Upload a .ttf into the device font store (<=48 KiB, glyf
+            // outlines; fontctl.py subsets larger families).
+            Padding(
+              padding: EdgeInsets.only(top: t.md),
+              child: IconButton(
+                icon: Icon(Icons.upload_file,
+                    size: 18, color: Colors.grey[400]),
+                tooltip: 'Upload font (.ttf)…',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => uploadFontFlow(context),
+              ),
             ),
           ],
         );

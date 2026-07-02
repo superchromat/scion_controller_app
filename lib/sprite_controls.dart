@@ -1,9 +1,10 @@
 // sprite_controls.dart
 // Sprite placement panel: pick a sprite from the device index and show it on
-// one of this send's text-region slots (2-4). Uploads are host-side
-// (tools/fonts/spritectl.py); this drives /sprite/show//hide.
+// one of this send's text-region slots (2-4). Upload/Delete manage the NOR
+// sprite store in-app (asset_upload_ui.dart); spritectl.py remains the CLI.
 
 import 'package:flutter/material.dart';
+import 'asset_upload_ui.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_registry.dart';
@@ -160,6 +161,32 @@ class _SpritePanelState extends State<SpritePanel> {
               '/sprite/hide', [_send, _region]);
         }),
         _btn('↻', _refresh),
+        _btn('Upload…', () async {
+          if (await uploadSpriteFlow(context)) _refresh();
+        }, color: const Color(0xFF3A4A6A)),
+        if (_names.isNotEmpty)
+          _btn('Delete', () async {
+            final i = _sprite.clamp(0, _names.length - 1);
+            final sure = await showDialog<bool>(
+              context: context,
+              builder: (dctx) => AlertDialog(
+                backgroundColor: const Color(0xFF2A2A2E),
+                title: Text('Delete sprite "${_names[i]}"?',
+                    style: const TextStyle(color: Colors.white, fontSize: 15)),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dctx, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(dctx, true),
+                      child: const Text('Delete')),
+                ],
+              ),
+            );
+            if (sure == true && mounted && context.mounted) {
+              if (await deleteSpriteFlow(context, i)) _refresh();
+            }
+          }, color: const Color(0xFF5A3A3A)),
       ],
     );
   }
