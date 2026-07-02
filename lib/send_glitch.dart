@@ -7,7 +7,6 @@ import 'osc_dropdown.dart';
 import 'osc_registry.dart';
 import 'grid.dart';
 import 'panel.dart';
-import 'poster_editor.dart';
 
 /// Glitch effects controls for pixel bus bit and channel ordering.
 ///
@@ -18,7 +17,11 @@ import 'poster_editor.dart';
 /// - OutMux Mode: Pixel packing format on output bus (0-32)
 /// - OutMux Port: Virtual to display port mapping (0-5)
 class SendGlitch extends StatefulWidget {
-  const SendGlitch({super.key});
+  /// Which send page this instance lives on (1-3). The Rect Copy, Color
+  /// Field and Warp panels only exist for Send 1's hardware.
+  final int pageNumber;
+
+  const SendGlitch({super.key, this.pageNumber = 0});
 
   @override
   State<SendGlitch> createState() => _SendGlitchState();
@@ -76,11 +79,13 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     for (final seg in ['warp_enable', 'warp_key_h', 'warp_key_v',
                        'warp_shear_x', 'warp_shear_y', 'warp_barrel',
                        'warp_lens_x', 'warp_lens_y', 'warp_radius',
-                       'warp_wobble', 'warp_breathe', 'warp_roam']) {
+                       'warp_wobble', 'warp_breathe', 'warp_roam',
+                       'warp_field', 'warp_famp']) {
       _set(seg, 0);
     }
     _set('warp_zoom', 1000);
     _set('warp_speed', 250);
+    _set('warp_ffreq', 300);
     // Color Field defaults (Send 1 only; firmware reset doesn't know UC)
     sendOsc(0, address: 'glitch/uc_enable');
     sendOsc(0, address: 'glitch/uc_fx');
@@ -229,19 +234,12 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     );
   }
 
-  // Basis functions for the uniformity-correction color field (Send 1 only)
-  static const List<String> _ucFxLabels = [
-    '0: Flat',
-    '1: Gradient',
-    '2: Rings',
-    '3: Plaid',
-  ];
+
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    final segs = OscPathSegment.resolvePath(context);
-    final isSend1 = segs.length >= 2 && segs[0] == 'send' && segs[1] == '1';
+
 
     return OscPathSegment(
       segment: 'glitch',
@@ -324,113 +322,6 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
               ),
             )),
           ]),
-          // Row 3: Rect Copy (GAC blitter) — live tile grid from a source rect
-          GridRow(columns: 3, gutter: t.md, cells: [
-            (span: 3, child: Panel(
-              title: 'Rect Copy',
-              child: Wrap(
-                spacing: t.sm,
-                runSpacing: t.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  OscPathSegment(
-                    segment: 'gac_enable',
-                    child: const _ToggleWidget(label: 'Enable'),
-                  ),
-                  _knob(label: 'From X',  oscAddress: 'gac_x',    min: 0, max: 1912, initial: 896),
-                  _knob(label: 'From Y',  oscAddress: 'gac_y',    min: 0, max: 1072, initial: 476),
-                  _knob(label: 'Size',    oscAddress: 'gac_size', min: 8, max: 512,  initial: 128),
-                  _knob(label: 'Grid',    oscAddress: 'gac_grid', min: 1, max: 16,   initial: 4),
-                  _knob(label: 'Shear In',  oscAddress: 'gac_shear_src', min: -192, max: 192, isBipolar: true),
-                  _knob(label: 'Shear Out', oscAddress: 'gac_shear_dst', min: -192, max: 192, isBipolar: true),
-                ],
-              ),
-            )),
-          ]),
-          // Row: Color Field (uniformity-correction grid; hardware exists
-          // only on Send 1's output). Animated per-channel gain fields —
-          // gains are darken-only (1023 = unity), so amplitudes tint by
-          // attenuating the other channels.
-          if (isSend1)
-            GridRow(columns: 1, gutter: t.md, cells: [
-              (span: 1, child: Panel(
-                title: 'Color Field',
-                child: Wrap(
-                  spacing: t.sm,
-                  runSpacing: t.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    OscPathSegment(
-                      segment: 'uc_enable',
-                      child: const _ToggleWidget(label: 'Enable'),
-                    ),
-                    _intDropdown(
-                      label: 'Basis',
-                      options: _ucFxLabels,
-                      oscAddress: 'uc_fx',
-                      width: 110,
-                    ),
-                    _knob(label: 'Amount',  oscAddress: 'uc_amount', min: 0, max: 127,  initial: 127),
-                    _knob(label: 'Amp R',   oscAddress: 'uc_amp_r',  min: -1023, max: 1023, isBipolar: true),
-                    _knob(label: 'Amp G',   oscAddress: 'uc_amp_g',  min: -1023, max: 1023, isBipolar: true),
-                    _knob(label: 'Amp B',   oscAddress: 'uc_amp_b',  min: -1023, max: 1023, isBipolar: true),
-                    _knob(label: 'Freq',    oscAddress: 'uc_freq',   min: 10, max: 800,  initial: 100),
-                    _knob(label: 'Angle',   oscAddress: 'uc_angle',  min: 0, max: 360),
-                    _knob(label: 'Speed',   oscAddress: 'uc_speed',  min: -2000, max: 2000, isBipolar: true),
-                    _knob(label: 'Center X', oscAddress: 'uc_cx',    min: 0, max: 1920, initial: 960),
-                    _knob(label: 'Center Y', oscAddress: 'uc_cy',    min: 0, max: 1080, initial: 540),
-                    _knob(label: 'Res',     oscAddress: 'uc_res',    min: 4, max: 63,   initial: 16),
-                    _knob(label: 'Bias',    oscAddress: 'uc_bias',   min: 0, max: 1023, initial: 1023),
-                  ],
-                ),
-              )),
-            ]),
-          // Row: Warp (MFC geometric distortion; Send 1 only). Keystone/shear
-          // run on the homography path (7ms updates, frame-rate animatable);
-          // barrel/lens run on the radial-LUT path (~170ms per update). The
-          // two families are mutually exclusive — the last-touched knob's
-          // family wins. Wobble animates corners (homography); Breathe/Roam
-          // animate the lens (radial).
-          if (isSend1)
-            GridRow(columns: 1, gutter: t.md, cells: [
-              (span: 1, child: Panel(
-                title: 'Warp',
-                child: Wrap(
-                  spacing: t.sm,
-                  runSpacing: t.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    OscPathSegment(
-                      segment: 'warp_enable',
-                      child: const _ToggleWidget(label: 'Enable'),
-                    ),
-                    _knob(label: 'Key H',   oscAddress: 'warp_key_h',   min: -600, max: 600, isBipolar: true),
-                    _knob(label: 'Key V',   oscAddress: 'warp_key_v',   min: -400, max: 400, isBipolar: true),
-                    _knob(label: 'Shear X', oscAddress: 'warp_shear_x', min: -600, max: 600, isBipolar: true),
-                    _knob(label: 'Shear Y', oscAddress: 'warp_shear_y', min: -400, max: 400, isBipolar: true),
-                    _knob(label: 'Barrel',  oscAddress: 'warp_barrel',  min: -400, max: 400, isBipolar: true),
-                    _knob(label: 'Zoom',    oscAddress: 'warp_zoom',    min: 400, max: 1600, initial: 1000),
-                    _knob(label: 'Lens X',  oscAddress: 'warp_lens_x',  min: -960, max: 960, isBipolar: true),
-                    _knob(label: 'Lens Y',  oscAddress: 'warp_lens_y',  min: -540, max: 540, isBipolar: true),
-                    _knob(label: 'Radius',  oscAddress: 'warp_radius',  min: 0, max: 960),
-                    _knob(label: 'Wobble',  oscAddress: 'warp_wobble',  min: 0, max: 200),
-                    _knob(label: 'Breathe', oscAddress: 'warp_breathe', min: 0, max: 300),
-                    _knob(label: 'Roam',    oscAddress: 'warp_roam',    min: 0, max: 500),
-                    _knob(label: 'Speed',   oscAddress: 'warp_speed',   min: -2000, max: 2000, initial: 250, defaultValue: 250, isBipolar: true),
-                  ],
-                ),
-              )),
-            ]),
-          // Row: Posterize (monitor zebra block; Send 1 output only).
-          // Band editor: drag dividers to move thresholds, tap a band to
-          // select, then set its type/colour below the strip.
-          if (isSend1)
-            GridRow(columns: 1, gutter: t.md, cells: [
-              (span: 1, child: Panel(
-                title: 'Posterize',
-                child: const PosterEditor(),
-              )),
-            ]),
           // Row 4: Memory Control (2/3) | Output Mux (1/3)
           GridRow(columns: 3, gutter: t.md, cells: [
             (span: 2, child: Panel(

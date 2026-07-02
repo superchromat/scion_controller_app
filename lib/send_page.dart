@@ -10,6 +10,8 @@ import 'send_source_selector.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
 import 'send_glitch.dart';
+import 'poster_editor.dart';
+import 'send_effects.dart';
 import 'osc_registry.dart';
 import 'network.dart';
 
@@ -112,6 +114,28 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   ),
                                 ],
                               ),
+                              // Warp engines (Send 1's MFC only). Affine =
+                              // homography, frame-rate animation; LUT =
+                              // free-form distortion, ~8Hz full rewrites.
+                              if (widget.pageNumber == 1) ...[
+                                SizedBox(height: sectionGap),
+                                GridRow(gutter: t.md, cells: [
+                                  (
+                                    span: 5,
+                                    child: const LabeledCard(
+                                      title: 'Warp — Affine',
+                                      child: WarpAffinePanel(),
+                                    ),
+                                  ),
+                                  (
+                                    span: 7,
+                                    child: const LabeledCard(
+                                      title: 'Warp — LUT',
+                                      child: WarpLutPanel(),
+                                    ),
+                                  ),
+                                ]),
+                              ],
                               SizedBox(height: sectionGap),
                               GridRow(gutter: t.md, cells: [
                                 (
@@ -127,6 +151,40 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   ),
                                 )
                               ]),
+                              // Colour Field + Posterize + Rect Copy exist
+                              // only on Send 1's output hardware.
+                              if (widget.pageNumber == 1) ...[
+                                SizedBox(height: sectionGap),
+                                GridRow(gutter: t.md, cells: [
+                                  (
+                                    span: 12,
+                                    child: const LabeledCard(
+                                      title: 'Color Field',
+                                      child: ColorFieldPanel(),
+                                    ),
+                                  )
+                                ]),
+                                SizedBox(height: sectionGap),
+                                GridRow(gutter: t.md, cells: [
+                                  (
+                                    span: 12,
+                                    child: const LabeledCard(
+                                      title: 'Posterize',
+                                      child: PosterEditor(),
+                                    ),
+                                  )
+                                ]),
+                                SizedBox(height: sectionGap),
+                                GridRow(gutter: t.md, cells: [
+                                  (
+                                    span: 12,
+                                    child: const LabeledCard(
+                                      title: 'Rect Copy',
+                                      child: RectCopyPanel(),
+                                    ),
+                                  )
+                                ]),
+                              ],
                               SizedBox(height: sectionGap),
                               GridRow(gutter: t.md, cells: [
                                 (
@@ -136,7 +194,9 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     action: _resetButton(() =>
                                         (_glitchKey.currentState as dynamic)
                                             ?.reset()),
-                                    child: SendGlitch(key: _glitchKey),
+                                    child: SendGlitch(
+                                        key: _glitchKey,
+                                        pageNumber: widget.pageNumber),
                                   ),
                                 )
                               ]),
