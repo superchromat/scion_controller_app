@@ -10,6 +10,7 @@ import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
 import 'labeled_card.dart';
+import 'sprite_controls.dart';
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -171,8 +172,54 @@ class _OscColorControlState extends State<OscColorControl> with OscAddressMixin 
 }
 
 /// Main SendText widget containing all text overlay controls
-class SendText extends StatelessWidget {
+class SendText extends StatefulWidget {
   const SendText({super.key});
+
+  @override
+  State<SendText> createState() => _SendTextState();
+}
+
+class _SendTextState extends State<SendText> {
+  // Selected text region (1-4). Region 1 = the legacy text overlay; regions
+  // 2-4 are extra sprites with independent typeface/colour/position. All
+  // controls below bind under region/N, whose endpoints mirror the legacy
+  // field set exactly (region 1 aliases the flat /text/* fields).
+  int _region = 1;
+
+  Widget _regionTabs(BuildContext context) {
+    final t = GridProvider.of(context);
+    return Row(
+      children: [
+        Text('Region', style: t.textLabel),
+        SizedBox(width: t.sm),
+        for (int r = 1; r <= 4; r++) ...[
+          GestureDetector(
+            onTap: () => setState(() => _region = r),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
+              decoration: BoxDecoration(
+                color: _region == r
+                    ? const Color(0xFF4A6A8A)
+                    : const Color(0xFF2A2A2C),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: _region == r
+                      ? const Color(0xFF6A9ACA)
+                      : Colors.grey[600]!,
+                ),
+              ),
+              child: Text('$r',
+                  style: t.textLabel.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: _region == r ? Colors.white : Colors.grey[300],
+                  )),
+            ),
+          ),
+          SizedBox(width: t.xs),
+        ],
+      ],
+    );
+  }
 
   Widget _textInputSizedSlot(BuildContext context, Widget child) {
     // Match the old `Panel(rows: 1)` footprint exactly, but without drawing
@@ -208,6 +255,13 @@ class SendText extends StatelessWidget {
       segment: 'text',
       child: CardColumn(
         children: [
+          _regionTabs(context),
+          SizedBox(height: t.sm),
+          KeyedSubtree(
+            key: ValueKey(_region),
+            child: OscPathSegment(
+              segment: 'region/$_region',
+              child: CardColumn(children: [
           GridRow(
             columns: 1,
             gutter: t.md,
@@ -382,6 +436,16 @@ class SendText extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+              ]),
+            ),
+          ),
+          SizedBox(height: t.sm),
+          // Sprites share the region sprite slots: showing a sprite displaces
+          // that region's text until the region re-renders.
+          Panel.dark(
+            title: 'Sprites',
+            child: const SpritePanel(),
           ),
         ],
       ),
