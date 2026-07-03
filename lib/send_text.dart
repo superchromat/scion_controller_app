@@ -34,6 +34,7 @@ class OscTextField extends StatefulWidget {
 class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  DateTime? _lastEdit;
 
   @override
   void initState() {
@@ -53,7 +54,12 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
   OscStatus onOscMessage(List<Object?> args) {
     if (args.isNotEmpty && args.first is String) {
       final val = args.first as String;
-      if (!_focusNode.hasFocus) {
+      // Reflect device state (sync/reset/other peers) unless the user is
+      // actively typing right now — a focused-but-idle field still updates,
+      // so a device reset clears the box even when it kept focus.
+      final typing = _lastEdit != null &&
+          DateTime.now().difference(_lastEdit!).inMilliseconds < 1500;
+      if (val != _controller.text && !typing) {
         setState(() => _controller.text = val);
       }
       return OscStatus.ok;
@@ -62,6 +68,7 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
   }
 
   void _onChanged(String value) {
+    _lastEdit = DateTime.now();
     sendOsc(value);
   }
 
