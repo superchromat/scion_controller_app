@@ -167,14 +167,16 @@ class _FontControlsState extends State<FontControls> {
             SizedBox(width: t.sm),
             Expanded(
               flex: 2,
-              // Which OSD block renders the text. Layer 1 = Font OSD (input
-              // stage: text is processed with the video), Layer 2 = Window
-              // OSD, Layer 3 = Output OSD (final stage).
+              // Which OSD block renders the text. "In" = Font OSD (input
+              // stage: text is processed WITH the video — scales, rotates,
+              // warps like picture content). "Above" = Output OSD (fixed
+              // overlay on the final raster). The Window OSD (osd=1) is
+              // parked pending MFC-block bring-up.
               child: dd<int>(
                   'Layer',
-                  _osd,
-                  const [2, 1, 0],
-                  (v) => const {2: 'Layer 1', 1: 'Layer 2', 0: 'Layer 3'}[v]!,
+                  _osd == 1 ? 0 : _osd,
+                  const [2, 0],
+                  (v) => const {2: 'In', 0: 'Above'}[v]!,
                   (v) {
                 if (v == null) return;
                 _send('osd', v);
