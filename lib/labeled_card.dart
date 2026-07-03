@@ -40,7 +40,7 @@ class LabeledCard extends StatelessWidget {
 
   void _snap(BuildContext context, String op) {
     final path = _resolveSnapPath(context);
-    context.read<Network>().sendOscMessage('/snap/$op', [path]);
+    context.read<Network>().sendOscMessage('/assets/snapshots/$op', [path]);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('$title: $op ${op == 'save' ? 'to' : 'from'} device ($path)'),
       duration: const Duration(seconds: 2),

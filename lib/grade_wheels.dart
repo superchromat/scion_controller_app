@@ -395,7 +395,7 @@ class GradeWheels extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OscPathSegment(
-      segment: 'grade',
+      segment: 'color/grade',
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

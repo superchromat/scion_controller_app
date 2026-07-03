@@ -123,13 +123,13 @@ class WarpAffinePanel extends StatelessWidget {
       segment: 'glitch',
       child: _wrap(context, [
         const OscPathSegment(
-            segment: 'warp_enable', child: _Toggle(label: 'Enable')),
-        _knob(context, 'Key H', 'warp_key_h', -600, 600, bipolar: true),
-        _knob(context, 'Key V', 'warp_key_v', -400, 400, bipolar: true),
-        _knob(context, 'Shear X', 'warp_shear_x', -600, 600, bipolar: true),
-        _knob(context, 'Shear Y', 'warp_shear_y', -400, 400, bipolar: true),
-        _knob(context, 'Wobble', 'warp_wobble', 0, 200),
-        _knob(context, 'Speed', 'warp_speed', -2000, 2000,
+            segment: 'shape/warp/enable', child: _Toggle(label: 'Enable')),
+        _knob(context, 'Key H', 'shape/warp/key_h', -600, 600, bipolar: true),
+        _knob(context, 'Key V', 'shape/warp/key_v', -400, 400, bipolar: true),
+        _knob(context, 'Shear X', 'shape/warp/shear_x', -600, 600, bipolar: true),
+        _knob(context, 'Shear Y', 'shape/warp/shear_y', -400, 400, bipolar: true),
+        _knob(context, 'Wobble', 'shape/warp/wobble', 0, 200),
+        _knob(context, 'Speed', 'shape/warp/speed', -2000, 2000,
             initial: 250, bipolar: true),
       ]),
     );
@@ -148,17 +148,17 @@ class WarpLutPanel extends StatelessWidget {
     return OscPathSegment(
       segment: 'glitch',
       child: _wrap(context, [
-        _knob(context, 'Barrel', 'warp_barrel', -400, 400, bipolar: true),
-        _knob(context, 'Zoom', 'warp_zoom', 400, 1600, initial: 1000),
-        _knob(context, 'Lens X', 'warp_lens_x', -960, 960, bipolar: true),
-        _knob(context, 'Lens Y', 'warp_lens_y', -540, 540, bipolar: true),
-        _knob(context, 'Radius', 'warp_radius', 0, 960),
-        _knob(context, 'Breathe', 'warp_breathe', 0, 300),
-        _knob(context, 'Roam', 'warp_roam', 0, 500),
-        _dropdown('Field', 'warp_field',
+        _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400, bipolar: true),
+        _knob(context, 'Zoom', 'shape/warp/zoom', 400, 1600, initial: 1000),
+        _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960, bipolar: true),
+        _knob(context, 'Lens Y', 'shape/warp/lens_y', -540, 540, bipolar: true),
+        _knob(context, 'Radius', 'shape/warp/radius', 0, 960),
+        _knob(context, 'Breathe', 'shape/warp/breathe', 0, 300),
+        _knob(context, 'Roam', 'shape/warp/roam', 0, 500),
+        _dropdown('Field', 'shape/warp/field',
             const ['Off', 'Ripple', 'Twirl', 'Wave'], width: 90),
-        _knob(context, 'F Amp', 'warp_famp', 0, 300),
-        _knob(context, 'F Freq', 'warp_ffreq', 50, 1200, initial: 300),
+        _knob(context, 'F Amp', 'shape/warp/famp', 0, 300),
+        _knob(context, 'F Freq', 'shape/warp/ffreq', 50, 1200, initial: 300),
       ]),
     );
   }
@@ -174,20 +174,20 @@ class ColorFieldPanel extends StatelessWidget {
       segment: 'glitch',
       child: _wrap(context, [
         const OscPathSegment(
-            segment: 'uc_enable', child: _Toggle(label: 'Enable')),
-        _dropdown('Basis', 'uc_fx',
+            segment: 'color/field/enable', child: _Toggle(label: 'Enable')),
+        _dropdown('Basis', 'color/field/fx',
             const ['Flat', 'Gradient', 'Rings', 'Plaid']),
-        _knob(context, 'Amount', 'uc_amount', 0, 127, initial: 127),
-        _knob(context, 'Amp R', 'uc_amp_r', -1023, 1023, bipolar: true),
-        _knob(context, 'Amp G', 'uc_amp_g', -1023, 1023, bipolar: true),
-        _knob(context, 'Amp B', 'uc_amp_b', -1023, 1023, bipolar: true),
-        _knob(context, 'Freq', 'uc_freq', 10, 800, initial: 100),
-        _knob(context, 'Angle', 'uc_angle', 0, 360),
-        _knob(context, 'Speed', 'uc_speed', -2000, 2000, bipolar: true),
-        _knob(context, 'Center X', 'uc_cx', 0, 1920, initial: 960),
-        _knob(context, 'Center Y', 'uc_cy', 0, 1080, initial: 540),
-        _knob(context, 'Res', 'uc_res', 4, 63, initial: 16),
-        _knob(context, 'Bias', 'uc_bias', 0, 1023, initial: 768),
+        _knob(context, 'Amount', 'color/field/amount', 0, 127, initial: 127),
+        _knob(context, 'Amp R', 'color/field/amp_r', -1023, 1023, bipolar: true),
+        _knob(context, 'Amp G', 'color/field/amp_g', -1023, 1023, bipolar: true),
+        _knob(context, 'Amp B', 'color/field/amp_b', -1023, 1023, bipolar: true),
+        _knob(context, 'Freq', 'color/field/freq', 10, 800, initial: 100),
+        _knob(context, 'Angle', 'color/field/angle', 0, 360),
+        _knob(context, 'Speed', 'color/field/speed', -2000, 2000, bipolar: true),
+        _knob(context, 'Center X', 'color/field/cx', 0, 1920, initial: 960),
+        _knob(context, 'Center Y', 'color/field/cy', 0, 1080, initial: 540),
+        _knob(context, 'Res', 'color/field/res', 4, 63, initial: 16),
+        _knob(context, 'Bias', 'color/field/bias', 0, 1023, initial: 768),
       ]),
     );
   }
@@ -203,21 +203,21 @@ class RectCopyPanel extends StatelessWidget {
       segment: 'glitch',
       child: _wrap(context, [
         const OscPathSegment(
-            segment: 'gac_enable', child: _Toggle(label: 'Enable')),
-        _knob(context, 'From X', 'gac_x', 0, 1912, initial: 896),
-        _knob(context, 'From Y', 'gac_y', 0, 1072, initial: 476),
-        _knob(context, 'Size', 'gac_size', 8, 512, initial: 128),
-        _knob(context, 'Grid', 'gac_grid', 1, 16, initial: 4),
+            segment: 'glitch/gac/enable', child: _Toggle(label: 'Enable')),
+        _knob(context, 'From X', 'glitch/gac/x', 0, 1912, initial: 896),
+        _knob(context, 'From Y', 'glitch/gac/y', 0, 1072, initial: 476),
+        _knob(context, 'Size', 'glitch/gac/size', 8, 512, initial: 128),
+        _knob(context, 'Grid', 'glitch/gac/grid', 1, 16, initial: 4),
         // Spacing > Size spreads the tiles across the frame with live video
         // between them (per-tile copies); <= Size tiles edge-to-edge.
-        _knob(context, 'Spacing', 'gac_spacing', 0, 640),
+        _knob(context, 'Spacing', 'glitch/gac/spacing', 0, 640),
         // 0 = grid layout, 1000 = radial rings around the source; smooth
         // interpolation between.
-        _knob(context, 'Radial', 'gac_morph', 0, 1000),
+        _knob(context, 'Radial', 'glitch/gac/morph', 0, 1000),
         const OscPathSegment(
-            segment: 'gac_yonly', child: _Toggle(label: 'Y Only')),
-        _knob(context, 'Shear In', 'gac_shear_src', -192, 192, bipolar: true),
-        _knob(context, 'Shear Out', 'gac_shear_dst', -192, 192, bipolar: true),
+            segment: 'glitch/gac/yonly', child: _Toggle(label: 'Y Only')),
+        _knob(context, 'Shear In', 'glitch/gac/shear_src', -192, 192, bipolar: true),
+        _knob(context, 'Shear Out', 'glitch/gac/shear_dst', -192, 192, bipolar: true),
       ]),
     );
   }

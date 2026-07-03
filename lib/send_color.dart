@@ -50,7 +50,7 @@ class _SendColorState extends State<SendColor> {
       mainAxisSize: MainAxisSize.min,
       children: [
         OscPathSegment(
-          segment: paramKey,
+          segment: 'color/$paramKey',
           child: OscRotaryKnob(
             key: knobKey,
             initialValue: initialValue,
@@ -171,7 +171,7 @@ class _SendColorState extends State<SendColor> {
             baseColor: const Color(0xFF252527),
             padding: t.panelPadding,
             child: OscPathSegment(
-              segment: 'lut',
+              segment: 'color/lut',
               child: LUTEditor(
                 gradePath: showGrade ? widget.gradePath : null,
               ),

@@ -36,23 +36,23 @@ class _SpritePanelState extends State<SpritePanel> {
     final joined = segs.join('/');
     final m = RegExp(r'send/(\d)').firstMatch(joined);
     if (m != null) _send = int.parse(m.group(1)!);
-    OscRegistry().registerAddress('/sprite/count');
-    OscRegistry().registerListener('/sprite/count', _onCount);
-    OscRegistry().registerAddress('/sprite/info');
-    OscRegistry().registerListener('/sprite/info', _onInfo);
+    OscRegistry().registerAddress('/assets/sprites/count');
+    OscRegistry().registerListener('/assets/sprites/count', _onCount);
+    OscRegistry().registerAddress('/assets/sprites/info');
+    OscRegistry().registerListener('/assets/sprites/info', _onInfo);
     _refresh();
   }
 
   @override
   void dispose() {
-    OscRegistry().unregisterListener('/sprite/count', _onCount);
-    OscRegistry().unregisterListener('/sprite/info', _onInfo);
+    OscRegistry().unregisterListener('/assets/sprites/count', _onCount);
+    OscRegistry().unregisterListener('/assets/sprites/info', _onInfo);
     super.dispose();
   }
 
   void _refresh() {
     _names.clear();
-    context.read<Network>().sendOscMessage('/sprite/count', const []);
+    context.read<Network>().sendOscMessage('/assets/sprites/count', const []);
   }
 
   void _onCount(List<Object?> args) {
@@ -61,7 +61,7 @@ class _SpritePanelState extends State<SpritePanel> {
     _names.clear();
     final net = context.read<Network>();
     for (int i = 0; i < n; i++) {
-      net.sendOscMessage('/sprite/info', [i]);
+      net.sendOscMessage('/assets/sprites/info', [i]);
     }
     setState(() {});
   }
@@ -154,11 +154,11 @@ class _SpritePanelState extends State<SpritePanel> {
         _numField('Y', _y, (v) => _y = v),
         _btn('Show', () {
           context.read<Network>().sendOscMessage(
-              '/sprite/show', [_send, _region, _sprite, _x, _y]);
+              '/assets/sprites/show', [_send, _region, _sprite, _x, _y]);
         }, color: const Color(0xFF3A5A3A)),
         _btn('Hide', () {
           context.read<Network>().sendOscMessage(
-              '/sprite/hide', [_send, _region]);
+              '/assets/sprites/hide', [_send, _region]);
         }),
         _btn('↻', _refresh),
         _btn('Upload…', () async {

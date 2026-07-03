@@ -70,16 +70,16 @@ class FontCatalog extends ChangeNotifier {
 
   void _sendCount() {
     if (_net == null || !_net!.isConnected) return;
-    _net!.sendOscMessage('/fonts/count', []);
+    _net!.sendOscMessage('/assets/fonts/count', []);
   }
 
   void _wireListeners() {
     if (_listenersWired) return;
     _listenersWired = true;
-    OscRegistry().registerAddress('/fonts/count');
-    OscRegistry().registerListener('/fonts/count', _onCount);
-    OscRegistry().registerAddress('/fonts/info');
-    OscRegistry().registerListener('/fonts/info', _onInfo);
+    OscRegistry().registerAddress('/assets/fonts/count');
+    OscRegistry().registerListener('/assets/fonts/count', _onCount);
+    OscRegistry().registerAddress('/assets/fonts/info');
+    OscRegistry().registerListener('/assets/fonts/info', _onInfo);
   }
 
   void _onCount(List<Object?> args) {
@@ -95,7 +95,7 @@ class FontCatalog extends ChangeNotifier {
     if (n == 0) { notifyListeners(); return; }
     // Request any entries we don't have yet (idempotent; covers dropped replies).
     for (int i = 0; i < n; i++) {
-      if (_entries[i] == null) _net?.sendOscMessage('/fonts/info', [i]);
+      if (_entries[i] == null) _net?.sendOscMessage('/assets/fonts/info', [i]);
     }
   }
 

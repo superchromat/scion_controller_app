@@ -356,8 +356,8 @@ class ShapeState extends State<Shape> {
                 child: LinkableKnobPair(
                   label: 'Scale',
                   icon: Icons.zoom_out_map,
-                  xKey: 'scaleX',
-                  yKey: 'scaleY',
+                  xKey: 'shape/scale/x',
+                  yKey: 'shape/scale/y',
                   xValue: 1.0,
                   yValue: 1.0,
                   minValue: 0.0,
@@ -375,8 +375,8 @@ class ShapeState extends State<Shape> {
                 child: LinkableKnobPair(
                   label: 'Position',
                   icon: Icons.open_with,
-                  xKey: 'posX',
-                  yKey: 'posY',
+                  xKey: 'shape/pos/x',
+                  yKey: 'shape/pos/y',
                   xValue: 0.5,
                   yValue: 0.5,
                   minValue: 0.0,
@@ -400,7 +400,7 @@ class ShapeState extends State<Shape> {
                   titleTrailing: const _RotationSend3WarningIcon(),
                   child: Center(
                     child: OscPathSegment(
-                      segment: 'rotation',
+                      segment: 'shape/rotation',
                       child: OscRotaryKnob(
                         key: _rotationKey,
                         initialValue: 180.0,

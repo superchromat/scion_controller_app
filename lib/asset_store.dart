@@ -77,7 +77,7 @@ class NorClient {
     var pos = 0;
     while (pos < len) {
       final n = (len - pos).clamp(0, _chunk);
-      final r = await _call('/fonts/nor/read', [off + pos, n]);
+      final r = await _call('/assets/fonts/nor/read', [off + pos, n]);
       // reply: [off, count, blob]
       if (r.length < 3 || r[1] is! int || (r[1] as int) < 0 || r[2] is! Uint8List) {
         throw Exception('NOR read failed at ${off + pos}: $r');
@@ -92,7 +92,7 @@ class NorClient {
   /// Erase + write + CRC-verify `blob` at `off`.
   Future<void> writeBlob(int off, Uint8List blob,
       {void Function(double)? onProgress}) async {
-    final er = await _call('/fonts/nor/erase', [blob.length, off],
+    final er = await _call('/assets/fonts/nor/erase', [blob.length, off],
         timeout: const Duration(seconds: 10));
     if (er.isEmpty || er[0] is! int || (er[0] as int) < blob.length) {
       throw Exception('erase failed: $er');
@@ -101,13 +101,13 @@ class NorClient {
       final chunk = Uint8List.sublistView(
           blob, pos, (pos + _chunk).clamp(0, blob.length));
       final r = await _call(
-          '/fonts/nor/write', [off + pos, _signed32(crc32(chunk)), chunk]);
+          '/assets/fonts/nor/write', [off + pos, _signed32(crc32(chunk)), chunk]);
       if (r.length < 2 || r[1] != 0) {
         throw Exception('write failed at ${off + pos}: $r');
       }
       onProgress?.call((pos + chunk.length) / blob.length);
     }
-    final v = await _call('/fonts/nor/verify', [off, blob.length],
+    final v = await _call('/assets/fonts/nor/verify', [off, blob.length],
         timeout: const Duration(seconds: 10));
     if (v.isEmpty || (v[0] as int? ?? -1) & 0xFFFFFFFF != crc32(blob)) {
       throw Exception('verify failed: $v vs ${crc32(blob).toRadixString(16)}');

@@ -46,18 +46,18 @@ class _PosterEditorState extends State<PosterEditor> {
   }
 
   void _pushBand(int i) {
-    _send('/poster/band', [i, _type[i], _color[i]]);
+    _send('/send/1/color/poster/band', [i, _type[i], _color[i]]);
   }
 
   void _pushAll() {
     for (int i = 0; i < 15; i++) {
-      _send('/poster/th', [i, _th[i]]);
+      _send('/send/1/color/poster/th', [i, _th[i]]);
     }
     for (int i = 0; i < 16; i++) {
       _pushBand(i);
     }
-    _send('/poster/zebra', [_zebraWidth, _zebraRepeat]);
-    _send('/poster/blink', [_blink ? 1 : 0]);
+    _send('/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
+    _send('/send/1/color/poster/blink', [_blink ? 1 : 0]);
   }
 
   // Presets mirror the firmware generators, but are built locally so the
@@ -153,7 +153,7 @@ class _PosterEditorState extends State<PosterEditor> {
             chip(_enabled ? 'ON' : 'OFF', () {
               setState(() => _enabled = !_enabled);
               if (_enabled) _pushAll();
-              _send('/poster/enable', [_enabled ? 1 : 0]);
+              _send('/send/1/color/poster/enable', [_enabled ? 1 : 0]);
             }, active: _enabled),
             SizedBox(width: t.sm),
             chip('Gray 6', () => _preset(6, 0)),
@@ -163,7 +163,7 @@ class _PosterEditorState extends State<PosterEditor> {
             SizedBox(width: t.sm),
             chip(_blink ? 'Blink ON' : 'Blink', () {
               setState(() => _blink = !_blink);
-              _send('/poster/blink', [_blink ? 1 : 0]);
+              _send('/send/1/color/poster/blink', [_blink ? 1 : 0]);
             }, active: _blink),
             // Zebra stripe geometry (applies to zebra-type bands)
             Text('Stripe W', style: t.textLabel),
@@ -171,7 +171,7 @@ class _PosterEditorState extends State<PosterEditor> {
               value: _zebraWidth.toDouble(), min: 0, max: 15, divisions: 15,
               onChanged: (v) {
                 setState(() => _zebraWidth = v.round());
-                _send('/poster/zebra', [_zebraWidth, _zebraRepeat]);
+                _send('/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
               },
             ),
             Text('Repeat', style: t.textLabel),
@@ -179,7 +179,7 @@ class _PosterEditorState extends State<PosterEditor> {
               value: _zebraRepeat.toDouble(), min: 0, max: 15, divisions: 15,
               onChanged: (v) {
                 setState(() => _zebraRepeat = v.round());
-                _send('/poster/zebra', [_zebraWidth, _zebraRepeat]);
+                _send('/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
               },
             ),
           ],
@@ -204,7 +204,7 @@ class _PosterEditorState extends State<PosterEditor> {
               final v = (d.localPosition.dx / w * 255).round().clamp(lo, hi);
               if (v != _th[i]) {
                 setState(() => _th[i] = v);
-                _send('/poster/th', [i, v]);
+                _send('/send/1/color/poster/th', [i, v]);
               }
             },
             onPanEnd: (_) => _dragDivider = null,

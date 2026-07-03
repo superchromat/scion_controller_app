@@ -94,6 +94,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 4,
                                     child: LabeledCard(
                                       title: 'Shape',
+                                      snapPath: 'shape',
                                       child:
                                           Shape(pageNumber: widget.pageNumber),
                                     ),
@@ -102,7 +103,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 4,
                                     child: LabeledCard(
                                       title: 'Texture',
-                                      snapPath: 'filter',
+                                      snapPath: 'texture',
                                       child: const SendTexture(),
                                     ),
                                   ),
@@ -126,6 +127,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 5,
                                     child: const LabeledCard(
                                       title: 'Warp — Affine',
+                                      snapPath: 'shape/warp',
                                       child: WarpAffinePanel(),
                                     ),
                                   ),
@@ -133,6 +135,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 7,
                                     child: const LabeledCard(
                                       title: 'Warp — LUT',
+                                      snapPath: 'shape/warp',
                                       child: WarpLutPanel(),
                                     ),
                                   ),
@@ -144,6 +147,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   span: 12,
                                   child: LabeledCard(
                                     title: 'Color',
+                                    snapPath: 'color',
                                     child: SendColor(
                                       showGrade: widget.pageNumber == 1,
                                       gradePath: widget.pageNumber == 1
@@ -162,6 +166,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 12,
                                     child: const LabeledCard(
                                       title: 'Color Field',
+                                      snapPath: 'color/field',
                                       child: ColorFieldPanel(),
                                     ),
                                   )
@@ -172,6 +177,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 12,
                                     child: const LabeledCard(
                                       title: 'Posterize',
+                                      snapPath: 'color/poster',
                                       child: PosterEditor(),
                                     ),
                                   )
@@ -182,6 +188,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 12,
                                     child: const LabeledCard(
                                       title: 'Rect Copy',
+                                      snapPath: 'glitch/gac',
                                       child: RectCopyPanel(),
                                     ),
                                   )
