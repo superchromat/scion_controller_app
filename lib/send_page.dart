@@ -12,6 +12,7 @@ import 'send_texture.dart';
 import 'send_glitch.dart';
 import 'poster_editor.dart';
 import 'send_effects.dart';
+import 'color_lut_actions.dart';
 import 'osc_registry.dart';
 import 'network.dart';
 
@@ -151,6 +152,8 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   child: LabeledCard(
                                     title: 'Color',
                                     snapPath: 'color',
+                                    action: ColorLutActions(
+                                        sendIndex: widget.pageNumber),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
