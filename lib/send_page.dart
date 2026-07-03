@@ -102,6 +102,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 4,
                                     child: LabeledCard(
                                       title: 'Texture',
+                                      snapPath: 'filter',
                                       child: const SendTexture(),
                                     ),
                                   ),
@@ -109,6 +110,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     span: 4,
                                     child: LabeledCard(
                                       title: 'Text',
+                                      snapPath: 'text',
                                       child: const SendText(),
                                     ),
                                   ),
@@ -191,6 +193,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   span: 12,
                                   child: LabeledCard(
                                     title: 'Glitch',
+                                    snapPath: 'glitch',
                                     action: _resetButton(() =>
                                         (_glitchKey.currentState as dynamic)
                                             ?.reset()),

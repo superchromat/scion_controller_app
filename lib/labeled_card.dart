@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'grid.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
+import 'network.dart';
+import 'osc_widget_binding.dart';
 
 class LabeledCard extends StatelessWidget {
   final String title;
@@ -12,6 +14,13 @@ class LabeledCard extends StatelessWidget {
   final bool fillChild;
   final Color? borderColor;
 
+  /// OSC subtree this card's controls live under, enabling the save / load /
+  /// reset snapshot icons. Relative values (e.g. 'text') append to the
+  /// ambient OscPathSegment path ('send/1' -> '/send/1/text'); a leading '/'
+  /// makes it absolute (e.g. '/warp'). Snapshots are stored on the DEVICE
+  /// (flash) via /snap/save|load|reset.
+  final String? snapPath;
+
   const LabeledCard({
     super.key,
     required this.title,
@@ -20,7 +29,42 @@ class LabeledCard extends StatelessWidget {
     this.action,
     this.fillChild = false,
     this.borderColor,
+    this.snapPath,
   });
+
+  String _resolveSnapPath(BuildContext context) {
+    if (snapPath!.startsWith('/')) return snapPath!;
+    final segs = OscPathSegment.resolvePath(context);
+    return '/${[...segs, snapPath!].join('/')}';
+  }
+
+  void _snap(BuildContext context, String op) {
+    final path = _resolveSnapPath(context);
+    context.read<Network>().sendOscMessage('/snap/$op', [path]);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$title: $op ${op == 'save' ? 'to' : 'from'} device ($path)'),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  Widget _snapIcons(BuildContext context) {
+    Widget btn(IconData icon, String tip, String op) => Tooltip(
+          message: tip,
+          child: InkWell(
+            onTap: () => _snap(context, op),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: Icon(icon, size: 15, color: Colors.grey[500]),
+            ),
+          ),
+        );
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      btn(Icons.save_outlined, 'Save snapshot to device', 'save'),
+      btn(Icons.history, 'Load saved snapshot', 'load'),
+      btn(Icons.restart_alt, 'Reset to defaults', 'reset'),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +102,7 @@ class LabeledCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (snapPath != null) _snapIcons(context),
                 if (action != null) action!,
               ],
             ),
