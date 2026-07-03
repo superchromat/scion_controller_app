@@ -84,7 +84,7 @@ class _ReturnPageBody extends StatelessWidget {
                     span: 12,
                     child: LabeledCard(
                       title: 'Color',
-                      child: SendColor(showGrade: true, gradePath: '/output/grade'),
+                      child: SendColor(showGrade: true, gradePath: '/output/color/grade'),
                     ),
                   ),
                 ],

@@ -151,7 +151,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     child: SendColor(
                                       showGrade: widget.pageNumber == 1,
                                       gradePath: widget.pageNumber == 1
-                                          ? '/send/${widget.pageNumber}/grade'
+                                          ? '/send/${widget.pageNumber}/color/grade'
                                           : null,
                                     ),
                                   ),
@@ -252,7 +252,7 @@ class _Send3RotationDisabledOverlay extends StatefulWidget {
 
 class _Send3RotationDisabledOverlayState
     extends State<_Send3RotationDisabledOverlay> {
-  static const _send1RotationPath = '/send/1/rotation';
+  static const _send1RotationPath = '/send/1/shape/rotation';
   static const _send3InputPath = '/send/3/input';
 
   final Map<String, void Function(List<Object?>)> _listeners = {};
