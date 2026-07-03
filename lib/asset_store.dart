@@ -72,6 +72,11 @@ class NorClient {
     throw TimeoutException('no reply to $addr');
   }
 
+  /// Public request/response for asset-manager endpoints.
+  Future<List<Object?>> call(String addr, List<Object> args,
+          {Duration timeout = const Duration(seconds: 3), int tries = 3}) =>
+      _call(addr, args, timeout: timeout, tries: tries);
+
   Future<Uint8List> read(int off, int len) async {
     final out = BytesBuilder();
     var pos = 0;
@@ -151,6 +156,27 @@ class SpriteStore {
       final pal = Uint8List.fromList(e.sublist(28, 92));
       final px = await nor.read(off, len);
       out.add(SpriteAsset(name, w, h, pal, px));
+    }
+    return out;
+  }
+
+  /// Catalog metadata only (no pixel data) — cheap listing for the Files page.
+  Future<List<(String, int, int, int)>> catalog() async {
+    final hdr = await nor.read(sprtBase, 12);
+    if (hdr.length < 12 ||
+        String.fromCharCodes(hdr.sublist(0, 4)) != 'SPRT' ||
+        hdr[4] != 1) {
+      return [];
+    }
+    final count = ByteData.sublistView(hdr).getUint16(6, Endian.little);
+    final out = <(String, int, int, int)>[];
+    for (var i = 0; i < count; i++) {
+      final e = await nor.read(sprtBase + 12 + i * 96, 96);
+      final eb = ByteData.sublistView(e);
+      final name =
+          String.fromCharCodes(e.sublist(0, 16).takeWhile((c) => c != 0));
+      out.add((name, eb.getUint16(16, Endian.little),
+          eb.getUint16(18, Endian.little), eb.getUint32(24, Endian.little)));
     }
     return out;
   }
@@ -375,6 +401,59 @@ class FontStore {
 
   Future<void> push(Uint8List blob, {void Function(double)? onProgress}) =>
       nor.writeBlob(0, blob, onProgress: onProgress);
+
+  /// Rebuild the blob without face [index] (repacks the kept TTF bodies).
+  Uint8List removeFont(Uint8List blob, int index) =>
+      _rebuild(blob, skip: index);
+
+  /// Rebuild with face [index] renamed.
+  Uint8List renameFont(
+          Uint8List blob, int index, String family, String variant) =>
+      _rebuild(blob, rename: index, family: family, variant: variant);
+
+  Uint8List _rebuild(Uint8List blob,
+      {int skip = -1, int rename = -1, String? family, String? variant}) {
+    final bd = ByteData.sublistView(blob);
+    final count = bd.getUint16(6, Endian.little);
+    final faces = <(Uint8List name, Uint8List ttf)>[];
+    for (var i = 0; i < count; i++) {
+      if (i == skip) continue;
+      final e = Uint8List.fromList(blob.sublist(16 + i * 40, 16 + i * 40 + 40));
+      final eb = ByteData.sublistView(e);
+      final off = eb.getUint32(32, Endian.little);
+      final len = eb.getUint32(36, Endian.little);
+      if (i == rename) {
+        e.fillRange(0, 32, 0);
+        final fb = (family ?? '').codeUnits.take(16).toList();
+        final vb = (variant ?? '').codeUnits.take(16).toList();
+        e.setRange(0, fb.length, fb);
+        e.setRange(16, 16 + vb.length, vb);
+      }
+      faces.add((e, Uint8List.sublistView(blob, off, off + len)));
+    }
+    final hdr = Uint8List.fromList(blob.sublist(0, 16));
+    ByteData.sublistView(hdr).setUint16(6, faces.length, Endian.little);
+    final out = BytesBuilder();
+    out.add(hdr);
+    var off = 16 + 40 * faces.length;
+    final bodies = BytesBuilder();
+    for (final (e, ttf) in faces) {
+      final eb = ByteData.sublistView(e);
+      eb.setUint32(32, off, Endian.little);
+      eb.setUint32(36, ttf.length, Endian.little);
+      out.add(e);
+      bodies.add(ttf);
+      final pad = (4 - ttf.length % 4) % 4;
+      bodies.add(Uint8List(pad));
+      off += ttf.length + pad;
+    }
+    final total = 16 + 40 * faces.length + bodies.length;
+    ByteData.sublistView(hdr).setUint32(12, total, Endian.little);
+    final result = out.toBytes() + bodies.toBytes();
+    final res = Uint8List.fromList(result);
+    res.setRange(0, 16, hdr);
+    return res;
+  }
 }
 
 /// True if the TTF has TrueType glyf outlines (the firmware renderer can't

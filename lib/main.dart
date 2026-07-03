@@ -11,6 +11,7 @@ import 'network.dart';
 import 'network_selection.dart';
 import 'file_selection.dart';
 import 'setup_page.dart';
+import 'asset_files_page.dart';
 import 'send_page.dart';
 import 'mixer_page.dart';
 import 'osc_log.dart';
@@ -329,11 +330,13 @@ class _MyHomePageState extends State<MyHomePage> {
       const ReturnPage(),
       // 6 → Setup
       SetupPage(isActive: selectedIndex == 6),
-      // 7 → OSC Log
+      // 7 → Files
+      AssetFilesPage(isActive: selectedIndex == 7),
+      // 8 → OSC Log
       OscLogTable(
         key: oscLogKey,
         onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 7,
+        isActive: selectedIndex == 8,
       ),
     ];
   }
@@ -435,6 +438,10 @@ class _MyHomePageState extends State<MyHomePage> {
                           const NavigationRailDestination(
                             icon: Icon(Icons.settings),
                             label: Text('Setup'),
+                          ),
+                          const NavigationRailDestination(
+                            icon: Icon(Icons.folder_open),
+                            label: Text('Files'),
                           ),
                           const NavigationRailDestination(
                             icon: Icon(Icons.view_list),
