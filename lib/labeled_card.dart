@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'grid.dart';
+import 'osc_registry.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
 import 'network.dart';
@@ -14,11 +17,11 @@ class LabeledCard extends StatelessWidget {
   final bool fillChild;
   final Color? borderColor;
 
-  /// OSC subtree this card's controls live under, enabling the save / load /
-  /// reset snapshot icons. Relative values (e.g. 'text') append to the
+  /// OSC subtree this card's controls live under, enabling the preset
+  /// save / load / reset icons. Relative values (e.g. 'text') append to the
   /// ambient OscPathSegment path ('send/1' -> '/send/1/text'); a leading '/'
-  /// makes it absolute (e.g. '/warp'). Snapshots are stored on the DEVICE
-  /// (flash) via /snap/save|load|reset.
+  /// makes it absolute. Presets are NAMED and stored on the DEVICE via
+  /// /assets/presets/*; a card can have any number of them.
   final String? snapPath;
 
   const LabeledCard({
@@ -38,20 +41,114 @@ class LabeledCard extends StatelessWidget {
     return '/${[...segs, snapPath!].join('/')}';
   }
 
-  void _snap(BuildContext context, String op) {
+  void _toast(BuildContext context, String m) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(m), duration: const Duration(seconds: 2)));
+  }
+
+  /// One request/reply against the preset endpoints.
+  Future<List<Object?>?> _call(BuildContext context, String addr,
+      List<Object> args) async {
+    final net = context.read<Network>();
+    final c = Completer<List<Object?>>();
+    void listener(List<Object?> a) {
+      if (!c.isCompleted) c.complete(a);
+    }
+
+    OscRegistry().registerAddress(addr);
+    OscRegistry().registerListener(addr, listener);
+    try {
+      net.sendOscMessage(addr, args);
+      return await c.future.timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      return null;
+    } finally {
+      OscRegistry().unregisterListener(addr, listener);
+    }
+  }
+
+  Future<void> _savePreset(BuildContext context) async {
     final path = _resolveSnapPath(context);
-    context.read<Network>().sendOscMessage('/assets/snapshots/$op', [path]);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$title: $op ${op == 'save' ? 'to' : 'from'} device ($path)'),
-      duration: const Duration(seconds: 2),
-    ));
+    final ctl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Save $title preset'),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          maxLength: 31,
+          decoration: const InputDecoration(hintText: 'preset name'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctl.text.trim()),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty || !context.mounted) return;
+    final r =
+        await _call(context, '/assets/presets/save', [path, name]);
+    if (!context.mounted) return;
+    final n = (r != null && r.length >= 3) ? r[2] as int : -99;
+    _toast(context,
+        n >= 0 ? '$title: saved "$name"' : '$title: save failed ($n)');
+  }
+
+  /// List presets whose path matches this card, then offer a menu.
+  Future<void> _loadPreset(BuildContext context) async {
+    final path = _resolveSnapPath(context);
+    final names = <String>[];
+    final c = await _call(context, '/assets/presets/count', []);
+    final n = (c != null && c.isNotEmpty) ? c[0] as int : 0;
+    for (var i = 0; i < n; i++) {
+      if (!context.mounted) return;
+      final e = await _call(context, '/assets/presets/info', [i]);
+      if (e != null && e.length >= 5 && e[3] == path) {
+        names.add(e[2] as String);
+      }
+    }
+    if (!context.mounted) return;
+    if (names.isEmpty) {
+      _toast(context, '$title: no saved presets');
+      return;
+    }
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Load $title preset'),
+        children: [
+          for (final nm in names)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, nm),
+              child: Text(nm),
+            ),
+        ],
+      ),
+    );
+    if (name == null || !context.mounted) return;
+    final r = await _call(context, '/assets/presets/load', [name]);
+    if (!context.mounted) return;
+    final msgs = (r != null && r.length >= 2) ? r[1] as int : -99;
+    _toast(context,
+        msgs >= 0 ? '$title: loaded "$name"' : '$title: load failed ($msgs)');
+  }
+
+  void _resetPreset(BuildContext context) {
+    final path = _resolveSnapPath(context);
+    context.read<Network>().sendOscMessage('/assets/presets/reset', [path]);
+    _toast(context, '$title: reset to defaults');
   }
 
   Widget _snapIcons(BuildContext context) {
-    Widget btn(IconData icon, String tip, String op) => Tooltip(
+    Widget btn(IconData icon, String tip, VoidCallback onTap) => Tooltip(
           message: tip,
           child: InkWell(
-            onTap: () => _snap(context, op),
+            onTap: onTap,
             borderRadius: BorderRadius.circular(4),
             child: Padding(
               padding: const EdgeInsets.all(3),
@@ -60,9 +157,9 @@ class LabeledCard extends StatelessWidget {
           ),
         );
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      btn(Icons.save_outlined, 'Save snapshot to device', 'save'),
-      btn(Icons.history, 'Load saved snapshot', 'load'),
-      btn(Icons.restart_alt, 'Reset to defaults', 'reset'),
+      btn(Icons.save_outlined, 'Save preset…', () => _savePreset(context)),
+      btn(Icons.history, 'Load preset…', () => _loadPreset(context)),
+      btn(Icons.restart_alt, 'Reset to defaults', () => _resetPreset(context)),
     ]);
   }
 

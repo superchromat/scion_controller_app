@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'asset_upload_ui.dart';
+import 'rotary_knob.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_registry.dart';
@@ -97,25 +98,34 @@ class _SpritePanelState extends State<SpritePanel> {
     );
   }
 
-  Widget _numField(String label, int value, ValueChanged<int> onCh) {
+  bool _shown = false;
+
+  // Live position: knobs drive /assets/sprites/move (position-register-only
+  // update, no bitmap re-stream) so the sprite tracks the knob responsively.
+  void _move() {
+    if (!_shown) return;
+    context
+        .read<Network>()
+        .sendOscMessage('/assets/sprites/move', [_send, _region, _x, _y]);
+  }
+
+  Widget _posKnob(String label, int value, int max, ValueChanged<int> onCh) {
     final t = GridProvider.of(context);
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(label, style: t.textLabel),
-      SizedBox(width: t.xs),
-      SizedBox(
-        width: 64,
-        child: TextFormField(
-          initialValue: '$value',
-          style: t.textLabel.copyWith(color: Colors.white),
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(isDense: true),
-          onChanged: (s) {
-            final v = int.tryParse(s);
-            if (v != null) onCh(v);
-          },
-        ),
-      ),
-    ]);
+    return RotaryKnob(
+      label: label,
+      minValue: 0,
+      maxValue: max.toDouble(),
+      value: value.toDouble(),
+      defaultValue: 200,
+      format: '%d',
+      integerOnly: true,
+      size: t.knobMd,
+      labelStyle: t.textLabel,
+      onChanged: (v) {
+        onCh(v.round());
+        _move();
+      },
+    );
   }
 
   @override
@@ -150,15 +160,17 @@ class _SpritePanelState extends State<SpritePanel> {
           ],
           onChanged: (v) => setState(() => _region = v ?? 2),
         ),
-        _numField('X', _x, (v) => _x = v),
-        _numField('Y', _y, (v) => _y = v),
+        _posKnob('X', _x, 1920, (v) => _x = v),
+        _posKnob('Y', _y, 1080, (v) => _y = v),
         _btn('Show', () {
           context.read<Network>().sendOscMessage(
               '/assets/sprites/show', [_send, _region, _sprite, _x, _y]);
+          _shown = true;
         }, color: const Color(0xFF3A5A3A)),
         _btn('Hide', () {
           context.read<Network>().sendOscMessage(
               '/assets/sprites/hide', [_send, _region]);
+          _shown = false;
         }),
         _btn('↻', _refresh),
         _btn('Upload…', () async {

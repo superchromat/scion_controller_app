@@ -28,26 +28,32 @@ import 'network.dart';
 import 'osc_registry.dart';
 import 'panel.dart';
 
-const _snapSlotsOff = 0xC40000;
-const _snapSlotSize = 0x1000;
-const _confSlotsOff = 0xC80000;
-const _confSlotSize = 0x40000;
-const _confHdrSize = 40; // magic 4 + len 4 + name 32
+// Preset slots: 24 x 16 KB small @ +0xC80000, 12 x 256 KB large @ +0xCE0000.
+// Header: "PRST" + u32 len + name[32] + path[64] = 104 B.
+const _prstSmallOff = 0xC80000;
+const _prstSmallSize = 0x4000;
+const _prstNSmall = 24;
+const _prstLargeOff = 0xCE0000;
+const _prstLargeSize = 0x40000;
+const _prstHdrSize = 104;
 
-enum AssetType { font, sprite, snapshot, config }
+int _prstSlotOff(int i) => i < _prstNSmall
+    ? _prstSmallOff + i * _prstSmallSize
+    : _prstLargeOff + (i - _prstNSmall) * _prstLargeSize;
+int _prstSlotSize(int i) => i < _prstNSmall ? _prstSmallSize : _prstLargeSize;
+
+enum AssetType { font, sprite, preset }
 
 extension on AssetType {
   String get label => switch (this) {
         AssetType.font => 'Font',
         AssetType.sprite => 'Sprite',
-        AssetType.snapshot => 'Snapshot',
-        AssetType.config => 'Config',
+        AssetType.preset => 'Preset',
       };
   IconData get icon => switch (this) {
         AssetType.font => Icons.text_fields,
         AssetType.sprite => Icons.image_outlined,
-        AssetType.snapshot => Icons.bookmark_outline,
-        AssetType.config => Icons.settings_backup_restore,
+        AssetType.preset => Icons.bookmark_outline,
       };
 }
 
@@ -163,26 +169,15 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         files.add(AssetFile(AssetType.sprite, name, len, i, '$w x $h'));
       }
 
-      // snapshots
-      final sc = await nor.call('/assets/snapshots/count', const []);
-      final nSnaps = (sc.isNotEmpty ? sc[0] as int : 0);
-      for (var i = 0; i < nSnaps; i++) {
-        final e = await nor.call('/assets/snapshots/info', [i]);
-        if (e.length >= 4 && (e[1] as int) >= 0) {
-          final path = e[2] as String;
-          files.add(AssetFile(
-              AssetType.snapshot, path, e[3] as int, e[1] as int, path));
-        }
-      }
-
-      // configs
-      final cc = await nor.call('/assets/configs/count', const []);
-      final nConfs = (cc.isNotEmpty ? cc[0] as int : 0);
-      for (var i = 0; i < nConfs; i++) {
-        final e = await nor.call('/assets/configs/info', [i]);
-        if (e.length >= 4 && (e[1] as int) >= 0) {
-          files.add(AssetFile(AssetType.config, e[2] as String, e[3] as int,
-              e[1] as int, 'full system'));
+      // presets — info: (ord, slot, name, path, len)
+      final pc = await nor.call('/assets/presets/count', const []);
+      final nPresets = (pc.isNotEmpty ? pc[0] as int : 0);
+      for (var i = 0; i < nPresets; i++) {
+        final e = await nor.call('/assets/presets/info', [i]);
+        if (e.length >= 5 && (e[1] as int) >= 0) {
+          final path = e[3] as String;
+          files.add(AssetFile(AssetType.preset, e[2] as String, e[4] as int,
+              e[1] as int, path == '/' ? 'full system' : path));
         }
       }
 
@@ -266,16 +261,14 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         sprites[f.index] = SpriteAsset(name, s.w, s.h, s.palette, s.pixels);
         await store.push(sprites);
         break;
-      case AssetType.config:
-        final name = await _nameDialog('Rename config', initial: f.name);
+      case AssetType.preset:
+        final name = await _nameDialog('Rename preset', initial: f.name);
         if (name == null || name.isEmpty || name == f.name) return;
-        final r = await _nor.call('/assets/configs/rename', [f.name, name],
+        final r = await _nor.call('/assets/presets/rename', [f.name, name],
             timeout: const Duration(seconds: 20));
         if (r.length >= 3 && (r[2] as int) != 0) {
           return _toast('rename failed (${r[2]})');
         }
-      case AssetType.snapshot:
-        return; // path-keyed; renaming would orphan it
     }
     _refresh();
   }
@@ -293,10 +286,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
       case AssetType.sprite:
         if (!mounted) return;
         await deleteSpriteFlow(context, f.index);
-      case AssetType.snapshot:
-        await _nor.call('/assets/snapshots/delete', [f.name]);
-      case AssetType.config:
-        await _nor.call('/assets/configs/delete', [f.name],
+      case AssetType.preset:
+        await _nor.call('/assets/presets/delete', [f.name],
             timeout: const Duration(seconds: 20));
     }
     _refresh();
@@ -318,14 +309,10 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         if (f.index >= sprites.length) return;
         bytes = _spriteToPng(sprites[f.index]);
         suggested = '${f.name}.png';
-      case AssetType.snapshot:
-        bytes = await nor.read(
-            _snapSlotsOff + f.index * _snapSlotSize, _snapSlotSize);
-        suggested = '${f.name.replaceAll('/', '_')}.snap';
-      case AssetType.config:
-        bytes = await nor.read(
-            _confSlotsOff + f.index * _confSlotSize, _confHdrSize + f.size);
-        suggested = '${f.name}.sconf';
+      case AssetType.preset:
+        bytes =
+            await nor.read(_prstSlotOff(f.index), _prstHdrSize + f.size);
+        suggested = '${f.name}.spre';
     }
     final path = await FilePicker.platform.saveFile(
         dialogTitle: 'Save ${f.type.label.toLowerCase()}',
@@ -360,24 +347,26 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     return Uint8List.fromList(img.encodePng(out));
   }
 
-  Future<void> _saveConfig() async {
-    final name = await _nameDialog('Save system config as');
+  Future<void> _saveSystemPreset() async {
+    final name = await _nameDialog('Save full-system preset as');
     if (name == null || name.isEmpty) return;
-    final r = await _nor.call('/assets/configs/save', [name],
+    final r = await _nor.call('/assets/presets/save', ['/', name],
         timeout: const Duration(seconds: 60));
-    if (r.length >= 2) {
-      final n = r[1] as int;
+    if (r.length >= 3) {
+      final n = r[2] as int;
       _toast(n >= 0 ? 'saved "$name" ($n bytes)' : 'save failed ($n)');
     }
     _refresh();
   }
 
-  Future<void> _loadConfig(AssetFile f) async {
-    if (!await _confirm(
-        'Load config "${f.name}"?\nThis overwrites the ENTIRE device state.')) {
+  Future<void> _loadPreset(AssetFile f) async {
+    final whole = f.detail == 'full system';
+    if (whole &&
+        !await _confirm(
+            'Load "${f.name}"?\nThis overwrites the ENTIRE device state.')) {
       return;
     }
-    final r = await _nor.call('/assets/configs/load', [f.name],
+    final r = await _nor.call('/assets/presets/load', [f.name],
         timeout: const Duration(seconds: 60));
     if (r.length >= 2) {
       final n = r[1] as int;
@@ -385,22 +374,24 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     }
   }
 
-  Future<void> _uploadConfig() async {
+  Future<void> _uploadPreset() async {
     final pick = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Upload config (.sconf)', withData: true);
+        dialogTitle: 'Upload preset (.spre)', withData: true);
     final data = pick?.files.single.bytes;
-    if (data == null || data.length < _confHdrSize) return;
-    if (String.fromCharCodes(data.sublist(0, 4)) != 'CONF') {
-      return _toast('not a .sconf file');
+    if (data == null || data.length < _prstHdrSize) return;
+    if (String.fromCharCodes(data.sublist(0, 4)) != 'PRST') {
+      return _toast('not a .spre file');
     }
     final name = String.fromCharCodes(
         data.sublist(8, 40).takeWhile((c) => c != 0));
-    // Find this name's slot or the first free one by reading slot headers.
+    // Pick a slot: same-name slot, else first free of the right size class.
     final nor = _nor;
+    final needsLarge = data.length > _prstSmallSize;
     var slot = -1, free = -1;
-    for (var i = 0; i < 8; i++) {
-      final h = await nor.read(_confSlotsOff + i * _confSlotSize, 40);
-      final used = String.fromCharCodes(h.sublist(0, 4)) == 'CONF';
+    for (var i = 0; i < _prstNSmall + 12; i++) {
+      if (needsLarge && i < _prstNSmall) continue;
+      final h = await nor.read(_prstSlotOff(i), 40);
+      final used = String.fromCharCodes(h.sublist(0, 4)) == 'PRST';
       if (used &&
           String.fromCharCodes(h.sublist(8, 40).takeWhile((c) => c != 0)) ==
               name) {
@@ -410,12 +401,11 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
       if (!used && free < 0) free = i;
     }
     if (slot < 0) slot = free;
-    if (slot < 0) return _toast('no free config slot');
-    if (!await _confirm('Upload config "$name" to slot $slot?')) return;
+    if (slot < 0) return _toast('no free preset slot');
+    if (!await _confirm('Upload preset "$name"?')) return;
     await nor.call('/assets/fonts/nor/erase',
-        [_confSlotSize, _confSlotsOff + slot * _confSlotSize]);
-    await nor.writeBlob(_confSlotsOff + slot * _confSlotSize,
-        Uint8List.fromList(data));
+        [_prstSlotSize(slot), _prstSlotOff(slot)]);
+    await nor.writeBlob(_prstSlotOff(slot), Uint8List.fromList(data));
     _toast('uploaded "$name"');
     _refresh();
   }
@@ -448,47 +438,58 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     const colors = {
       'fonts': Color(0xFFC9B066),
       'sprites': Color(0xFF83A6C9),
-      'snapshots': Color(0xFF7FBF7F),
-      'configs': Color(0xFFB07FBF),
+      'presets': Color(0xFF7FBF7F),
     };
+    // One stacked bar across the whole assets partition (16 MB): a segment
+    // per type's USED bytes, remainder = free.
+    const total = 16 * 1024 * 1024;
+    final used = {for (final u in _usage) u.name: u.used};
+    final segs = <(String, int, Color)>[
+      for (final e in colors.entries)
+        if ((used[e.key] ?? 0) > 0) (e.key, used[e.key]!, e.value),
+    ];
+    final sumUsed = segs.fold(0, (a, s) => a + s.$2);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final u in _usage)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: t.xs),
-            child: Row(
-              children: [
-                SizedBox(
-                    width: 90,
-                    child: Text(u.name, style: t.textLabel)),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: Stack(children: [
-                      Container(height: 14, color: scheme.surfaceContainerHighest),
-                      FractionallySizedBox(
-                        widthFactor: u.capacity > 0
-                            ? (u.used / u.capacity).clamp(0.0, 1.0)
-                            : 0,
-                        child: Container(
-                            height: 14,
-                            color: colors[u.name] ?? scheme.primary),
-                      ),
-                    ]),
-                  ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 22,
+            child: Row(children: [
+              for (final (_, sz, col) in segs)
+                Flexible(
+                  flex: (sz * 1000 / total).ceil().clamp(1, 1000000),
+                  child: Container(color: col),
                 ),
-                SizedBox(width: t.sm),
-                SizedBox(
-                  width: 150,
-                  child: Text(
-                    '${_fmtSize(u.used)} / ${_fmtSize(u.capacity)}',
-                    style: t.textLabel,
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
-            ),
+              Flexible(
+                flex: (((total - sumUsed) * 1000) / total).round(),
+                child: Container(color: scheme.surfaceContainerHighest),
+              ),
+            ]),
           ),
+        ),
+        SizedBox(height: t.sm),
+        Wrap(
+          spacing: t.md,
+          runSpacing: t.xs,
+          children: [
+            for (final (name, sz, col) in segs)
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(width: 10, height: 10, color: col),
+                SizedBox(width: t.xs),
+                Text('$name ${_fmtSize(sz)}', style: t.textLabel),
+              ]),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                  width: 10,
+                  height: 10,
+                  color: scheme.surfaceContainerHighest),
+              SizedBox(width: t.xs),
+              Text('free ${_fmtSize(total - sumUsed)}', style: t.textLabel),
+            ]),
+          ],
+        ),
       ],
     );
   }
@@ -540,14 +541,14 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
                 },
               ),
               IconButton(
-                tooltip: 'Upload config (.sconf)',
+                tooltip: 'Upload preset (.spre)',
                 icon: const Icon(Icons.upload_file),
-                onPressed: _uploadConfig,
+                onPressed: _uploadPreset,
               ),
               IconButton(
-                tooltip: 'Save current system config',
+                tooltip: 'Save full-system preset',
                 icon: const Icon(Icons.save_outlined),
-                onPressed: _saveConfig,
+                onPressed: _saveSystemPreset,
               ),
               IconButton(
                 tooltip: 'Refresh',
@@ -591,19 +592,18 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
                             DataCell(Text(_fmtSize(f.size))),
                             DataCell(Text(f.detail)),
                             DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                              if (f.type == AssetType.config)
+                              if (f.type == AssetType.preset)
                                 IconButton(
                                   tooltip: 'Load onto device',
                                   icon: const Icon(Icons.play_arrow, size: 18),
-                                  onPressed: () => _loadConfig(f),
+                                  onPressed: () => _loadPreset(f),
                                 ),
-                              if (f.type != AssetType.snapshot)
-                                IconButton(
-                                  tooltip: 'Rename',
-                                  icon: const Icon(Icons.drive_file_rename_outline,
-                                      size: 18),
-                                  onPressed: () => _rename(f),
-                                ),
+                              IconButton(
+                                tooltip: 'Rename',
+                                icon: const Icon(Icons.drive_file_rename_outline,
+                                    size: 18),
+                                onPressed: () => _rename(f),
+                              ),
                               IconButton(
                                 tooltip: 'Download',
                                 icon: const Icon(Icons.download, size: 18),

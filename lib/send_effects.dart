@@ -5,9 +5,9 @@ import 'osc_dropdown.dart';
 import 'grid.dart';
 
 /// Effect panels for Send 1 (the only send with the warp / uniformity /
-/// GAC hardware). These live as page-level cards; their knobs bind under
-/// the 'glitch' path segment so the firmware endpoint addresses are
-/// unchanged (/send/1/glitch/warp_*, uc_*, gac_*).
+/// GAC hardware). Embedded as sections inside the Shape / Color / Glitch
+/// cards; knob segments are card-relative (shape/warp/*, color/field/*,
+/// glitch/gac/*) under the ambient /send/1 path.
 
 Widget _knob(BuildContext context, String label, String seg, double min,
     double max,
@@ -119,9 +119,7 @@ class WarpAffinePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'glitch',
-      child: _wrap(context, [
+    return _wrap(context, [
         const OscPathSegment(
             segment: 'shape/warp/enable', child: _Toggle(label: 'Enable')),
         _knob(context, 'Key H', 'shape/warp/key_h', -600, 600, bipolar: true),
@@ -131,8 +129,7 @@ class WarpAffinePanel extends StatelessWidget {
         _knob(context, 'Wobble', 'shape/warp/wobble', 0, 200),
         _knob(context, 'Speed', 'shape/warp/speed', -2000, 2000,
             initial: 250, bipolar: true),
-      ]),
-    );
+    ]);
   }
 }
 
@@ -145,9 +142,7 @@ class WarpLutPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'glitch',
-      child: _wrap(context, [
+    return _wrap(context, [
         _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400, bipolar: true),
         _knob(context, 'Zoom', 'shape/warp/zoom', 400, 1600, initial: 1000),
         _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960, bipolar: true),
@@ -159,8 +154,7 @@ class WarpLutPanel extends StatelessWidget {
             const ['Off', 'Ripple', 'Twirl', 'Wave'], width: 90),
         _knob(context, 'F Amp', 'shape/warp/famp', 0, 300),
         _knob(context, 'F Freq', 'shape/warp/ffreq', 50, 1200, initial: 300),
-      ]),
-    );
+    ]);
   }
 }
 
@@ -170,9 +164,7 @@ class ColorFieldPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'glitch',
-      child: _wrap(context, [
+    return _wrap(context, [
         const OscPathSegment(
             segment: 'color/field/enable', child: _Toggle(label: 'Enable')),
         _dropdown('Basis', 'color/field/fx',
@@ -188,8 +180,7 @@ class ColorFieldPanel extends StatelessWidget {
         _knob(context, 'Center Y', 'color/field/cy', 0, 1080, initial: 540),
         _knob(context, 'Res', 'color/field/res', 4, 63, initial: 16),
         _knob(context, 'Bias', 'color/field/bias', 0, 1023, initial: 768),
-      ]),
-    );
+    ]);
   }
 }
 
@@ -199,9 +190,7 @@ class RectCopyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OscPathSegment(
-      segment: 'glitch',
-      child: _wrap(context, [
+    return _wrap(context, [
         const OscPathSegment(
             segment: 'glitch/gac/enable', child: _Toggle(label: 'Enable')),
         _knob(context, 'From X', 'glitch/gac/x', 0, 1912, initial: 896),
@@ -218,7 +207,6 @@ class RectCopyPanel extends StatelessWidget {
             segment: 'glitch/gac/yonly', child: _Toggle(label: 'Y Only')),
         _knob(context, 'Shear In', 'glitch/gac/shear_src', -192, 192, bipolar: true),
         _knob(context, 'Shear Out', 'glitch/gac/shear_dst', -192, 192, bipolar: true),
-      ]),
-    );
+    ]);
   }
 }

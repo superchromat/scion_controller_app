@@ -43,6 +43,19 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     }
   }
 
+  Widget _sectionHeader(BuildContext context, String title) {
+    final t = GridProvider.of(context);
+    return Padding(
+      padding: EdgeInsets.only(top: t.md, bottom: t.sm),
+      child: Row(children: [
+        Text(title,
+            style: t.textLabel.copyWith(fontWeight: FontWeight.w700)),
+        SizedBox(width: t.sm),
+        Expanded(child: Divider(color: Colors.white.withOpacity(0.15))),
+      ]),
+    );
+  }
+
   Widget _resetButton(VoidCallback onPressed) {
     return IconButton(
       icon: Icon(Icons.refresh, size: 18, color: Colors.grey[500]),
@@ -95,8 +108,22 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     child: LabeledCard(
                                       title: 'Shape',
                                       snapPath: 'shape',
-                                      child:
-                                          Shape(pageNumber: widget.pageNumber),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Shape(
+                                              pageNumber: widget.pageNumber),
+                                          if (widget.pageNumber == 1) ...[
+                                            _sectionHeader(context,
+                                                'Warp — Affine'),
+                                            const WarpAffinePanel(),
+                                            _sectionHeader(
+                                                context, 'Warp — LUT'),
+                                            const WarpLutPanel(),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                   (
@@ -117,30 +144,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   ),
                                 ],
                               ),
-                              // Warp engines (Send 1's MFC only). Affine =
-                              // homography, frame-rate animation; LUT =
-                              // free-form distortion, ~8Hz full rewrites.
-                              if (widget.pageNumber == 1) ...[
-                                SizedBox(height: sectionGap),
-                                GridRow(gutter: t.md, cells: [
-                                  (
-                                    span: 5,
-                                    child: const LabeledCard(
-                                      title: 'Warp — Affine',
-                                      snapPath: 'shape/warp',
-                                      child: WarpAffinePanel(),
-                                    ),
-                                  ),
-                                  (
-                                    span: 7,
-                                    child: const LabeledCard(
-                                      title: 'Warp — LUT',
-                                      snapPath: 'shape/warp',
-                                      child: WarpLutPanel(),
-                                    ),
-                                  ),
-                                ]),
-                              ],
                               SizedBox(height: sectionGap),
                               GridRow(gutter: t.md, cells: [
                                 (
@@ -148,52 +151,28 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   child: LabeledCard(
                                     title: 'Color',
                                     snapPath: 'color',
-                                    child: SendColor(
-                                      showGrade: widget.pageNumber == 1,
-                                      gradePath: widget.pageNumber == 1
-                                          ? '/send/${widget.pageNumber}/color/grade'
-                                          : null,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        SendColor(
+                                          showGrade: widget.pageNumber == 1,
+                                          gradePath: widget.pageNumber == 1
+                                              ? '/send/${widget.pageNumber}/color/grade'
+                                              : null,
+                                        ),
+                                        if (widget.pageNumber == 1) ...[
+                                          _sectionHeader(
+                                              context, 'Color Field'),
+                                          const ColorFieldPanel(),
+                                          _sectionHeader(context, 'Posterize'),
+                                          const PosterEditor(),
+                                        ],
+                                      ],
                                     ),
                                   ),
                                 )
                               ]),
-                              // Colour Field + Posterize + Rect Copy exist
-                              // only on Send 1's output hardware.
-                              if (widget.pageNumber == 1) ...[
-                                SizedBox(height: sectionGap),
-                                GridRow(gutter: t.md, cells: [
-                                  (
-                                    span: 12,
-                                    child: const LabeledCard(
-                                      title: 'Color Field',
-                                      snapPath: 'color/field',
-                                      child: ColorFieldPanel(),
-                                    ),
-                                  )
-                                ]),
-                                SizedBox(height: sectionGap),
-                                GridRow(gutter: t.md, cells: [
-                                  (
-                                    span: 12,
-                                    child: const LabeledCard(
-                                      title: 'Posterize',
-                                      snapPath: 'color/poster',
-                                      child: PosterEditor(),
-                                    ),
-                                  )
-                                ]),
-                                SizedBox(height: sectionGap),
-                                GridRow(gutter: t.md, cells: [
-                                  (
-                                    span: 12,
-                                    child: const LabeledCard(
-                                      title: 'Rect Copy',
-                                      snapPath: 'glitch/gac',
-                                      child: RectCopyPanel(),
-                                    ),
-                                  )
-                                ]),
-                              ],
                               SizedBox(height: sectionGap),
                               GridRow(gutter: t.md, cells: [
                                 (
@@ -204,9 +183,20 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     action: _resetButton(() =>
                                         (_glitchKey.currentState as dynamic)
                                             ?.reset()),
-                                    child: SendGlitch(
-                                        key: _glitchKey,
-                                        pageNumber: widget.pageNumber),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        SendGlitch(
+                                            key: _glitchKey,
+                                            pageNumber: widget.pageNumber),
+                                        if (widget.pageNumber == 1) ...[
+                                          _sectionHeader(
+                                              context, 'Rect Copy'),
+                                          const RectCopyPanel(),
+                                        ],
+                                      ],
+                                    ),
                                   ),
                                 )
                               ]),
