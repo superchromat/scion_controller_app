@@ -183,7 +183,12 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
         return OscStatus.ok;
       }
 
-      setValue(newValue, emit: true);
+      // emit:false — a network update reflects device state; it is not user
+      // intent. Emitting here made LinkableKnobPair propagate the linked
+      // axis BACK to the device (echo loop: set scaleX -> app sends scaleY),
+      // which corrupted bench tests and made single-axis scaling impossible
+      // with the app open.
+      setValue(newValue, emit: false);
       return OscStatus.ok;
     }
     return OscStatus.error;
