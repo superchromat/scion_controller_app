@@ -194,14 +194,6 @@ class SpriteStore {
 
 // ------------------------------------------------- sprite conversion -------
 
-List<int> _rgbToYCbCr(int r, int g, int b) {
-  int clamp(int v) => v < 0 ? 0 : (v > 255 ? 255 : v);
-  final y = 16 + (183 * r + 614 * g + 62 * b) ~/ 1000;
-  final cb = 128 + (-101 * r - 339 * g + 439 * b) ~/ 1000;
-  final cr = 128 + (439 * r - 399 * g - 40 * b) ~/ 1000;
-  return [clamp(y), clamp(cb), clamp(cr)];
-}
-
 /// Median-cut quantization of opaque pixels to at most [n] colours.
 /// [rgba] is w*h*4. Returns the palette as a list of [r,g,b].
 List<List<int>> _medianCut(Uint8List rgba, int n) {
@@ -254,18 +246,31 @@ List<List<int>> _medianCut(Uint8List rgba, int n) {
 }
 
 /// Convert RGBA pixels to a SpriteAsset: 15 colours + transparent index 0,
-/// 4bpp packed (high nibble first). Caller must pre-scale to fit
-/// [spriteMaxW] / [spriteMaxBytes] (see fitSpriteSize).
+/// 4bpp packed (high nibble first). Rows are padded to 16-px multiples
+/// (8-byte display pitch — unaligned widths skew). Caller must pre-scale to
+/// fit [spriteMaxW] / [spriteMaxBytes] (see fitSpriteSize).
 SpriteAsset convertSprite(String name, int w, int h, Uint8List rgba) {
+  // Pad width to a 32-px multiple (16-byte display pitch) with transparent
+  // pixels — 16-px padding still skewed on hardware.
+  if (w % 32 != 0) {
+    final pw = w + 32 - w % 32;
+    final padded = Uint8List(pw * h * 4);
+    for (var y = 0; y < h; y++) {
+      padded.setRange(y * pw * 4, y * pw * 4 + w * 4, rgba, y * w * 4);
+    }
+    rgba = padded;
+    w = pw;
+  }
   final pal = _medianCut(rgba, 15);
-  // Palette in MDIN entry order; entry 0 stays transparent (alpha 0).
+  // Display-block palette: RGB, byte order [R, alpha, B, G] in limited-range
+  // values (probed on hardware); entry 0 stays transparent (alpha 0).
+  int lim(int v) => 16 + (v * 219 + 127) ~/ 255;
   final mp = Uint8List(64);
   for (var i = 0; i < pal.length; i++) {
-    final ycc = _rgbToYCbCr(pal[i][0], pal[i][1], pal[i][2]);
-    mp[(i + 1) * 4] = ycc[2]; // Cr
+    mp[(i + 1) * 4] = lim(pal[i][0]); // R
     mp[(i + 1) * 4 + 1] = 255; // alpha
-    mp[(i + 1) * 4 + 2] = ycc[1]; // Cb
-    mp[(i + 1) * 4 + 3] = ycc[0]; // Y
+    mp[(i + 1) * 4 + 2] = lim(pal[i][2]); // B
+    mp[(i + 1) * 4 + 3] = lim(pal[i][1]); // G
   }
   int nearest(int r, int g, int b) {
     var best = 0, bd = 1 << 30;
