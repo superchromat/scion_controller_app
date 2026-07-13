@@ -337,6 +337,30 @@ class _RotationSend3WarningIconState extends State<_RotationSend3WarningIcon> {
 class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<OscRotaryKnobState>();
 
+  // One crop-edge knob (fraction of source removed from that edge, 0..0.5).
+  // Firmware clamps to 0.49/edge and 0.95/axis; crop trims without zooming.
+  Widget _cropKnob(BuildContext context, String edge, String label) {
+    final t = GridProvider.of(context);
+    return OscPathSegment(
+      segment: 'shape/crop/$edge',
+      child: OscRotaryKnob(
+        initialValue: 0.0,
+        minValue: 0.0,
+        maxValue: 0.5,
+        format: '%.3f',
+        label: label,
+        defaultValue: 0.0,
+        size: t.knobMd,
+        labelStyle: t.textLabel,
+        snapConfig: const SnapConfig(
+          snapPoints: [0.0, 0.25, 0.5],
+          snapRegionHalfWidth: 0.01,
+          snapBehavior: SnapBehavior.hard,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
@@ -383,6 +407,33 @@ class ShapeState extends State<Shape> {
                   maxValue: 1.0,
                   snapPoints: const [0.0, 0.5, 1.0],
                   precision: 3,
+                ),
+              ),
+            ),
+          ],
+        ),
+        GridRow(
+          columns: 2,
+          gutter: t.md,
+          cells: [
+            (
+              span: 2,
+              child: Panel(
+                title: 'Crop',
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _cropKnob(context, 'top', 'T'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _cropKnob(context, 'left', 'L'),
+                        SizedBox(width: t.knobMd),
+                        _cropKnob(context, 'right', 'R'),
+                      ],
+                    ),
+                    _cropKnob(context, 'bottom', 'B'),
+                  ],
                 ),
               ),
             ),
