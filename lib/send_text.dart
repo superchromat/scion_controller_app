@@ -10,7 +10,6 @@ import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
 import 'labeled_card.dart';
-import 'sprite_controls.dart';
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -446,13 +445,6 @@ class _SendTextState extends State<SendText> {
           ),
               ]),
             ),
-          ),
-          SizedBox(height: t.sm),
-          // Sprites share the region sprite slots: showing a sprite displaces
-          // that region's text until the region re-renders.
-          Panel.dark(
-            title: 'Sprites',
-            child: const SpritePanel(),
           ),
         ],
       ),

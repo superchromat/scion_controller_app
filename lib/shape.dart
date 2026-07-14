@@ -9,6 +9,12 @@ import 'grid.dart';
 import 'network.dart';
 import 'osc_registry.dart';
 import 'panel.dart';
+import 'shape_canvas.dart';
+import 'send_effects.dart';
+import 'send_text.dart';
+import 'sprite_controls.dart';
+
+const _tabAmber = Color(0xFFF0B830);
 
 class LinkableKnobPair extends StatefulWidget {
   final String label;
@@ -336,9 +342,12 @@ class _RotationSend3WarningIconState extends State<_RotationSend3WarningIcon> {
 
 class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<OscRotaryKnobState>();
+  int _tab = 0; // 0 Transform · 1 Text · 2 Sprites · 3 Color Field
 
-  // One crop-edge knob (fraction of source removed from that edge, 0..0.5).
-  // Firmware clamps to 0.49/edge and 0.95/axis; crop trims without zooming.
+  // One crop-edge knob (fraction of source removed from that edge, 0..0.95).
+  // Firmware clamps to 0.95/edge and 0.95/axis; a single edge can trim down to
+  // a 5% sliver (e.g. left+bottom at 0.95 => a 5% x 5% top-right window). Crop
+  // trims without zooming.
   Widget _cropKnob(BuildContext context, String edge, String label) {
     final t = GridProvider.of(context);
     return OscPathSegment(
@@ -346,14 +355,14 @@ class ShapeState extends State<Shape> {
       child: OscRotaryKnob(
         initialValue: 0.0,
         minValue: 0.0,
-        maxValue: 0.5,
+        maxValue: 0.95,
         format: '%.3f',
         label: label,
         defaultValue: 0.0,
         size: t.knobMd,
         labelStyle: t.textLabel,
         snapConfig: const SnapConfig(
-          snapPoints: [0.0, 0.25, 0.5],
+          snapPoints: [0.0, 0.25, 0.5, 0.75, 0.95],
           snapRegionHalfWidth: 0.01,
           snapBehavior: SnapBehavior.hard,
         ),
@@ -367,6 +376,91 @@ class ShapeState extends State<Shape> {
     // Only show rotation for Send 1 (pageNumber == 1)
     final showRotation = widget.pageNumber == null || widget.pageNumber == 1;
 
+    // Full-width row: the direct-manipulation canvas on the left (always
+    // visible), a tabbed control pane on the right. Transform is the knob set;
+    // the other tabs pull in the text OSD, sprite and uniformity controls.
+    final tabs = <(String, Widget)>[
+      ('Transform', _knobColumn(context, t, showRotation)),
+      ('Text', const SendText()),
+      ('Sprites', Panel.dark(title: 'Sprites', child: const SpritePanel())),
+      if (showRotation)
+        ('Color Field',
+            Panel.dark(title: 'Uniformity', child: const ColorFieldPanel())),
+    ];
+    if (_tab >= tabs.length) _tab = 0;
+
+    return GridRow(
+      columns: 12,
+      gutter: t.md,
+      cells: [
+        (
+          span: 6,
+          child: ShapeCanvas(pageNumber: widget.pageNumber),
+        ),
+        (
+          span: 6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tabBar(context, t, [for (final e in tabs) e.$1]),
+              SizedBox(height: t.sm),
+              // Only the active tab is built — its controls bind/unbind on
+              // switch (OSC state lives in the registry, so they re-seed). The
+              // canvas is outside the tabs, so it stays live regardless. A
+              // floor keeps it from collapsing on the shorter tabs.
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 340),
+                child: tabs[_tab].$2,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tabBar(BuildContext context, GridTokens t, List<String> labels) {
+    // Underline tabs: a full-width rail with a 2px amber indicator under the
+    // active tab, which reads unambiguously as tabs (vs. segmented buttons).
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0x1FFFFFFF), width: 1),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (int i = 0; i < labels.length; i++)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _tab = i),
+              child: Container(
+                padding: EdgeInsets.fromLTRB(t.md, t.sm, t.md, t.sm - 1),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: _tab == i ? _tabAmber : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  labels[i],
+                  style: t.textCaption.copyWith(
+                    color: _tab == i ? Colors.white : const Color(0xFF8A8A92),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _knobColumn(BuildContext context, GridTokens t, bool showRotation) {
     return CardColumn(
       children: [
         GridRow(
@@ -420,19 +514,17 @@ class ShapeState extends State<Shape> {
               span: 2,
               child: Panel(
                 title: 'Crop',
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                // Same left-packed layout/spacing as the warp knob groups so
+                // every knob group shares one padding + gap.
+                child: Wrap(
+                  spacing: t.sm,
+                  runSpacing: t.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _cropKnob(context, 'top', 'T'),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _cropKnob(context, 'left', 'L'),
-                        SizedBox(width: t.knobMd),
-                        _cropKnob(context, 'right', 'R'),
-                      ],
-                    ),
-                    _cropKnob(context, 'bottom', 'B'),
+                    _cropKnob(context, 'left', 'Left'),
+                    _cropKnob(context, 'right', 'Right'),
+                    _cropKnob(context, 'top', 'Top'),
+                    _cropKnob(context, 'bottom', 'Bottom'),
                   ],
                 ),
               ),
@@ -475,6 +567,21 @@ class ShapeState extends State<Shape> {
               (span: 1, child: const SizedBox()),
             ],
           ),
+        // Warp panels (Send 1 only) — each its own dark sub-panel, stacked with
+        // the rest of the knobs to the right of the canvas.
+        // Wrapped in single-cell GridRows so they get the same horizontal grid
+        // inset as Scale/Position/Crop/Rotation (a bare panel would run wider).
+        if (showRotation) ...[
+          GridRow(columns: 2, gutter: t.md, cells: [
+            (span: 2, child: const WarpAffinePanel()),
+          ]),
+          GridRow(columns: 2, gutter: t.md, cells: [
+            (span: 2, child: const WarpLutPanel()),
+          ]),
+          GridRow(columns: 2, gutter: t.md, cells: [
+            (span: 2, child: const WarpAnimationPanel()),
+          ]),
+        ],
       ],
     );
   }

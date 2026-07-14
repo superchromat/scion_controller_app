@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_dropdown.dart';
+import 'rotary_knob.dart';
 import 'grid.dart';
+import 'panel.dart';
 
 /// Effect panels for Send 1 (the only send with the warp / uniformity /
 /// GAC hardware). Embedded as sections inside the Shape / Color / Glitch
@@ -26,6 +28,13 @@ Widget _knob(BuildContext context, String label, String seg, double min,
       preferInteger: true,
       size: t?.knobMd ?? 60,
       labelStyle: t?.textLabel,
+      // Detent at the neutral / 'no effect' default so a knob clicks back to
+      // rest.
+      snapConfig: SnapConfig(
+        snapPoints: [initial],
+        snapRegionHalfWidth: (max - min) * 0.015,
+        snapBehavior: SnapBehavior.hard,
+      ),
     ),
   );
 }
@@ -112,49 +121,69 @@ Widget _wrap(BuildContext context, List<Widget> children) {
 }
 
 /// Affine warp — homography engine: 7 ms updates, animates at frame rate.
-/// Keystone, shear and the corner wobble. Owns Send 1's transform while
-/// enabled (the Shape rotation/scale knobs pause).
+/// Keystone and shear. Owns Send 1's transform while enabled (the Shape
+/// rotation/scale knobs pause). Warp turns on automatically whenever the
+/// matrix is non-neutral and off when it returns to neutral — no toggle.
 class WarpAffinePanel extends StatelessWidget {
   const WarpAffinePanel({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return _wrap(context, [
-        const OscPathSegment(
-            segment: 'shape/warp/enable', child: _Toggle(label: 'Enable')),
+    return Panel(
+      title: 'Keystone',
+      child: _wrap(context, [
         _knob(context, 'Key H', 'shape/warp/key_h', -600, 600, bipolar: true),
         _knob(context, 'Key V', 'shape/warp/key_v', -400, 400, bipolar: true),
-        _knob(context, 'Shear X', 'shape/warp/shear_x', -600, 600, bipolar: true),
-        _knob(context, 'Shear Y', 'shape/warp/shear_y', -400, 400, bipolar: true),
-        _knob(context, 'Wobble', 'shape/warp/wobble', 0, 200),
-        _knob(context, 'Speed', 'shape/warp/speed', -2000, 2000,
-            initial: 250, bipolar: true),
-    ]);
+        _knob(context, 'Shear X', 'shape/warp/shear_x', -600, 600,
+            bipolar: true),
+        _knob(context, 'Shear Y', 'shape/warp/shear_y', -400, 400,
+            bipolar: true),
+      ]),
+    );
   }
 }
 
-/// LUT warp — free-form engine: full LUT rewrite per update (~120 ms, so
-/// animation runs at ~8 Hz). Barrel/lens distortion plus the ripple/twirl/
-/// wave basis fields. Mutually exclusive with the affine family — the
-/// last-touched knob's engine wins.
+/// LUT warp — free-form engine: full LUT rewrite per update (~120 ms).
+/// Barrel/lens distortion. Zoom lives on the Shape Scale knobs, not here.
 class WarpLutPanel extends StatelessWidget {
   const WarpLutPanel({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return _wrap(context, [
+    return Panel(
+      title: 'Lens',
+      child: _wrap(context, [
         _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400, bipolar: true),
-        _knob(context, 'Zoom', 'shape/warp/zoom', 400, 1600, initial: 1000),
         _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960, bipolar: true),
         _knob(context, 'Lens Y', 'shape/warp/lens_y', -540, 540, bipolar: true),
         _knob(context, 'Radius', 'shape/warp/radius', 0, 960),
-        _knob(context, 'Breathe', 'shape/warp/breathe', 0, 300),
-        _knob(context, 'Roam', 'shape/warp/roam', 0, 500),
+      ]),
+    );
+  }
+}
+
+/// Animation — the time-varying warps: the procedural basis field
+/// (ripple/twirl/wave, whose phase advances with Speed) plus the wobble,
+/// breathe and roam amplitudes. All driven by the shared Speed clock.
+class WarpAnimationPanel extends StatelessWidget {
+  const WarpAnimationPanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Panel(
+      title: 'Animation',
+      child: _wrap(context, [
         _dropdown('Field', 'shape/warp/field',
             const ['Off', 'Ripple', 'Twirl', 'Wave'], width: 90),
         _knob(context, 'F Amp', 'shape/warp/famp', 0, 300),
         _knob(context, 'F Freq', 'shape/warp/ffreq', 50, 1200, initial: 300),
-    ]);
+        _knob(context, 'Speed', 'shape/warp/speed', -2000, 2000,
+            initial: 250, bipolar: true),
+        _knob(context, 'Wobble', 'shape/warp/wobble', 0, 200),
+        _knob(context, 'Breathe', 'shape/warp/breathe', 0, 300),
+        _knob(context, 'Roam', 'shape/warp/roam', 0, 500),
+      ]),
+    );
   }
 }
 

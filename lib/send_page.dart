@@ -5,7 +5,6 @@ import 'labeled_card.dart';
 import 'grid.dart';
 import 'shape.dart';
 import 'send_color.dart';
-import 'send_text.dart';
 import 'send_source_selector.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
@@ -101,46 +100,33 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                 )
                               ]),
                               SizedBox(height: sectionGap),
+                              // Shape gets its own full-width row (canvas +
+                              // knobs); Texture and Text move to the next row.
                               GridRow(
                                 gutter: t.md,
                                 cells: [
                                   (
-                                    span: 4,
+                                    span: 12,
                                     child: LabeledCard(
                                       title: 'Shape',
                                       snapPath: 'shape',
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Shape(
-                                              pageNumber: widget.pageNumber),
-                                          if (widget.pageNumber == 1) ...[
-                                            _sectionHeader(context,
-                                                'Warp — Affine'),
-                                            const WarpAffinePanel(),
-                                            _sectionHeader(
-                                                context, 'Warp — LUT'),
-                                            const WarpLutPanel(),
-                                          ],
-                                        ],
-                                      ),
+                                      child: Shape(pageNumber: widget.pageNumber),
                                     ),
                                   ),
+                                ],
+                              ),
+                              SizedBox(height: sectionGap),
+                              // Text + Sprites moved into the Shape card's
+                              // tabbed pane; Texture keeps its own card.
+                              GridRow(
+                                gutter: t.md,
+                                cells: [
                                   (
-                                    span: 4,
+                                    span: 12,
                                     child: LabeledCard(
                                       title: 'Texture',
                                       snapPath: 'texture',
                                       child: const SendTexture(),
-                                    ),
-                                  ),
-                                  (
-                                    span: 4,
-                                    child: LabeledCard(
-                                      title: 'Text',
-                                      snapPath: 'text',
-                                      child: const SendText(),
                                     ),
                                   ),
                                 ],
@@ -165,9 +151,8 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                               : null,
                                         ),
                                         if (widget.pageNumber == 1) ...[
-                                          _sectionHeader(
-                                              context, 'Color Field'),
-                                          const ColorFieldPanel(),
+                                          // Color Field moved into the Shape
+                                          // card's tabbed pane.
                                           _sectionHeader(context, 'Posterize'),
                                           const PosterEditor(),
                                         ],
