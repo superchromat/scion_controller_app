@@ -260,14 +260,17 @@ class _SendTextState extends State<SendText> {
     return OscPathSegment(
       segment: 'text',
       child: CardColumn(
+        spacing: t.sm,
         children: [
-          _regionTabs(context),
-          SizedBox(height: t.sm),
+          // Inset the Region selector to the same grid margin as the panels.
+          GridRow(columns: 1, gutter: t.md, cells: [
+            (span: 1, child: _regionTabs(context)),
+          ]),
           KeyedSubtree(
             key: ValueKey(_region),
             child: OscPathSegment(
               segment: 'region/$_region',
-              child: CardColumn(children: [
+              child: CardColumn(spacing: t.sm, children: [
           GridRow(
             columns: 1,
             gutter: t.md,
@@ -293,7 +296,7 @@ class _SendTextState extends State<SendText> {
             cells: [
               (
                 span: 1,
-                child: Panel.dark(
+                child: Panel(
                   title: 'Font',
                   child: const FontControls(),
                 ),
@@ -306,7 +309,7 @@ class _SendTextState extends State<SendText> {
             cells: [
               (
                 span: 1,
-                child: Panel.dark(
+                child: Panel(
                   title: 'Color',
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -340,7 +343,7 @@ class _SendTextState extends State<SendText> {
               ),
               (
                 span: 1,
-                child: Panel.dark(
+                child: Panel(
                   title: 'Position',
                   child: OscPathSegment(
                     segment: 'pos',
@@ -396,7 +399,7 @@ class _SendTextState extends State<SendText> {
             cells: [
               (
                 span: 1,
-                child: Panel.dark(
+                child: Panel(
                   title: 'Spacing',
                   child: Row(
                     children: [

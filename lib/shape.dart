@@ -15,6 +15,10 @@ import 'send_text.dart';
 import 'sprite_controls.dart';
 
 const _tabAmber = Color(0xFFF0B830);
+// Tabbed-panel surfaces: the active tab and the content pane share _tabPaneBg
+// so they read as one connected shape; inactive tabs are darker (recessed).
+const _tabPaneBg = Color(0xFF26262B);
+const _tabInactiveBg = Color(0xFF16161A);
 
 class LinkableKnobPair extends StatefulWidget {
   final String label;
@@ -380,14 +384,29 @@ class ShapeState extends State<Shape> {
     // visible), a tabbed control pane on the right. Transform is the knob set;
     // the other tabs pull in the text OSD, sprite and uniformity controls.
     final tabs = <(String, Widget)>[
-      ('Transform', _knobColumn(context, t, showRotation)),
+      ('Transform', _transformColumn(context, t)),
+      // Warp (rotation, keystone, lens/LUT) is Send-1 only.
+      if (showRotation) ('Warp', _warpColumn(context, t)),
       ('Text', const SendText()),
-      ('Sprites', Panel.dark(title: 'Sprites', child: const SpritePanel())),
-      if (showRotation)
-        ('Color Field',
-            Panel.dark(title: 'Uniformity', child: const ColorFieldPanel())),
+      // Single-group tabs: the tab pane IS the card, so the content sits
+      // directly in it (grid-inset), not wrapped in another titled panel.
+      ('Sprites', _tabBody(t, const SpritePanel())),
+      if (showRotation) ('Color Field', _tabBody(t, const ColorFieldPanel())),
     ];
     if (_tab >= tabs.length) _tab = 0;
+
+    // Drive the canvas overlay from the active tab: the canvas stays live while
+    // the tabs switch, showing transform handles / text + sprite placeholders /
+    // the colour-field mesh to match whatever is being edited on the right.
+    // Transform and Warp both use the same direct-manipulation handle set.
+    const overlayKeys = {
+      'Transform': 'transform',
+      'Warp': 'transform',
+      'Text': 'text',
+      'Sprites': 'sprites',
+      'Color Field': 'colorField',
+    };
+    final activeOverlay = overlayKeys[tabs[_tab].$1] ?? 'transform';
 
     return GridRow(
       columns: 12,
@@ -395,23 +414,21 @@ class ShapeState extends State<Shape> {
       cells: [
         (
           span: 6,
-          child: ShapeCanvas(pageNumber: widget.pageNumber),
+          child: ShapeCanvas(
+              pageNumber: widget.pageNumber, overlay: activeOverlay),
         ),
         (
           span: 6,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _tabBar(context, t, [for (final e in tabs) e.$1]),
-              SizedBox(height: t.sm),
-              // Only the active tab is built — its controls bind/unbind on
-              // switch (OSC state lives in the registry, so they re-seed). The
-              // canvas is outside the tabs, so it stays live regardless. A
-              // floor keeps it from collapsing on the shorter tabs.
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 340),
-                child: tabs[_tab].$2,
-              ),
+              // One surface holds both the tab row and the content, so the
+              // active tab (transparent) is literally the same paint as the
+              // content below it — real connected tabs. Only the active tab's
+              // content is built (controls bind/unbind on switch; OSC state
+              // lives in the registry, so they re-seed).
+              _tabbedPanel(
+                  context, t, [for (final e in tabs) e.$1], tabs[_tab].$2),
             ],
           ),
         ),
@@ -419,49 +436,112 @@ class ShapeState extends State<Shape> {
     );
   }
 
-  Widget _tabBar(BuildContext context, GridTokens t, List<String> labels) {
-    // Underline tabs: a full-width rail with a 2px amber indicator under the
-    // active tab, which reads unambiguously as tabs (vs. segmented buttons).
+  // A single-surface tabbed panel: one container (`_tabPaneBg`, rounded bottom)
+  // holds both the tab row and the content. The active tab is transparent, so
+  // that surface shows straight through it — it is the *same paint* as the
+  // content, so the join can't look even slightly different. Only inactive tabs
+  // get their own darker fill; they sit lower to read as "behind".
+  Widget _tabbedPanel(
+      BuildContext context, GridTokens t, List<String> labels, Widget content) {
     return Container(
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0x1FFFFFFF), width: 1),
-        ),
+        color: _tabPaneBg,
+        borderRadius: BorderRadius.all(Radius.circular(10)),
+        // Subtle, tight shadow — a heavy one makes the bottom gap read as much
+        // larger than the (equal) top gap between the tabs and first panel.
+        boxShadow: [
+          BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 4)),
+        ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (int i = 0; i < labels.length; i++)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _tab = i),
-              child: Container(
-                padding: EdgeInsets.fromLTRB(t.md, t.sm, t.md, t.sm - 1),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: _tab == i ? _tabAmber : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  labels[i],
-                  style: t.textCaption.copyWith(
-                    color: _tab == i ? Colors.white : const Color(0xFF8A8A92),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (int i = 0; i < labels.length; i++)
+                Expanded(
+                    child: _tabChip(
+                        context, t, labels[i], i, i == labels.length - 1)),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.all(t.sm),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 340),
+              child: content,
             ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _knobColumn(BuildContext context, GridTokens t, bool showRotation) {
+  Widget _tabChip(
+      BuildContext context, GridTokens t, String label, int i, bool last) {
+    final active = _tab == i;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _tab = i),
+      child: Container(
+        // Active tab: transparent (the panel surface reads through it) with a
+        // flat amber top accent, so it merges into the content. Inactive tabs:
+        // their own darker fill, rounded top, nudged down so they read behind.
+        padding: EdgeInsets.symmetric(horizontal: t.xs, vertical: t.sm * 1.05),
+        decoration: BoxDecoration(
+          // Active: a top-lit gradient fading to the *exact* pane colour, so it
+          // is physically raised up top yet merges into the content where they
+          // join. Inactive: a flat darker fill. Tabs are flush with a hairline
+          // groove between them, so the pane surface never peeks above or
+          // between them (that was the artifact).
+          gradient: active
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF35353C), _tabPaneBg],
+                )
+              : null,
+          color: active ? null : _tabInactiveBg,
+          border: Border(
+            top: BorderSide(
+              color: active ? _tabAmber : Colors.white.withValues(alpha: 0.06),
+              width: active ? 2 : 1,
+            ),
+            right: last
+                ? BorderSide.none
+                : BorderSide(color: Colors.black.withValues(alpha: 0.30)),
+          ),
+          // No shadow on the tab — any blur would bleed into the content join
+          // below. The top-lit gradient supplies the raised, physical read.
+        ),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: t.textCaption.copyWith(
+              color: active ? Colors.white : const Color(0xFF7A7A82),
+              fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Inset a single-group tab's content to the same left/right grid margin as
+  // the multi-panel tabs, without wrapping it in another card.
+  Widget _tabBody(GridTokens t, Widget child) =>
+      GridRow(columns: 2, gutter: t.md, cells: [(span: 2, child: child)]);
+
+  // Transform tab — the basic geometry available on every send: scale,
+  // position and crop.
+  Widget _transformColumn(BuildContext context, GridTokens t) {
     return CardColumn(
+      spacing: t.sm,
       children: [
         GridRow(
           columns: 2,
@@ -514,74 +594,70 @@ class ShapeState extends State<Shape> {
               span: 2,
               child: Panel(
                 title: 'Crop',
-                // Same left-packed layout/spacing as the warp knob groups so
-                // every knob group shares one padding + gap.
-                child: Wrap(
-                  spacing: t.sm,
-                  runSpacing: t.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _cropKnob(context, 'left', 'Left'),
-                    _cropKnob(context, 'right', 'Right'),
-                    _cropKnob(context, 'top', 'Top'),
-                    _cropKnob(context, 'bottom', 'Bottom'),
-                  ],
-                ),
+                // Even 4-column grid — one knob per column across the panel —
+                // matching the warp knob groups (via ControlGrid).
+                child: ControlGrid(children: [
+                  _cropKnob(context, 'left', 'Left'),
+                  _cropKnob(context, 'right', 'Right'),
+                  _cropKnob(context, 'top', 'Top'),
+                  _cropKnob(context, 'bottom', 'Bottom'),
+                ]),
               ),
             ),
           ],
         ),
-        if (showRotation)
-          GridRow(
-            columns: 2,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: Panel(
-                  title: 'Rotation',
-                  titleTrailing: const _RotationSend3WarningIcon(),
-                  child: Center(
-                    child: OscPathSegment(
-                      segment: 'shape/rotation',
-                      child: OscRotaryKnob(
-                        key: _rotationKey,
-                        initialValue: 180.0,
-                        minValue: 0.0,
-                        maxValue: 360.0,
-                        format: '%.1f',
-                        label: 'φ',
-                        defaultValue: 180.0,
-                        size: t.knobMd,
-                        labelStyle: t.textLabel,
-                        snapConfig: SnapConfig(
-                          snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
-                          snapRegionHalfWidth: 7.2,
-                          snapBehavior: SnapBehavior.hard,
-                        ),
-                      ),
+      ],
+    );
+  }
+
+  // Warp tab (Send 1 only) — rotation, keystone/shear, and the lens/LUT warp
+  // plus its animation field. Each group is wrapped in a single-cell GridRow so
+  // it gets the same horizontal grid inset as the Transform panels.
+  Widget _warpColumn(BuildContext context, GridTokens t) {
+    return CardColumn(
+      spacing: t.sm,
+      children: [
+        GridRow(columns: 2, gutter: t.md, cells: [
+          (
+            span: 2,
+            child: Panel(
+              title: 'Rotation',
+              titleTrailing: const _RotationSend3WarningIcon(),
+              // Full width with the knob in the first grid column, so φ lines up
+              // with Key H / Barrel / Field in the panels below.
+              child: ControlGrid(children: [
+                OscPathSegment(
+                  segment: 'shape/rotation',
+                  child: OscRotaryKnob(
+                    key: _rotationKey,
+                    initialValue: 180.0,
+                    minValue: 0.0,
+                    maxValue: 360.0,
+                    format: '%.1f',
+                    label: 'φ',
+                    defaultValue: 180.0,
+                    size: t.knobMd,
+                    labelStyle: t.textLabel,
+                    snapConfig: SnapConfig(
+                      snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
+                      snapRegionHalfWidth: 7.2,
+                      snapBehavior: SnapBehavior.hard,
                     ),
                   ),
                 ),
-              ),
-              (span: 1, child: const SizedBox()),
-            ],
+              ]),
+            ),
           ),
-        // Warp panels (Send 1 only) — each its own dark sub-panel, stacked with
-        // the rest of the knobs to the right of the canvas.
-        // Wrapped in single-cell GridRows so they get the same horizontal grid
-        // inset as Scale/Position/Crop/Rotation (a bare panel would run wider).
-        if (showRotation) ...[
-          GridRow(columns: 2, gutter: t.md, cells: [
-            (span: 2, child: const WarpAffinePanel()),
-          ]),
-          GridRow(columns: 2, gutter: t.md, cells: [
-            (span: 2, child: const WarpLutPanel()),
-          ]),
-          GridRow(columns: 2, gutter: t.md, cells: [
-            (span: 2, child: const WarpAnimationPanel()),
-          ]),
-        ],
+        ]),
+        GridRow(columns: 2, gutter: t.md, cells: [
+          (span: 2, child: const WarpAffinePanel()),
+        ]),
+        GridRow(columns: 2, gutter: t.md, cells: [
+          (span: 2, child: const WarpLutPanel()),
+        ]),
+        GridRow(columns: 2, gutter: t.md, cells: [
+          (span: 2, child: const WarpAnimationPanel()),
+        ]),
       ],
     );
   }

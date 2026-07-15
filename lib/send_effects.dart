@@ -111,13 +111,9 @@ class _ToggleState extends State<_Toggle> with OscAddressMixin {
 }
 
 Widget _wrap(BuildContext context, List<Widget> children) {
-  final t = GridProvider.of(context);
-  return Wrap(
-    spacing: t.sm,
-    runSpacing: t.sm,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: children,
-  );
+  // Even 4-column grid so knobs/dropdowns align consistently across panels,
+  // instead of a Wrap that left-packs and leaves the right side empty.
+  return ControlGrid(children: children);
 }
 
 /// Affine warp — homography engine: 7 ms updates, animates at frame rate.

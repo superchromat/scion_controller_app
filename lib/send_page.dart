@@ -9,7 +9,6 @@ import 'send_source_selector.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
 import 'send_glitch.dart';
-import 'poster_editor.dart';
 import 'send_effects.dart';
 import 'color_lut_actions.dart';
 import 'osc_registry.dart';
@@ -140,23 +139,14 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                     snapPath: 'color',
                                     action: ColorLutActions(
                                         sendIndex: widget.pageNumber),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        SendColor(
-                                          showGrade: widget.pageNumber == 1,
-                                          gradePath: widget.pageNumber == 1
-                                              ? '/send/${widget.pageNumber}/color/grade'
-                                              : null,
-                                        ),
-                                        if (widget.pageNumber == 1) ...[
-                                          // Color Field moved into the Shape
-                                          // card's tabbed pane.
-                                          _sectionHeader(context, 'Posterize'),
-                                          const PosterEditor(),
-                                        ],
-                                      ],
+                                    // Posterize now lives inside the LUT editor
+                                    // (the reveal-column tool); Color Field moved
+                                    // to the Shape card's tabbed pane.
+                                    child: SendColor(
+                                      showGrade: widget.pageNumber == 1,
+                                      gradePath: widget.pageNumber == 1
+                                          ? '/send/${widget.pageNumber}/color/grade'
+                                          : null,
                                     ),
                                   ),
                                 )

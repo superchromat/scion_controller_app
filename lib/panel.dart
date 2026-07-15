@@ -126,22 +126,71 @@ class Panel extends StatelessWidget {
   }
 }
 
-/// Arranges children vertically with [GridTokens.md] gaps between them.
-class CardColumn extends StatelessWidget {
+/// Lays fixed-size controls (knobs, dropdowns, toggles) into [cols] even
+/// columns so they align to a consistent grid, wrapping to new rows. Each
+/// control is centred in its cell and scaled down if the cell is narrower than
+/// it — replacing ad-hoc [Wrap]s that left-pack and leave ragged gaps.
+class ControlGrid extends StatelessWidget {
   final List<Widget> children;
+  final int cols;
 
-  const CardColumn({super.key, required this.children});
+  const ControlGrid({super.key, required this.children, this.cols = 4});
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    final rows = <Widget>[];
+    for (int i = 0; i < children.length; i += cols) {
+      rows.add(Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int c = 0; c < cols; c++)
+            Expanded(
+              child: (i + c) < children.length
+                  ? Padding(
+                      padding: EdgeInsets.symmetric(horizontal: t.xs * 0.5),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: children[i + c],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+        ],
+      ));
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int r = 0; r < rows.length; r++) ...[
+          if (r > 0) SizedBox(height: t.sm),
+          rows[r],
+        ],
+      ],
+    );
+  }
+}
+
+/// Arranges children vertically with a gap between them (default [GridTokens.md];
+/// pass [spacing] for a tighter or looser rhythm).
+class CardColumn extends StatelessWidget {
+  final List<Widget> children;
+  final double? spacing;
+
+  const CardColumn({super.key, required this.children, this.spacing});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    final gap = spacing ?? t.md;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (int i = 0; i < children.length; i++) ...[
-          if (i > 0) SizedBox(height: t.md),
+          if (i > 0) SizedBox(height: gap),
           children[i],
         ],
       ],

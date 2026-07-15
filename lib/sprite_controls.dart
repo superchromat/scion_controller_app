@@ -100,13 +100,20 @@ class _SpritePanelState extends State<SpritePanel> {
 
   bool _shown = false;
 
+  // Send + local echo, so the shape canvas (same app instance) can mirror the
+  // sprite as a placeholder box — these commands aren't reflected by the device.
+  void _sendSprite(String addr, List<Object> args) {
+    context.read<Network>().sendOscMessage(addr, args);
+    OscRegistry()
+      ..registerAddress(addr)
+      ..dispatchLocal(addr, args.cast<Object?>());
+  }
+
   // Live position: knobs drive /assets/sprites/move (position-register-only
   // update, no bitmap re-stream) so the sprite tracks the knob responsively.
   void _move() {
     if (!_shown) return;
-    context
-        .read<Network>()
-        .sendOscMessage('/assets/sprites/move', [_send, _region, _x, _y]);
+    _sendSprite('/assets/sprites/move', [_send, _region, _x, _y]);
   }
 
   Widget _posKnob(String label, int value, int max, ValueChanged<int> onCh) {
@@ -163,13 +170,12 @@ class _SpritePanelState extends State<SpritePanel> {
         _posKnob('X', _x, 1920, (v) => _x = v),
         _posKnob('Y', _y, 1080, (v) => _y = v),
         _btn('Show', () {
-          context.read<Network>().sendOscMessage(
+          _sendSprite(
               '/assets/sprites/show', [_send, _region, _sprite, _x, _y]);
           _shown = true;
         }, color: const Color(0xFF3A5A3A)),
         _btn('Hide', () {
-          context.read<Network>().sendOscMessage(
-              '/assets/sprites/hide', [_send, _region]);
+          _sendSprite('/assets/sprites/hide', [_send, _region]);
           _shown = false;
         }),
         _btn('↻', _refresh),

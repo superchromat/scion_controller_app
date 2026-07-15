@@ -2,6 +2,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'monotonic_spline.dart';
 
+// Posterize column geometry, as fractions of the plot's inner width. The curve
+// is drawn in [kPosterPlotFrac] of the width when the column is shown; the
+// editor's hit-testing must use the same fraction so clicks land on points.
+const double kPosterColFrac = 0.07;
+const double kPosterGapFrac = 0.03;
+const double kPosterPlotFrac = 1.0 - kPosterColFrac - kPosterGapFrac;
+
 Color getChannelColor(String channel) {
   switch (channel) {
     case 'R':
@@ -33,6 +40,16 @@ class LUTPainter extends CustomPainter {
   final List<GradeBand> gradeBands;
   final GradeHandle? activeHandle;
 
+  // Posterize column: when [posterMode] is on, the plot narrows and a strip on
+  // the right shows the posterize regions divided by the control points' output
+  // (Y) values. [posterThresholds] are the interior divider levels (0..1, any
+  // order); [posterColors]/[posterTypes] are per band, bottom→top.
+  final bool posterMode;
+  final List<double> posterThresholds;
+  final List<int> posterColors;
+  final List<int> posterTypes;
+  final int? posterSelected;
+
   LUTPainter({
     required this.controlPoints,
     required this.splines,
@@ -41,6 +58,11 @@ class LUTPainter extends CustomPainter {
     required this.insetPadding,
     required this.gradeBands,
     required this.activeHandle,
+    this.posterMode = false,
+    this.posterThresholds = const [],
+    this.posterColors = const [],
+    this.posterTypes = const [],
+    this.posterSelected,
   });
 
   @override
@@ -69,8 +91,11 @@ class LUTPainter extends CustomPainter {
       ..color = const Color(0xFF3BDEFF)
       ..style = PaintingStyle.fill;
 
-    final w = size.width - 2 * insetPadding;
+    final fullW = size.width - 2 * insetPadding;
     final h = size.height - 2 * insetPadding;
+    // `w` is the plot width — narrowed to make room for the posterize column so
+    // all existing plot drawing below just uses the reduced width.
+    final w = posterMode ? fullW * kPosterPlotFrac : fullW;
 
     canvas.translate(insetPadding, insetPadding);
 
@@ -236,6 +261,82 @@ class LUTPainter extends CustomPainter {
       );
     }
 
+    // ── posterize column ────────────────────────────────────────────────────
+    if (posterMode) {
+      final colX = w + fullW * kPosterGapFrac;
+      final colW = fullW * kPosterColFrac;
+      final divs = [...posterThresholds]..sort();
+      final bounds = <double>[0.0, ...divs, 1.0];
+      final nBands = bounds.length - 1;
+
+      // Fill each region (band), bottom → top.
+      for (int b = 0; b < nBands; b++) {
+        final top = (1 - bounds[b + 1]) * h, bot = (1 - bounds[b]) * h;
+        final rect = Rect.fromLTRB(colX, top, colX + colW, bot);
+        final col = (b < posterColors.length) ? posterColors[b] : 0xFFFFFF;
+        final type = (b < posterTypes.length) ? posterTypes[b] : 7;
+        if (type == 0) {
+          // "original" — dark checker so it reads as pass-through
+          canvas.drawRect(rect, Paint()..color = const Color(0xFF202024));
+          final ck = Paint()..color = const Color(0xFF34343A);
+          const cs = 6.0;
+          for (double y = top; y < bot; y += cs) {
+            for (double x = colX; x < colX + colW; x += cs) {
+              if (((x ~/ cs) + (y ~/ cs)).isOdd) {
+                canvas.drawRect(
+                    Rect.fromLTWH(x, y, cs, (y + cs).clamp(top, bot) - y), ck);
+              }
+            }
+          }
+        } else {
+          canvas.drawRect(rect, Paint()..color = Color(0xFF000000 | col));
+          if (type >= 1 && type <= 4) {
+            // zebra hint — diagonal ticks
+            canvas.save();
+            canvas.clipRect(rect);
+            final zp = Paint()..color = Colors.black.withOpacity(0.4)..strokeWidth = 3;
+            for (double x = colX - h; x < colX + colW + h; x += 9) {
+              canvas.drawLine(Offset(x, bot), Offset(x + (bot - top), top), zp);
+            }
+            canvas.restore();
+          }
+        }
+        if (posterSelected == b) {
+          canvas.drawRect(
+              rect.deflate(1),
+              Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 2
+                ..color = Colors.white);
+        }
+      }
+
+      // Column outline.
+      canvas.drawRect(
+          Rect.fromLTWH(colX, 0, colW, h),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = const Color(0x55FFFFFF));
+
+      // Solid divider lines across the column + dotted connectors from each
+      // interior control point to its divider.
+      final solid = Paint()
+        ..color = Colors.white.withOpacity(0.85)
+        ..strokeWidth = 1.2;
+      final dot = Paint()
+        ..color = Colors.white.withOpacity(0.5)
+        ..style = PaintingStyle.fill;
+      for (final y in divs) {
+        final ly = (1 - y) * h;
+        canvas.drawLine(Offset(colX, ly), Offset(colX + colW, ly), solid);
+      }
+      for (final p in controlPoints[selectedChannel]!) {
+        if (p.dx < 0 || p.dy <= 0 || p.dy >= 1) continue; // placeholders + ends
+        final ly = (1 - p.dy) * h;
+        _drawDottedHLine(canvas, p.dx * w, colX, ly, dot);
+      }
+    }
   }
 
   @override
@@ -306,6 +407,15 @@ void _drawFlagHandle(Canvas canvas, Offset tip, double triHeight,
   canvas.drawPath(path, fillPaint);
   canvas.drawRRect(innerRect, Paint()..color = innerColor);
   canvas.drawPath(path, stroke);
+}
+
+void _drawDottedHLine(Canvas canvas, double x0, double x1, double y, Paint paint) {
+  const double dotW = 1.4, dotH = 0.9, gap = 3.0;
+  final lo = min(x0, x1), hi = max(x0, x1);
+  for (double x = lo; x <= hi; x += dotW + gap) {
+    canvas.drawRect(
+        Rect.fromCenter(center: Offset(x, y), width: dotW, height: dotH), paint);
+  }
 }
 
 void _drawDottedLine(Canvas canvas, Offset a, Offset b, Paint paint) {

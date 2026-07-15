@@ -13,6 +13,9 @@ import 'lut_painter.dart';
 import 'osc_registry.dart';
 import 'osc_log.dart';
 import 'app_button.dart';
+import 'oklch_color_picker.dart';
+import 'rotary_knob.dart';
+import 'grid.dart';
 
 enum _GradeParam { shadowLevel, shadowBlend, midLevel, midBlend }
 
@@ -61,6 +64,250 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   GradeHandle? _activeGradeHandle;
 
   bool _didInit = false;
+
+  // ── posterize overlay ───────────────────────────────────────────────────────
+  // Regions are the vertical slabs between the Y-channel control points' output
+  // (Y) values. Band attributes are indexed bottom→top; colour null = default
+  // grayscale ramp so the column is legible before anything is set.
+  bool _poster = false;
+  final List<int> _bandType = List.filled(16, 7); // 7 = solid
+  final List<int?> _bandColor = List.filled(16, null);
+  int? _selBand;
+  // Global zebra geometry (edited from the region dialog).
+  int _zebraW = 2, _zebraRep = 10;
+
+  // Zebra pattern dropdown: label → band type value.
+  static const Map<String, int> _patterns = {
+    'None (solid)': 7,
+    'Zebra ↗': 1,
+    'Zebra ↖': 2,
+    'Zebra —': 3,
+    'Zebra |': 4,
+    'Original': 0,
+  };
+
+  List<double> get _posterTh => controlPoints['Y']!
+      .where((p) => p.dx >= 0 && p.dy > 0 && p.dy < 1)
+      .map((p) => p.dy)
+      .toList()
+    ..sort();
+
+  List<int> _posterColors() {
+    final n = _posterTh.length + 1;
+    return List.generate(n, (b) {
+      final c = _bandColor[b];
+      if (c != null) return c;
+      final g = (n <= 1) ? 255 : (b * 255 ~/ (n - 1));
+      return (g << 16) | (g << 8) | g;
+    });
+  }
+
+  List<int> _posterTypes() =>
+      List.generate(_posterTh.length + 1, (b) => _bandType[b]);
+
+  // Which region a column click landed in (0 = bottom band).
+  void _onPosterColumnTap(Offset local, Size size) {
+    final h = size.height - 2 * insetPadding;
+    final ny = (1.0 - (local.dy - insetPadding) / h).clamp(0.0, 1.0);
+    final bounds = <double>[0.0, ..._posterTh, 1.0];
+    int band = bounds.length - 2;
+    for (int b = 0; b < bounds.length - 1; b++) {
+      if (ny <= bounds[b + 1]) {
+        band = b;
+        break;
+      }
+    }
+    setState(() => _selBand = band);
+    _openRegionDialog(band);
+  }
+
+  Future<void> _openRegionDialog(int band) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) {
+        final t = GridProvider.of(dctx);
+        return StatefulBuilder(builder: (dctx, setD) {
+          final rgb = _bandColor[band] ?? _posterColors()[band];
+          final curColor = Color(0xFF000000 | rgb);
+          final isZebra = _bandType[band] >= 1 && _bandType[band] <= 4;
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E1E22),
+            title: Text('Region ${band + 1}', style: t.textHeading),
+            content: SizedBox(
+              width: 300,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                OklchColorPicker(
+                  initialColor: curColor,
+                  size: 150,
+                  onColorChanged: (c) {
+                    setState(() => _bandColor[band] =
+                        (c.red << 16) | (c.green << 8) | c.blue);
+                    setD(() {});
+                    _pushBand(band);
+                  },
+                ),
+                SizedBox(height: t.md),
+                Row(children: [
+                  Text('Pattern', style: t.textLabel),
+                  SizedBox(width: t.sm),
+                  Expanded(
+                    child: DropdownButton<int>(
+                      value: _bandType[band],
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFF2A2A2E),
+                      style: t.textLabel.copyWith(color: Colors.white),
+                      items: [
+                        for (final e in _patterns.entries)
+                          DropdownMenuItem(value: e.value, child: Text(e.key)),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _bandType[band] = v);
+                        setD(() {});
+                        _pushBand(band);
+                      },
+                    ),
+                  ),
+                ]),
+                SizedBox(height: t.sm),
+                // Global zebra geometry — only editable when this region uses a
+                // zebra pattern; greyed out otherwise.
+                IgnorePointer(
+                  ignoring: !isZebra,
+                  child: Opacity(
+                    opacity: isZebra ? 1.0 : 0.35,
+                    child:
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                      _zebraKnob(t, 'Width', _zebraW.toDouble(), 0, 15,
+                          (v) => setState(() { _zebraW = v.round(); _pushZebra(); })),
+                      _zebraKnob(t, 'Repeat', _zebraRep.toDouble(), 0, 15,
+                          (v) => setState(() { _zebraRep = v.round(); _pushZebra(); })),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(dctx),
+                  child: const Text('Done')),
+            ],
+          );
+        });
+      },
+    );
+    if (mounted) setState(() => _selBand = null);
+  }
+
+  Widget _zebraKnob(GridTokens t, String label, double v, double min, double max,
+          ValueChanged<double> onCh) =>
+      RotaryKnob(
+        label: label,
+        minValue: min,
+        maxValue: max,
+        value: v,
+        defaultValue: v,
+        format: '%.0f',
+        integerOnly: true,
+        size: t.knobMd,
+        labelStyle: t.textLabel,
+        onChanged: onCh,
+      );
+
+  // ── posterize OSC (thresholds follow the control points) ────────────────────
+  void _pushBand(int b) {
+    final cols = _posterColors(), types = _posterTypes();
+    if (b >= cols.length) return;
+    context
+        .read<Network>()
+        .sendOscMessage('/send/1/color/poster/band', [b, types[b], cols[b]]);
+  }
+
+  void _pushZebra() {
+    context
+        .read<Network>()
+        .sendOscMessage('/send/1/color/poster/zebra', [_zebraW, _zebraRep]);
+  }
+
+  // Presets (Gray N / Hue N / Contour N). Keeps existing control points and
+  // adds the rest ON the current spline (so the curve shape is untouched) until
+  // there are enough interior dividers for [nBands] regions, or the 16-point
+  // budget runs out. Then colours each region by the preset's scheme.
+  void _applyPreset(int nBands, int mode) {
+    final pts = controlPoints['Y']!;
+    final spline = splines['Y'];
+    int interior() =>
+        pts.where((p) => p.dx >= 0 && p.dy > 0 && p.dy < 1).length;
+    final target = nBands - 1;
+    final existingX = pts.where((p) => p.dx >= 0).map((p) => p.dx).toList();
+    for (int k = 1; k <= target && interior() < target; k++) {
+      final x = k / (target + 1);
+      if (existingX.any((ex) => (ex - x).abs() < 0.02)) continue;
+      final y = (spline?.evaluate(x) ?? x).clamp(0.0, 1.0);
+      if (y <= 0 || y >= 1) continue;
+      final slot = pts.indexWhere((p) => p.dx < 0);
+      if (slot < 0) break;
+      pts[slot] = Offset(x, y);
+      if (locked) {
+        for (final c in ['R', 'G', 'B']) {
+          controlPoints[c]![slot] = Offset(x, y);
+        }
+      }
+      existingX.add(x);
+    }
+    final n = _posterTh.length + 1;
+    for (int b = 0; b < 16; b++) {
+      final band = (b < n) ? b : n - 1;
+      final lum = (n <= 1) ? 255 : band * 255 ~/ (n - 1);
+      switch (mode) {
+        case 0: // grayscale
+          _bandType[b] = 7;
+          _bandColor[b] = (lum << 16) | (lum << 8) | lum;
+        case 1: // hue ramp
+          _bandType[b] = 7;
+          final h = band * 6 * 255 ~/ (n < 2 ? 2 : n);
+          final seg = h ~/ 255, f = h % 255;
+          int r = 0, g = 0, bl = 0;
+          switch (seg) {
+            case 0: r = 255; g = f;
+            case 1: r = 255 - f; g = 255;
+            case 2: g = 255; bl = f;
+            case 3: g = 255 - f; bl = 255;
+            case 4: r = f; bl = 255;
+            default: r = 255; bl = 255 - f;
+          }
+          _bandColor[b] = (r << 16) | (g << 8) | bl;
+        case 2: // contour (alternate solid / passthrough)
+          _bandType[b] = band.isOdd ? 7 : 0;
+          _bandColor[b] = 0xFFFFFF;
+      }
+    }
+    setState(() {});
+    _rebuildSplines();
+    _sendCurrentChannel();
+    _pushPoster();
+  }
+
+  void _pushPoster() {
+    final net = context.read<Network>();
+    // Band on luma: the regions come from the Y-channel LUT output, so the
+    // hardware must threshold in YCbCr on the Y component.
+    net.sendOscMessage('/send/1/color/poster/domain', [1]); // YCbCr
+    net.sendOscMessage('/send/1/color/poster/comp', [1]); // Y (luma)
+    final divs = _posterTh;
+    for (int i = 0; i < 15; i++) {
+      final v = (i < divs.length) ? (divs[i] * 255).round().clamp(0, 255) : 255;
+      net.sendOscMessage('/send/1/color/poster/th', [i, v]);
+    }
+    final cols = _posterColors(), types = _posterTypes();
+    for (int i = 0; i < 16; i++) {
+      final col = (i < cols.length) ? cols[i] : cols.last;
+      final ty = (i < types.length) ? types[i] : types.last;
+      net.sendOscMessage('/send/1/color/poster/band', [i, ty, col]);
+    }
+    net.sendOscMessage('/send/1/color/poster/zebra', [_zebraW, _zebraRep]);
+    net.sendOscMessage('/send/1/color/poster/enable', [_poster ? 1 : 0]);
+  }
 
   @override
   void initState() {
@@ -274,8 +521,23 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     return null;
   }
 
+  // Inner plot width — narrowed to match the painter when the posterize column
+  // is shown, so screen↔normalized coordinates agree (hit-testing points).
+  double _plotW(Size size) =>
+      (size.width - 2 * insetPadding) * (_poster ? kPosterPlotFrac : 1.0);
+
+  // True when a pointer is to the right of the curve area (the gap + column),
+  // within its vertical band — those clicks must not add or move control points.
+  bool _inPosterColumn(Offset local, Size size) {
+    if (!_poster) return false;
+    final plotRight = insetPadding + (size.width - 2 * insetPadding) * kPosterPlotFrac;
+    final withinV =
+        local.dy >= insetPadding && local.dy <= size.height - insetPadding;
+    return withinV && local.dx > plotRight;
+  }
+
   Offset _normalize(Offset localPos, Size size) {
-    final w = size.width - 2 * insetPadding;
+    final w = _plotW(size);
     final h = size.height - 2 * insetPadding;
     return Offset(
       (localPos.dx - insetPadding) / w,
@@ -358,6 +620,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
       currentControlPointIdx = null;
     });
     _activePointer = null;
+    if (_poster) _pushPoster(); // thresholds moved with the point
   }
 
   void onTapDown(TapDownDetails details, Size size) {
@@ -429,7 +692,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   // --- Grade handles interaction ------------------------------------------------
   bool _startNearestGradeDrag(Offset localPos, Size size) {
     if (widget.gradePath == null) return false;
-    final w = size.width - 2 * insetPadding;
+    final w = _plotW(size);
     final candidates = <({double xNorm, GradeHandle handle})>[
       (xNorm: _shadowLevel, handle: GradeHandle.shadowCenter),
       (xNorm: (_shadowLevel - _shadowBlend).clamp(0.0, 1.0), handle: GradeHandle.shadowBlendLeft),
@@ -457,7 +720,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   GradeHandle? _hitGradeHandle(Offset pos, Size size) {
     if (widget.gradePath == null) return null;
-    final w = size.width - 2 * insetPadding;
+    final w = _plotW(size);
     const handleHeight = 28.0;
     final hitTop = size.height - insetPadding - handleHeight;
     const bottomBand = 80.0; // generous catch zone near the flags
@@ -498,7 +761,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
 
   void _updateGradeDrag(Offset localPos, Size size) {
     if (_activeGradeHandle == null) return;
-    final w = size.width - 2 * insetPadding;
+    final w = _plotW(size);
     final xNorm = ((localPos.dx - insetPadding) / w).clamp(0.0, 1.0);
 
     setState(() {
@@ -554,20 +817,6 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           break;
       }
     });
-  }
-
-  double _maxShadowBlend() {
-    final a = _shadowLevel;
-    final b = _midLevel - _shadowLevel - _minGap;
-    final c = 1 - _shadowLevel;
-    return max(0.0, min(a, min(b, c)));
-  }
-
-  double _maxMidBlend() {
-    final a = _midLevel - _shadowLevel - _minGap;
-    final b = 1 - _midLevel;
-    final c = _midLevel;
-    return max(0.0, min(a, min(b, c)));
   }
 
   void _sendGradeValue(String suffix, double v) {
@@ -654,7 +903,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           child: LayoutBuilder(
             builder: (ctx, constraints) {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
-              return RawGestureDetector(
+              return Stack(clipBehavior: Clip.none, children: [
+                RawGestureDetector(
                 behavior: HitTestBehavior.opaque,
                 gestures: {
                   EagerGestureRecognizer:
@@ -669,6 +919,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   onPointerDown: (event) {
                     if (_activePointer != null) return;
                     _activePointer = event.pointer;
+                    // Clicks in the posterize column/gap select a region (dialog
+                    // wired next); they must never touch the LUT control points.
+                    if (_inPosterColumn(event.localPosition, size)) {
+                      _onPosterColumnTap(event.localPosition, size);
+                      return;
+                    }
                     // Only if BELOW the plot (y > 0 line) do we grab grade handles.
                     final belowGraph =
                         event.localPosition.dy >= size.height - insetPadding;
@@ -736,15 +992,192 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                               ]
                             : const [],
                         activeHandle: _activeGradeHandle,
+                        posterMode: _poster,
+                        posterThresholds: _posterTh,
+                        posterColors: _posterColors(),
+                        posterTypes: _posterTypes(),
+                        posterSelected: _selBand,
                       ),
                     ),
                   ),
                 ),
-              );
+                ),
+                _posterButton(),
+              ]);
             },
           ),
         ),
       ],
+    );
+  }
+
+  // Small reveal control tucked in the plot's bottom-right corner. (Scaffold:
+  // a plain toggle; the press-drag preset dropdown comes next.)
+  Widget _posterButton() {
+    return Positioned(
+      right: insetPadding + 6,
+      bottom: insetPadding + 6,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _poster ? const Color(0xFFF0B830) : const Color(0xFF212124),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          // Tap the label to reveal/hide the column.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() => _poster = !_poster);
+              _pushPoster();
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 5, 4, 5),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.view_column_outlined,
+                    size: 15,
+                    color: _poster ? Colors.black : const Color(0xFF9A9AA2)),
+                const SizedBox(width: 5),
+                Text('Poster',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _poster ? Colors.black : const Color(0xFF9A9AA2))),
+              ]),
+            ),
+          ),
+          // Caret: press-and-drag to pick a preset (Warp-style). The list
+          // extends UP so it stays on-screen — the button sits at the bottom.
+          _PresetDragButton(
+            color: _poster ? Colors.black : const Color(0xFF9A9AA2),
+            onPick: (n, mode) {
+              if (!_poster) setState(() => _poster = true);
+              _applyPreset(n, mode);
+            },
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Press-and-drag preset picker (Warp-button style). The menu opens *upward*
+/// from the trigger, so it stays on-screen when the trigger sits at the bottom
+/// of the chart. Drag onto an item and release to pick.
+class _PresetDragButton extends StatefulWidget {
+  final void Function(int n, int mode) onPick;
+  final Color color;
+  const _PresetDragButton({required this.onPick, required this.color});
+
+  @override
+  State<_PresetDragButton> createState() => _PresetDragButtonState();
+}
+
+class _PresetDragButtonState extends State<_PresetDragButton> {
+  static const List<({String label, int n, int mode})> _presets = [
+    (label: 'Gray 6', n: 6, mode: 0),
+    (label: 'Hue 8', n: 8, mode: 1),
+    (label: 'Contour 8', n: 8, mode: 2),
+    (label: 'Gray 16', n: 16, mode: 0),
+  ];
+  static const double _ih = 30, _menuW = 116;
+  final _key = GlobalKey();
+  OverlayEntry? _entry;
+  int _hover = -1;
+  Rect _menu = Rect.zero;
+
+  void _open() {
+    final box = _key.currentContext!.findRenderObject() as RenderBox;
+    final tl = box.localToGlobal(Offset.zero);
+    final menuH = _presets.length * _ih;
+    _menu = Rect.fromLTWH(tl.dx + box.size.width - _menuW,
+        tl.dy - menuH - 4, _menuW, menuH); // above the trigger
+    _hover = -1;
+    _entry = OverlayEntry(builder: (_) => _build());
+    Overlay.of(context).insert(_entry!);
+  }
+
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+    _hover = -1;
+  }
+
+  int _at(Offset g) {
+    if (!_menu.inflate(8).contains(g)) return -1;
+    final i = ((g.dy - _menu.top) / _ih).floor();
+    return (i >= 0 && i < _presets.length) ? i : -1;
+  }
+
+  Widget _build() {
+    return Positioned(
+      left: _menu.left,
+      top: _menu.top,
+      width: _menu.width,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2E),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45), blurRadius: 14),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            for (int i = 0; i < _presets.length; i++)
+              Container(
+                height: _ih,
+                width: double.infinity,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                color: i == _hover
+                    ? const Color(0xFFF0B830)
+                    : Colors.transparent,
+                child: Text(_presets[i].label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: i == _hover ? Colors.black : Colors.white)),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _entry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _open(),
+      onPointerMove: (e) {
+        final i = _at(e.position);
+        if (i != _hover) {
+          _hover = i;
+          _entry?.markNeedsBuild();
+        }
+      },
+      onPointerUp: (_) {
+        if (_hover >= 0) {
+          final p = _presets[_hover];
+          widget.onPick(p.n, p.mode);
+        }
+        _close();
+      },
+      child: Container(
+        key: _key,
+        padding: const EdgeInsets.only(right: 4),
+        child: Icon(Icons.arrow_drop_up, size: 18, color: widget.color),
+      ),
     );
   }
 }
