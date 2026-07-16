@@ -56,6 +56,10 @@ class _SpritePanelState extends State<SpritePanel> {
   // Remember which region was selected per send, so returning to the tab lands
   // on the same layer rather than snapping back to region 2.
   static final Map<int, int> _regionBySend = {};
+  // Which palette index (if any) is driven by the "copper bars" per-scanline
+  // rainbow, keyed by send/region. The device has one copper target, so only
+  // the most-recently-enabled entry actually rainbows on hardware.
+  static final Map<String, int> _copperOf = {};
 
   // The selected sprite's 16-entry palette (each entry [R, alpha, B, G] in
   // limited range, entry 0 = transparent), read from NOR for display/editing.
@@ -66,6 +70,7 @@ class _SpritePanelState extends State<SpritePanel> {
   String get _rk => '$_send/$_region';
   int get _sprite => _spriteOf[_rk] ?? 0;
   bool get _live => _liveOf[_rk] ?? false;
+  int? get _copper => _copperOf[_rk];
   int get _x => _xOf[_rk] ?? 200;
   int get _y => _yOf[_rk] ?? 200;
 
@@ -274,6 +279,25 @@ class _SpritePanelState extends State<SpritePanel> {
         .sendOscMessage('/assets/sprites/palette', [_send, _region, p]);
   }
 
+  // Toggle the per-scanline "copper bars" rainbow on palette entry `i`. The
+  // device drives one entry per line from the HS-capture ISR, so only that
+  // colour animates. Turning it off (or moving it to another entry) re-pushes
+  // the stored palette so the entry snaps back to its real colour.
+  void _setCopper(int i, bool on) {
+    final net = context.read<Network>();
+    final prev = _copper;
+    if (on) {
+      _copperOf[_rk] = i;
+      net.sendOscMessage('/assets/sprites/copper', [_send, _region, i, 1]);
+    } else {
+      _copperOf.remove(_rk);
+      net.sendOscMessage('/assets/sprites/copper', [_send, _region, i, 0]);
+    }
+    // Restore the real colours of any entry we just released.
+    if (!on || (prev != null && prev != i)) _pushPaletteLive();
+    setState(() {});
+  }
+
   void _applySwatch(int i, Color color, int alpha) {
     final p = _palette;
     if (p == null || i * 4 + 3 >= p.length) return;
@@ -347,6 +371,20 @@ class _SpritePanelState extends State<SpritePanel> {
                   ),
                   Text('${(alpha * 100 / 255).round()}%', style: t.textCaption),
                 ]),
+                SizedBox(height: t.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: AppButton(
+                    icon: Icons.gradient,
+                    label: _copper == i ? 'Copper on' : 'Copper',
+                    selected: _copper == i,
+                    accentColor: const Color(0xFF7A5CFF),
+                    onPressed: () {
+                      _setCopper(i, _copper != i);
+                      setD(() {});
+                    },
+                  ),
+                ),
               ]),
             ),
             actions: [
@@ -383,7 +421,12 @@ class _SpritePanelState extends State<SpritePanel> {
                     Container(
                       decoration: BoxDecoration(
                         color: _swatchColor(i),
-                        border: Border.all(color: Colors.white24),
+                        border: Border.all(
+                          color: _copper == i
+                              ? const Color(0xFF7A5CFF)
+                              : Colors.white24,
+                          width: _copper == i ? 2 : 1,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
