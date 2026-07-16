@@ -469,10 +469,10 @@ class ShapeState extends State<Shape> {
           Padding(
             padding: EdgeInsets.all(t.sm),
             child: ConstrainedBox(
-              // Floor set above the tallest tab's content (Text ≈ 33u) so every
+              // Floor set above the tallest tab's content (Warp ≈ 35u) so every
               // tab pane is the same height — switching tabs doesn't resize the
               // card. u-relative so it tracks the window width.
-              constraints: BoxConstraints(minHeight: t.u * 34),
+              constraints: BoxConstraints(minHeight: t.u * 36),
               child: content,
             ),
           ),
@@ -525,6 +525,7 @@ class ShapeState extends State<Shape> {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: t.textCaption.copyWith(
+              fontSize: t.u * 1.15,
               color: active ? Colors.white : const Color(0xFF7A7A82),
               fontWeight: active ? FontWeight.w700 : FontWeight.w600,
               letterSpacing: 0.2,

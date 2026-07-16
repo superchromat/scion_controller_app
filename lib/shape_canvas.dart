@@ -707,14 +707,27 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     });
   }
 
+  DateTime _lastTextSend = DateTime.fromMillisecondsSinceEpoch(0);
+
+  void _sendTextPos(int i, double nx, double ny) {
+    _send('text/region/${i + 1}/pos/x', [nx.round()]);
+    _send('text/region/${i + 1}/pos/y', [ny.round()]);
+  }
+
   void _textUpdate(Offset p) {
     if (_drag == null || !_drag!.startsWith('t')) return;
     final i = int.parse(_drag!.substring(1));
     final nx = (_px0 + (p.dx - _p0.dx) / _size.width * _outW).clamp(0.0, 3840.0);
     final ny = (_py0 + (p.dy - _p0.dy) / _size.height * _outH).clamp(0.0, 2160.0);
+    // Local UI tracks the pointer every frame; the device update is throttled
+    // to ~30 Hz (each send is 2 msgs + a local echo) and the final position is
+    // flushed on release, so dragging stays smooth without flooding the device.
     setState(() { _txtX[i] = nx; _txtY[i] = ny; });
-    _send('text/region/${i + 1}/pos/x', [nx.round()]);
-    _send('text/region/${i + 1}/pos/y', [ny.round()]);
+    final now = DateTime.now();
+    if (now.difference(_lastTextSend).inMilliseconds >= 33) {
+      _lastTextSend = now;
+      _sendTextPos(i, nx, ny);
+    }
   }
 
   void _spriteStart(Offset p) {
@@ -795,7 +808,16 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
                   behavior: HitTestBehavior.opaque,
                   onPanStart: (dg) => _panStart(dg.localPosition - _stageOffset),
                   onPanUpdate: (dg) => _panUpdate(dg.localPosition - _stageOffset),
-                  onPanEnd: (_) => setState(() => _drag = null),
+                  onPanEnd: (_) {
+                    // Make sure the final (possibly throttled-away) text
+                    // position lands on the device.
+                    final d = _drag;
+                    if (d != null && d.startsWith('t')) {
+                      final i = int.parse(d.substring(1));
+                      _sendTextPos(i, _txtX[i], _txtY[i]);
+                    }
+                    setState(() => _drag = null);
+                  },
                   child: CustomPaint(
                       painter: _ShapePainter(this,
                           isTransform ? (_drag ?? (_hover == null ? null : _hit(_hover!))) : null)),

@@ -181,6 +181,33 @@ class SpriteStore {
     return out;
   }
 
+  /// Read just one sprite's 64-byte palette (no pixel data) — cheap enough to
+  /// call whenever the selected sprite changes.
+  Future<Uint8List?> fetchPalette(int index) async {
+    final hdr = await nor.read(sprtBase, 12);
+    if (hdr.length < 12 ||
+        String.fromCharCodes(hdr.sublist(0, 4)) != 'SPRT' ||
+        hdr[4] != 1) {
+      return null;
+    }
+    final count = ByteData.sublistView(hdr).getUint16(6, Endian.little);
+    if (index < 0 || index >= count) return null;
+    final pal = await nor.read(sprtBase + 12 + index * 96 + 28, 64);
+    return pal.length >= 64 ? Uint8List.fromList(pal.sublist(0, 64)) : null;
+  }
+
+  /// Persist an edited palette for sprite [index] by rewriting the whole store
+  /// (the NOR transport erases + rewrites the SPRT blob; pixel data is carried
+  /// through unchanged).
+  Future<void> savePalette(int index, Uint8List palette,
+      {void Function(double)? onProgress}) async {
+    final sprites = await fetch();
+    if (index < 0 || index >= sprites.length) return;
+    final s = sprites[index];
+    sprites[index] = SpriteAsset(s.name, s.w, s.h, palette, s.pixels);
+    await push(sprites, onProgress: onProgress);
+  }
+
   Uint8List buildBlob(List<SpriteAsset> sprites) {
     final body = BytesBuilder();
     final dir = BytesBuilder();

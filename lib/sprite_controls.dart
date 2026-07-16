@@ -5,8 +5,11 @@
 // the NOR sprite store in-app (asset_upload_ui.dart); spritectl.py is the CLI.
 
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'asset_upload_ui.dart';
+import 'asset_store.dart';
+import 'oklch_color_picker.dart';
 import 'rotary_knob.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
@@ -43,16 +46,28 @@ class _SpritePanelState extends State<SpritePanel> {
   bool _wired = false;
 
   // Per-region state, so switching the region chip reflects that layer's own
-  // sprite / position / on-air.
-  final Map<int, int> _spriteOf = {};
-  final Map<int, bool> _liveOf = {};
-  final Map<int, int> _xOf = {};
-  final Map<int, int> _yOf = {};
+  // sprite / position / on-air. Static + keyed by send/region so it survives
+  // this panel being disposed and rebuilt on a tab switch — the device has no
+  // "what's in region N" query to restore from, so we hold it here.
+  static final Map<String, int> _spriteOf = {};
+  static final Map<String, bool> _liveOf = {};
+  static final Map<String, int> _xOf = {};
+  static final Map<String, int> _yOf = {};
+  // Remember which region was selected per send, so returning to the tab lands
+  // on the same layer rather than snapping back to region 2.
+  static final Map<int, int> _regionBySend = {};
 
-  int get _sprite => _spriteOf[_region] ?? 0;
-  bool get _live => _liveOf[_region] ?? false;
-  int get _x => _xOf[_region] ?? 200;
-  int get _y => _yOf[_region] ?? 200;
+  // The selected sprite's 16-entry palette (each entry [R, alpha, B, G] in
+  // limited range, entry 0 = transparent), read from NOR for display/editing.
+  Uint8List? _palette;
+  int? _palLoadedFor;
+  bool _palLoading = false;
+
+  String get _rk => '$_send/$_region';
+  int get _sprite => _spriteOf[_rk] ?? 0;
+  bool get _live => _liveOf[_rk] ?? false;
+  int get _x => _xOf[_rk] ?? 200;
+  int get _y => _yOf[_rk] ?? 200;
 
   @override
   void didChangeDependencies() {
@@ -63,6 +78,7 @@ class _SpritePanelState extends State<SpritePanel> {
     final joined = segs.join('/');
     final m = RegExp(r'send/(\d)').firstMatch(joined);
     if (m != null) _send = int.parse(m.group(1)!);
+    _region = _regionBySend[_send] ?? 2;
     OscRegistry().registerAddress('/assets/sprites/count');
     OscRegistry().registerListener('/assets/sprites/count', _onCount);
     OscRegistry().registerAddress('/assets/sprites/info');
@@ -164,13 +180,13 @@ class _SpritePanelState extends State<SpritePanel> {
       _sendSprite('/assets/sprites/show', [_send, _region, _sprite, _x, _y]);
 
   void _selectSprite(int v) {
-    setState(() => _spriteOf[_region] = v);
+    setState(() => _spriteOf[_rk] = v);
     if (_live) _pushShow();
   }
 
   void _toggleLive() {
     final now = !_live;
-    setState(() => _liveOf[_region] = now);
+    setState(() => _liveOf[_rk] = now);
     if (now) {
       _pushShow();
     } else {
@@ -179,12 +195,12 @@ class _SpritePanelState extends State<SpritePanel> {
   }
 
   void _setX(int v) {
-    setState(() => _xOf[_region] = v);
+    setState(() => _xOf[_rk] = v);
     if (_live) _sendSprite('/assets/sprites/move', [_send, _region, _x, _y]);
   }
 
   void _setY(int v) {
-    setState(() => _yOf[_region] = v);
+    setState(() => _yOf[_rk] = v);
     if (_live) _sendSprite('/assets/sprites/move', [_send, _region, _x, _y]);
   }
 
@@ -216,10 +232,177 @@ class _SpritePanelState extends State<SpritePanel> {
     }
   }
 
+  // ── Palette ────────────────────────────────────────────────────────────────
+  // Limited-range (16..235) <-> full-range (0..255) per channel, matching the
+  // device/upload convention (lim(v) = 16 + (v*219+127)/255).
+  static int _lim(int v) => 16 + (v.clamp(0, 255) * 219 + 127) ~/ 255;
+  static int _full(int v) => (((v - 16) * 255) / 219).round().clamp(0, 255);
+
+  Color _swatchColor(int i) {
+    final p = _palette;
+    if (p == null || i * 4 + 3 >= p.length) return const Color(0x00000000);
+    return Color.fromARGB(
+        p[i * 4 + 1], _full(p[i * 4]), _full(p[i * 4 + 3]), _full(p[i * 4 + 2]));
+  }
+
+  // Load the selected sprite's palette from NOR (cheap — palette bytes only).
+  void _ensurePalette() {
+    if (_names.isEmpty || _palLoading) return;
+    if (_palLoadedFor == _sprite && _palette != null) return;
+    _palLoading = true;
+    final idx = _sprite;
+    SpriteStore(NorClient(context.read<Network>()))
+        .fetchPalette(idx)
+        .then((pal) {
+      if (!mounted) return;
+      setState(() {
+        _palette = pal;
+        _palLoadedFor = idx;
+        _palLoading = false;
+      });
+    }).catchError((_) {
+      if (mounted) _palLoading = false;
+    });
+  }
+
+  // Live-recolour the shown region (no bitmap re-stream) — instant preview.
+  void _pushPaletteLive() {
+    final p = _palette;
+    if (p == null || !_live) return;
+    context
+        .read<Network>()
+        .sendOscMessage('/assets/sprites/palette', [_send, _region, p]);
+  }
+
+  void _applySwatch(int i, Color color, int alpha) {
+    final p = _palette;
+    if (p == null || i * 4 + 3 >= p.length) return;
+    p[i * 4] = _lim(color.red);
+    p[i * 4 + 1] = alpha.clamp(0, 255);
+    p[i * 4 + 2] = _lim(color.blue);
+    p[i * 4 + 3] = _lim(color.green);
+    setState(() {});
+    _pushPaletteLive();
+  }
+
+  Future<void> _persistPalette() async {
+    final p = _palette;
+    final idx = _palLoadedFor;
+    if (p == null || idx == null) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(const SnackBar(
+        duration: Duration(seconds: 2), content: Text('Saving palette…')));
+    try {
+      await SpriteStore(NorClient(context.read<Network>()))
+          .savePalette(idx, Uint8List.fromList(p));
+      messenger?.showSnackBar(const SnackBar(
+          duration: Duration(milliseconds: 900),
+          content: Text('Palette saved')));
+    } catch (_) {
+      messenger?.showSnackBar(const SnackBar(
+          duration: Duration(seconds: 2), content: Text('Palette save failed')));
+    }
+  }
+
+  Future<void> _editSwatch(int i) async {
+    final p = _palette;
+    if (p == null || i * 4 + 3 >= p.length) return;
+    Color color =
+        Color.fromARGB(255, _full(p[i * 4]), _full(p[i * 4 + 3]), _full(p[i * 4 + 2]));
+    int alpha = p[i * 4 + 1];
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) {
+        final t = GridProvider.of(dctx);
+        return StatefulBuilder(builder: (dctx, setD) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E1E22),
+            title: Text('Palette colour $i', style: t.textHeading),
+            content: SizedBox(
+              width: 300,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                OklchColorPicker(
+                  initialColor: color,
+                  size: 150,
+                  onColorChanged: (c) {
+                    color = Color.fromARGB(255, c.red, c.green, c.blue);
+                    _applySwatch(i, color, alpha);
+                    setD(() {});
+                  },
+                ),
+                SizedBox(height: t.md),
+                Row(children: [
+                  Text('Opacity', style: t.textLabel),
+                  Expanded(
+                    child: Slider(
+                      value: alpha.toDouble(),
+                      min: 0,
+                      max: 255,
+                      onChanged: (v) {
+                        alpha = v.round();
+                        _applySwatch(i, color, alpha);
+                        setD(() {});
+                      },
+                    ),
+                  ),
+                  Text('${(alpha * 100 / 255).round()}%', style: t.textCaption),
+                ]),
+              ]),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(dctx),
+                  child: const Text('Done')),
+            ],
+          );
+        });
+      },
+    );
+    if (mounted) _persistPalette();
+  }
+
+  Widget _paletteStrip(GridTokens t) {
+    final sw = t.u * 2.1;
+    return Wrap(
+      spacing: t.xs,
+      runSpacing: t.xs,
+      children: [
+        // Entry 0 is the transparent key; edit the 15 colour entries.
+        for (int i = 1; i < 16; i++)
+          GestureDetector(
+            onTap: () => _editSwatch(i),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                width: sw,
+                height: sw,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomPaint(painter: _CheckerPainter()),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _swatchColor(i),
+                        border: Border.all(color: Colors.white24),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _regionChip(GridTokens t, int r) {
     final sel = _region == r;
     return GestureDetector(
-      onTap: () => setState(() => _region = r),
+      onTap: () => setState(() {
+        _region = r;
+        _regionBySend[_send] = r;
+      }),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
         decoration: BoxDecoration(
@@ -264,9 +447,12 @@ class _SpritePanelState extends State<SpritePanel> {
     final t = GridProvider.of(context);
     final has = _names.isNotEmpty;
     final spriteIdx = has ? _sprite.clamp(0, _names.length - 1) : 0;
+    if (has) _ensurePalette();
 
+    // gutter: t.md matches the Text tab's grid inset (the default would be lg,
+    // which pushes the sprite content ~6px further right than the other tabs).
     Widget cell(Widget child) =>
-        GridRow(columns: 1, cells: [(span: 1, child: child)]);
+        GridRow(columns: 1, gutter: t.md, cells: [(span: 1, child: child)]);
 
     return CardColumn(
       spacing: t.md,
@@ -317,15 +503,21 @@ class _SpritePanelState extends State<SpritePanel> {
             ),
           ),
         )),
+        // Palette: the selected sprite's 16 colours; tap a swatch to edit its
+        // colour + opacity (live on the output when On Air).
+        if (has && _palette != null)
+          cell(Panel(
+            title: 'Palette',
+            child: _body(t, _paletteStrip(t)),
+          )),
         // Position (fine-tune; canvas drag is primary) and Library share a row,
         // half each — both secondary. Keyed so the knobs reset to the selected
         // region's own x/y when the region changes.
         KeyedSubtree(
             key: ValueKey(_region),
-            // No explicit gutter → same (lg) gutter as the single-cell rows
-            // above, so these two panels' outer edges align with the Sprite
-            // panel's edges.
-            child: GridRow(columns: 2, cells: [
+            // Same md gutter as the single-cell rows above, so these two panels'
+            // outer edges align with the Sprite panel and match the Text tab.
+            child: GridRow(columns: 2, gutter: t.md, cells: [
           (
             span: 1,
             child: Panel(
@@ -367,4 +559,24 @@ class _SpritePanelState extends State<SpritePanel> {
       ],
     );
   }
+}
+
+// Small transparency checkerboard drawn behind palette swatches so per-entry
+// opacity reads at a glance.
+class _CheckerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const cs = 5.0;
+    final light = Paint()..color = const Color(0xFFB4B4B8);
+    final dark = Paint()..color = const Color(0xFF6E6E74);
+    for (double y = 0; y < size.height; y += cs) {
+      for (double x = 0; x < size.width; x += cs) {
+        final even = ((x ~/ cs) + (y ~/ cs)).isEven;
+        canvas.drawRect(Rect.fromLTWH(x, y, cs, cs), even ? light : dark);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

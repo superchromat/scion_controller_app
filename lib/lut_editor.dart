@@ -19,11 +19,11 @@ import 'grid.dart';
 
 enum _GradeParam { shadowLevel, shadowBlend, midLevel, midBlend }
 
-
 /// A LUT editor widget with two-way OSC binding per channel.
 class LUTEditor extends StatefulWidget {
   /// Maximum number of control points per channel (including placeholders).
   final int maxControlPoints;
+
   /// Optional grade base path (e.g., "/send/1/grade") for level/blend lines UI.
   final String? gradePath;
 
@@ -176,13 +176,30 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   ignoring: !isZebra,
                   child: Opacity(
                     opacity: isZebra ? 1.0 : 0.35,
-                    child:
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                      _zebraKnob(t, 'Width', _zebraW.toDouble(), 0, 15,
-                          (v) => setState(() { _zebraW = v.round(); _pushZebra(); })),
-                      _zebraKnob(t, 'Repeat', _zebraRep.toDouble(), 0, 15,
-                          (v) => setState(() { _zebraRep = v.round(); _pushZebra(); })),
-                    ]),
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _zebraKnob(
+                              t,
+                              'Width',
+                              _zebraW.toDouble(),
+                              0,
+                              15,
+                              (v) => setState(() {
+                                    _zebraW = v.round();
+                                    _pushZebra();
+                                  })),
+                          _zebraKnob(
+                              t,
+                              'Repeat',
+                              _zebraRep.toDouble(),
+                              0,
+                              15,
+                              (v) => setState(() {
+                                    _zebraRep = v.round();
+                                    _pushZebra();
+                                  })),
+                        ]),
                   ),
                 ),
               ]),
@@ -199,8 +216,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     if (mounted) setState(() => _selBand = null);
   }
 
-  Widget _zebraKnob(GridTokens t, String label, double v, double min, double max,
-          ValueChanged<double> onCh) =>
+  Widget _zebraKnob(GridTokens t, String label, double v, double min,
+          double max, ValueChanged<double> onCh) =>
       RotaryKnob(
         label: label,
         minValue: min,
@@ -269,12 +286,24 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           final seg = h ~/ 255, f = h % 255;
           int r = 0, g = 0, bl = 0;
           switch (seg) {
-            case 0: r = 255; g = f;
-            case 1: r = 255 - f; g = 255;
-            case 2: g = 255; bl = f;
-            case 3: g = 255 - f; bl = 255;
-            case 4: r = f; bl = 255;
-            default: r = 255; bl = 255 - f;
+            case 0:
+              r = 255;
+              g = f;
+            case 1:
+              r = 255 - f;
+              g = 255;
+            case 2:
+              g = 255;
+              bl = f;
+            case 3:
+              g = 255 - f;
+              bl = 255;
+            case 4:
+              r = f;
+              bl = 255;
+            default:
+              r = 255;
+              bl = 255 - f;
           }
           _bandColor[b] = (r << 16) | (g << 8) | bl;
         case 2: // contour (alternate solid / passthrough)
@@ -367,7 +396,7 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
         final path = '$oscAddress/$c';
         registry.registerAddress(path);
         registry.registerListener(path, (args) {
-          if (isDragging) return; 
+          if (isDragging) return;
 
           final pts = controlPoints[c]!;
           for (var i = 0; i < pts.length; i++) {
@@ -475,7 +504,6 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     }
   }
 
-
   void resetControlPoints() {
     for (var c in channels) {
       final list = controlPoints[c]!;
@@ -530,7 +558,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
   // within its vertical band — those clicks must not add or move control points.
   bool _inPosterColumn(Offset local, Size size) {
     if (!_poster) return false;
-    final plotRight = insetPadding + (size.width - 2 * insetPadding) * kPosterPlotFrac;
+    final plotRight =
+        insetPadding + (size.width - 2 * insetPadding) * kPosterPlotFrac;
     final withinV =
         local.dy >= insetPadding && local.dy <= size.height - insetPadding;
     return withinV && local.dx > plotRight;
@@ -667,7 +696,9 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     _pointerDownLocalPosition = localPosition;
     _longPressTriggered = false;
     _longPressTimer = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted || _activePointer == null || _pointerDownLocalPosition == null) {
+      if (!mounted ||
+          _activePointer == null ||
+          _pointerDownLocalPosition == null) {
         return;
       }
       _longPressTriggered = true;
@@ -695,15 +726,28 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     final w = _plotW(size);
     final candidates = <({double xNorm, GradeHandle handle})>[
       (xNorm: _shadowLevel, handle: GradeHandle.shadowCenter),
-      (xNorm: (_shadowLevel - _shadowBlend).clamp(0.0, 1.0), handle: GradeHandle.shadowBlendLeft),
-      (xNorm: (_shadowLevel + _shadowBlend).clamp(0.0, 1.0), handle: GradeHandle.shadowBlendRight),
+      (
+        xNorm: (_shadowLevel - _shadowBlend).clamp(0.0, 1.0),
+        handle: GradeHandle.shadowBlendLeft
+      ),
+      (
+        xNorm: (_shadowLevel + _shadowBlend).clamp(0.0, 1.0),
+        handle: GradeHandle.shadowBlendRight
+      ),
       (xNorm: _midLevel, handle: GradeHandle.midCenter),
-      (xNorm: (_midLevel - _midBlend).clamp(0.0, 1.0), handle: GradeHandle.midBlendLeft),
-      (xNorm: (_midLevel + _midBlend).clamp(0.0, 1.0), handle: GradeHandle.midBlendRight),
+      (
+        xNorm: (_midLevel - _midBlend).clamp(0.0, 1.0),
+        handle: GradeHandle.midBlendLeft
+      ),
+      (
+        xNorm: (_midLevel + _midBlend).clamp(0.0, 1.0),
+        handle: GradeHandle.midBlendRight
+      ),
     ];
     final targetX = (localPos.dx - insetPadding).clamp(0.0, w);
-    candidates.sort((a, b) =>
-        ((a.xNorm * w) - targetX).abs().compareTo(((b.xNorm * w) - targetX).abs()));
+    candidates.sort((a, b) => ((a.xNorm * w) - targetX)
+        .abs()
+        .compareTo(((b.xNorm * w) - targetX).abs()));
     _activeGradeHandle = candidates.first.handle;
     _updateGradeDrag(localPos, size);
     return true;
@@ -726,11 +770,11 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     const bottomBand = 80.0; // generous catch zone near the flags
     final plotBottom = size.height - insetPadding;
 
-    GradeHandle? _check(double xNorm, GradeHandle h) {
+    GradeHandle? check(double xNorm, GradeHandle h) {
       final x = insetPadding + xNorm * w;
       final dx = (pos.dx - x).abs();
-      final inBottomBand =
-          pos.dy >= hitTop - bottomBand && pos.dy <= size.height - insetPadding + 8;
+      final inBottomBand = pos.dy >= hitTop - bottomBand &&
+          pos.dy <= size.height - insetPadding + 8;
 
       // Only allow hits near the bottom handles; clicks on the line elsewhere fall through.
       if (inBottomBand && dx <= 28) return h; // big, easy hit on flags
@@ -747,12 +791,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     final mB = _midBlend;
 
     for (final candidate in [
-      _check(sL, GradeHandle.shadowCenter),
-      _check((sL - sB).clamp(0.0, 1.0), GradeHandle.shadowBlendLeft),
-      _check((sL + sB).clamp(0.0, 1.0), GradeHandle.shadowBlendRight),
-      _check(mL, GradeHandle.midCenter),
-      _check((mL - mB).clamp(0.0, 1.0), GradeHandle.midBlendLeft),
-      _check((mL + mB).clamp(0.0, 1.0), GradeHandle.midBlendRight),
+      check(sL, GradeHandle.shadowCenter),
+      check((sL - sB).clamp(0.0, 1.0), GradeHandle.shadowBlendLeft),
+      check((sL + sB).clamp(0.0, 1.0), GradeHandle.shadowBlendRight),
+      check(mL, GradeHandle.midCenter),
+      check((mL - mB).clamp(0.0, 1.0), GradeHandle.midBlendLeft),
+      check((mL + mB).clamp(0.0, 1.0), GradeHandle.midBlendRight),
     ]) {
       if (candidate != null) return candidate;
     }
@@ -771,25 +815,21 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           _shadowBlend = _shadowBlend.clamp(0.0, 1.0);
           _sendGradeValue('shadows/level', _shadowLevel);
           _sendGradeValue('shadows/blend', _shadowBlend);
-          break;
         case GradeHandle.shadowBlendLeft:
         case GradeHandle.shadowBlendRight:
           final newBlend = (xNorm - _shadowLevel).abs();
           _shadowBlend = newBlend.clamp(0.0, 1.0);
           _sendGradeValue('shadows/blend', _shadowBlend);
-          break;
         case GradeHandle.midCenter:
           _midLevel = xNorm.clamp(_shadowLevel + _minGap, 1.0);
           _midBlend = _midBlend.clamp(0.0, 1.0);
           _sendGradeValue('midtones/level', _midLevel);
           _sendGradeValue('midtones/blend', _midBlend);
-          break;
         case GradeHandle.midBlendLeft:
         case GradeHandle.midBlendRight:
           final newBlend = (xNorm - _midLevel).abs();
           _midBlend = newBlend.clamp(0.0, 1.0);
           _sendGradeValue('midtones/blend', _midBlend);
-          break;
       }
     });
   }
@@ -803,18 +843,14 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
           _shadowLevel = v.clamp(0.0, 1.0);
           _shadowLevel = min(_shadowLevel, _midLevel - _minGap);
           _shadowBlend = _shadowBlend.clamp(0.0, 1.0);
-          break;
         case _GradeParam.shadowBlend:
           _shadowBlend = v.clamp(0.0, 1.0);
-          break;
         case _GradeParam.midLevel:
           _midLevel = v.clamp(0.0, 1.0);
           _midLevel = max(_midLevel, _shadowLevel + _minGap);
           _midBlend = _midBlend.clamp(0.0, 1.0);
-          break;
         case _GradeParam.midBlend:
           _midBlend = v.clamp(0.0, 1.0);
-          break;
       }
     });
   }
@@ -836,68 +872,68 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(insetPadding, insetPadding, insetPadding, 0),
-          child: Row(
-          children: [
-            AppButton(
-              icon: Icons.refresh,
-              dense: true,
-              onPressed: resetControlPoints,
-            ),
-            const Spacer(),
-            ValueListenableBuilder<bool>(
-              valueListenable: flashLockNotifier,
-              builder: (_, flashing, __) => AppButton(
-                icon: locked ? Icons.lock : Icons.lock_open,
-                selected: locked,
-                dense: true,
-                accentColor: flashing ? Colors.amber : null,
-                onPressed: () {
-                  setState(() {
-                    locked = !locked;
-                    if (locked) {
-                      for (var c in ['R', 'G', 'B']) {
-                        controlPoints[c] = List.from(controlPoints['Y']!);
-                      }
-                      selectedChannel = 'Y';
-                    }
-                  });
-                  _rebuildSplines();
-                  _sendCurrentChannel();
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            for (var c in channels)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: AppButton(
-                  label: c,
-                  selected: selectedChannel == c,
+            padding: const EdgeInsets.fromLTRB(
+                insetPadding, insetPadding, insetPadding, 0),
+            child: Row(
+              children: [
+                AppButton(
+                  icon: Icons.refresh,
                   dense: true,
-                  accentColor: getChannelColor(c),
-                  onPressed: () {
-                    if (locked && c != 'Y') {
-                      flashLockNotifier.value = true;
-                      Future.delayed(const Duration(milliseconds: 200), () {
-                        flashLockNotifier.value = false;
+                  onPressed: resetControlPoints,
+                ),
+                const Spacer(),
+                ValueListenableBuilder<bool>(
+                  valueListenable: flashLockNotifier,
+                  builder: (_, flashing, __) => AppButton(
+                    icon: locked ? Icons.lock : Icons.lock_open,
+                    selected: locked,
+                    dense: true,
+                    accentColor: flashing ? Colors.amber : null,
+                    onPressed: () {
+                      setState(() {
+                        locked = !locked;
+                        if (locked) {
+                          for (var c in ['R', 'G', 'B']) {
+                            controlPoints[c] = List.from(controlPoints['Y']!);
+                          }
+                          selectedChannel = 'Y';
+                        }
                       });
-                    } else {
-                      setState(() => selectedChannel = c);
                       _rebuildSplines();
                       _sendCurrentChannel();
-                    }
-                  },
+                    },
+                  ),
                 ),
-              ),
-          ],
-        )),
+                const SizedBox(width: 8),
+                for (var c in channels)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: AppButton(
+                      label: c,
+                      selected: selectedChannel == c,
+                      dense: true,
+                      accentColor: getChannelColor(c),
+                      onPressed: () {
+                        if (locked && c != 'Y') {
+                          flashLockNotifier.value = true;
+                          Future.delayed(const Duration(milliseconds: 200), () {
+                            flashLockNotifier.value = false;
+                          });
+                        } else {
+                          setState(() => selectedChannel = c);
+                          _rebuildSplines();
+                          _sendCurrentChannel();
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            )),
         const SizedBox(height: 5),
         Expanded(
           child: LayoutBuilder(
@@ -905,104 +941,107 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
               return Stack(clipBehavior: Clip.none, children: [
                 RawGestureDetector(
-                behavior: HitTestBehavior.opaque,
-                gestures: {
-                  EagerGestureRecognizer:
-                      GestureRecognizerFactoryWithHandlers<
-                          EagerGestureRecognizer>(
-                    () => EagerGestureRecognizer(),
-                    (instance) {},
-                  ),
-                },
-                child: Listener(
                   behavior: HitTestBehavior.opaque,
-                  onPointerDown: (event) {
-                    if (_activePointer != null) return;
-                    _activePointer = event.pointer;
-                    // Clicks in the posterize column/gap select a region (dialog
-                    // wired next); they must never touch the LUT control points.
-                    if (_inPosterColumn(event.localPosition, size)) {
-                      _onPosterColumnTap(event.localPosition, size);
-                      return;
-                    }
-                    // Only if BELOW the plot (y > 0 line) do we grab grade handles.
-                    final belowGraph =
-                        event.localPosition.dy >= size.height - insetPadding;
-                    if (belowGraph && _startNearestGradeDrag(event.localPosition, size)) return;
-                    // Grade handles get first dibs; if hit, skip LUT point logic.
-                    final consumed = _tryStartGradeDrag(event.localPosition, size);
-                    if (consumed) return;
-                    _startLongPressTracking(event.localPosition, size);
-                    _beginInteractionAt(
-                      event.localPosition,
-                      size,
-                      startDrag: true,
-                    );
+                  gestures: {
+                    EagerGestureRecognizer:
+                        GestureRecognizerFactoryWithHandlers<
+                            EagerGestureRecognizer>(
+                      () => EagerGestureRecognizer(),
+                      (instance) {},
+                    ),
                   },
-                  onPointerMove: (event) {
-                    if (_activePointer != event.pointer) return;
-                    if (_activeGradeHandle != null) {
-                      _updateGradeDrag(event.localPosition, size);
-                      return;
-                    }
-                    _updateLongPressTracking(event.localPosition);
-                    _updateInteractionAt(event.localPosition, size);
-                  },
-                  onPointerUp: (event) {
-                    if (_activePointer != event.pointer) return;
-                    if (_activeGradeHandle != null) {
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (event) {
+                      if (_activePointer != null) return;
+                      _activePointer = event.pointer;
+                      // Clicks in the posterize column/gap select a region (dialog
+                      // wired next); they must never touch the LUT control points.
+                      if (_inPosterColumn(event.localPosition, size)) {
+                        _onPosterColumnTap(event.localPosition, size);
+                        return;
+                      }
+                      // Only if BELOW the plot (y > 0 line) do we grab grade handles.
+                      final belowGraph =
+                          event.localPosition.dy >= size.height - insetPadding;
+                      if (belowGraph &&
+                          _startNearestGradeDrag(event.localPosition, size))
+                        return;
+                      // Grade handles get first dibs; if hit, skip LUT point logic.
+                      final consumed =
+                          _tryStartGradeDrag(event.localPosition, size);
+                      if (consumed) return;
+                      _startLongPressTracking(event.localPosition, size);
+                      _beginInteractionAt(
+                        event.localPosition,
+                        size,
+                        startDrag: true,
+                      );
+                    },
+                    onPointerMove: (event) {
+                      if (_activePointer != event.pointer) return;
+                      if (_activeGradeHandle != null) {
+                        _updateGradeDrag(event.localPosition, size);
+                        return;
+                      }
+                      _updateLongPressTracking(event.localPosition);
+                      _updateInteractionAt(event.localPosition, size);
+                    },
+                    onPointerUp: (event) {
+                      if (_activePointer != event.pointer) return;
+                      if (_activeGradeHandle != null) {
+                        setState(() {
+                          _activeGradeHandle = null;
+                        });
+                      } else {
+                        _endInteraction();
+                      }
+                      _activePointer = null;
+                    },
+                    onPointerCancel: (event) {
+                      if (_activePointer != event.pointer) return;
                       setState(() {
                         _activeGradeHandle = null;
                       });
-                    } else {
                       _endInteraction();
-                    }
-                    _activePointer = null;
-                  },
-                  onPointerCancel: (event) {
-                    if (_activePointer != event.pointer) return;
-                    setState(() {
-                      _activeGradeHandle = null;
-                    });
-                    _endInteraction();
-                    _activePointer = null;
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    child: CustomPaint(
-                      size: size,
-                      painter: LUTPainter(
-                        controlPoints: controlPoints,
-                        splines: splines,
-                        selectedChannel: selectedChannel,
-                        highlightedIndex: currentControlPointIdx,
-                        insetPadding: insetPadding,
-                        gradeBands: widget.gradePath != null
-                            ? [
-                                GradeBand(
-                                  center: _shadowLevel,
-                                  blend: _shadowBlend,
-                                  color: const Color(0xFFF0D86A),
-                                ),
-                                GradeBand(
-                                  center: _midLevel,
-                                  blend: _midBlend,
-                                  color: const Color(0xFFF0D86A),
-                                ),
-                              ]
-                            : const [],
-                        activeHandle: _activeGradeHandle,
-                        posterMode: _poster,
-                        posterThresholds: _posterTh,
-                        posterColors: _posterColors(),
-                        posterTypes: _posterTypes(),
-                        posterSelected: _selBand,
-                        posterZebraWidth: _zebraW,
-                        posterZebraRepeat: _zebraRep,
+                      _activePointer = null;
+                    },
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      child: CustomPaint(
+                        size: size,
+                        painter: LUTPainter(
+                          controlPoints: controlPoints,
+                          splines: splines,
+                          selectedChannel: selectedChannel,
+                          highlightedIndex: currentControlPointIdx,
+                          insetPadding: insetPadding,
+                          gradeBands: widget.gradePath != null
+                              ? [
+                                  GradeBand(
+                                    center: _shadowLevel,
+                                    blend: _shadowBlend,
+                                    color: const Color(0xFFF0D86A),
+                                  ),
+                                  GradeBand(
+                                    center: _midLevel,
+                                    blend: _midBlend,
+                                    color: const Color(0xFFF0D86A),
+                                  ),
+                                ]
+                              : const [],
+                          activeHandle: _activeGradeHandle,
+                          posterMode: _poster,
+                          posterThresholds: _posterTh,
+                          posterColors: _posterColors(),
+                          posterTypes: _posterTypes(),
+                          posterSelected: _selBand,
+                          posterZebraWidth: _zebraW,
+                          posterZebraRepeat: _zebraRep,
+                        ),
                       ),
                     ),
                   ),
-                ),
                 ),
                 _posterButton(),
               ]);
@@ -1040,11 +1079,12 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                     size: 15,
                     color: _poster ? Colors.black : const Color(0xFF9A9AA2)),
                 const SizedBox(width: 5),
-                Text('Poster',
+                Text('Posterize',
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: _poster ? Colors.black : const Color(0xFF9A9AA2))),
+                        color:
+                            _poster ? Colors.black : const Color(0xFF9A9AA2))),
               ]),
             ),
           ),
@@ -1092,8 +1132,8 @@ class _PresetDragButtonState extends State<_PresetDragButton> {
     final box = _key.currentContext!.findRenderObject() as RenderBox;
     final tl = box.localToGlobal(Offset.zero);
     final menuH = _presets.length * _ih;
-    _menu = Rect.fromLTWH(tl.dx + box.size.width - _menuW,
-        tl.dy - menuH - 4, _menuW, menuH); // above the trigger
+    _menu = Rect.fromLTWH(tl.dx + box.size.width - _menuW, tl.dy - menuH - 4,
+        _menuW, menuH); // above the trigger
     _hover = -1;
     _entry = OverlayEntry(builder: (_) => _build());
     Overlay.of(context).insert(_entry!);
@@ -1136,9 +1176,8 @@ class _PresetDragButtonState extends State<_PresetDragButton> {
                 width: double.infinity,
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                color: i == _hover
-                    ? const Color(0xFFF0B830)
-                    : Colors.transparent,
+                color:
+                    i == _hover ? const Color(0xFFF0B830) : Colors.transparent,
                 child: Text(_presets[i].label,
                     style: TextStyle(
                         fontSize: 12,

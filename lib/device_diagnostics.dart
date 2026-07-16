@@ -9,7 +9,6 @@ import 'labeled_card.dart';
 import 'app_button.dart';
 import 'network.dart';
 import 'osc_registry.dart';
-import 'panel.dart';
 
 /// Diagnostics panel for the Setup page.
 ///
@@ -211,28 +210,30 @@ class _DeviceDiagnosticsSectionState extends State<DeviceDiagnosticsSection> {
 
     return LabeledCard(
       title: 'Diagnostics',
-      child: CardColumn(
-        children: [
-          GridRow(
-            columns: 12,
-            gutter: t.md,
-            cells: [(span: 12, child: terminal)],
-          ),
-          GridRow(
-            columns: 12,
-            gutter: t.md,
-            cells: [
-              (
-                span: 12,
-                child: Align(
-                  alignment: Alignment.centerLeft,
+      child: GridRow(
+        columns: 12,
+        gutter: t.md,
+        cells: [
+          (
+            span: 12,
+            // Copy floats in the terminal's top-right corner so it stays put
+            // as the log scrolls — always reachable, never pushed off-screen.
+            child: Stack(
+              children: [
+                terminal,
+                Positioned(
+                  top: t.sm * 1.5,
+                  right: t.sm * 1.5,
                   child: AppButton(
+                    icon: Icons.content_copy,
                     label: 'Copy',
+                    dense: true,
+                    tooltip: 'Copy diagnostics to clipboard',
                     onPressed: _rawText.isEmpty ? null : _copy,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

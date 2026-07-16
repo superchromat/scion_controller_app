@@ -66,6 +66,12 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
       // register path and listener
       OscRegistry().registerAddress(oscAddress);
       OscRegistry().registerListener(oscAddress, _handleOsc);
+      // Seed from the last-known value so a control that just remounted (e.g.
+      // after switching tabs away and back) shows the current device state
+      // instead of its default — the value lives in the registry, but a fresh
+      // listener isn't replayed the current value automatically.
+      final seed = OscRegistry().allParams[oscAddress]?.currentValue;
+      if (seed != null && seed.isNotEmpty) onOscMessage(seed);
     }
   }
 
