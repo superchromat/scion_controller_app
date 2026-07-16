@@ -1109,56 +1109,75 @@ class _ShapePainter extends CustomPainter {
     canvas.drawPath(bp, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = _amber);
     } // end content boundary
 
-    if (s._overlay == 'transform') {
-    final aa = warping ? 0.5 : 1.0;
-    // scale corners (blue circles)
-    for (int i = 0; i < 4; i++) {
-      final on = hot == 's$i';
-      canvas.drawCircle(g.full[i], on ? 8 : 6, Paint()..color = (on ? Colors.white : _blue).withValues(alpha: on ? 1 : aa));
-    }
-    // crop bars — oriented along the frame edges
-    for (int i = 0; i < 4; i++) {
-      final on = hot == 'e$i';
-      final edge = g.quad[(i + 1) % 4] - g.quad[i];
-      final ang = math.atan2(edge.dy, edge.dx);
-      canvas.save(); canvas.translate(g.cropEdges[i].dx, g.cropEdges[i].dy); canvas.rotate(ang);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: on ? 20 : 16, height: on ? 7 : 6), const Radius.circular(2)),
-          Paint()..color = (on ? Colors.white : _amber).withValues(alpha: on ? 1 : aa));
-      canvas.restore();
-    }
-    // warp mesh
-    if (warping && g.mesh.isNotEmpty) {
-      final n = s.meshN;
-      final line = Paint()..color = _teal.withValues(alpha: 0.55)..strokeWidth = 1;
-      for (int j = 0; j < n; j++) {
-        for (int i = 0; i < n; i++) {
-          final p = g.mesh[j * n + i];
-          if (i < n - 1) canvas.drawLine(p, g.mesh[j * n + i + 1], line);
-          if (j < n - 1) canvas.drawLine(p, g.mesh[(j + 1) * n + i], line);
+    // The colour-field mesh owns the whole canvas. On every other tab, show the
+    // geometry handles + text + sprite placeholders together, so the user always
+    // sees where everything is; only the active tab's overlay is at full
+    // strength (and clickable — gestures route to it alone), the rest are dimmed.
+    if (s._overlay == 'colorField') {
+      _paintUcMesh(canvas, ss);
+    } else {
+      final lb = Offset(-s._stageOffset.dx, -s._stageOffset.dy) & size;
+      double alphaFor(String o) => s._overlay == o ? 1.0 : 0.26;
+
+      // ── geometry handles (active on Transform / Warp) ──
+      canvas.saveLayer(lb, Paint()..color = Colors.white.withValues(alpha: alphaFor('transform')));
+      final aa = warping ? 0.5 : 1.0;
+      // scale corners (blue circles)
+      for (int i = 0; i < 4; i++) {
+        final on = hot == 's$i';
+        canvas.drawCircle(g.full[i], on ? 8 : 6, Paint()..color = (on ? Colors.white : _blue).withValues(alpha: on ? 1 : aa));
+      }
+      // crop bars — oriented along the frame edges
+      for (int i = 0; i < 4; i++) {
+        final on = hot == 'e$i';
+        final edge = g.quad[(i + 1) % 4] - g.quad[i];
+        final ang = math.atan2(edge.dy, edge.dx);
+        canvas.save(); canvas.translate(g.cropEdges[i].dx, g.cropEdges[i].dy); canvas.rotate(ang);
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: on ? 20 : 16, height: on ? 7 : 6), const Radius.circular(2)),
+            Paint()..color = (on ? Colors.white : _amber).withValues(alpha: on ? 1 : aa));
+        canvas.restore();
+      }
+      // warp mesh — visible whenever a mesh exists (editable only in warp tool)
+      if (g.mesh.isNotEmpty) {
+        final n = s.meshN;
+        final line = Paint()..color = _teal.withValues(alpha: 0.55)..strokeWidth = 1;
+        for (int j = 0; j < n; j++) {
+          for (int i = 0; i < n; i++) {
+            final p = g.mesh[j * n + i];
+            if (i < n - 1) canvas.drawLine(p, g.mesh[j * n + i + 1], line);
+            if (j < n - 1) canvas.drawLine(p, g.mesh[(j + 1) * n + i], line);
+          }
+        }
+        for (int k = 0; k < g.mesh.length; k++) {
+          final on = hot == 'w$k';
+          canvas.drawCircle(g.mesh[k], on ? 6 : 4, Paint()..color = on ? Colors.white : _teal);
         }
       }
-      for (int k = 0; k < g.mesh.length; k++) {
-        final on = hot == 'w$k';
-        canvas.drawCircle(g.mesh[k], on ? 6 : 4, Paint()..color = on ? Colors.white : _teal);
+      // lens optical-centre puck (Send 1) — green dot, drag to set lens X/Y
+      if (s._full) {
+        final on = hot == 'lens';
+        canvas.drawCircle(g.lens, on ? 13 : 11, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = on ? Colors.white : _green);
+        canvas.drawCircle(g.lens, 3.5, Paint()..color = _green);
       }
+      // rotation grip (Send 1)
+      if (s._canRotate) {
+        final topFull = lerp(g.full[0], g.full[1], .5);
+        canvas.drawLine(topFull, g.grip, Paint()..color = _amber..strokeWidth = 1.5);
+        canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = hot == 'rot' ? Colors.white : _amber);
+        canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5, Paint()..color = const Color(0xFF0A0A0C));
+      }
+      canvas.restore();
+
+      // ── text placeholders (active on Text) ──
+      canvas.saveLayer(lb, Paint()..color = Colors.white.withValues(alpha: alphaFor('text')));
+      _paintText(canvas, ss);
+      canvas.restore();
+
+      // ── sprite placeholders (active on Sprites) ──
+      canvas.saveLayer(lb, Paint()..color = Colors.white.withValues(alpha: alphaFor('sprites')));
+      _paintSprites(canvas, ss);
+      canvas.restore();
     }
-    // lens optical-centre puck (Send 1) — green dot, drag to set lens X/Y
-    if (s._full) {
-      final on = hot == 'lens';
-      canvas.drawCircle(g.lens, on ? 13 : 11, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = on ? Colors.white : _green);
-      canvas.drawCircle(g.lens, 3.5, Paint()..color = _green);
-    }
-    // rotation grip (Send 1)
-    if (s._canRotate) {
-      final topFull = lerp(g.full[0], g.full[1], .5);
-      canvas.drawLine(topFull, g.grip, Paint()..color = _amber..strokeWidth = 1.5);
-      canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = hot == 'rot' ? Colors.white : _amber);
-      canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5, Paint()..color = const Color(0xFF0A0A0C));
-    }
-    } // end transform handles
-    else if (s._overlay == 'text') { _paintText(canvas, ss); }
-    else if (s._overlay == 'sprites') { _paintSprites(canvas, ss); }
-    else if (s._overlay == 'colorField') { _paintUcMesh(canvas, ss); }
     canvas.restore();
   }
 

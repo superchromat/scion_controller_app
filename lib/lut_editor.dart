@@ -997,6 +997,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                         posterColors: _posterColors(),
                         posterTypes: _posterTypes(),
                         posterSelected: _selBand,
+                        posterZebraWidth: _zebraW,
+                        posterZebraRepeat: _zebraRep,
                       ),
                     ),
                   ),

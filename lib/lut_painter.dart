@@ -49,6 +49,10 @@ class LUTPainter extends CustomPainter {
   final List<int> posterColors;
   final List<int> posterTypes;
   final int? posterSelected;
+  // Zebra stripe geometry (device zw/zr, 0..15) so the column preview matches
+  // the current width/repeat, not just a fixed hint.
+  final int posterZebraWidth;
+  final int posterZebraRepeat;
 
   LUTPainter({
     required this.controlPoints,
@@ -63,6 +67,8 @@ class LUTPainter extends CustomPainter {
     this.posterColors = const [],
     this.posterTypes = const [],
     this.posterSelected,
+    this.posterZebraWidth = 2,
+    this.posterZebraRepeat = 10,
   });
 
   @override
@@ -291,14 +297,9 @@ class LUTPainter extends CustomPainter {
         } else {
           canvas.drawRect(rect, Paint()..color = Color(0xFF000000 | col));
           if (type >= 1 && type <= 4) {
-            // zebra hint — diagonal ticks
-            canvas.save();
-            canvas.clipRect(rect);
-            final zp = Paint()..color = Colors.black.withOpacity(0.4)..strokeWidth = 3;
-            for (double x = colX - h; x < colX + colW + h; x += 9) {
-              canvas.drawLine(Offset(x, bot), Offset(x + (bot - top), top), zp);
-            }
-            canvas.restore();
+            // Zebra: dark marks striped over the region colour, matching the
+            // device direction (1=↗ 2=↖ 3=— 4=|) and the zw/zr geometry.
+            _drawZebra(canvas, rect, type, posterZebraWidth, posterZebraRepeat);
           }
         }
         if (posterSelected == b) {
@@ -407,6 +408,45 @@ void _drawFlagHandle(Canvas canvas, Offset tip, double triHeight,
   canvas.drawPath(path, fillPaint);
   canvas.drawRRect(innerRect, Paint()..color = innerColor);
   canvas.drawPath(path, stroke);
+}
+
+// Draws a zebra pattern's dark marks inside [rect], reflecting the device
+// direction (1=↗ 2=↖ 3=horizontal 4=vertical) and its zw/zr geometry: marks of
+// width ~[zw] repeating every ~[zr] (device units 0..15), scaled up so the
+// pattern is legible in the narrow preview column.
+void _drawZebra(Canvas canvas, Rect rect, int type, int zw, int zr) {
+  const double unit = 2.2; // px per device zw/zr step
+  final period = max(3.0, zr * unit);
+  final mark = (zw * unit).clamp(1.0, period - 1.0);
+  canvas.save();
+  canvas.clipRect(rect);
+  final p = Paint()
+    ..color = Colors.black.withOpacity(0.5)
+    ..style = PaintingStyle.fill;
+  if (type == 3) {
+    // Horizontal stripes — bands stacked vertically.
+    for (double y = rect.top; y < rect.bottom; y += period) {
+      canvas.drawRect(Rect.fromLTWH(rect.left, y, rect.width, mark), p);
+    }
+  } else if (type == 4) {
+    // Vertical stripes.
+    for (double x = rect.left; x < rect.right; x += period) {
+      canvas.drawRect(Rect.fromLTWH(x, rect.top, mark, rect.height), p);
+    }
+  } else {
+    // Diagonals: 1 = ↗ (bottom-left→top-right), 2 = ↖ (bottom-right→top-left).
+    final dir = (type == 2) ? -1.0 : 1.0;
+    final span = rect.height;
+    final line = Paint()
+      ..color = Colors.black.withOpacity(0.5)
+      ..strokeWidth = mark
+      ..strokeCap = StrokeCap.butt;
+    for (double x = rect.left - span; x < rect.right + span; x += period) {
+      canvas.drawLine(
+          Offset(x, rect.bottom), Offset(x + dir * span, rect.top), line);
+    }
+  }
+  canvas.restore();
 }
 
 void _drawDottedHLine(Canvas canvas, double x0, double x1, double y, Paint paint) {

@@ -390,7 +390,7 @@ class ShapeState extends State<Shape> {
       ('Text', const SendText()),
       // Single-group tabs: the tab pane IS the card, so the content sits
       // directly in it (grid-inset), not wrapped in another titled panel.
-      ('Sprites', _tabBody(t, const SpritePanel())),
+      ('Sprites', const SpritePanel()),
       if (showRotation) ('Color Field', _tabBody(t, const ColorFieldPanel())),
     ];
     if (_tab >= tabs.length) _tab = 0;
@@ -469,7 +469,10 @@ class ShapeState extends State<Shape> {
           Padding(
             padding: EdgeInsets.all(t.sm),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 340),
+              // Floor set above the tallest tab's content (Text ≈ 33u) so every
+              // tab pane is the same height — switching tabs doesn't resize the
+              // card. u-relative so it tracks the window width.
+              constraints: BoxConstraints(minHeight: t.u * 34),
               child: content,
             ),
           ),
@@ -617,16 +620,16 @@ class ShapeState extends State<Shape> {
     return CardColumn(
       spacing: t.sm,
       children: [
-        GridRow(columns: 2, gutter: t.md, cells: [
+        // One compact row: Rotation (1 knob) | Keystone (2×2) | Lens (2×2).
+        GridRow(columns: 6, gutter: t.md, cells: [
           (
             span: 2,
             child: Panel(
               title: 'Rotation',
               titleTrailing: const _RotationSend3WarningIcon(),
-              // Full width with the knob in the first grid column, so φ lines up
-              // with Key H / Barrel / Field in the panels below.
-              child: ControlGrid(children: [
-                OscPathSegment(
+              fillChild: true,
+              child: Center(
+                child: OscPathSegment(
                   segment: 'shape/rotation',
                   child: OscRotaryKnob(
                     key: _rotationKey,
@@ -645,15 +648,11 @@ class ShapeState extends State<Shape> {
                     ),
                   ),
                 ),
-              ]),
+              ),
             ),
           ),
-        ]),
-        GridRow(columns: 2, gutter: t.md, cells: [
-          (span: 2, child: const WarpAffinePanel()),
-        ]),
-        GridRow(columns: 2, gutter: t.md, cells: [
-          (span: 2, child: const WarpLutPanel()),
+          (span: 2, child: const WarpAffinePanel(compact: true)),
+          (span: 2, child: const WarpLutPanel(compact: true)),
         ]),
         GridRow(columns: 2, gutter: t.md, cells: [
           (span: 2, child: const WarpAnimationPanel()),

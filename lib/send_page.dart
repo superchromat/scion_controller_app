@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'labeled_card.dart';
 import 'grid.dart';
+import 'panel.dart';
 import 'shape.dart';
 import 'send_color.dart';
 import 'send_source_selector.dart';
@@ -42,18 +43,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     }
   }
 
-  Widget _sectionHeader(BuildContext context, String title) {
-    final t = GridProvider.of(context);
-    return Padding(
-      padding: EdgeInsets.only(top: t.md, bottom: t.sm),
-      child: Row(children: [
-        Text(title,
-            style: t.textLabel.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(width: t.sm),
-        Expanded(child: Divider(color: Colors.white.withOpacity(0.15))),
-      ]),
-    );
-  }
 
   Widget _resetButton(VoidCallback onPressed) {
     return IconButton(
@@ -115,22 +104,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                 ],
                               ),
                               SizedBox(height: sectionGap),
-                              // Text + Sprites moved into the Shape card's
-                              // tabbed pane; Texture keeps its own card.
-                              GridRow(
-                                gutter: t.md,
-                                cells: [
-                                  (
-                                    span: 12,
-                                    child: LabeledCard(
-                                      title: 'Texture',
-                                      snapPath: 'texture',
-                                      child: const SendTexture(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: sectionGap),
                               GridRow(gutter: t.md, cells: [
                                 (
                                   span: 12,
@@ -156,8 +129,8 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                 (
                                   span: 12,
                                   child: LabeledCard(
-                                    title: 'Glitch',
-                                    snapPath: 'glitch',
+                                    title: 'Texture',
+                                    snapPath: 'texture',
                                     action: _resetButton(() =>
                                         (_glitchKey.currentState as dynamic)
                                             ?.reset()),
@@ -165,13 +138,22 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
+                                        const SendTexture(),
+                                        SizedBox(height: sectionGap),
                                         SendGlitch(
                                             key: _glitchKey,
                                             pageNumber: widget.pageNumber),
                                         if (widget.pageNumber == 1) ...[
-                                          _sectionHeader(
-                                              context, 'Rect Copy'),
-                                          const RectCopyPanel(),
+                                          SizedBox(height: sectionGap),
+                                          GridRow(gutter: t.md, cells: [
+                                            (
+                                              span: 12,
+                                              child: Panel(
+                                                title: 'Rect Copy',
+                                                child: const RectCopyPanel(),
+                                              ),
+                                            ),
+                                          ]),
                                         ],
                                       ],
                                     ),

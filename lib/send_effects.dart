@@ -13,7 +13,7 @@ import 'panel.dart';
 
 Widget _knob(BuildContext context, String label, String seg, double min,
     double max,
-    {double initial = 0, bool bipolar = false}) {
+    {double initial = 0, bool bipolar = false, double? size}) {
   final t = GridProvider.maybeOf(context);
   return OscPathSegment(
     segment: seg,
@@ -26,7 +26,7 @@ Widget _knob(BuildContext context, String label, String seg, double min,
       format: '%d',
       isBipolar: bipolar,
       preferInteger: true,
-      size: t?.knobMd ?? 60,
+      size: size ?? t?.knobMd ?? 60,
       labelStyle: t?.textLabel,
       // Detent at the neutral / 'no effect' default so a knob clicks back to
       // rest.
@@ -110,10 +110,10 @@ class _ToggleState extends State<_Toggle> with OscAddressMixin {
   }
 }
 
-Widget _wrap(BuildContext context, List<Widget> children) {
-  // Even 4-column grid so knobs/dropdowns align consistently across panels,
+Widget _wrap(BuildContext context, List<Widget> children, {int cols = 4}) {
+  // Even column grid so knobs/dropdowns align consistently across panels,
   // instead of a Wrap that left-packs and leaves the right side empty.
-  return ControlGrid(children: children);
+  return ControlGrid(children: children, cols: cols);
 }
 
 /// Affine warp — homography engine: 7 ms updates, animates at frame rate.
@@ -121,20 +121,25 @@ Widget _wrap(BuildContext context, List<Widget> children) {
 /// rotation/scale knobs pause). Warp turns on automatically whenever the
 /// matrix is non-neutral and off when it returns to neutral — no toggle.
 class WarpAffinePanel extends StatelessWidget {
-  const WarpAffinePanel({super.key});
+  /// Compact = a 2×2 grid of smaller knobs (for the tight Warp-tab row).
+  final bool compact;
+  const WarpAffinePanel({super.key, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
+    final ks = compact ? GridProvider.maybeOf(context)?.knobSm : null;
     return Panel(
       title: 'Keystone',
       child: _wrap(context, [
-        _knob(context, 'Key H', 'shape/warp/key_h', -600, 600, bipolar: true),
-        _knob(context, 'Key V', 'shape/warp/key_v', -400, 400, bipolar: true),
+        _knob(context, 'Key H', 'shape/warp/key_h', -600, 600,
+            bipolar: true, size: ks),
+        _knob(context, 'Key V', 'shape/warp/key_v', -400, 400,
+            bipolar: true, size: ks),
         _knob(context, 'Shear X', 'shape/warp/shear_x', -600, 600,
-            bipolar: true),
+            bipolar: true, size: ks),
         _knob(context, 'Shear Y', 'shape/warp/shear_y', -400, 400,
-            bipolar: true),
-      ]),
+            bipolar: true, size: ks),
+      ], cols: compact ? 2 : 4),
     );
   }
 }
@@ -142,18 +147,24 @@ class WarpAffinePanel extends StatelessWidget {
 /// LUT warp — free-form engine: full LUT rewrite per update (~120 ms).
 /// Barrel/lens distortion. Zoom lives on the Shape Scale knobs, not here.
 class WarpLutPanel extends StatelessWidget {
-  const WarpLutPanel({super.key});
+  /// Compact = a 2×2 grid of smaller knobs (for the tight Warp-tab row).
+  final bool compact;
+  const WarpLutPanel({super.key, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
+    final ks = compact ? GridProvider.maybeOf(context)?.knobSm : null;
     return Panel(
       title: 'Lens',
       child: _wrap(context, [
-        _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400, bipolar: true),
-        _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960, bipolar: true),
-        _knob(context, 'Lens Y', 'shape/warp/lens_y', -540, 540, bipolar: true),
-        _knob(context, 'Radius', 'shape/warp/radius', 0, 960),
-      ]),
+        _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400,
+            bipolar: true, size: ks),
+        _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960,
+            bipolar: true, size: ks),
+        _knob(context, 'Lens Y', 'shape/warp/lens_y', -540, 540,
+            bipolar: true, size: ks),
+        _knob(context, 'Radius', 'shape/warp/radius', 0, 960, size: ks),
+      ], cols: compact ? 2 : 4),
     );
   }
 }

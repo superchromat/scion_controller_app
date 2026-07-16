@@ -42,69 +42,39 @@ class SendTexture extends StatelessWidget {
     );
   }
 
-  Widget _knobPanel(String title, List<Widget?> knobs) {
-    return Panel(
-      title: title,
-      child: Row(
-        children: [
-          for (final k in knobs)
-            Expanded(child: Center(child: k ?? const SizedBox())),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    // Two packed panels side by side: Blur (H/V × Amount/Shape) and Sharpen
+    // (H Amount/Shape, V Amount) — one row instead of the old 2×2 of near-empty
+    // panels.
     return OscPathSegment(
       segment: 'texture',
-      child: CardColumn(
-        children: [
-          GridRow(
-            columns: 2,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: _knobPanel('H Blur', [
-                  _knob(context, 'Amount', 'blur/h/amount'),
-                  _knob(context, 'Shape', 'blur/h/shape',
-                      snapPoints: const [0.5]),
-                ]),
-              ),
-              (
-                span: 1,
-                child: _knobPanel('H Sharpen', [
-                  _knob(context, 'Amount', 'sharp/h/amount'),
-                  _knob(context, 'Shape', 'sharp/h/shape',
-                      snapPoints: const [0.5]),
-                ]),
-              ),
-            ],
+      child: GridRow(columns: 2, gutter: t.md, cells: [
+        (
+          span: 1,
+          child: Panel(
+            title: 'Blur',
+            child: ControlGrid(children: [
+              _knob(context, 'H Amt', 'blur/h/amount'),
+              _knob(context, 'H Shape', 'blur/h/shape', snapPoints: const [0.5]),
+              _knob(context, 'V Amt', 'blur/v/amount'),
+              _knob(context, 'V Shape', 'blur/v/shape', snapPoints: const [0.5]),
+            ]),
           ),
-          GridRow(
-            columns: 2,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: _knobPanel('V Blur', [
-                  _knob(context, 'Amount', 'blur/v/amount'),
-                  _knob(context, 'Shape', 'blur/v/shape',
-                      snapPoints: const [0.5]),
-                ]),
-              ),
-              (
-                span: 1,
-                child: _knobPanel('V Sharpen', [
-                  _knob(context, 'Amount', 'sharp/v/amount'),
-                ]),
-              ),
-            ],
+        ),
+        (
+          span: 1,
+          child: Panel(
+            title: 'Sharpen',
+            child: ControlGrid(children: [
+              _knob(context, 'H Amt', 'sharp/h/amount'),
+              _knob(context, 'H Shape', 'sharp/h/shape', snapPoints: const [0.5]),
+              _knob(context, 'V Amt', 'sharp/v/amount'),
+            ]),
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }

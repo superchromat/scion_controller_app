@@ -195,6 +195,7 @@ class _SendTextState extends State<SendText> {
   Widget _regionTabs(BuildContext context) {
     final t = GridProvider.of(context);
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text('Region', style: t.textLabel),
         SizedBox(width: t.sm),
@@ -262,9 +263,26 @@ class _SendTextState extends State<SendText> {
       child: CardColumn(
         spacing: t.sm,
         children: [
-          // Inset the Region selector to the same grid margin as the panels.
+          // Region selector + the Layer (osd) dropdown for that region, inset
+          // to the same grid margin as the panels below.
           GridRow(columns: 1, gutter: t.md, cells: [
-            (span: 1, child: _regionTabs(context)),
+            (
+              span: 1,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _regionTabs(context),
+                  SizedBox(width: t.lg),
+                  KeyedSubtree(
+                    key: ValueKey(_region),
+                    child: OscPathSegment(
+                      segment: 'region/$_region',
+                      child: const TextLayerDropdown(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ]),
           KeyedSubtree(
             key: ValueKey(_region),
@@ -290,6 +308,9 @@ class _SendTextState extends State<SendText> {
               ),
             ],
           ),
+          // Font: nested typeface/variant + size + upload, with the small
+          // Tracking/Leading knobs riding on the space freed by the merge and
+          // by moving Layer up to the region row. (No title — it's redundant.)
           GridRow(
             columns: 1,
             gutter: t.md,
@@ -297,8 +318,42 @@ class _SendTextState extends State<SendText> {
               (
                 span: 1,
                 child: Panel(
-                  title: 'Font',
-                  child: const FontControls(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Expanded(child: FontControls()),
+                      SizedBox(width: t.md),
+                      OscPathSegment(
+                        segment: 'tracking',
+                        child: OscRotaryKnob(
+                          label: 'Tracking',
+                          minValue: -20,
+                          maxValue: 40,
+                          initialValue: 0,
+                          defaultValue: 0,
+                          format: '%.0f',
+                          size: t.knobSm,
+                          labelStyle: t.textLabel,
+                          preferInteger: true,
+                        ),
+                      ),
+                      SizedBox(width: t.sm),
+                      OscPathSegment(
+                        segment: 'leading',
+                        child: OscRotaryKnob(
+                          label: 'Leading',
+                          minValue: -20,
+                          maxValue: 60,
+                          initialValue: 0,
+                          defaultValue: 0,
+                          format: '%.0f',
+                          size: t.knobSm,
+                          labelStyle: t.textLabel,
+                          preferInteger: true,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -388,59 +443,6 @@ class _SendTextState extends State<SendText> {
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          GridRow(
-            columns: 1,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: Panel(
-                  title: 'Spacing',
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: OscPathSegment(
-                            segment: 'tracking',
-                            child: OscRotaryKnob(
-                              label: 'Tracking',
-                              minValue: -20,
-                              maxValue: 40,
-                              initialValue: 0,
-                              defaultValue: 0,
-                              format: '%.0f',
-                              size: t.knobMd,
-                              labelStyle: t.textLabel,
-                              preferInteger: true,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: t.md),
-                      Expanded(
-                        child: Center(
-                          child: OscPathSegment(
-                            segment: 'leading',
-                            child: OscRotaryKnob(
-                              label: 'Leading',
-                              minValue: -20,
-                              maxValue: 60,
-                              initialValue: 0,
-                              defaultValue: 0,
-                              format: '%.0f',
-                              size: t.knobMd,
-                              labelStyle: t.textLabel,
-                              preferInteger: true,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),

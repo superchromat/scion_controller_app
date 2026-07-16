@@ -7,9 +7,12 @@ import 'font_catalog.dart';
 import 'asset_upload_ui.dart';
 import 'grid.dart';
 
-/// Typeface / Variant / Size dropdowns for the text overlay, driven by the
+/// Typeface / Variant / Size selector for the text overlay, driven by the
 /// device font catalog (/fonts/count + /fonts/info). Resolves the ambient
-/// `/send/N/text` path and sends `/font` (the catalog index) and `/size`.
+/// `/send/N/text/region/M` path and sends `/font` (the catalog index) and
+/// `/size`. Typeface is the primary dropdown with a compact Variant dropdown
+/// nested to its right; the Layer (osd) control lives separately in
+/// [TextLayerDropdown].
 class FontControls extends StatefulWidget {
   const FontControls({super.key});
 
@@ -21,7 +24,6 @@ class _FontControlsState extends State<FontControls> {
   String _base = '';
   int _fontIndex = 0;
   int _size = 64;
-  int _osd = 0; // /text/osd: 2=Layer 1 (Font OSD), 1=Layer 2 (Window), 0=Layer 3 (Output)
   bool _wired = false;
 
   @override
@@ -36,10 +38,7 @@ class _FontControlsState extends State<FontControls> {
       OscRegistry().registerListener('$_base/font', _onFont);
       OscRegistry().registerAddress('$_base/size');
       OscRegistry().registerListener('$_base/size', _onSize);
-      OscRegistry().registerAddress('$_base/osd');
-      OscRegistry().registerListener('$_base/osd', _onOsd);
     }
-    // Kick off (or refresh) the catalog fetch.
     final net = context.read<Network>();
     if (!FontCatalog.instance.isLoaded) FontCatalog.instance.loadWith(net);
   }
@@ -49,7 +48,6 @@ class _FontControlsState extends State<FontControls> {
     if (_base.isNotEmpty) {
       OscRegistry().unregisterListener('$_base/font', _onFont);
       OscRegistry().unregisterListener('$_base/size', _onSize);
-      OscRegistry().unregisterListener('$_base/osd', _onOsd);
     }
     super.dispose();
   }
@@ -63,12 +61,6 @@ class _FontControlsState extends State<FontControls> {
   void _onSize(List<Object?> args) {
     if (args.isNotEmpty && args.first is int && mounted) {
       setState(() => _size = args.first as int);
-    }
-  }
-
-  void _onOsd(List<Object?> args) {
-    if (args.isNotEmpty && args.first is int && mounted) {
-      setState(() => _osd = (args.first as int).clamp(0, 2));
     }
   }
 
@@ -103,102 +95,161 @@ class _FontControlsState extends State<FontControls> {
         final sizes = cur.sizes.isNotEmpty ? cur.sizes : const [32, 64, 96];
         final selSize = _nearest(sizes, _size);
 
-        Widget dd<TT>(String label, TT value, List<TT> items,
-            String Function(TT) fmt, ValueChanged<TT?> onCh) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label, style: t.textLabel),
-              SizedBox(height: t.xs),
-              DropdownButton<TT>(
-                value: value,
-                isDense: true,
-                isExpanded: true,
-                dropdownColor: const Color(0xFF2A2A2E),
-                style: t.textLabel.copyWith(color: Colors.white),
-                underline: Container(height: 1, color: const Color(0xFF55555A)),
-                items: [
-                  for (final it in items)
-                    DropdownMenuItem<TT>(value: it, child: Text(fmt(it))),
-                ],
-                onChanged: onCh,
-              ),
-            ],
-          );
-        }
-
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // Typeface (primary) with the Variant as a little dropdown to its
+            // right — one nested font picker rather than two peer dropdowns.
             Expanded(
-              flex: 3,
-              child: dd<String>('Typeface', cur.family, cat.families, (f) => f,
-                  (f) {
-                if (f == null) return;
-                final vs = cat.variantsOf(f);
-                // keep the same variant name if the new family has it, else first
-                final match = vs.firstWhere((e) => e.variant == cur.variant,
-                    orElse: () => vs.first);
-                _send('font', match.index);
-                setState(() => _fontIndex = match.index);
-              }),
+              flex: 5,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: fontDropdown<String>(t, cur.family, cat.families,
+                        (f) => f, (f) {
+                      if (f == null) return;
+                      final vs = cat.variantsOf(f);
+                      final match = vs.firstWhere(
+                          (e) => e.variant == cur.variant,
+                          orElse: () => vs.first);
+                      _send('font', match.index);
+                      setState(() => _fontIndex = match.index);
+                    }),
+                  ),
+                  SizedBox(width: t.sm),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: t.u * 9),
+                    child: fontDropdown<int>(
+                        t,
+                        cur.index,
+                        variants.map((e) => e.index).toList(),
+                        (i) => cat.entryByIndex(i)?.variant ?? '?', (i) {
+                      if (i == null) return;
+                      _send('font', i);
+                      setState(() => _fontIndex = i);
+                    }, expand: false),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(width: t.sm),
-            Expanded(
-              flex: 3,
-              child: dd<int>('Variant', cur.index,
-                  variants.map((e) => e.index).toList(),
-                  (i) => cat.entryByIndex(i)?.variant ?? '?', (i) {
-                if (i == null) return;
-                _send('font', i);
-                setState(() => _fontIndex = i);
-              }),
-            ),
-            SizedBox(width: t.sm),
-            Expanded(
-              flex: 2,
-              child: dd<int>('Size', selSize, sizes, (s) => '$s px', (s) {
-                if (s == null) return;
-                _send('size', s);
-                setState(() => _size = s);
-              }),
-            ),
-            SizedBox(width: t.sm),
-            Expanded(
-              flex: 2,
-              // Which OSD block renders the text. "In" = Font OSD (input
-              // stage: text is processed WITH the video — scales, rotates,
-              // warps like picture content). "Above" = Output OSD (fixed
-              // overlay on the final raster). The Window OSD (osd=1) is
-              // parked pending MFC-block bring-up.
-              child: dd<int>(
-                  'Layer',
-                  _osd == 1 ? 0 : _osd,
-                  const [2, 0],
-                  (v) => const {2: 'In', 0: 'Above'}[v]!,
-                  (v) {
-                if (v == null) return;
-                _send('osd', v);
-                setState(() => _osd = v);
-              }),
-            ),
+            SizedBox(width: t.md),
+            fontDropdown<int>(t, selSize, sizes, (s) => '$s px', (s) {
+              if (s == null) return;
+              _send('size', s);
+              setState(() => _size = s);
+            }, expand: false),
             SizedBox(width: t.xs),
             // Upload a .ttf into the device font store (<=48 KiB, glyf
             // outlines; fontctl.py subsets larger families).
-            Padding(
-              padding: EdgeInsets.only(top: t.md),
-              child: IconButton(
-                icon: Icon(Icons.upload_file,
-                    size: 18, color: Colors.grey[400]),
-                tooltip: 'Upload font (.ttf)…',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => uploadFontFlow(context),
-              ),
+            IconButton(
+              icon: Icon(Icons.upload_file, size: 18, color: Colors.grey[400]),
+              tooltip: 'Upload font (.ttf)…',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => uploadFontFlow(context),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+/// A bare (label-less) neumorphic-underlined dropdown matching the text card's
+/// font selectors.
+Widget fontDropdown<TT>(GridTokens t, TT value, List<TT> items,
+    String Function(TT) fmt, ValueChanged<TT?> onCh,
+    {bool expand = true}) {
+  return DropdownButton<TT>(
+    value: value,
+    isDense: true,
+    isExpanded: expand,
+    dropdownColor: const Color(0xFF2A2A2E),
+    style: t.textLabel.copyWith(color: Colors.white),
+    underline: Container(height: 1, color: const Color(0xFF55555A)),
+    items: [
+      for (final it in items)
+        DropdownMenuItem<TT>(value: it, child: Text(fmt(it))),
+    ],
+    onChanged: onCh,
+  );
+}
+
+/// Which OSD block renders the text. "In" = Font OSD (input stage: text is
+/// processed WITH the video — scales, rotates, warps like picture content).
+/// "Above" = Output OSD (fixed overlay on the final raster). The Window OSD
+/// (osd=1) is parked pending MFC-block bring-up. Binds `/osd` under the ambient
+/// `/send/N/text/region/M` path.
+class TextLayerDropdown extends StatefulWidget {
+  const TextLayerDropdown({super.key});
+
+  @override
+  State<TextLayerDropdown> createState() => _TextLayerDropdownState();
+}
+
+class _TextLayerDropdownState extends State<TextLayerDropdown> {
+  String _base = '';
+  int _osd = 0;
+  bool _wired = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_wired) return;
+    _wired = true;
+    final segs = OscPathSegment.resolvePath(context);
+    _base = segs.isEmpty ? '' : '/${segs.join('/')}';
+    if (_base.isNotEmpty) {
+      OscRegistry().registerAddress('$_base/osd');
+      OscRegistry().registerListener('$_base/osd', _onOsd);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_base.isNotEmpty) {
+      OscRegistry().unregisterListener('$_base/osd', _onOsd);
+    }
+    super.dispose();
+  }
+
+  void _onOsd(List<Object?> args) {
+    if (args.isNotEmpty && args.first is int && mounted) {
+      setState(() => _osd = (args.first as int).clamp(0, 2));
+    }
+  }
+
+  void _send(int v) {
+    context.read<Network>().sendOscMessage('$_base/osd', [v]);
+    OscRegistry().registerAddress('$_base/osd');
+    OscRegistry().dispatch('$_base/osd', [v]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text('Layer', style: t.textLabel),
+        SizedBox(width: t.sm),
+        DropdownButton<int>(
+          value: _osd == 1 ? 0 : _osd,
+          isDense: true,
+          dropdownColor: const Color(0xFF2A2A2E),
+          style: t.textLabel.copyWith(color: Colors.white),
+          underline: Container(height: 1, color: const Color(0xFF55555A)),
+          items: const [
+            DropdownMenuItem(value: 2, child: Text('In')),
+            DropdownMenuItem(value: 0, child: Text('Above')),
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            _send(v);
+            setState(() => _osd = v);
+          },
+        ),
+      ],
     );
   }
 }
