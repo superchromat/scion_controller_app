@@ -3,6 +3,7 @@
 
 import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'font_controls.dart';
@@ -10,6 +11,8 @@ import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
 import 'labeled_card.dart';
+import 'app_button.dart';
+import 'network.dart';
 
 /// Text field widget that sends string via OSC on every change
 class OscTextField extends StatefulWidget {
@@ -366,6 +369,7 @@ class _SendTextState extends State<SendText> {
                 span: 1,
                 child: Panel(
                   title: 'Color',
+                  titleTrailing: const TextCopperToggle(),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -453,6 +457,53 @@ class _SendTextState extends State<SendText> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Compact "Copper" toggle riding in the Color card's title row. Sends
+/// `/send/N/text/region/M/copper <0|1>`; the firmware drives a per-scanline
+/// rainbow on the text's solid-colour palette entry (the glyph body cycles,
+/// AA edges keep their hue). The effect is transient with no device-side state
+/// to read back, and the card is keyed by region, so the toggle resets to off
+/// when the region changes.
+class TextCopperToggle extends StatefulWidget {
+  const TextCopperToggle({super.key});
+
+  @override
+  State<TextCopperToggle> createState() => _TextCopperToggleState();
+}
+
+class _TextCopperToggleState extends State<TextCopperToggle> {
+  String _base = '';
+  bool _on = false;
+  bool _wired = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_wired) return;
+    _wired = true;
+    final segs = OscPathSegment.resolvePath(context);
+    _base = segs.isEmpty ? '' : '/${segs.join('/')}';
+  }
+
+  void _toggle() {
+    if (_base.isEmpty) return;
+    final next = !_on;
+    context.read<Network>().sendOscMessage('$_base/copper', [next ? 1 : 0]);
+    setState(() => _on = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppButton(
+      icon: Icons.gradient,
+      label: _on ? 'Copper on' : 'Copper',
+      selected: _on,
+      accentColor: const Color(0xFF7A5CFF),
+      dense: true,
+      onPressed: _toggle,
     );
   }
 }
