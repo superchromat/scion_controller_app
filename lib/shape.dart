@@ -10,6 +10,7 @@ import 'network.dart';
 import 'osc_registry.dart';
 import 'panel.dart';
 import 'shape_canvas.dart';
+import 'shape_selection.dart';
 import 'send_effects.dart';
 import 'send_text.dart';
 import 'sprite_controls.dart';
@@ -348,6 +349,46 @@ class ShapeState extends State<Shape> {
   final _rotationKey = GlobalKey<OscRotaryKnobState>();
   int _tab = 0; // 0 Transform · 1 Text · 2 Sprites · 3 Color Field
 
+  // Shared selection/occupancy for the canvas + the two editors (see
+  // ShapeSelection). When a text/sprite is picked on the canvas the selection's
+  // kind flips; we follow it here by switching to the matching editor tab.
+  final ShapeSelection _sel = ShapeSelection();
+  List<String> _tabLabels = const [];
+  // Last selection we acted on, so occupancy-only notifications (which don't
+  // change kind/region) don't yank the user off whatever tab they're on.
+  ShapeSel _lastSelKind = ShapeSel.none;
+  int _lastSelRegion = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _sel.addListener(_onSelChanged);
+  }
+
+  @override
+  void dispose() {
+    _sel.removeListener(_onSelChanged);
+    _sel.dispose();
+    super.dispose();
+  }
+
+  // A genuine selection change (kind or region) → open the matching editor tab.
+  // Ignores occupancy-only notifications so a text/sprite appearing elsewhere
+  // doesn't pull the user off their current tab.
+  void _onSelChanged() {
+    if (_sel.kind == _lastSelKind && _sel.region == _lastSelRegion) return;
+    _lastSelKind = _sel.kind;
+    _lastSelRegion = _sel.region;
+    final label = _sel.kind == ShapeSel.text
+        ? 'Text'
+        : _sel.kind == ShapeSel.sprite
+            ? 'Sprites'
+            : null;
+    if (label == null) return;
+    final want = _tabLabels.indexOf(label);
+    if (want >= 0 && want != _tab && mounted) setState(() => _tab = want);
+  }
+
   // One crop-edge knob (fraction of source removed from that edge, 0..0.95).
   // Firmware clamps to 0.95/edge and 0.95/axis; a single edge can trim down to
   // a 5% sliver (e.g. left+bottom at 0.95 => a 5% x 5% top-right window). Crop
@@ -407,8 +448,11 @@ class ShapeState extends State<Shape> {
       'Color Field': 'colorField',
     };
     final activeOverlay = overlayKeys[tabs[_tab].$1] ?? 'transform';
+    _tabLabels = [for (final e in tabs) e.$1];
 
-    return GridRow(
+    return ChangeNotifierProvider<ShapeSelection>.value(
+      value: _sel,
+      child: GridRow(
       columns: 12,
       gutter: t.md,
       cells: [
@@ -433,6 +477,7 @@ class ShapeState extends State<Shape> {
           ),
         ),
       ],
+      ),
     );
   }
 

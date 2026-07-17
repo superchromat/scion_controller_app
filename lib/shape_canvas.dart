@@ -17,6 +17,7 @@ import 'labeled_card.dart';
 import 'network.dart';
 import 'osc_registry.dart';
 import 'osc_widget_binding.dart';
+import 'shape_selection.dart';
 
 const _amber = Color(0xFFF0B830);
 const _blue = Color(0xFF9AA6FF);
@@ -121,9 +122,15 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   bool _wired = false;
   final Map<String, void Function(List<Object?>)> _subs = {};
 
+  // Shared selection/occupancy (provided by Shape). The canvas highlights the
+  // selected region and writes the selection on tap; it also feeds occupancy
+  // (which regions hold text vs a sprite) from the state it already mirrors.
+  ShapeSelection? _sel;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _sel = context.read<ShapeSelection>();
     if (_wired) return;
     _wired = true;
     final segs = OscPathSegment.resolvePath(context);
@@ -324,6 +331,8 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     _listen('/assets/sprites/hide', _onSpriteHide);
     _listen('/assets/sprites/info', _onSpriteInfo);
     _listen('/assets/sprites/count', _onSpriteCount);
+    // Device reset clears the on-device overlays — drop the placeholder boxes.
+    _listen('/config/reset', (a) => _sprites.clear());
 
     // Colour-field mesh (UC block is Send-1 output only). Control points are a
     // client-side authoring layer — the device only stores the baked grid — so
@@ -705,6 +714,7 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       if (hit != null) { _drag = 't$hit'; _p0 = p; _px0 = _txtX[hit]; _py0 = _txtY[hit]; }
       else { _drag = null; }
     });
+    if (hit != null) _sel?.select(ShapeSel.text, hit + 1);
   }
 
   DateTime _lastTextSend = DateTime.fromMillisecondsSinceEpoch(0);
@@ -741,6 +751,7 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         _px0 = _sprites[hit]!.x; _py0 = _sprites[hit]!.y;
       } else { _drag = null; }
     });
+    if (hit != null) _sel?.select(ShapeSel.sprite, hit);
   }
 
   void _spriteUpdate(Offset p) {
@@ -754,10 +765,52 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     _send3('/assets/sprites/move', [_sendIdx, r, nx.round(), ny.round()]);
   }
 
+  // Push the region occupancy the canvas already mirrors into the shared model,
+  // so the editors can grey out a region held by the other kind. Called
+  // post-frame (setters are no-ops when unchanged, so this is cheap).
+  void _syncOccupancy() {
+    final sel = _sel;
+    if (sel == null) return;
+    for (int r = 1; r <= 4; r++) {
+      sel.setTextOccupied(r, _txtStr[r - 1].trim().isNotEmpty);
+    }
+    for (int r = 2; r <= 4; r++) {
+      sel.setSpriteOccupied(r, _sprites.containsKey(r));
+    }
+  }
+
+  // A plain tap selects whatever element is under it — across overlays, so
+  // tapping a (dimmed) sprite while on the Text tab opens the Sprites tab.
+  // Sprites paint above text, so hit-test them first.
+  void _tapSelect(Offset p) {
+    final sel = _sel;
+    if (sel == null) return;
+    for (final e in _sprites.entries) {
+      if (_spriteRect(e.value).inflate(6).contains(p)) {
+        sel.select(ShapeSel.sprite, e.key);
+        return;
+      }
+    }
+    for (int i = 3; i >= 0; i--) {
+      if (_txtStr[i].trim().isEmpty) continue;
+      if (_textRect(i).inflate(6).contains(p)) {
+        sel.select(ShapeSel.text, i + 1);
+        return;
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    // Rebuild (and thus repaint — shouldRepaint is always true) when the shared
+    // selection changes, so the highlighted text/sprite box tracks the editor.
+    context.watch<ShapeSelection>();
+    // Reconcile occupancy after this frame from the state we already mirror.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncOccupancy();
+    });
     // Big working area filling the left side; the 16:9 output frame is centred
     // inside it, so handles can roam into the margin and stay grabbable.
     const overlayTitles = {
@@ -806,6 +859,7 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
                 onHover: (e) => setState(() => _hover = e.localPosition - _stageOffset),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
+                  onTapUp: (dg) => _tapSelect(dg.localPosition - _stageOffset),
                   onPanStart: (dg) => _panStart(dg.localPosition - _stageOffset),
                   onPanUpdate: (dg) => _panUpdate(dg.localPosition - _stageOffset),
                   onPanEnd: (_) {
@@ -1221,7 +1275,8 @@ class _ShapePainter extends CustomPainter {
     for (int i = 0; i < 4; i++) {
       if (s._txtStr[i].trim().isEmpty) continue;
       final r = s._textRect(i);
-      final sel = s._drag == 't$i';
+      final sel = s._drag == 't$i' ||
+          (s._sel?.kind == ShapeSel.text && s._sel?.region == i + 1);
       final c = sel ? Colors.white : _teal;
       canvas.drawRect(r, Paint()..color = c.withValues(alpha: 0.10));
       canvas.drawRect(r, Paint()..style = PaintingStyle.stroke..strokeWidth = sel ? 2 : 1.5..color = c);
@@ -1234,7 +1289,8 @@ class _ShapePainter extends CustomPainter {
   void _paintSprites(Canvas canvas, Size ss) {
     for (final e in s._sprites.entries) {
       final r = s._spriteRect(e.value);
-      final sel = s._drag == 'sp${e.key}';
+      final sel = s._drag == 'sp${e.key}' ||
+          (s._sel?.kind == ShapeSel.sprite && s._sel?.region == e.key);
       final c = sel ? Colors.white : _green;
       canvas.drawRect(r, Paint()..color = c.withValues(alpha: 0.08));
       canvas.drawRect(r, Paint()..style = PaintingStyle.stroke..strokeWidth = sel ? 2 : 1.5..color = c);

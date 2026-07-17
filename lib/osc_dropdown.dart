@@ -157,6 +157,7 @@ class NeumorphicDropdown<T> extends StatefulWidget {
   final bool enabled;
   final bool showLabel;
   final double width;
+  final double height;
   final double valueFontSize;
   final Map<T, String>? itemLabels;
 
@@ -169,6 +170,7 @@ class NeumorphicDropdown<T> extends StatefulWidget {
     this.enabled = true,
     this.showLabel = true,
     this.width = 160,
+    this.height = 32,
     this.valueFontSize = 13,
     this.itemLabels,
   });
@@ -280,6 +282,7 @@ class _NeumorphicDropdownState<T> extends State<NeumorphicDropdown<T>> {
             child: _NeumorphicDropdownButton(
               lighting: lighting,
               width: widget.width,
+              height: widget.height,
               enabled: widget.enabled,
               isHovered: _isHovered,
               child: Row(
@@ -310,6 +313,7 @@ class _NeumorphicDropdownState<T> extends State<NeumorphicDropdown<T>> {
 class _NeumorphicDropdownButton extends StatefulWidget {
   final LightingSettings lighting;
   final double width;
+  final double height;
   final bool enabled;
   final bool isHovered;
   final Widget child;
@@ -317,6 +321,7 @@ class _NeumorphicDropdownButton extends StatefulWidget {
   const _NeumorphicDropdownButton({
     required this.lighting,
     required this.width,
+    required this.height,
     required this.enabled,
     required this.isHovered,
     required this.child,
@@ -334,7 +339,7 @@ class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton>
     return Container(
       key: globalRectKey,
       width: widget.width,
-      height: 32,
+      height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         boxShadow: widget.enabled

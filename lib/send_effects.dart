@@ -226,11 +226,20 @@ class RectCopyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrap(context, [
+    final t = GridProvider.maybeOf(context);
+    // A left-packing Wrap (not the 4-column ControlGrid) so the 12 controls
+    // flow into ~1 dense row across the full-width card instead of a tall 4×3.
+    return Wrap(
+      spacing: t?.sm ?? 8,
+      runSpacing: t?.sm ?? 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
         const OscPathSegment(
             segment: 'glitch/gac/enable', child: _Toggle(label: 'Enable')),
         _knob(context, 'From X', 'glitch/gac/x', 0, 1912, initial: 896),
         _knob(context, 'From Y', 'glitch/gac/y', 0, 1072, initial: 476),
+        _knob(context, 'To X', 'glitch/gac/dst_x', 0, 1912, initial: 896),
+        _knob(context, 'To Y', 'glitch/gac/dst_y', 0, 1072, initial: 476),
         _knob(context, 'Size', 'glitch/gac/size', 8, 512, initial: 128),
         _knob(context, 'Grid', 'glitch/gac/grid', 1, 16, initial: 4),
         // Spacing > Size spreads the tiles across the frame with live video
@@ -243,6 +252,7 @@ class RectCopyPanel extends StatelessWidget {
             segment: 'glitch/gac/yonly', child: _Toggle(label: 'Y Only')),
         _knob(context, 'Shear In', 'glitch/gac/shear_src', -192, 192, bipolar: true),
         _knob(context, 'Shear Out', 'glitch/gac/shear_dst', -192, 192, bipolar: true),
-    ]);
+      ],
+    );
   }
 }

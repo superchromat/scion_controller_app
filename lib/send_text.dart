@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
+import 'shape_selection.dart';
 import 'font_controls.dart';
 import 'oklch_color_picker.dart';
 import 'grid.dart';
 import 'panel.dart';
 import 'labeled_card.dart';
-import 'app_button.dart';
 import 'network.dart';
 
 /// Text field widget that sends string via OSC on every change
@@ -195,36 +195,98 @@ class _SendTextState extends State<SendText> {
   // field set exactly (region 1 aliases the flat /text/* fields).
   int _region = 1;
 
+  // Shared canvas/editor selection (provided by Shape). We follow it (canvas
+  // tap → this region) and drive it (region tab → canvas highlight).
+  ShapeSelection? _sel;
+  bool _selWired = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_selWired) return;
+    _selWired = true;
+    _sel = context.read<ShapeSelection>();
+    _sel!.addListener(_onSel);
+    // On entering the Text tab: adopt the selection if it already points at a
+    // text region (canvas-driven), otherwise claim it for our current region.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sel = _sel;
+      if (sel == null || !mounted) return;
+      if (sel.kind == ShapeSel.text) {
+        if (sel.region != _region) setState(() => _region = sel.region);
+      } else {
+        sel.select(ShapeSel.text, _region);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sel?.removeListener(_onSel);
+    super.dispose();
+  }
+
+  void _onSel() {
+    final sel = _sel;
+    if (sel == null || !mounted) return;
+    if (sel.kind == ShapeSel.text && sel.region != _region) {
+      setState(() => _region = sel.region);
+    }
+  }
+
+  void _selectRegion(int r) {
+    setState(() => _region = r);
+    _sel?.select(ShapeSel.text, r);
+  }
+
   Widget _regionTabs(BuildContext context) {
     final t = GridProvider.of(context);
+    // Rebuild the tabs when occupancy changes so a region gained/lost by a
+    // sprite greys/ungreys live.
+    final sel = context.watch<ShapeSelection>();
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Region', style: t.textLabel),
         SizedBox(width: t.sm),
         for (int r = 1; r <= 4; r++) ...[
-          GestureDetector(
-            onTap: () => setState(() => _region = r),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
-              decoration: BoxDecoration(
-                color: _region == r
-                    ? const Color(0xFF4A6A8A)
-                    : const Color(0xFF2A2A2C),
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(
+          // Regions 2-4 hold text OR a sprite: if a sprite occupies this region,
+          // it can't hold text, so disable and grey the tab.
+          Builder(builder: (context) {
+            final blocked = r >= 2 && sel.spriteOccupied(r);
+            final tab = GestureDetector(
+              onTap: blocked ? null : () => _selectRegion(r),
+              child: Container(
+                padding:
+                    EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
+                decoration: BoxDecoration(
                   color: _region == r
-                      ? const Color(0xFF6A9ACA)
-                      : Colors.grey[600]!,
+                      ? const Color(0xFF4A6A8A)
+                      : const Color(0xFF2A2A2C),
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                    color: _region == r
+                        ? const Color(0xFF6A9ACA)
+                        : Colors.grey[600]!,
+                  ),
                 ),
+                child: Text('$r',
+                    style: t.textLabel.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: _region == r ? Colors.white : Colors.grey[300],
+                    )),
               ),
-              child: Text('$r',
-                  style: t.textLabel.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: _region == r ? Colors.white : Colors.grey[300],
-                  )),
-            ),
-          ),
+            );
+            return Opacity(
+              opacity: blocked ? 0.35 : 1.0,
+              child: blocked
+                  ? Tooltip(
+                      message: 'Region $r has a sprite',
+                      child: MouseRegion(
+                          cursor: SystemMouseCursors.forbidden, child: tab))
+                  : tab,
+            );
+          }),
           SizedBox(width: t.xs),
         ],
       ],
@@ -369,15 +431,20 @@ class _SendTextState extends State<SendText> {
                 span: 1,
                 child: Panel(
                   title: 'Color',
-                  titleTrailing: const TextCopperToggle(),
+                  // Both knobs get an equal, centered half (matching the
+                  // Position card); the compact Copper toggle sits between them.
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      OscPathSegment(
-                        segment: 'color',
-                        child: OscColorControl(size: t.knobMd * 1.15),
+                      Expanded(
+                        child: Center(
+                          child: OscPathSegment(
+                            segment: 'color',
+                            child: OscColorControl(size: t.knobMd * 1.15),
+                          ),
+                        ),
                       ),
-                      SizedBox(width: t.sm),
+                      const TextCopperToggle(),
                       Expanded(
                         child: Center(
                           child: OscPathSegment(
@@ -497,13 +564,26 @@ class _TextCopperToggleState extends State<TextCopperToggle> {
 
   @override
   Widget build(BuildContext context) {
-    return AppButton(
-      icon: Icons.gradient,
-      label: _on ? 'Copper on' : 'Copper',
-      selected: _on,
-      accentColor: const Color(0xFF7A5CFF),
-      dense: true,
-      onPressed: _toggle,
+    const accent = Color(0xFF7A5CFF);
+    return Tooltip(
+      message: _on ? 'Copper on' : 'Copper (rainbow text)',
+      child: GestureDetector(
+        onTap: _toggle,
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _on ? accent.withValues(alpha: 0.22) : const Color(0xFF2A2A2C),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _on ? accent : Colors.grey[700]!,
+              width: _on ? 1.5 : 1,
+            ),
+          ),
+          child: const Text('🌈', style: TextStyle(fontSize: 16)),
+        ),
+      ),
     );
   }
 }

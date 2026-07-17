@@ -208,9 +208,13 @@ class FileManagementSectionState extends State<FileManagementSection> {
             dense: true,
             accentColor: const Color(0xFFB56A77),
             onPressed: () {
-              // Send OSC message to reset configuration to defaults
+              // Send OSC message to reset configuration to defaults, and echo it
+              // locally so client-side overlay state (sprites, etc.) clears too.
               try {
                 context.read<Network>().sendOscMessage('/config/reset', const []);
+                OscRegistry()
+                  ..registerAddress('/config/reset')
+                  ..dispatchLocal('/config/reset', const []);
               } catch (_) {}
               Navigator.of(ctx).pop();
             },

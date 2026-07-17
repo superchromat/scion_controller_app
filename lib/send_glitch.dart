@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'network.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
+import 'rotary_knob.dart';
 import 'osc_dropdown.dart';
 import 'osc_registry.dart';
 import 'grid.dart';
@@ -54,16 +55,22 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       'write_addr_offset', 'write_phase', 'row_repeat',
       'bit_precision', 'map_mode',
       'y_freeze', 'c_freeze',
-      'mfc_in_roi_x', 'mfc_in_roi_y',
       'valid_lines', 'rows_per_frame', 'col_window',
       'gen_dlyH', 'gen_dlyV',
       'outmux_port', 'write_ffc_map', 'mfc_read_buf',
       'y_buf_type',
       'even_odd_swap', 'cbcr_swap',
       'gac_enable', 'gac_shear_src', 'gac_shear_dst',
+      // WMC / frame-pointer corruption glitches
+      'mirror_x', 'mirror_y', 'mirror_off_x', 'mirror_off_y', 'shear_x',
+      'line_jump', 'line_init', 'dmem_y', 'dmem_cb', 'dmem_cr',
+      'fid_inv', 'fid_force', 'si2_h', 'si2_hoff', 'si2_v', 'si2_voff',
+      'cap_x', 'cap_y', 'wr_delay_v', 'wr_delay_h', 'skip_mode', 'skip_count',
     ]) {
       _set(seg, 0);
     }
+    _set('mirror_mask', 8191);
+    _set('mirror_clamp', 8191);
     // Rect Copy defaults (mirror firmware boot state). gac_enable=0 above
     // stops the blit loop; the firmware reset command doesn't know about GAC,
     // so also push the disable explicitly.
@@ -217,6 +224,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     bool isBipolar = false,
   }) {
     final t = GridProvider.maybeOf(context);
+    final def = defaultValue ?? initial;
     return OscPathSegment(
       segment: oscAddress,
       child: OscRotaryKnob(
@@ -224,12 +232,17 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
         minValue: min,
         maxValue: max,
         initialValue: initial,
-        defaultValue: defaultValue ?? initial,
+        defaultValue: def,
         format: format,
         isBipolar: isBipolar,
         preferInteger: true,
         size: t?.knobMd ?? 60,
         labelStyle: t?.textLabel,
+        // Detent at the default position (region scales with the knob range).
+        snapConfig: SnapConfig(
+          snapPoints: [def],
+          snapRegionHalfWidth: (max - min) * 0.02,
+        ),
       ),
     );
   }
@@ -245,112 +258,140 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       segment: 'glitch',
       child: CardColumn(
         children: [
-          // Row 1: Pixel Bus (1/3) | Frame Buffer (2/3)
-          GridRow(columns: 3, gutter: t.md, cells: [
-            (span: 1, child: Panel(
-              title: 'Pixel Bus',
+          // A 12-column grid with spans matched to each panel's control count,
+          // so every panel fills its width in ~1 row. equalHeight:false keeps
+          // panels at natural height (no stretching into dead space).
+          // Row 1: Frame Buffer | MFC — the two widest panels.
+          GridRow(columns: 12, gutter: t.md, equalHeight: false, cells: [
+            (span: 5, child: Panel(
+              title: 'Frame Buffer',
+              // Wrap (not a fixed 8-wide Row) so it flows to 2 rows at this
+              // span, matching MFC's height — no dead space beneath it.
               child: Wrap(
-                spacing: t.sm,
-                runSpacing: t.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _intDropdown(
-                    label: 'Channel Swap',
-                    options: _channelSwapLabels,
-                    oscAddress: 'channel_swap',
-                    width: 130,
-                  ),
-                  _bitSwapControl(),
+                  _knob(label: 'Stride',   oscAddress: 'stride_offset',   min: -50,   max: 50,   isBipolar: true),
+                  _knob(label: 'Row Ofs',  oscAddress: 'row_offset',      min: -500,  max: 500,  isBipolar: true),
+                  _knob(label: 'Addr Ofs', oscAddress: 'addr_offset',     min: -1000, max: 1000, isBipolar: true),
+                  _knob(label: 'FFC Map',  oscAddress: 'write_ffc_map',   min: 0,     max: 7),
+                  _knob(label: 'MFC Buf',  oscAddress: 'mfc_read_buf',    min: 0,     max: 7,     initial: 0),
+                  _knob(label: 'Wr Addr',  oscAddress: 'write_addr_offset', min: -65535, max: 65535, isBipolar: true),
+                  _knob(label: 'Wr Phase', oscAddress: 'write_phase',     min: 0,     max: 6),
+                  _knob(label: 'Row Rpt',  oscAddress: 'row_repeat',      min: 0,     max: 2160),
                 ],
               ),
             )),
-            (span: 2, child: Panel(
-              title: 'Frame Buffer',
-              child: Row(children: [
-                Expanded(child: Center(child: _knob(label: 'Stride',    oscAddress: 'stride_offset',   min: -50,   max: 50,   isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Row Ofs',   oscAddress: 'row_offset',      min: -500,  max: 500,  isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Addr Ofs',  oscAddress: 'addr_offset',     min: -1000, max: 1000, isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'FFC Map',   oscAddress: 'write_ffc_map',   min: 0,     max: 7))),
-                Expanded(child: Center(child: _knob(label: 'MFC Buf',   oscAddress: 'mfc_read_buf',    min: 0,     max: 7,     initial: 0))),
-                Expanded(child: Center(child: _knob(label: 'Wr Addr',   oscAddress: 'write_addr_offset', min: -65535, max: 65535, isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Wr Phase',  oscAddress: 'write_phase',     min: 0,     max: 6))),
-                Expanded(child: Center(child: _knob(label: 'Row Rpt',   oscAddress: 'row_repeat',      min: 0,     max: 2160))),
-              ]),
+            (span: 7, child: Panel(
+              title: 'MFC',
+              // Write-offset corruption: Off X/Y shift where each captured line
+              // lands in DDR (works with the flip OFF — tearing/wrap). Shear =
+              // sub-word horizontal shear; Line Jump = vertical decimation
+              // (venetian-blind). Mask/Clamp shape the offset.
+              child: Wrap(
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _knob(label: 'Valid Lns', oscAddress: 'valid_lines', min: -30, max: 30, isBipolar: true),
+                  OscPathSegment(segment: 'mirror_x', child: const _ToggleWidget(label: 'Mirror X')),
+                  OscPathSegment(segment: 'mirror_y', child: const _ToggleWidget(label: 'Mirror Y')),
+                  _knob(label: 'Off X', oscAddress: 'mirror_off_x', min: -8191, max: 8191, isBipolar: true),
+                  _knob(label: 'Off Y', oscAddress: 'mirror_off_y', min: -8191, max: 8191, isBipolar: true),
+                  _knob(label: 'Shear', oscAddress: 'shear_x', min: 0, max: 15),
+                  _knob(label: 'Line Jump', oscAddress: 'line_jump', min: 0, max: 31),
+                  _knob(label: 'Line Init', oscAddress: 'line_init', min: 0, max: 31),
+                  _knob(label: 'Mask', oscAddress: 'mirror_mask', min: 0, max: 8191, initial: 8191, defaultValue: 8191),
+                  _knob(label: 'Clamp', oscAddress: 'mirror_clamp', min: 0, max: 8191, initial: 8191, defaultValue: 8191),
+                ],
+              ),
             )),
           ]),
-          // Row 2: MFC (1/3) | Temporal (1/3) | Genlock (1/3)
-          GridRow(columns: 3, gutter: t.md, cells: [
-            (span: 1, child: Panel(
-              title: 'MFC',
-              child: Row(children: [
-                Expanded(child: Center(child: _knob(label: 'In ROI X',  oscAddress: 'mfc_in_roi_x', min: -500, max: 500, isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'In ROI Y',  oscAddress: 'mfc_in_roi_y', min: -500, max: 500, isBipolar: true))),
-                Expanded(child: Center(child: _knob(label: 'Valid Lns', oscAddress: 'valid_lines',  min: -30,  max: 30,  isBipolar: true))),
-              ]),
-            )),
-            (span: 1, child: Panel(
-              title: 'Temporal',
+          // Row 2: Memory Control | Genlock + Temporal (merged timing panel).
+          GridRow(columns: 12, gutter: t.md, equalHeight: false, cells: [
+            (span: 6, child: Panel(
+              title: 'Memory Control',
               child: Wrap(
-                spacing: t.sm,
-                runSpacing: t.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _knob(label: 'Frame Dly', oscAddress: 'frame_delay', min: 0, max: 6),
-                  OscPathSegment(
-                    segment: 'y_freeze',
-                    child: const _ToggleWidget(label: 'Y Freeze'),
-                  ),
-                  OscPathSegment(
-                    segment: 'c_freeze',
-                    child: const _ToggleWidget(label: 'C Freeze'),
-                  ),
+                  OscPathSegment(segment: 'addr_limit_disable', child: const _ToggleWidget(label: 'No Limits')),
+                  _knob(label: 'Col Win', oscAddress: 'col_window', min: -1000, max: 1000, isBipolar: true),
+                  _intDropdown(label: 'Bit Precision', options: _bitPrecisionLabels, oscAddress: 'bit_precision', width: 110),
+                  _intDropdown(label: 'Map Mode', options: _mapModeLabels, oscAddress: 'map_mode', width: 110),
+                  _intDropdown(label: 'Buf ID', options: _bufIdLabels, oscAddress: 'buf_id', width: 90),
+                  // Buf-type dropdowns show short values ("0: Y"), so they pack
+                  // narrow — keeps Memory Control at 2 rows to match Genlock.
+                  _intDropdown(label: 'Y Buf Type', options: _bufTypeLabels, oscAddress: 'y_buf_type', width: 74),
+                  _intDropdown(label: 'Cb Buf Type', options: _bufTypeLabels, oscAddress: 'cb_buf_type', width: 78),
+                  _intDropdown(label: 'Cr Buf Type', options: _bufTypeLabels, oscAddress: 'cr_buf_type', width: 78),
                 ],
               ),
             )),
-            (span: 1, child: Panel(
-              title: 'Genlock',
+            (span: 6, child: Panel(
+              // Genlock + both former "Temporal" panels merged into one.
+              title: 'Genlock / Temporal',
               child: Wrap(
-                spacing: t.sm,
-                runSpacing: t.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _knob(label: 'H Delay', oscAddress: 'gen_dlyH', min: -500, max: 500, isBipolar: true),
                   _knob(label: 'V Delay', oscAddress: 'gen_dlyV', min: -100, max: 100, isBipolar: true),
                   _knob(label: 'Hyst',    oscAddress: 'gen_hyst',  min: 0, max: 1000, initial: 32, defaultValue: 32),
                   _intDropdown(label: 'Fine Mode', options: _genFineModeLabels, oscAddress: 'gen_fine', width: 120),
+                  _knob(label: 'Frame Dly', oscAddress: 'frame_delay', min: 0, max: 6),
+                  // Y Freeze only: the chip can't chroma-freeze scaled (2D-mapped)
+                  // video, so a "C Freeze" toggle would be a dead control.
+                  OscPathSegment(segment: 'y_freeze', child: const _ToggleWidget(label: 'Freeze')),
+                  _intDropdown(label: 'Skip', options: const ['Off', 'Overwrite', 'Skip'], oscAddress: 'skip_mode', width: 120),
+                  _knob(label: 'Skip Count', oscAddress: 'skip_count', min: 0, max: 255),
                 ],
               ),
             )),
           ]),
-          // Row 4: Memory Control (2/3) | Output Mux (1/3)
-          GridRow(columns: 3, gutter: t.md, cells: [
-            (span: 2, child: Panel(
-              title: 'Memory Control',
+          // Row 3: Planar / Field | Roll / Tear | Output Mux | Pixel Bus.
+          GridRow(columns: 12, gutter: t.md, equalHeight: false, cells: [
+            (span: 5, child: Panel(
+              title: 'Planar / Field',
               child: Wrap(
-                spacing: t.sm,
-                runSpacing: t.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  OscPathSegment(segment: 'addr_limit_disable', child: const _ToggleWidget(label: 'No Limits')),
-                  _knob(label: 'Col Win', oscAddress: 'col_window', min: -1000, max: 1000, isBipolar: true),
-                  _intDropdown(label: 'Bit Precision', options: _bitPrecisionLabels, oscAddress: 'bit_precision', width: 120),
-                  _intDropdown(label: 'Map Mode', options: _mapModeLabels, oscAddress: 'map_mode', width: 120),
-                  _intDropdown(label: 'Buf ID', options: _bufIdLabels, oscAddress: 'buf_id', width: 120),
-                  _intDropdown(label: 'Y Buf Type', options: _bufTypeLabels, oscAddress: 'y_buf_type', width: 120),
-                  _intDropdown(label: 'Cb Buf Type', options: _bufTypeLabels, oscAddress: 'cb_buf_type', width: 120),
-                  _intDropdown(label: 'Cr Buf Type', options: _bufTypeLabels, oscAddress: 'cr_buf_type', width: 120),
+                  OscPathSegment(segment: 'dmem_y', child: const _ToggleWidget(label: 'Y Bank')),
+                  OscPathSegment(segment: 'dmem_cb', child: const _ToggleWidget(label: 'Cb Bank')),
+                  OscPathSegment(segment: 'dmem_cr', child: const _ToggleWidget(label: 'Cr Bank')),
+                  OscPathSegment(segment: 'fid_inv', child: const _ToggleWidget(label: 'Field Inv')),
+                  _knob(label: 'Field Force', oscAddress: 'fid_force', min: 0, max: 3),
+                  _knob(label: '2SI H', oscAddress: 'si2_h', min: 0, max: 3),
+                  OscPathSegment(segment: 'si2_hoff', child: const _ToggleWidget(label: '2SI HOff')),
+                  _knob(label: '2SI V', oscAddress: 'si2_v', min: 0, max: 3),
+                  OscPathSegment(segment: 'si2_voff', child: const _ToggleWidget(label: '2SI VOff')),
                 ],
               ),
             )),
-            (span: 1, child: Panel(
+            (span: 3, child: Panel(
+              title: 'Roll / Tear',
+              child: Wrap(
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _knob(label: 'Cap X', oscAddress: 'cap_x', min: 0, max: 8191),
+                  _knob(label: 'Cap Y', oscAddress: 'cap_y', min: 0, max: 8191),
+                  _knob(label: 'Wr Dly V', oscAddress: 'wr_delay_v', min: 0, max: 31),
+                  _knob(label: 'Wr Dly H', oscAddress: 'wr_delay_h', min: 0, max: 255),
+                ],
+              ),
+            )),
+            (span: 2, child: Panel(
               title: 'Output Mux',
               child: Wrap(
-                spacing: t.sm,
-                runSpacing: t.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _intDropdown(label: 'OutMux Mode', options: _outmuxModeLabels, oscAddress: 'outmux_mode', width: 130),
-                  _intDropdown(label: 'OutMux Port', options: _outmuxPortLabels, oscAddress: 'outmux_port', width: 130),
+                  _intDropdown(label: 'OutMux Mode', options: _outmuxModeLabels, oscAddress: 'outmux_mode', width: 120),
+                  _intDropdown(label: 'OutMux Port', options: _outmuxPortLabels, oscAddress: 'outmux_port', width: 120),
+                ],
+              ),
+            )),
+            (span: 2, child: Panel(
+              title: 'Pixel Bus',
+              child: Wrap(
+                spacing: t.sm, runSpacing: t.sm, crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _intDropdown(label: 'Channel Swap', options: _channelSwapLabels, oscAddress: 'channel_swap', width: 120),
+                  _bitSwapControl(),
                 ],
               ),
             )),

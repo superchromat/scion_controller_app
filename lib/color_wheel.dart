@@ -147,6 +147,7 @@ class ColorWheelPainter extends CustomPainter {
   final int wheelIndex;
   final double sliderValue;
   final bool isCompact;  // For smaller wheels: thinner lines, coarser sampling
+  final bool showOverlays; // gamut boundary + invertibility danger zone
 
   ColorWheelPainter(
     this.selected,
@@ -155,6 +156,7 @@ class ColorWheelPainter extends CustomPainter {
     this.wheelIndex, {
     this.sliderValue = 0.0,
     this.isCompact = false,
+    this.showOverlays = true,
   });
 
   @override
@@ -165,11 +167,12 @@ class ColorWheelPainter extends CustomPainter {
     // Draw color wheel
     _drawCachedWheel(canvas, center, radius);
 
-    // Always show danger zone
-    _drawDangerZone(canvas, center, radius);
-
-    // sRGB gamut boundary
-    _drawGamutBoundary(canvas, center, radius);
+    if (showOverlays) {
+      // Invertibility danger zone + sRGB gamut boundary (numerical-stability
+      // overlays — omitted where the wheel is just a plain colour picker).
+      _drawDangerZone(canvas, center, radius);
+      _drawGamutBoundary(canvas, center, radius);
+    }
 
     // Selection indicator
     _drawSelectionIndicator(canvas, center, radius);

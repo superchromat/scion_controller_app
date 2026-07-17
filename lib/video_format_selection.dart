@@ -968,16 +968,38 @@ class _LPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rrect1 = RRect.fromRectAndRadius(hBar, Radius.circular(r));
-    final rrect2 = RRect.fromRectAndRadius(vBar, Radius.circular(r));
-
     // Combined bounds for gradient
     final combined = hBar.expandToInclude(vBar);
 
-    // Create combined path for both rectangles
+    // Single outline for the grey "L". The outer corners are convex (radius r);
+    // the reentrant inside corner where hBar's top meets vBar's left edge gets a
+    // concave fillet of the same radius so it curves inward instead of forming a
+    // sharp junction. Wound clockwise (material inside).
+    //   Inside corner point P = (vBar.left, hBar.top).
     final combinedPath = Path()
-      ..addRRect(rrect1)
-      ..addRRect(rrect2);
+      // top edge of vertical bar, left convex corner -> right convex corner
+      ..moveTo(vBar.left + r, vBar.top)
+      ..lineTo(vBar.right - r, vBar.top)
+      ..arcToPoint(Offset(vBar.right, vBar.top + r),
+          radius: Radius.circular(r), clockwise: true)
+      // right edge down to bottom-right convex corner
+      ..lineTo(vBar.right, hBar.bottom - r)
+      ..arcToPoint(Offset(vBar.right - r, hBar.bottom),
+          radius: Radius.circular(r), clockwise: true)
+      // bottom edge and left end run off-screen (clipped), corners hidden
+      ..lineTo(hBar.left, hBar.bottom)
+      ..lineTo(hBar.left, hBar.top)
+      // top edge of horizontal bar up to the concave inside fillet
+      ..lineTo(vBar.left - r, hBar.top)
+      ..arcTo(
+          Rect.fromCircle(
+              center: Offset(vBar.left - r, hBar.top - r), radius: r),
+          pi / 2, -pi / 2, false)
+      // up the vertical bar's left edge to the top-left convex corner
+      ..lineTo(vBar.left, vBar.top + r)
+      ..arcToPoint(Offset(vBar.left + r, vBar.top),
+          radius: Radius.circular(r), clockwise: true)
+      ..close();
 
     // Lighting gradient
     final gradient = lighting.createPhongSurfaceGradient(
