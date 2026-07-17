@@ -61,17 +61,10 @@ class _ReturnPageBody extends StatelessWidget {
                 gutter: t.md,
                 cells: [
                   (
-                    span: 6,
+                    span: 12,
                     child: LabeledCard(
                       title: 'Shape',
                       child: const Shape(pageNumber: 2),
-                    ),
-                  ),
-                  (
-                    span: 6,
-                    child: LabeledCard(
-                      title: 'Texture',
-                      child: const SendTexture(),
                     ),
                   ),
                 ],
@@ -85,6 +78,19 @@ class _ReturnPageBody extends StatelessWidget {
                     child: LabeledCard(
                       title: 'Color',
                       child: SendColor(showGrade: true, gradePath: '/output/color/grade'),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: t.md),
+              GridRow(
+                gutter: t.md,
+                cells: const [
+                  (
+                    span: 12,
+                    child: LabeledCard(
+                      title: 'Texture',
+                      child: SendTexture(),
                     ),
                   ),
                 ],
@@ -265,19 +271,14 @@ class _AdcAdjustmentsContent extends StatelessWidget {
           gutter: t.md,
           cells: const [
             (
-              span: 12,
+              span: 5,
               child: Panel(
                 title: 'ADC Anti-Alias Filter',
                 child: _AdvAaCard(),
               ),
             ),
-          ],
-        ),
-        GridRow(
-          gutter: t.md,
-          cells: const [
             (
-              span: 12,
+              span: 7,
               child: Panel(
                 title: 'Input Gain (AGC)',
                 child: _AgcCard(),

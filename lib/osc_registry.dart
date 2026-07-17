@@ -99,12 +99,16 @@ class OscRegistry extends ChangeNotifier {
 
     final param = _params[key];
     if (param == null) {
-      debugPrint('OSC dispatch key:"$key" NO PARAMS');
+      // No client-side param for this address — e.g. a control whose page
+      // hasn't been built yet this session, or a read-only telemetry value the
+      // UI doesn't bind. The device broadcasts its whole state on /sync, so
+      // this is expected, not a failure: log it as OK (received, just untracked).
+      debugPrint('OSC dispatch key:"$key" NO PARAMS (untracked)');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         oscLogKey.currentState?.logOscMessage(
           address: key,
           arg: args,
-          status: OscStatus.fail,
+          status: OscStatus.ok,
           direction: Direction.received,
           binary: Uint8List.fromList([0]),
         );
@@ -113,12 +117,15 @@ class OscRegistry extends ChangeNotifier {
     }
 
     if (!param.dispatch(args)) {
-      debugPrint('OSC dispatch key:"$key" NO LISTENERS');
+      // Known address, but no widget is currently mounted to listen. This is
+      // normal (the control just isn't on the visible page) — the value is
+      // still cached in the param, so log it as OK rather than an error.
+      debugPrint('OSC dispatch key:"$key" NO LISTENERS (cached)');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         oscLogKey.currentState?.logOscMessage(
           address: key,
           arg: args,
-          status: OscStatus.error,
+          status: OscStatus.ok,
           direction: Direction.received,
           binary: Uint8List.fromList([0]),
         );

@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
+import 'app_button.dart';
 import 'asset_store.dart';
 import 'asset_upload_ui.dart';
 import 'grid.dart';
@@ -452,21 +453,28 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 22,
-            child: Row(children: [
-              for (final (_, sz, col) in segs)
+        // Recessed groove holding the usage bar.
+        NeumorphicInset(
+          baseColor: const Color(0xFF232326),
+          borderRadius: 6,
+          depth: 2.5,
+          padding: const EdgeInsets.all(3),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 20,
+              child: Row(children: [
+                for (final (_, sz, col) in segs)
+                  Flexible(
+                    flex: (sz * 1000 / total).ceil().clamp(1, 1000000),
+                    child: Container(color: col),
+                  ),
                 Flexible(
-                  flex: (sz * 1000 / total).ceil().clamp(1, 1000000),
-                  child: Container(color: col),
+                  flex: (((total - sumUsed) * 1000) / total).round(),
+                  child: Container(color: scheme.surfaceContainerHighest),
                 ),
-              Flexible(
-                flex: (((total - sumUsed) * 1000) / total).round(),
-                child: Container(color: scheme.surfaceContainerHighest),
-              ),
-            ]),
+              ]),
+            ),
           ),
         ),
         SizedBox(height: t.sm),
@@ -524,55 +532,95 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
           SizedBox(height: t.md),
           LabeledCard(
             title: 'Files',
-            action: Row(mainAxisSize: MainAxisSize.min, children: [
-              IconButton(
-                tooltip: 'Upload font (.ttf)',
-                icon: const Icon(Icons.text_fields),
-                onPressed: () async {
-                  await uploadFontFlow(context);
-                  _refresh();
-                },
-              ),
-              IconButton(
-                tooltip: 'Upload sprite (.png)',
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                onPressed: () async {
-                  if (await uploadSpriteFlow(context)) _refresh();
-                },
-              ),
-              IconButton(
-                tooltip: 'Upload preset (.spre)',
-                icon: const Icon(Icons.upload_file),
-                onPressed: _uploadPreset,
-              ),
-              IconButton(
-                tooltip: 'Save full-system preset',
-                icon: const Icon(Icons.save_outlined),
-                onPressed: _saveSystemPreset,
-              ),
-              IconButton(
-                tooltip: 'Refresh',
-                icon: _loading
-                    ? const SizedBox(
+            action: Wrap(
+              spacing: t.xs,
+              runSpacing: t.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                AppButton(
+                  dense: true,
+                  icon: Icons.text_fields,
+                  label: 'Upload Font',
+                  tooltip: 'Upload font (.ttf)',
+                  onPressed: () async {
+                    await uploadFontFlow(context);
+                    _refresh();
+                  },
+                ),
+                AppButton(
+                  dense: true,
+                  icon: Icons.add_photo_alternate_outlined,
+                  label: 'Upload Sprite',
+                  tooltip: 'Upload sprite (.png)',
+                  onPressed: () async {
+                    if (await uploadSpriteFlow(context)) _refresh();
+                  },
+                ),
+                AppButton(
+                  dense: true,
+                  icon: Icons.upload_file,
+                  label: 'Upload Preset',
+                  tooltip: 'Upload preset (.spre)',
+                  onPressed: _uploadPreset,
+                ),
+                AppButton(
+                  dense: true,
+                  icon: Icons.save_outlined,
+                  label: 'Save Preset',
+                  tooltip: 'Save full-system preset',
+                  onPressed: _saveSystemPreset,
+                ),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.refresh),
-                onPressed: _refresh,
-              ),
-            ]),
-            child: _error != null
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else
+                  AppButton(
+                    dense: true,
+                    icon: Icons.refresh,
+                    label: 'Refresh',
+                    tooltip: 'Refresh',
+                    onPressed: _refresh,
+                  ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(t.sm),
+              child: _error != null
                 ? Padding(
                     padding: EdgeInsets.all(t.md),
                     child: Text('load failed: $_error',
                         style: TextStyle(
                             color: Theme.of(context).colorScheme.error)),
                   )
-                : SingleChildScrollView(
+                : NeumorphicInset(
+                    baseColor: const Color(0xFF232326),
+                    borderRadius: 8,
+                    depth: 3,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: DataTable(
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.white.withValues(alpha: 0.025),
+                      ),
+                      child: DataTable(
                       sortColumnIndex: _sortCol,
                       sortAscending: _sortAsc,
+                      headingRowColor: WidgetStatePropertyAll(Colors.white.withValues(alpha: 0.04)),
+                      headingTextStyle: t.textLabel.copyWith(fontWeight: FontWeight.w600, color: Colors.white),
+                      dataTextStyle: t.textLabel,
+                      dividerThickness: 0.5,
+                      columnSpacing: t.lg,
+                      horizontalMargin: t.md,
+                      dataRowMinHeight: 34,
+                      dataRowMaxHeight: 42,
                       columns: [
                         _col('Name', 0),
                         _col('Type', 1),
@@ -582,7 +630,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
                       ],
                       rows: [
                         for (final f in _sorted)
-                          DataRow(cells: [
+                          DataRow(
+                            cells: [
                             DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                               Icon(f.type.icon, size: 16),
                               SizedBox(width: t.xs),
@@ -592,34 +641,48 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
                             DataCell(Text(_fmtSize(f.size))),
                             DataCell(Text(f.detail)),
                             DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                              if (f.type == AssetType.preset)
-                                IconButton(
+                              // Icon-only in the cramped table cell — same
+                              // neumorphic key style, just no room for labels.
+                              if (f.type == AssetType.preset) ...[
+                                AppButton(
+                                  dense: true,
+                                  icon: Icons.play_arrow,
                                   tooltip: 'Load onto device',
-                                  icon: const Icon(Icons.play_arrow, size: 18),
                                   onPressed: () => _loadPreset(f),
                                 ),
-                              IconButton(
+                                SizedBox(width: t.xs),
+                              ],
+                              AppButton(
+                                dense: true,
+                                icon: Icons.drive_file_rename_outline,
                                 tooltip: 'Rename',
-                                icon: const Icon(Icons.drive_file_rename_outline,
-                                    size: 18),
                                 onPressed: () => _rename(f),
                               ),
-                              IconButton(
+                              SizedBox(width: t.xs),
+                              AppButton(
+                                dense: true,
+                                icon: Icons.download,
                                 tooltip: 'Download',
-                                icon: const Icon(Icons.download, size: 18),
                                 onPressed: () => _download(f),
                               ),
-                              IconButton(
+                              SizedBox(width: t.xs),
+                              AppButton(
+                                dense: true,
+                                icon: Icons.delete_outline,
                                 tooltip: 'Delete',
-                                icon: const Icon(Icons.delete_outline, size: 18),
+                                accentColor: const Color(0xFFD0605F),
                                 onPressed: () => _delete(f),
                               ),
                             ])),
                           ]),
                       ],
-                    ),
-                  ),
-          ),
+                      ), // DataTable
+                    ), // Theme
+                      ), // SingleChildScrollView
+                    ), // ClipRRect
+                  ), // NeumorphicInset
+            ), // Padding
+          ), // LabeledCard
         ],
       ),
     );

@@ -9,6 +9,10 @@ import 'package:intl/intl.dart';
 import 'osc_widget_binding.dart';
 import 'app_alert.dart';
 import 'app_button.dart';
+import 'labeled_card.dart';
+
+/// App accent (amber) — matches the rotary-knob value arcs elsewhere.
+const Color _kAccent = Color(0xFFF0B830);
 
 final GlobalKey<OscLogTableState> oscLogKey = GlobalKey<OscLogTableState>();
 
@@ -138,14 +142,16 @@ class OscLogTableState extends State<OscLogTable> {
 
   Widget _buildCell(Widget child, int flex,
       {String? tooltip, bool isHeader = false, String? copyText}) {
-    final side = BorderSide(color: Colors.grey[600]!, width: 1);
-    final bottom = isHeader ? BorderSide(color: Colors.yellow, width: 1) : side;
+    // Soft horizontal separators only (no hard grid lines), with an amber
+    // header underline — reads as a neumorphic surface, not a spreadsheet.
+    final sep = BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 1);
+    final bottom = isHeader ? const BorderSide(color: _kAccent, width: 1) : sep;
 
     Widget content = Container(
-      height: 12,
+      height: 15,
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(border: Border(right: side, bottom: bottom)),
+      decoration: BoxDecoration(border: Border(bottom: bottom)),
       child: DefaultTextStyle.merge(
         style: isHeader
             ? const TextStyle(fontWeight: FontWeight.bold)
@@ -305,9 +311,9 @@ class OscLogTableState extends State<OscLogTable> {
         onTap: () => setState(() => _expandedGroups.add(groupIndex)),
         child: Container(
           width: _toggleAreaWidth,
-          height: 12,
+          height: 15,
           alignment: Alignment.center,
-          child: const Icon(Icons.expand, size: 12, color: Colors.yellow),
+          child: const Icon(Icons.expand, size: 12, color: _kAccent),
         ),
       );
     }
@@ -316,10 +322,10 @@ class OscLogTableState extends State<OscLogTable> {
       onTap: () => setState(() => _expandedGroups.remove(groupIndex)),
       child: Container(
         width: _toggleAreaWidth,
-        height: 12,
+        height: 15,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.yellow, width: 1))),
-        child: first ? const Icon(Icons.compress, size: 12, color: Colors.yellow) : null,
+        decoration: const BoxDecoration(border: Border(right: BorderSide(color: _kAccent, width: 1))),
+        child: first ? const Icon(Icons.compress, size: 12, color: _kAccent) : null,
       ),
     );
   }
@@ -339,13 +345,7 @@ class OscLogTableState extends State<OscLogTable> {
       i = j;
     }
 
-    return Column(children: [
-      Row(
-        children: [
-          const Spacer(),
-          AppButton(label: 'Clear All', dense: true, onPressed: _clearAll),
-        ],
-      ),
+    final table = Column(children: [
       Row(children: [const SizedBox(width: _toggleAreaWidth), Expanded(child: _buildHeader())]),
       Expanded(
         child: Stack(children: [
@@ -375,20 +375,51 @@ class OscLogTableState extends State<OscLogTable> {
           ),
           if (!_isAtBottom && _pendingCount > 0)
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
+              bottom: 6,
+              left: 6,
+              right: 6,
               child: InkWell(
                 onTap: _scrollToBottom,
+                borderRadius: BorderRadius.circular(6),
                 child: Container(
-                  color: Colors.grey[600],
-                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _kAccent,
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 3),
                   alignment: Alignment.center,
-                  child: Text('$_pendingCount more messages below', style: const TextStyle(fontSize: 10)),
+                  child: Text('$_pendingCount more messages below',
+                      style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
         ]),
+      ),
+    ]);
+
+    return Column(children: [
+      Row(
+        children: [
+          const Spacer(),
+          AppButton(label: 'Clear All', dense: true, onPressed: _clearAll),
+        ],
+      ),
+      const SizedBox(height: 8),
+      // Sink the whole table into a recessed neumorphic well.
+      Expanded(
+        child: NeumorphicInset(
+          baseColor: const Color(0xFF232326),
+          borderRadius: 10,
+          depth: 3.5,
+          padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: table,
+          ),
+        ),
       ),
     ]);
   }
