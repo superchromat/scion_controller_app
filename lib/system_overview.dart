@@ -152,30 +152,35 @@ class _SystemOverviewState extends State<SystemOverview>
       newArrows.add(Arrow(fromLocal, toLocal, arcUp: arcUp));
     }
 
-    // dynamic input->send arrows based on registry values
+    // dynamic input->send arrows based on registry values. When no device has
+    // supplied a routing (e.g. demo mode), default each send to the matching
+    // input so the cables still show.
     for (var i = 0; i < _sendKeys.length; i++) {
       final sendIdx = i + 1;
       final path = '/send/$sendIdx/input';
       final param = registry.allParams[path];
+      final int inIdx;
       if (param != null && param.currentValue.isNotEmpty) {
         final val = param.currentValue.first;
-        final inIdx = val is int ? val : int.tryParse(val.toString()) ?? -1;
-        if (inIdx >= 1 && inIdx <= _inputKeys.length) {
-          connect(
-            _inputKeys[inIdx - 1],
-            _sendKeys[i],
-            Offset(tileWidth / 2, tileHeight),
-            Offset(tileWidth / 2, 0),
-          );
-        } else if (inIdx == 5) {
-          connect(
-            _returnKey,
-            _sendKeys[i],
-            Offset(tileWidth / 2, 0),
-            Offset(tileWidth / 2, 0),
-            arcUp: TileLayout.rowSpacing / 2,
-          );
-        }
+        inIdx = val is int ? val : int.tryParse(val.toString()) ?? -1;
+      } else {
+        inIdx = sendIdx; // demo / no device: identity routing.
+      }
+      if (inIdx >= 1 && inIdx <= _inputKeys.length) {
+        connect(
+          _inputKeys[inIdx - 1],
+          _sendKeys[i],
+          Offset(tileWidth / 2, tileHeight),
+          Offset(tileWidth / 2, 0),
+        );
+      } else if (inIdx == 5) {
+        connect(
+          _returnKey,
+          _sendKeys[i],
+          Offset(tileWidth / 2, 0),
+          Offset(tileWidth / 2, 0),
+          arcUp: TileLayout.rowSpacing / 2,
+        );
       }
     }
 

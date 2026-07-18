@@ -11,7 +11,6 @@ import 'disconnected_scrim.dart';
 import 'discovery.dart';
 import 'network.dart';
 import 'network_selection.dart';
-import 'file_selection.dart';
 import 'setup_page.dart';
 import 'video_format_selection.dart';
 import 'asset_files_page.dart';
@@ -279,25 +278,37 @@ class _NavRailPainter extends CustomPainter {
       leftEdgePaint,
     );
 
-    // Right edge shadow/highlight for depth
-    final edgePaint = Paint()
-      ..strokeWidth = 1.5
+    // Right edge: a soft neumorphic lip using the same shading as the control
+    // slots — a gentle highlight on the raised face rolling into a darker edge —
+    // so the rail reads as a rounded panel edge the page sits just below.
+    const double lipW = 12.0;
+    final lipRect = Rect.fromLTWH(size.width - lipW, 0, lipW, size.height);
+    // Highlight on the lit face, peaking just inside the edge.
+    final lipHighlightPaint = Paint()
       ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
         colors: [
-          Colors.white.withValues(alpha: 0.04),
-          Colors.white.withValues(alpha: 0.02),
-          Colors.black.withValues(alpha: 0.08),
+          Colors.transparent,
+          Colors.white.withValues(alpha: 0.05),
+          Colors.white.withValues(alpha: 0.09),
+          Colors.transparent,
         ],
-        stops: const [0.0, 0.3, 1.0],
-      ).createShader(rect);
-
-    canvas.drawLine(
-      Offset(size.width - 0.5, 0),
-      Offset(size.width - 0.5, size.height),
-      edgePaint,
-    );
+        stops: const [0.0, 0.6, 0.85, 1.0],
+      ).createShader(lipRect);
+    canvas.drawRect(lipRect, lipHighlightPaint);
+    // Darker roll-off right at the edge for depth.
+    final edgeShadowRect = Rect.fromLTWH(size.width - 3, 0, 3, size.height);
+    final edgeShadowPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.transparent,
+          Colors.black.withValues(alpha: 0.28),
+        ],
+      ).createShader(edgeShadowRect);
+    canvas.drawRect(edgeShadowRect, edgeShadowPaint);
 
     // Noise texture overlay
     if (lighting.noiseImage != null) {
@@ -368,8 +379,8 @@ class _MyHomePageState extends State<MyHomePage> {
       // Determine whether rail is extended
       final bool isRailExtended = constraints.maxWidth >= 1000;
       // Use the same constants passed to NavigationRail:
-      const double railCollapsedWidth = 100;
-      const double railExtendedWidth = 222;
+      const double railCollapsedWidth = 84;
+      const double railExtendedWidth = 190;
       const selectedRailLabelStyle = TextStyle(
         fontFamily: 'DINPro',
         fontSize: 16,
@@ -416,15 +427,15 @@ class _MyHomePageState extends State<MyHomePage> {
                               ? railExtendedWidth
                               : railCollapsedWidth,
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(9, 0, 9, 0),
+                            // Extra right inset so the Network Address box clears
+                            // the 12px neumorphic lip on the rail's right edge.
+                            padding: const EdgeInsets.fromLTRB(9, 0, 16, 0),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: const [
                                 SizedBox(height: 8),
                                 NetworkConnectionSection(),
                                 SizedBox(height: 16),
-                                FileManagementSection(),
-                                SizedBox(height: 8),
                                 _FadedRailDivider(),
                               ],
                             ),

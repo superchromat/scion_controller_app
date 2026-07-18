@@ -131,25 +131,6 @@ class FileManagementSectionState extends State<FileManagementSection> {
     }
   }
 
-  Future<void> _saveAs(BuildContext context) async {
-    try {
-      final path = await _promptSavePath(
-        dialogTitle: 'Save As',
-        fileName: 'default.config',
-      );
-      if (path == null || _isClearlyBadPath(path)) return;
-
-      await OscRegistry().saveToFile(path);
-      setState(() => _currentFile = path);
-      showAppAlert(
-        context,
-        'Configuration saved: ${_displayNameForPath(path)}',
-      );
-    } catch (e) {
-      showAppAlert(context, 'Save failed: $e', tone: AppAlertTone.error);
-    }
-  }
-
   Future<void> _export(BuildContext context) async {
     try {
       final dir = await _fallbackWritableDirectory();
@@ -257,45 +238,32 @@ class FileManagementSectionState extends State<FileManagementSection> {
           ],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              if (!isIos) ...[
-                AppButton(
-                  tooltip: 'Save',
-                  icon: Icons.save,
-                  onPressed: () => _save(context),
-                ),
-                const SizedBox(width: 10),
-                AppButton(
-                  tooltip: 'Save As',
-                  icon: Icons.save_as,
-                  onPressed: () => _saveAs(context),
-                ),
-                const SizedBox(width: 10),
-              ] else ...[
-                AppButton(
-                  tooltip: 'Export',
-                  icon: Icons.ios_share,
-                  onPressed: () => _export(context),
-                ),
-                const SizedBox(width: 10),
-              ],
-              AppButton(
-                tooltip: 'Load',
-                icon: Icons.folder_open,
-                onPressed: () => _load(context),
-              ),
-              const Spacer(),
-              AppButton(
-                tooltip: 'Reset to defaults',
-                icon: Icons.restore,
-                accentColor: const Color(0xFFB56A77),
-                onPressed: () => _reset(context),
-              ),
-            ],
+          if (!isIos)
+            AppButton(
+              label: 'Save',
+              icon: Icons.save,
+              onPressed: () => _save(context),
+            )
+          else
+            AppButton(
+              label: 'Export',
+              icon: Icons.ios_share,
+              onPressed: () => _export(context),
+            ),
+          const SizedBox(width: 10),
+          AppButton(
+            label: 'Load',
+            icon: Icons.folder_open,
+            onPressed: () => _load(context),
+          ),
+          const Spacer(),
+          AppButton(
+            label: 'Restore to Defaults',
+            icon: Icons.restore,
+            accentColor: const Color(0xFFB56A77),
+            onPressed: () => _reset(context),
           ),
         ],
       ),

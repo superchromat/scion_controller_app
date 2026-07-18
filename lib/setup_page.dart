@@ -11,6 +11,7 @@ import 'device_diagnostics.dart';
 import 'firmware_update.dart';
 import 'front_panel_section.dart';
 import 'labeled_card.dart';
+import 'file_selection.dart';
 import 'app_button.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
@@ -76,6 +77,19 @@ class SetupPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  GridRow(
+                    gutter: t.md,
+                    cells: [
+                      (
+                        span: 12,
+                        child: LabeledCard(
+                          title: 'Configuration',
+                          child: FileManagementSection(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: t.md),
                   GridRow(
                     gutter: t.md,
                     equalHeight: true,

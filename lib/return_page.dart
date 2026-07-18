@@ -230,6 +230,20 @@ class _AdcAdjustmentsContent extends StatelessWidget {
     final t = GridProvider.of(context);
     return CardColumn(
       children: [
+        // TBC enable (moved here from the System page's Return Sync card). Only
+        // meaningful in Component sync mode, so it greys out otherwise.
+        GridRow(
+          gutter: t.md,
+          cells: const [
+            (
+              span: 4,
+              child: Panel(
+                title: 'Timebase Corrector',
+                child: _ReturnTbcToggle(),
+              ),
+            ),
+          ],
+        ),
         GridRow(
           gutter: t.md,
           cells: const [
@@ -288,6 +302,91 @@ class _AdcAdjustmentsContent extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// TBC (Time Base Corrector) enable. Bound to `/return/tbc/enabled`, but only
+/// meaningful in Component sync mode (STM32 TBC drives the chip's analog-input
+/// HSync/VSync from PWM), so it greys out in Locked/External modes.
+class _ReturnTbcToggle extends StatefulWidget {
+  const _ReturnTbcToggle();
+
+  @override
+  State<_ReturnTbcToggle> createState() => _ReturnTbcToggleState();
+}
+
+class _ReturnTbcToggleState extends State<_ReturnTbcToggle> {
+  String _syncMode = '';
+  bool _tbcEnabled = true;
+
+  bool get _editable => _syncMode == 'component';
+
+  @override
+  void initState() {
+    super.initState();
+    final reg = OscRegistry();
+    reg.registerAddress('/sync_mode');
+    reg.registerListener('/sync_mode', _onSyncMode);
+    reg.registerAddress('/return/tbc/enabled');
+    reg.registerListener('/return/tbc/enabled', _onTbc);
+    final sm = reg.allParams['/sync_mode'];
+    if (sm != null && sm.currentValue.isNotEmpty) {
+      _syncMode = sm.currentValue.first.toString().toLowerCase();
+    }
+    final tb = reg.allParams['/return/tbc/enabled'];
+    if (tb != null && tb.currentValue.isNotEmpty) {
+      _tbcEnabled = tb.currentValue.first == true;
+    }
+  }
+
+  @override
+  void dispose() {
+    OscRegistry().unregisterListener('/sync_mode', _onSyncMode);
+    OscRegistry().unregisterListener('/return/tbc/enabled', _onTbc);
+    super.dispose();
+  }
+
+  void _onSyncMode(List<Object?> args) {
+    if (!mounted || args.isEmpty) return;
+    setState(() => _syncMode = args.first.toString().toLowerCase());
+  }
+
+  void _onTbc(List<Object?> args) {
+    if (!mounted || args.isEmpty) return;
+    setState(() => _tbcEnabled = args.first == true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: _editable ? 1.0 : 0.5,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OscPathSegment(
+            segment: 'return',
+            child: OscPathSegment(
+              segment: 'tbc',
+              child: OscPathSegment(
+                segment: 'enabled',
+                child: OscCheckbox(
+                  initialValue: _tbcEnabled,
+                  readOnly: !_editable,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'On',
+            style: TextStyle(
+              fontSize: 13,
+              color: _editable ? null : Colors.grey,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

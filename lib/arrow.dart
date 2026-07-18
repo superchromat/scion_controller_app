@@ -15,7 +15,6 @@ class ArrowsPainter extends CustomPainter {
   ArrowsPainter(this.arrows);
 
   static const baseColor = Color(0xFF909090);
-  static const shadowColor = Color(0xFF404040);
   static const highlightColor = Color(0xFFB8B8B8);
 
   @override
@@ -59,74 +58,82 @@ class ArrowsPainter extends CustomPainter {
           baseCenter.dx, baseCenter.dy,
         );
 
-      // Shadow (offset down-right)
-      final shadowShaftPath = Path()
-        ..moveTo(a.from.dx + 2, a.from.dy + 2)
-        ..cubicTo(
-          c1.dx + 2, c1.dy + 2,
-          c2.dx + 2, c2.dy + 2,
-          baseCenter.dx + 2, baseCenter.dy + 2,
-        );
-      final shadowPaint = Paint()
-        ..color = shadowColor.withValues(alpha: 0.5)
-        ..strokeWidth = 5
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(shadowShaftPath, shadowPaint);
-
-      // Main shaft
-      final shaftPaint = Paint()
-        ..color = baseColor
-        ..strokeWidth = 4
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(shaftPath, shaftPaint);
-
-      // Highlight (thin line on top-left edge)
-      final highlightShaftPath = Path()
-        ..moveTo(a.from.dx - 1, a.from.dy - 1)
-        ..cubicTo(
-          c1.dx - 1, c1.dy - 1,
-          c2.dx - 1, c2.dy - 1,
-          baseCenter.dx - 1, baseCenter.dy - 1,
-        );
-      final highlightPaint = Paint()
-        ..color = highlightColor.withValues(alpha: 0.6)
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(highlightShaftPath, highlightPaint);
-
-      // Arrow head
       final headPath = Path()
         ..moveTo(a.to.dx, a.to.dy)
         ..lineTo(p1.dx, p1.dy)
         ..lineTo(p2.dx, p2.dy)
         ..close();
 
-      // Head shadow
-      final headShadowPath = Path()
-        ..moveTo(a.to.dx + 2, a.to.dy + 2)
-        ..lineTo(p1.dx + 2, p1.dy + 2)
-        ..lineTo(p2.dx + 2, p2.dy + 2)
-        ..close();
-      final headShadowPaint = Paint()
-        ..color = shadowColor.withValues(alpha: 0.4)
-        ..style = PaintingStyle.fill;
-      canvas.drawPath(headShadowPath, headShadowPaint);
+      // 1. Soft drop shadow for the whole cable (shaft + head), blurred and
+      //    offset down so the wire reads as lifted off the panel.
+      canvas.save();
+      canvas.translate(1.4, 2.4);
+      final shadowStroke = Paint()
+        ..color = Colors.black.withValues(alpha: 0.30)
+        ..strokeWidth = 5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4);
+      canvas.drawPath(shaftPath, shadowStroke);
+      canvas.drawPath(
+        headPath,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.30)
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4),
+      );
+      canvas.restore();
 
-      // Head fill
-      final headFillPaint = Paint()
-        ..color = baseColor
-        ..style = PaintingStyle.fill;
-      canvas.drawPath(headPath, headFillPaint);
+      // 2. Cable core.
+      canvas.drawPath(
+        shaftPath,
+        Paint()
+          ..color = baseColor
+          ..strokeWidth = 4.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round,
+      );
 
-      // Head highlight edge
-      final headHighlightPaint = Paint()
-        ..color = highlightColor
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(a.to, p1, headHighlightPaint);
+      // 3. Top highlight — a thinner, brighter stroke nudged up-left so the
+      //    cable reads as a rounded tube catching light.
+      canvas.save();
+      canvas.translate(-0.6, -1.1);
+      canvas.drawPath(
+        shaftPath,
+        Paint()
+          ..color = highlightColor.withValues(alpha: 0.5)
+          ..strokeWidth = 1.6
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.restore();
+
+      // 4. Arrow head — filled, with a round-join outline to soften its corners.
+      canvas.drawPath(
+        headPath,
+        Paint()
+          ..color = baseColor
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawPath(
+        headPath,
+        Paint()
+          ..color = baseColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..strokeJoin = StrokeJoin.round
+          ..strokeCap = StrokeCap.round,
+      );
+      // Leading-edge highlight on the head.
+      canvas.drawLine(
+        a.to,
+        p1,
+        Paint()
+          ..color = highlightColor.withValues(alpha: 0.7)
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round,
+      );
     }
   }
 

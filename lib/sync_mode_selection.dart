@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'osc_checkbox.dart';
+import 'app_button.dart';
 import 'labeled_card.dart';
 import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
@@ -18,7 +18,6 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
     with OscAddressMixin {
   String _selectedSync = 'locked';
   bool _dacGenlock = false;
-  bool _tbcEnabled = true;
 
   @override
   void initState() {
@@ -27,15 +26,12 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
     OscRegistry().registerListener('/sync_mode', _onSyncModeChanged);
     OscRegistry().registerAddress('/dac_genlock');
     OscRegistry().registerListener('/dac_genlock', _onDacGenlockChanged);
-    OscRegistry().registerAddress('/return/tbc/enabled');
-    OscRegistry().registerListener('/return/tbc/enabled', _onTbcEnabledChanged);
   }
 
   @override
   void dispose() {
     OscRegistry().unregisterListener('/sync_mode', _onSyncModeChanged);
     OscRegistry().unregisterListener('/dac_genlock', _onDacGenlockChanged);
-    OscRegistry().unregisterListener('/return/tbc/enabled', _onTbcEnabledChanged);
     super.dispose();
   }
 
@@ -54,19 +50,6 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
       });
     }
   }
-
-  void _onTbcEnabledChanged(List<Object?> args) {
-    if (args.isNotEmpty && args.first is bool) {
-      setState(() {
-        _tbcEnabled = args.first as bool;
-      });
-    }
-  }
-
-  // STM32 TBC is only meaningful in COMPONENT mode (it drives the chip's
-  // analog-input HSync/VSync from STM32 PWM).  Disable the toggle in
-  // LOCKED/EXTERNAL modes.
-  bool get _tbcEnableEditable => _selectedSync == 'component';
 
   void _selectSyncMode(String mode) {
     setState(() => _selectedSync = mode);
@@ -133,67 +116,33 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
               ],
             ),
           const SizedBox(height: 16),
-          // TBC + Genlock checkboxes, side-by-side
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // STM32 TBC enable
-              Opacity(
-                opacity: _tbcEnableEditable ? 1.0 : 0.5,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OscPathSegment(
-                      segment: 'return',
-                      child: OscPathSegment(
-                        segment: 'tbc',
-                        child: OscPathSegment(
-                          segment: 'enabled',
-                          child: OscCheckbox(
-                            initialValue: _tbcEnabled,
-                            readOnly: !_tbcEnableEditable,
-                          ),
-                        ),
-                      ),
+          // "Genlock Sends to Return" toggle button, centred under the
+          // Component + External sync tiles. (TBC moved to the Return page's
+          // ADC Adjustments card.)
+          SizedBox(
+            width: 3 * 105.0 + 2 * 12, // matches the sync-tiles row width
+            child: Row(
+              children: [
+                const SizedBox(width: 105.0 + 12), // span the "locked" tile + gap
+                Expanded(
+                  child: Center(
+                    child: AppButton(
+                      label: 'Genlock Sends to Return',
+                      dense: true,
+                      selected: _dacGenlock,
+                      accentColor: const Color(0xFFF0B830),
+                      onPressed: _dacGenlockEnabled
+                          ? () {
+                              final v = !_dacGenlock;
+                              setState(() => _dacGenlock = v);
+                              sendOsc(v, address: '/dac_genlock');
+                            }
+                          : null,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'TBC',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _tbcEnableEditable ? null : Colors.grey,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 24),
-              // DAC Genlock
-              Opacity(
-                opacity: _dacGenlockEnabled ? 1.0 : 0.5,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OscPathSegment(
-                      segment: 'dac_genlock',
-                      child: OscCheckbox(
-                        initialValue: _dacGenlock,
-                        readOnly: !_dacGenlockEnabled,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Genlock Sends to Return',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _dacGenlockEnabled ? null : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
         ),
