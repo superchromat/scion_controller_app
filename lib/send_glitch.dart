@@ -305,7 +305,8 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
             )),
           ]),
           // Row 2: Memory Control | Genlock + Temporal (merged timing panel).
-          GridRow(columns: 12, gutter: t.md, equalHeight: false, cells: [
+          // Equal height so Memory Control matches Genlock / Temporal.
+          GridRow(columns: 12, gutter: t.md, equalHeight: true, cells: [
             (span: 6, child: Panel(
               title: 'Memory Control',
               child: Wrap(
@@ -345,7 +346,9 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
             )),
           ]),
           // Row 3: Planar / Field | Roll / Tear | Output Mux | Pixel Bus.
-          GridRow(columns: 12, gutter: t.md, equalHeight: false, cells: [
+          // Equal height so Output Mux & Pixel Bus match Roll / Tear &
+          // Planar / Field.
+          GridRow(columns: 12, gutter: t.md, equalHeight: true, cells: [
             (span: 5, child: Panel(
               title: 'Planar / Field',
               child: Wrap(

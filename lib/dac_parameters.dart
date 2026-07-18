@@ -77,6 +77,12 @@ class DacParameters extends StatelessWidget {
 
   Widget _toggle(BuildContext context, String label, String segment) {
     final t = GridProvider.maybeOf(context);
+    // Reserve two label lines so single- and double-line labels leave the
+    // checkbox at the same height — keeps every row of checkboxes aligned
+    // across the card.
+    final labelStyle =
+        (t?.textLabel ?? const TextStyle(fontSize: 12)).copyWith(height: 1.15);
+    final labelBoxHeight = (labelStyle.fontSize ?? 12) * 1.15 * 2;
     return _tip(
       segment,
       OscPathSegment(
@@ -87,10 +93,14 @@ class DacParameters extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: t?.xs ?? 4),
-                child: Text(label, style: t?.textLabel),
+              SizedBox(
+                height: labelBoxHeight,
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Text(label, style: labelStyle, maxLines: 2),
+                ),
               ),
+              SizedBox(height: t?.xs ?? 4),
               const OscCheckbox(),
             ],
           ),
@@ -613,16 +623,17 @@ class _CscWheelsState extends State<_CscWheels> {
 
   Widget _wheel(int i) {
     final rgb = _prim[i];
-    final labelColor = Color.fromRGBO(
-      (rgb[0].clamp(0, 1) * 255).round(),
-      (rgb[1].clamp(0, 1) * 255).round(),
-      (rgb[2].clamp(0, 1) * 255).round(),
-      1,
-    );
     final below = widget.below;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Primary name, always white, above the wheel.
+        Text(_wheelLabels[i],
+            style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
         Tooltip(
           message: _wheelTips[i],
           waitDuration: const Duration(milliseconds: 400),
@@ -636,8 +647,6 @@ class _CscWheelsState extends State<_CscWheels> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(_wheelLabels[i], style: TextStyle(fontSize: 12, color: labelColor, fontWeight: FontWeight.bold)),
         if (below != null) ...[
           const SizedBox(height: 8),
           below[i],

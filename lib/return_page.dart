@@ -55,8 +55,6 @@ class _ReturnPageBody extends StatelessWidget {
           child: ListView(
             padding: EdgeInsets.all(t.md),
             children: [
-              topRow,
-              SizedBox(height: t.md),
               GridRow(
                 gutter: t.md,
                 cells: [
@@ -95,6 +93,9 @@ class _ReturnPageBody extends StatelessWidget {
                   ),
                 ],
               ),
+              SizedBox(height: t.md),
+              // Return Output Format + ADC Adjustments moved to the bottom.
+              topRow,
             ],
           ),
         );

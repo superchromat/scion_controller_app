@@ -14,6 +14,36 @@ import 'labeled_card.dart';
 import 'lighting_settings.dart';
 import 'osc_dropdown.dart';
 
+/// Default analog Send/Return format, matching the dropdown defaults in the
+/// card below. Shown before any device `/sync` supplies real values — i.e. in
+/// demo mode.
+const String kAnalogDefaultResolution = '1920x1080';
+const double kAnalogDefaultFramerate = 60.0;
+const String kAnalogDefaultColorspace = 'YUV';
+const bool kAnalogDefaultInterlaced = false;
+
+/// Seeds the `/analog_format/*` registry entries with the card's default
+/// selections so the Send/Return tiles show a real format in demo mode. The
+/// tiles live on a different page than the card (so the card's own init can't
+/// seed them in time) and there's no device to broadcast the values. Only fills
+/// empty entries, so a connected device's `/sync` always wins; once the user
+/// changes a dropdown, its local echo keeps the tiles in sync automatically.
+void seedAnalogFormatDefaults() {
+  final reg = OscRegistry();
+  void seed(String addr, Object value) {
+    reg.registerAddress(addr);
+    final p = reg.allParams[addr];
+    if (p != null && p.currentValue.isEmpty) {
+      reg.dispatchLocal(addr, <Object?>[value]);
+    }
+  }
+
+  seed('/analog_format/resolution', kAnalogDefaultResolution);
+  seed('/analog_format/framerate', kAnalogDefaultFramerate);
+  seed('/analog_format/colorspace', kAnalogDefaultColorspace);
+  seed('/analog_format/interlaced', kAnalogDefaultInterlaced);
+}
+
 /// Compute the required ADC output bias for a matrix.
 /// Returns the maximum absolute bias needed across all channels.
 /// Large values indicate the matrix may not be practically recoverable in hardware.
@@ -987,9 +1017,14 @@ class _LPainter extends CustomPainter {
       ..lineTo(vBar.right, hBar.bottom - r)
       ..arcToPoint(Offset(vBar.right - r, hBar.bottom),
           radius: Radius.circular(r), clockwise: true)
-      // bottom edge and left end run off-screen (clipped), corners hidden
-      ..lineTo(hBar.left, hBar.bottom)
-      ..lineTo(hBar.left, hBar.top)
+      // bottom edge to the bottom-left convex corner
+      ..lineTo(hBar.left + r, hBar.bottom)
+      ..arcToPoint(Offset(hBar.left, hBar.bottom - r),
+          radius: Radius.circular(r), clockwise: true)
+      // up the left edge to the top-left convex corner
+      ..lineTo(hBar.left, hBar.top + r)
+      ..arcToPoint(Offset(hBar.left + r, hBar.top),
+          radius: Radius.circular(r), clockwise: true)
       // top edge of horizontal bar up to the concave inside fillet
       ..lineTo(vBar.left - r, hBar.top)
       ..arcTo(

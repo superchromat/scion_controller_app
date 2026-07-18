@@ -13,6 +13,7 @@ import 'network.dart';
 import 'network_selection.dart';
 import 'file_selection.dart';
 import 'setup_page.dart';
+import 'video_format_selection.dart';
 import 'asset_files_page.dart';
 import 'send_page.dart';
 import 'mixer_page.dart';
@@ -118,6 +119,11 @@ void main() {
     }
 
     _installGlobalErrorHooks();
+
+    // Seed the analog Send/Return format defaults so the send/return tiles show
+    // a real format in demo mode (before any device /sync). Harmless when a
+    // device is present — it only fills empty entries, so /sync still wins.
+    seedAnalogFormatDefaults();
 
     final network = Network();
     runApp(
