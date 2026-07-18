@@ -58,7 +58,7 @@ class LabeledCard extends StatelessWidget {
     OscRegistry().registerAddress(addr);
     OscRegistry().registerListener(addr, listener);
     try {
-      net.sendOscMessage(addr, args);
+      net.sendOscMessage(addr, args, immediate: true); // synchronous RPC
       return await c.future.timeout(const Duration(seconds: 30));
     } on TimeoutException {
       return null;

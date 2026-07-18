@@ -61,7 +61,10 @@ class NorClient {
 
       OscRegistry().registerListener(addr, listener);
       try {
-        net.sendOscMessage(addr, args);
+        // Synchronous RPC: bypass the 30 Hz coalescer so long read/erase/verify
+        // chains (e.g. sprite delete = full-blob read + rewrite) aren't slowed
+        // by ~33 ms of queuing latency per call.
+        net.sendOscMessage(addr, args, immediate: true);
         return await c.future.timeout(timeout);
       } on TimeoutException {
         // retry

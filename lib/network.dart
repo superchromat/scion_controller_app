@@ -97,6 +97,10 @@ class Network extends ChangeNotifier {
     _heartbeatTimer?.cancel();
     _drainResumeTimer?.cancel();
     _drainResumeTimer = null;
+    _txFlushTimer?.cancel();
+    _txFlushTimer = null;
+    _txQueue.clear();
+    _lastTxFlush = null;
     _pending.clear();
     _hasSynced = false;
 
@@ -205,6 +209,10 @@ class Network extends ChangeNotifier {
     _heartbeatTimer?.cancel();
     _drainResumeTimer?.cancel();
     _drainResumeTimer = null;
+    _txFlushTimer?.cancel();
+    _txFlushTimer = null;
+    _txQueue.clear();
+    _lastTxFlush = null;
     _manualConnectInProgress = false;
     _connectGeneration++;
     _closeCurrentSocket();
@@ -222,7 +230,12 @@ class Network extends ChangeNotifier {
 
   /// Sends an OSC message to the remote host, deferring if the buffer is full.
   /// Returns true when the message was accepted for transmit (sent or queued).
-  bool sendOscMessage(String address, List<Object> arguments) {
+  ///
+  /// Set [immediate] for synchronous request/reply RPCs (e.g. NOR reads) that
+  /// await a response: coalescing would otherwise add up to one window (~33 ms)
+  /// of latency per call, which compounds badly across a long await chain.
+  bool sendOscMessage(String address, List<Object> arguments,
+      {bool immediate = false}) {
     // Hard block: never send Y LUT over the network
     // Matches any address ending with "/lut/Y" (e.g., "/send/1/lut/Y")
     final segs = address.split('/').where((s) => s.isNotEmpty).toList();
@@ -238,8 +251,33 @@ class Network extends ChangeNotifier {
       return false;
     }
     final message = OSCMessage(address, arguments: arguments);
-    final data = message.toBytes();
 
+    // Bulk transfers (blob payloads: firmware chunks, image rows) and the
+    // handshake messages (/sync, /ack) must go out immediately and intact.
+    // Everything else — UI control changes — is coalesced to <=30 Hz so drags
+    // don't flood the device with datagrams (the documented cause of net_pkt
+    // buffer exhaustion).
+    if (immediate || _bypassCoalescing(address, arguments)) {
+      return _sendBytesNow(message.toBytes());
+    }
+    _enqueueThrottled(message);
+    return true;
+  }
+
+  /// Bulk/handshake traffic skips the 30 Hz coalescer. A message is "bulk" if
+  /// any argument isn't a scalar (i.e. a blob/list payload).
+  static bool _bypassCoalescing(String address, List<Object> arguments) {
+    if (address == '/sync' || address == '/ack') return true;
+    if (address.startsWith('/firmware')) return true;
+    for (final a in arguments) {
+      if (a is! num && a is! String && a is! bool) return true;
+    }
+    return false;
+  }
+
+  /// Sends OSC bytes on the socket now, deferring on a full send buffer.
+  /// Returns true when accepted for transmit (sent or queued).
+  bool _sendBytesNow(List<int> data) {
     try {
       final sent = _socket!.send(data, _destination!, _port!);
       if (sent != data.length) {
@@ -265,51 +303,101 @@ class Network extends ChangeNotifier {
     }
   }
 
-  /// Sends an OSC bundle containing multiple messages in a single datagram.
-  /// Applies same connection checks and deferred send handling as single send.
-  void sendOscBundle(List<OSCMessage> messages) {
-    if (!isConnected) {
-      debugPrint('Not connected');
+  // ---- outbound 30 Hz coalescing ------------------------------------------
+  static const Duration _txCoalesceWindow =
+      Duration(milliseconds: 33); // ~30 Hz
+  final List<OSCMessage> _txQueue = [];
+  Timer? _txFlushTimer;
+  DateTime? _lastTxFlush;
+
+  /// Queues a control message for coalesced send. Sparse traffic (slower than
+  /// 30 Hz) flushes immediately on the leading edge; a burst is packed into one
+  /// bundle at the window boundary.
+  void _enqueueThrottled(OSCMessage m) {
+    // Append (never drop): messages that share an address but carry different
+    // arguments — e.g. a burst of "/assets/sprites/info [i]" enumeration
+    // queries — must all be delivered. The device already dedups rapid repeats
+    // of a set to the latest value on its side, so bundling every value here is
+    // both correct and cheap.
+    _txQueue.add(m);
+    final now = DateTime.now();
+    if (_lastTxFlush == null ||
+        now.difference(_lastTxFlush!) >= _txCoalesceWindow) {
+      // Idle long enough: flush now, no added latency for sparse input.
+      _flushTxQueue();
+    } else {
+      // Mid-window burst: one trailing flush at the window boundary.
+      _txFlushTimer ??= Timer(
+        _txCoalesceWindow - now.difference(_lastTxFlush!),
+        _flushTxQueue,
+      );
+    }
+  }
+
+  void _flushTxQueue() {
+    _txFlushTimer?.cancel();
+    _txFlushTimer = null;
+    _lastTxFlush = DateTime.now();
+    if (_txQueue.isEmpty) return;
+    if (_socket == null || _destination == null || _port == null) {
+      _txQueue.clear();
       return;
     }
-    // Build OSC bundle: '#bundle\0' + 8-byte timetag + N elements
-    // Each element: 4-byte big-endian size + message bytes
+    if (_txQueue.length == 1) {
+      _sendBytesNow(_txQueue.first.toBytes());
+    } else {
+      _sendMessagesAsBundles(_txQueue);
+    }
+    _txQueue.clear();
+  }
+
+  /// Packs [messages] into one or more MTU-sized OSC bundles and sends them.
+  void _sendMessagesAsBundles(List<OSCMessage> messages) {
+    const int mtu = 1400; // keep datagrams under the Ethernet MTU
+    var batch = <OSCMessage>[];
+    var batchLen = 16; // #bundle header
+    for (final m in messages) {
+      final elemLen = m.toBytes().length + 4; // int32 size prefix + message
+      if (batch.isNotEmpty && batchLen + elemLen > mtu) {
+        _sendBytesNow(_buildBundle(batch));
+        batch = [];
+        batchLen = 16;
+      }
+      batch.add(m);
+      batchLen += elemLen;
+    }
+    if (batch.isNotEmpty) _sendBytesNow(_buildBundle(batch));
+  }
+
+  /// Builds one OSC bundle datagram: '#bundle\0' + immediate timetag + N
+  /// elements, each a 4-byte big-endian size followed by the message bytes.
+  static List<int> _buildBundle(List<OSCMessage> messages) {
     final bb = BytesBuilder();
     bb.add(utf8.encode('#bundle'));
-    bb.add([0]); // null terminator to make 8-byte header
-    // timetag: immediate (0,1) big-endian
+    bb.add([0]); // null terminator -> 8-byte header
     final tt = ByteData(8);
     tt.setUint32(0, 0, Endian.big); // seconds
     tt.setUint32(4, 1, Endian.big); // fractional, 'immediate'
     bb.add(tt.buffer.asUint8List());
-
     for (final m in messages) {
       final mb = m.toBytes();
       final sz = ByteData(4)..setUint32(0, mb.length, Endian.big);
       bb.add(sz.buffer.asUint8List());
       bb.add(mb);
     }
+    return bb.toBytes();
+  }
 
-    final data = bb.toBytes();
-    try {
-      final sent = _socket!.send(data, _destination!, _port!);
-      if (sent != data.length) {
-        _pending.add(_Pending(data, _destination!, _port!));
-        _socket!.writeEventsEnabled = true;
-      }
-    } on SocketException catch (e) {
-      debugPrint('Deferred OSC bundle send failed: $e');
-      _pending.clear();
-      _socket!.writeEventsEnabled = false;
-    } on OSError catch (e) {
-      debugPrint('OSC bundle send failed (OSError): $e');
-      _pending.clear();
-      _socket!.writeEventsEnabled = false;
-    } catch (e) {
-      debugPrint('OSC bundle send failed: $e');
-      _pending.clear();
-      _socket!.writeEventsEnabled = false;
+  /// Sends OSC messages as one or more MTU-sized bundle datagrams.
+  /// Applies the same connection checks and deferred send handling as a single
+  /// send.
+  void sendOscBundle(List<OSCMessage> messages) {
+    if (!isConnected) {
+      debugPrint('Not connected');
+      return;
     }
+    if (messages.isEmpty) return;
+    _sendMessagesAsBundles(messages);
   }
 
   void _onSocketEvent(RawDatagramSocket socket, RawSocketEvent event) {
@@ -366,38 +454,83 @@ class Network extends ChangeNotifier {
 
   void _handleDatagram(Datagram dg) {
     try {
-      final msg = OSCMessage.fromBytes(dg.data);
-      _lastMsgReceived = DateTime.now();
-      if (msg.address != '/ack') {
-        debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
-        OscRegistry().dispatch(msg.address, msg.arguments);
+      final data = dg.data;
+      // The device packs /sync (and any burst) replies into OSC #bundle
+      // datagrams; unpack and dispatch each element. Plain messages still
+      // arrive standalone.
+      if (_isOscBundle(data)) {
+        _handleOscBundle(data);
       } else {
-        _hasSynced = true;
-        _lastAckTime = DateTime.now();
-        _manualConnectInProgress = false;
-        // on successful sync, stop any reconnect attempts
-        _reconnectTimer?.cancel();
-        // stop waiting-for-ack timer
-        _ackTimer?.cancel();
-        // start heartbeat to keep link healthy without full syncs
-        _heartbeatTimer?.cancel();
-        _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-          try {
-            sendOscMessage('/ack', []);
-          } catch (_) {}
-        });
-        // If this ACK finalized an auto-reconnect, issue a full sync now
-        if (_pendingSyncAfterAutoReconnect) {
-          try {
-            sendOscMessage('/sync', []);
-          } catch (_) {}
-          _pendingSyncAfterAutoReconnect = false;
-        }
-        notifyListeners();
+        _handleOscMessage(OSCMessage.fromBytes(data));
       }
     } catch (e) {
       debugPrint(
           'Error parsing packet ($e) from ${dg.address.address}:${dg.port}');
+    }
+  }
+
+  /// True if [d] begins with the OSC bundle marker "#bundle\0".
+  static bool _isOscBundle(Uint8List d) {
+    if (d.length < 16) return false;
+    return d[0] == 0x23 && // #
+        d[1] == 0x62 && // b
+        d[2] == 0x75 && // u
+        d[3] == 0x6e && // n
+        d[4] == 0x64 && // d
+        d[5] == 0x6c && // l
+        d[6] == 0x65 && // e
+        d[7] == 0x00; // \0
+  }
+
+  /// Parses an OSC bundle: 16-byte header (#bundle\0 + timetag) followed by
+  /// elements of [int32 big-endian size][message bytes]. Nested bundles are
+  /// not expected from the device and are skipped.
+  void _handleOscBundle(Uint8List data) {
+    final bd = ByteData.sublistView(data);
+    var off = 16;
+    while (off + 4 <= data.length) {
+      final size = bd.getUint32(off, Endian.big);
+      off += 4;
+      if (size == 0 || off + size > data.length) break;
+      final element = data.sublist(off, off + size);
+      off += size;
+      if (_isOscBundle(element)) continue; // ignore nested bundles
+      try {
+        _handleOscMessage(OSCMessage.fromBytes(element));
+      } catch (e) {
+        debugPrint('Bundle element parse error: $e');
+      }
+    }
+  }
+
+  void _handleOscMessage(OSCMessage msg) {
+    _lastMsgReceived = DateTime.now();
+    if (msg.address != '/ack') {
+      debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
+      OscRegistry().dispatch(msg.address, msg.arguments);
+    } else {
+      _hasSynced = true;
+      _lastAckTime = DateTime.now();
+      _manualConnectInProgress = false;
+      // on successful sync, stop any reconnect attempts
+      _reconnectTimer?.cancel();
+      // stop waiting-for-ack timer
+      _ackTimer?.cancel();
+      // start heartbeat to keep link healthy without full syncs
+      _heartbeatTimer?.cancel();
+      _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+        try {
+          sendOscMessage('/ack', []);
+        } catch (_) {}
+      });
+      // If this ACK finalized an auto-reconnect, issue a full sync now
+      if (_pendingSyncAfterAutoReconnect) {
+        try {
+          sendOscMessage('/sync', []);
+        } catch (_) {}
+        _pendingSyncAfterAutoReconnect = false;
+      }
+      notifyListeners();
     }
   }
 
