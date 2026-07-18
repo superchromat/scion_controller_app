@@ -14,9 +14,7 @@ import 'labeled_card.dart';
 import 'app_button.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
-import 'osc_log.dart';
 import 'osc_registry.dart';
-import 'osc_widget_binding.dart';
 
 /// System page - contains system overview, video format, and sync settings
 class SystemPage extends StatefulWidget {
@@ -312,32 +310,12 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
   }
 
   bool _sendNetworkOsc(Network net, String address, List<Object> args) {
-    final sent = net.sendOscMessage(address, args);
+    final sent = net.sendOscMessage(address, args); // Network logs centrally
 
     if (sent) {
       final reg = OscRegistry();
       reg.registerAddress(address);
       reg.dispatchLocal(address, args.cast<Object?>());
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oscLogKey.currentState?.logOscMessage(
-          address: address,
-          arg: args,
-          status: OscStatus.ok,
-          direction: Direction.sent,
-          binary: Uint8List(0),
-        );
-      });
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        oscLogKey.currentState?.logOscMessage(
-          address: address,
-          arg: args,
-          status: OscStatus.fail,
-          direction: Direction.sent,
-          binary: Uint8List(0),
-        );
-      });
     }
     return sent;
   }

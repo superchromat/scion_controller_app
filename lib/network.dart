@@ -6,6 +6,8 @@ import 'package:osc/osc.dart';
 import 'package:flutter/foundation.dart';
 
 import 'osc_registry.dart';
+import 'osc_log.dart';
+import 'osc_widget_binding.dart' show OscStatus, Direction;
 
 /// Internal class to hold deferred sends
 class _Pending {
@@ -32,6 +34,10 @@ class Network extends ChangeNotifier {
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   Timer? _drainResumeTimer;
+
+  /// When false, this class does not auto-reconnect on drop — reconnection is
+  /// owned by [ScionDiscovery] instead (single connection authority).
+  bool autoReconnectEnabled = true;
   DateTime? _suppressUntil; // suppress inactivity disconnect until this time
   DateTime? _lastAckTime;   // last time we received an /ack
   bool _manualConnectInProgress = false;
@@ -251,6 +257,7 @@ class Network extends ChangeNotifier {
       return false;
     }
     final message = OSCMessage(address, arguments: arguments);
+    _logSend(address, arguments); // log every accepted UI send (throttled)
 
     // Bulk transfers (blob payloads: firmware chunks, image rows) and the
     // handshake messages (/sync, /ack) must go out immediately and intact.
@@ -273,6 +280,51 @@ class Network extends ChangeNotifier {
       if (a is! num && a is! String && a is! bool) return true;
     }
     return false;
+  }
+
+  // --- central OSC send logging -------------------------------------------
+  // Every UI-originated send funnels through sendOscMessage/sendOscBundle, so
+  // logging here guarantees all adjustments appear in the OSC Log regardless of
+  // which widget or send path (single vs bundle) produced them. Throttled to
+  // ~20 Hz (latest-wins) so a drag doesn't flood the table with setState churn.
+  static const Duration _logInterval = Duration(milliseconds: 50);
+  DateTime _lastLogTime = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _logTimer;
+  String? _pendingLogAddr;
+  List<Object>? _pendingLogArgs;
+
+  void _logSend(String address, List<Object> arguments) {
+    // Skip handshake heartbeats, firmware/flash I/O, and bulk blob transfers —
+    // these are transport plumbing, not UI adjustments.
+    if (address == '/ack' || address == '/sync') return;
+    if (address.startsWith('/firmware') || address.contains('/nor/')) return;
+    for (final a in arguments) {
+      if (a is! num && a is! String && a is! bool) return; // blob payload
+    }
+    _pendingLogAddr = address;
+    _pendingLogArgs = arguments;
+    final elapsed = DateTime.now().difference(_lastLogTime);
+    if (elapsed >= _logInterval) {
+      _flushLog();
+    } else {
+      _logTimer ??= Timer(_logInterval - elapsed, _flushLog);
+    }
+  }
+
+  void _flushLog() {
+    _logTimer?.cancel();
+    _logTimer = null;
+    _lastLogTime = DateTime.now();
+    final addr = _pendingLogAddr;
+    final args = _pendingLogArgs;
+    if (addr == null || args == null) return;
+    oscLogKey.currentState?.logOscMessage(
+      address: addr,
+      arg: args,
+      status: OscStatus.ok,
+      direction: Direction.sent,
+      binary: Uint8List(0),
+    );
   }
 
   /// Sends OSC bytes on the socket now, deferring on a full send buffer.
@@ -397,6 +449,9 @@ class Network extends ChangeNotifier {
       return;
     }
     if (messages.isEmpty) return;
+    for (final m in messages) {
+      _logSend(m.address, m.arguments);
+    }
     _sendMessagesAsBundles(messages);
   }
 
@@ -543,6 +598,7 @@ class Network extends ChangeNotifier {
   }
 
   void _scheduleReconnect() {
+    if (!autoReconnectEnabled) return; // ScionDiscovery owns reconnection
     if (_lastHost == null || _lastPort == null) return;
     // prevent multiple timers
     _reconnectTimer?.cancel();

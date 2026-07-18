@@ -171,8 +171,8 @@ class RotaryKnob extends StatefulWidget {
     this.lightPhi = math.pi / 2,    // Default: 90°
     this.lightTheta = 320 * math.pi / 180,  // Default: 320°
     this.arcWidth = 8.0,
-    this.notchDepth = 4.0,
-    this.notchHalfAngle = 0.055,    // ~3.15 degrees
+    this.notchDepth = 5.0,
+    this.notchHalfAngle = 0.072,    // ~4.1 degrees
     this.labelStyle,
     this.oscPath,
   });
@@ -1126,8 +1126,8 @@ class _KnobPainter extends CustomPainter {
     this.lightPhi = math.pi / 2,
     this.lightTheta = 320 * math.pi / 180,
     this.arcWidth = 8.0,
-    this.notchDepth = 4.0,
-    this.notchHalfAngle = 0.055,
+    this.notchDepth = 5.0,
+    this.notchHalfAngle = 0.072,
     this.noiseImage,
   });
 
@@ -1170,6 +1170,7 @@ class _KnobPainter extends CustomPainter {
     double strokeWidth = 0.75,
     double maxAlpha = 0.4,
     int segments = 24,
+    double blur = 0,
   }) {
     if (arcSweepAngle.abs() < 0.001) return;
 
@@ -1195,7 +1196,9 @@ class _KnobPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth
           ..strokeCap = StrokeCap.butt
-          ..color = Color.fromARGB(alpha, 255, 255, 255);
+          ..color = Color.fromARGB(alpha, 255, 255, 255)
+          ..maskFilter =
+              blur > 0 ? MaskFilter.blur(BlurStyle.normal, blur) : null;
 
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: radius),
@@ -1220,6 +1223,33 @@ class _KnobPainter extends CustomPainter {
     // === NEUMORPHIC SLOT (drawn normally, no clipping) ===
     const lightOffset = Alignment(0.0, -0.4);
 
+    // Rounded outer lip, done the way the SC slot is (see _paintGroove): a
+    // *directional* pair — a blurred dark edge offset up-and-left and a blurred
+    // light edge offset down-and-right — drawn under the crisp lip. Offsetting
+    // (rather than a symmetric blur) is what makes the panel read as curving
+    // down into the slot instead of glowing around a flat cut.
+    final lipRect = Rect.fromCircle(center: center, radius: radius);
+    void lipEdge(double dx, double dy, Color c) {
+      canvas.save();
+      canvas.translate(dx, dy);
+      canvas.drawArc(
+        lipRect,
+        startAngle,
+        sweepAngle,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = arcWidth + 2
+          ..strokeCap = StrokeCap.round
+          ..color = c
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.7),
+      );
+      canvas.restore();
+    }
+
+    lipEdge(-0.5, -0.5, Colors.black.withValues(alpha: 0.55)); // shadowed edge
+    lipEdge(0.5, 0.5, const Color(0xFF6A6A6E).withValues(alpha: 0.6)); // lit edge
+
     final borderGradient = RadialGradient(
       center: lightOffset,
       radius: 0.7,
@@ -1228,8 +1258,8 @@ class _KnobPainter extends CustomPainter {
     );
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = arcWidth + 2
-      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = arcWidth + 1
+      ..strokeCap = StrokeCap.round
       ..shader = borderGradient.createShader(
         Rect.fromCircle(center: center, radius: radius + arcWidth),
       );
@@ -1247,7 +1277,7 @@ class _KnobPainter extends CustomPainter {
     final outerShadowPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.butt
+      ..strokeCap = StrokeCap.round
       ..shader = outerShadowGradient.createShader(
         Rect.fromCircle(center: center, radius: radius + arcWidth / 2),
       );
@@ -1264,8 +1294,8 @@ class _KnobPainter extends CustomPainter {
     );
     final innerHighlightPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round
       ..shader = innerHighlightGradient.createShader(
         Rect.fromCircle(center: center, radius: radius - arcWidth / 2),
       );
@@ -1282,8 +1312,8 @@ class _KnobPainter extends CustomPainter {
     );
     final bgPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = arcWidth - 2
-      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = arcWidth - 1
+      ..strokeCap = StrokeCap.round
       ..shader = floorGradient.createShader(
         Rect.fromCircle(center: center, radius: radius),
       );
@@ -1293,6 +1323,8 @@ class _KnobPainter extends CustomPainter {
     );
 
     // === SLOT EDGE LIGHTING ===
+    // A soft, blurred specular spread across the slot wall — reads as a rounded
+    // lip (like the SC slot) rather than a hard machined chamfer.
     // Outer edge of slot (normal points outward)
     drawLitArcEdge(
       canvas,
@@ -1301,8 +1333,9 @@ class _KnobPainter extends CustomPainter {
       startAngle,
       sweepAngle,
       true,  // outward normal
-      strokeWidth: 0.75,
-      maxAlpha: 0.5,
+      strokeWidth: 1.2,
+      maxAlpha: 0.28,
+      blur: 0.8,
     );
 
     // Inner edge of slot (normal points inward)
@@ -1313,8 +1346,9 @@ class _KnobPainter extends CustomPainter {
       startAngle,
       sweepAngle,
       false,  // inward normal
-      strokeWidth: 0.75,
-      maxAlpha: 0.5,
+      strokeWidth: 1.2,
+      maxAlpha: 0.28,
+      blur: 0.8,
     );
 
     // Notch base - slightly inside slot to cover seam
@@ -1374,6 +1408,23 @@ class _KnobPainter extends CustomPainter {
       drawArcSweep = minArcSweep;
     }
 
+    // Glow: the value colour bleeding through the slot onto the surrounding
+    // panel, so it reads as lit from behind (matching the SC spinner). Softer
+    // in the inactive (grey) state.
+    final valueGlowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = slotWidth + 2.5
+      ..strokeCap = StrokeCap.butt
+      ..color = baseColor.withValues(alpha: isActive ? 0.26 : 0.10)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, slotWidth * 0.38);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      drawArcStart,
+      drawArcSweep,
+      false,
+      valueGlowPaint,
+    );
+
     // Draw value arc
     final valueArcPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -1390,6 +1441,33 @@ class _KnobPainter extends CustomPainter {
       false,
       valueArcPaint,
     );
+
+    // Round any fill end that sits at a slot extremity so it fills the slot's
+    // rounded end; ends that float in the slot interior stay butt so the reading
+    // reads crisply. A unipolar knob anchors at the slot start (always rounded);
+    // a bipolar knob anchors at the neutral point in the middle (butt) and only
+    // rounds an end when the value reaches an extreme.
+    if (drawArcSweep > 0.001) {
+      const slotEndEps = 0.02;
+      bool atExtreme(double a) =>
+          (a - startAngle).abs() < slotEndEps ||
+          (a - (startAngle + sweepAngle)).abs() < slotEndEps;
+      Paint capPaint() => Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = slotWidth - 2
+        ..strokeCap = StrokeCap.round
+        ..shader = valueArcGradient.createShader(
+          Rect.fromCircle(center: center, radius: radius + slotWidth),
+        );
+      if (atExtreme(arcStartAngle)) {
+        canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
+            drawArcStart, 0.008, false, capPaint());
+      }
+      if (atExtreme(arcEndAngle)) {
+        canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
+            drawArcStart + drawArcSweep - 0.008, 0.008, false, capPaint());
+      }
+    }
 
     // Top highlight on the value arc
     final highlightPaint = Paint()
@@ -1458,6 +1536,10 @@ class _KnobPainter extends CustomPainter {
       final atArcStart = clampedNorm < 0.001;
       final atArcEnd = clampedNorm > 0.999;
 
+      // Skip detents that land exactly on a slot end — the rounded slot end
+      // already marks the extreme, and a half-detent there reads as an odd barb.
+      if (atArcStart || atArcEnd) continue;
+
       final leftBase = Offset(
         center.dx + notchBaseRadius * math.cos(atArcStart ? startAngle : leftAngle),
         center.dy + notchBaseRadius * math.sin(atArcStart ? startAngle : leftAngle),
@@ -1471,35 +1553,31 @@ class _KnobPainter extends CustomPainter {
         center.dy + notchOuterRadius * math.sin(snapAngle),
       );
 
-      // Build notch path - half-V at endpoints, full V otherwise
-      final notchPath = Path();
-      if (atArcStart) {
-        // Half-V at start: perpendicular left edge (radial), angled right edge
-        final radialBase = Offset(
-          center.dx + notchBaseRadius * math.cos(startAngle),
-          center.dy + notchBaseRadius * math.sin(startAngle),
-        );
-        notchPath.moveTo(radialBase.dx, radialBase.dy);
-        notchPath.lineTo(tip.dx, tip.dy);
-        notchPath.lineTo(rightBase.dx, rightBase.dy);
-        notchPath.close();
-      } else if (atArcEnd) {
-        // Half-V at end: angled left edge, perpendicular right edge (radial)
-        final radialBase = Offset(
-          center.dx + notchBaseRadius * math.cos(startAngle + sweepAngle),
-          center.dy + notchBaseRadius * math.sin(startAngle + sweepAngle),
-        );
-        notchPath.moveTo(leftBase.dx, leftBase.dy);
-        notchPath.lineTo(tip.dx, tip.dy);
-        notchPath.lineTo(radialBase.dx, radialBase.dy);
-        notchPath.close();
-      } else {
-        // Full V
-        notchPath.moveTo(leftBase.dx, leftBase.dy);
-        notchPath.lineTo(tip.dx, tip.dy);
-        notchPath.lineTo(rightBase.dx, rightBase.dy);
-        notchPath.close();
-      }
+      // Build the notch path with a softly rounded tip. leftBase/rightBase
+      // already encode the radial (half-V) edges at the arc endpoints, so a
+      // single path covers all cases. The apex runs as a quadratic through the
+      // tip so the detent reads as a soft mark rather than a sharp spike — which
+      // now sits better against the rounded groove edges.
+      const apexRound = 0.64;
+      const baseRound = 0.34;
+      final apexLeft = Offset.lerp(tip, leftBase, apexRound)!;
+      final apexRight = Offset.lerp(tip, rightBase, apexRound)!;
+      // Ease the two base corners too, so the detent meets the slot as a soft
+      // nub rather than a pair of sharp barbs.
+      final leftBaseUp = Offset.lerp(leftBase, apexLeft, baseRound)!;
+      final leftBaseIn = Offset.lerp(leftBase, rightBase, baseRound)!;
+      final rightBaseUp = Offset.lerp(rightBase, apexRight, baseRound)!;
+      final rightBaseIn = Offset.lerp(rightBase, leftBase, baseRound)!;
+      final notchPath = Path()
+        ..moveTo(leftBaseIn.dx, leftBaseIn.dy)
+        ..quadraticBezierTo(
+            leftBase.dx, leftBase.dy, leftBaseUp.dx, leftBaseUp.dy)
+        ..lineTo(apexLeft.dx, apexLeft.dy)
+        ..quadraticBezierTo(tip.dx, tip.dy, apexRight.dx, apexRight.dy)
+        ..lineTo(rightBaseUp.dx, rightBaseUp.dy)
+        ..quadraticBezierTo(
+            rightBase.dx, rightBase.dy, rightBaseIn.dx, rightBaseIn.dy)
+        ..close();
 
       // Check if DRAWN value arc covers this notch (use effective draw bounds)
       final drawArcEnd = drawArcStart + drawArcSweep;
@@ -1568,23 +1646,25 @@ class _KnobPainter extends CustomPainter {
 
         // Highlight on lit side
         if (leftDot > 0.05) {
-          final leftAlpha = (0.5 * leftDot.clamp(0.0, 1.0) * 255).round();
+          final leftAlpha = (0.30 * leftDot.clamp(0.0, 1.0) * 255).round();
           final leftPaint = Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.0
-            ..strokeCap = StrokeCap.butt
+            ..strokeWidth = 1.2
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6)
             ..color = Color.fromARGB(leftAlpha, 255, 255, 255);
-          canvas.drawLine(leftEdgeStart, tip, leftPaint);
+          canvas.drawLine(leftEdgeStart, apexLeft, leftPaint);
         }
         // Shadow on dark side
         if (leftDot < -0.05) {
-          final shadowAlpha = (0.4 * (-leftDot).clamp(0.0, 1.0) * 255).round();
+          final shadowAlpha = (0.26 * (-leftDot).clamp(0.0, 1.0) * 255).round();
           final shadowPaint = Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5
-            ..strokeCap = StrokeCap.butt
+            ..strokeWidth = 1.6
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6)
             ..color = Color.fromARGB(shadowAlpha, 0, 0, 0);
-          canvas.drawLine(leftEdgeStart, tip, shadowPaint);
+          canvas.drawLine(leftEdgeStart, apexLeft, shadowPaint);
         }
       }
 
@@ -1596,23 +1676,25 @@ class _KnobPainter extends CustomPainter {
 
         // Highlight on lit side
         if (rightDot > 0.05) {
-          final rightAlpha = (0.5 * rightDot.clamp(0.0, 1.0) * 255).round();
+          final rightAlpha = (0.30 * rightDot.clamp(0.0, 1.0) * 255).round();
           final rightPaint = Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.0
-            ..strokeCap = StrokeCap.butt
+            ..strokeWidth = 1.2
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6)
             ..color = Color.fromARGB(rightAlpha, 255, 255, 255);
-          canvas.drawLine(tip, rightEdgeEnd, rightPaint);
+          canvas.drawLine(apexRight, rightEdgeEnd, rightPaint);
         }
         // Shadow on dark side
         if (rightDot < -0.05) {
-          final shadowAlpha = (0.4 * (-rightDot).clamp(0.0, 1.0) * 255).round();
+          final shadowAlpha = (0.26 * (-rightDot).clamp(0.0, 1.0) * 255).round();
           final shadowPaint = Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5
-            ..strokeCap = StrokeCap.butt
+            ..strokeWidth = 1.6
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6)
             ..color = Color.fromARGB(shadowAlpha, 0, 0, 0);
-          canvas.drawLine(tip, rightEdgeEnd, shadowPaint);
+          canvas.drawLine(apexRight, rightEdgeEnd, shadowPaint);
         }
       }
     }

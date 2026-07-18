@@ -44,16 +44,6 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
   }
 
 
-  Widget _resetButton(VoidCallback onPressed) {
-    return IconButton(
-      icon: Icon(Icons.refresh, size: 18, color: Colors.grey[500]),
-      onPressed: onPressed,
-      tooltip: 'Reset to defaults',
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -131,9 +121,12 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   child: LabeledCard(
                                     title: 'Texture',
                                     snapPath: 'texture',
-                                    action: _resetButton(() =>
+                                    // Single "Reset to defaults": the snap icon
+                                    // resets /send/N/texture and this folds in
+                                    // the glitch block (/send/N/glitch).
+                                    onReset: () =>
                                         (_glitchKey.currentState as dynamic)
-                                            ?.reset()),
+                                            ?.reset(),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,

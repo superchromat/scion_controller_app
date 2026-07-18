@@ -57,7 +57,7 @@ class ColorWheelArcState extends State<ColorWheelArc> {
   int? _activePointer;
   bool get isDragging => _dragMode != 0;
 
-  static const double arcWidth = 6.0;
+  static const double arcWidth = 9.0;
   static const double arcGap = 2.0;
   static const double startAngle = 0.75 * pi;
   static const double sweepAngle = 1.5 * pi;
@@ -224,18 +224,41 @@ void paintArcSlot(
 ) {
   const startAngle = 0.75 * pi;
   const sweepAngle = 1.5 * pi;
-  const arcWidth = 6.0;
+  const arcWidth = 9.0;
   const lightOffset = Alignment(0.0, -0.4);
   final shaderRect = Rect.fromCircle(center: center, radius: outerRadius);
+  final arcRect = Rect.fromCircle(center: center, radius: arcRadius);
 
-  // Border gradient
+  // Rounded outer lip, matching the rotary knobs: a directional pair — a blurred
+  // dark edge offset up-and-left and a blurred light edge offset down-and-right —
+  // drawn under the crisp lip so the panel reads as curving down into the slot,
+  // and (with round caps) the lip wraps the rounded slot ends.
+  void lipEdge(double dx, double dy, Color c) {
+    canvas.save();
+    canvas.translate(dx, dy);
+    canvas.drawArc(
+      arcRect, startAngle, sweepAngle, false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = arcWidth + 1
+        ..strokeCap = StrokeCap.round
+        ..color = c
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.7),
+    );
+    canvas.restore();
+  }
+
+  lipEdge(-0.5, -0.5, Colors.black.withValues(alpha: 0.55));
+  lipEdge(0.5, 0.5, const Color(0xFF6A6A6E).withValues(alpha: 0.6));
+
+  // Border gradient (raised lip) — rounded ends.
   canvas.drawArc(
-    Rect.fromCircle(center: center, radius: arcRadius),
+    arcRect,
     startAngle, sweepAngle, false,
     Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = arcWidth + 2
-      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = arcWidth + 1
+      ..strokeCap = StrokeCap.round
       ..shader = RadialGradient(
         center: lightOffset,
         radius: 0.7,
@@ -251,7 +274,7 @@ void paintArcSlot(
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.butt
+      ..strokeCap = StrokeCap.round
       ..shader = RadialGradient(
         center: const Alignment(0.0, 0.5),
         radius: 0.6,
@@ -267,7 +290,7 @@ void paintArcSlot(
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.butt
+      ..strokeCap = StrokeCap.round
       ..shader = RadialGradient(
         center: lightOffset,
         radius: 0.6,
@@ -276,14 +299,14 @@ void paintArcSlot(
       ).createShader(shaderRect),
   );
 
-  // Dark floor
+  // Dark floor — rounded ends.
   canvas.drawArc(
-    Rect.fromCircle(center: center, radius: arcRadius),
+    arcRect,
     startAngle, sweepAngle, false,
     Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = arcWidth - 2
-      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = arcWidth - 1
+      ..strokeCap = StrokeCap.round
       ..shader = RadialGradient(
         center: lightOffset,
         radius: 0.7,
@@ -304,11 +327,12 @@ void paintUnipolarArc(
 ) {
   const startAngle = 0.75 * pi;
   const sweepAngle = 1.5 * pi;
-  const arcWidth = 6.0;
+  const arcWidth = 9.0;
   const lightOffset = Alignment(0.0, -0.4);
   const minArcSweep = 0.10;
   final shaderRect = Rect.fromCircle(center: center, radius: outerRadius);
 
+  final arcRect = Rect.fromCircle(center: center, radius: arcRadius);
   final valueSweep = value * sweepAngle;
   final drawSweep = valueSweep < minArcSweep ? minArcSweep : valueSweep;
 
@@ -323,8 +347,20 @@ void paintUnipolarArc(
     stops: const [0.0, 0.5, 1.0],
   );
 
+  // Glow: the value colour bleeding through the slot onto the surrounding panel,
+  // so it reads as lit from behind (matching the rotary knobs).
   canvas.drawArc(
-    Rect.fromCircle(center: center, radius: arcRadius),
+    arcRect, startAngle, drawSweep, false,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = arcWidth + 1.5
+      ..strokeCap = StrokeCap.butt
+      ..color = activeColor.withValues(alpha: 0.26)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, arcWidth * 0.38),
+  );
+
+  canvas.drawArc(
+    arcRect,
     startAngle, drawSweep, false,
     Paint()
       ..style = PaintingStyle.stroke
@@ -335,7 +371,7 @@ void paintUnipolarArc(
 
   // Highlight
   canvas.drawArc(
-    Rect.fromCircle(center: center, radius: arcRadius),
+    arcRect,
     startAngle, drawSweep, false,
     Paint()
       ..style = PaintingStyle.stroke
@@ -352,6 +388,19 @@ void paintUnipolarArc(
         stops: const [0.0, 0.3, 0.7],
       ).createShader(shaderRect),
   );
+
+  // The fill anchors at the slot start, so round that end to fill the slot's
+  // rounded end; the level end stays butt unless the value reaches the far end.
+  Paint capPaint() => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = arcWidth - 2
+    ..strokeCap = StrokeCap.round
+    ..shader = gradient.createShader(shaderRect);
+  canvas.drawArc(arcRect, startAngle, 0.008, false, capPaint());
+  if (value >= 0.999) {
+    canvas.drawArc(
+        arcRect, startAngle + drawSweep - 0.008, 0.008, false, capPaint());
+  }
 }
 
 /// Paints a bipolar value arc (center = neutral, extends left or right).
@@ -365,7 +414,7 @@ void paintBipolarArc(
 ) {
   const startAngle = 0.75 * pi;
   const sweepAngle = 1.5 * pi;
-  const arcWidth = 6.0;
+  const arcWidth = 9.0;
   const lightOffset = Alignment(0.0, -0.4);
   const minArcSweep = 0.10;
   final shaderRect = Rect.fromCircle(center: center, radius: outerRadius);
@@ -377,6 +426,7 @@ void paintBipolarArc(
   final arcEndAngle = max(neutralAngle, valueAngle);
   final arcSweep = arcEndAngle - arcStartAngle;
 
+  final arcRect = Rect.fromCircle(center: center, radius: arcRadius);
   var drawStart = arcStartAngle;
   var drawSweep = arcSweep;
   if (arcSweep < minArcSweep) {
@@ -395,8 +445,19 @@ void paintBipolarArc(
     stops: const [0.0, 0.5, 1.0],
   );
 
+  // Glow bleeding through the slot (matching the rotary knobs).
   canvas.drawArc(
-    Rect.fromCircle(center: center, radius: arcRadius),
+    arcRect, drawStart, drawSweep, false,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = arcWidth + 1.5
+      ..strokeCap = StrokeCap.butt
+      ..color = activeColor.withValues(alpha: 0.26)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, arcWidth * 0.38),
+  );
+
+  canvas.drawArc(
+    arcRect,
     drawStart, drawSweep, false,
     Paint()
       ..style = PaintingStyle.stroke
@@ -407,7 +468,7 @@ void paintBipolarArc(
 
   // Highlight
   canvas.drawArc(
-    Rect.fromCircle(center: center, radius: arcRadius),
+    arcRect,
     drawStart, drawSweep, false,
     Paint()
       ..style = PaintingStyle.stroke
@@ -424,6 +485,25 @@ void paintBipolarArc(
         stops: const [0.0, 0.3, 0.7],
       ).createShader(shaderRect),
   );
+
+  // The fill anchors at the neutral point in the middle (butt); round an end
+  // only when the value reaches a slot extreme, so it fills the rounded end.
+  const slotEndEps = 0.02;
+  bool atExtreme(double a) =>
+      (a - startAngle).abs() < slotEndEps ||
+      (a - (startAngle + sweepAngle)).abs() < slotEndEps;
+  Paint capPaint() => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = arcWidth - 2
+    ..strokeCap = StrokeCap.round
+    ..shader = gradient.createShader(shaderRect);
+  if (atExtreme(arcStartAngle)) {
+    canvas.drawArc(arcRect, drawStart, 0.008, false, capPaint());
+  }
+  if (atExtreme(arcEndAngle)) {
+    canvas.drawArc(
+        arcRect, drawStart + drawSweep - 0.008, 0.008, false, capPaint());
+  }
 }
 
 /// Paints the selection indicator (circle outline + fill).

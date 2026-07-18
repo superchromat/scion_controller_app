@@ -6,8 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'network.dart';
-import 'nsd_client.dart';
 import 'app_button.dart';
+import 'discovery.dart';
 
 class NetworkConnectionSection extends StatefulWidget {
   const NetworkConnectionSection({super.key});
@@ -20,14 +20,12 @@ class NetworkConnectionSection extends StatefulWidget {
 class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  bool _discovering = false;
 
   static const _prefKey = 'recent_endpoints';
   static const _maxRecents = 5;
   static const _defaultPort = 9000;
 
   List<String> _recents = [];
-  List<String> _discovered = [];
 
   @override
   void initState() {
@@ -41,25 +39,10 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     if (!mounted) return;
     setState(() {
       _recents = list;
-      _controller.text = _recents.isNotEmpty ? _recents.first : '192.168.2.75';
+      if (_recents.isNotEmpty) _controller.text = _recents.first;
     });
-    if (_recents.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _autoConnect(_recents.first);
-      });
-    }
-  }
-
-  Future<void> _autoConnect(String input) async {
-    final endpoint = _parseEndpoint(input);
-    if (endpoint == null) return;
-    final net = context.read<Network>();
-    try {
-      await net.connect(endpoint.host, endpoint.port);
-    } catch (_) {
-      // Silent on startup — user can connect manually if the device is unreachable
-    }
+    // Auto-connect (continuous mDNS + last-endpoint fast path) is handled
+    // centrally by ScionDiscovery; this field is only for manual entry.
   }
 
   Future<void> _saveRecent(String host, int port) async {
@@ -139,43 +122,6 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     }
   }
 
-  Future<void> _findServices() async {
-    setState(() => _discovering = true);
-
-    List<NetworkAddress> services = [];
-    try {
-      services = await NSDClient()
-          .discover()
-          .timeout(
-            NSDClient().scanDuration + const Duration(seconds: 1),
-            onTimeout: () => <NetworkAddress>[],
-          );
-    } catch (e) {
-      if (mounted) setState(() => _discovering = false);
-      await _showError('Discovery failed: $e');
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() => _discovering = false);
-
-    if (services.isEmpty) {
-      await _showError('No devices found on your local network');
-      return;
-    }
-
-    final addresses = services.map((s) => _formatEndpoint(s.host, s.port)).toList();
-    setState(() {
-      _controller.text = addresses.first;
-      _discovered = addresses.length > 1 ? addresses.sublist(1) : [];
-    });
-
-    if (addresses.length == 1) {
-      await _connectTo(addresses.first);
-    } else if (_discovered.isNotEmpty) {
-      _focusNode.requestFocus();
-    }
-  }
 
   Future<void> _showError(String message) async {
     await showDialog<void>(
@@ -197,6 +143,11 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   @override
   Widget build(BuildContext context) {
     final network = context.watch<Network>();
+    final discovered = context
+        .watch<ScionDiscovery>()
+        .devices
+        .map((d) => _formatEndpoint(d.host, d.port))
+        .toList();
 
     return TypeAheadFormField<String>(
       textFieldConfiguration: TextFieldConfiguration(
@@ -206,28 +157,20 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
           labelText: 'Network address',
           hintText: 'e.g. 192.168.10.27, or server.superchromat.com:9010',
           border: const OutlineInputBorder(),
-          suffixIcon: _discovering
-              ? Padding(
-                  padding: const EdgeInsets.all(12),
+          suffixIcon: network.isConnecting
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
                   child: SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 )
-              : network.isConnecting
-                  ? Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: _discovering ? null : _findServices,
-                    ),
+              : IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Rescan for SCION',
+                  onPressed: () => context.read<ScionDiscovery>().rescan(),
+                ),
         ),
         style: const TextStyle(fontFamily: 'monospace'),
         onSubmitted: network.isConnecting
@@ -235,7 +178,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
             : (val) => _connectTo(val.trim()),
       ),
       suggestionsCallback: (pattern) async {
-        final suggestions = List<String>.from(_discovered);
+        final suggestions = List<String>.from(discovered);
         suggestions.addAll(
           _recents.where(
             (e) => e.toLowerCase().contains(pattern.toLowerCase()),

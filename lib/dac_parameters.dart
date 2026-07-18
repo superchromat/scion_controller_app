@@ -1,4 +1,6 @@
 import 'dart:math';
+
+import 'color_wheel_arc.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -660,10 +662,8 @@ class _CscArcPainter extends CustomPainter {
   final List<double> rgb;
   final int index;
 
-  static const double arcWidth = 6.0;
+  static const double arcWidth = 9.0;
   static const double arcGap = 2.0;
-  static const double startAngle = 0.75 * pi;
-  static const double sweepAngle = 1.5 * pi;
 
   _CscArcPainter({required this.rgb, required this.index});
 
@@ -672,129 +672,18 @@ class _CscArcPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final outerRadius = size.width / 2;
     final arcRadius = outerRadius - arcWidth / 2;
-    final slotOuterRadius = outerRadius;
     final slotInnerRadius = outerRadius - arcWidth;
     final wheelRadius = slotInnerRadius - arcGap;
     final sliderValue = rgbToWheelCoords(rgb)[2];
 
-    const lightOffset = Alignment(0.0, -0.4);
-
-    // Neumorphic slot.
-    final borderGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth + 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = borderGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-    final outerShadowGradient = RadialGradient(
-      center: const Alignment(0.0, 0.5),
-      radius: 0.6,
-      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
-      stops: const [0.0, 0.3, 0.8],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: slotOuterRadius - 1),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.butt
-        ..shader = outerShadowGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-    final innerHighlightGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.6,
-      colors: const [Color(0xFF353535), Color(0xFF252525), Color(0x00000000)],
-      stops: const [0.0, 0.2, 0.5],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.butt
-        ..shader = innerHighlightGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-    final floorGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle, sweepAngle, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = floorGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Bipolar value arc (amber, neutral at centre).
+    // Neumorphic slot + bipolar intensity arc, using the shared treatment
+    // (rounded slot ends, groove-wall lip, value-colour glow, rounded fill at
+    // the extremes) — matching the rotary knobs and luma slot.
+    paintArcSlot(canvas, center, outerRadius, arcRadius, slotInnerRadius);
     const Color activeColor = Color(0xFFF0B830);
     final normalized = (sliderValue + 2.0) / 4.0;
-    const neutralNormalized = 0.5;
-    final neutralAngle = startAngle + neutralNormalized * sweepAngle;
-    final valueAngle = startAngle + normalized * sweepAngle;
-    final arcStartAngle = min(neutralAngle, valueAngle);
-    final arcEndAngle = max(neutralAngle, valueAngle);
-    final arcSweep = arcEndAngle - arcStartAngle;
-    const minArcSweep = 0.10;
-    var drawArcStart = arcStartAngle;
-    var drawArcSweep = arcSweep;
-    if (arcSweep < minArcSweep) {
-      drawArcStart = valueAngle - minArcSweep / 2;
-      drawArcSweep = minArcSweep;
-    }
-    final valueArcGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.8,
-      colors: [
-        activeColor,
-        Color.lerp(activeColor, Colors.black, 0.10)!,
-        Color.lerp(activeColor, Colors.black, 0.20)!,
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      drawArcStart, drawArcSweep, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = valueArcGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-    final highlightGradient = RadialGradient(
-      center: const Alignment(0.0, -0.6),
-      radius: 0.5,
-      colors: [
-        Colors.white.withValues(alpha: 0.35),
-        Colors.white.withValues(alpha: 0.10),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.3, 0.7],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      drawArcStart, drawArcSweep, false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = highlightGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
+    paintBipolarArc(
+        canvas, center, arcRadius, outerRadius, normalized, activeColor);
 
     // Inner colour disk (no gamut/danger overlays).
     canvas.save();

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,7 +5,6 @@ import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
-import 'osc_log.dart';
 import 'osc_registry.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_widget_binding.dart';
@@ -102,15 +99,7 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
       reg.registerAddress(_oscLocked);
       reg.dispatchLocal(_oscLocked, <Object?>[next]);
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      oscLogKey.currentState?.logOscMessage(
-        address: _oscLocked,
-        arg: <Object>[next],
-        status: sent ? OscStatus.ok : OscStatus.fail,
-        direction: Direction.sent,
-        binary: Uint8List(0),
-      );
-    });
+    // Network logs the send centrally.
   }
 
   @override

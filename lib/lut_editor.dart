@@ -429,6 +429,45 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
         });
       }
 
+      // Posterize attributes (Send-1 global block). Thresholds follow the Y
+      // control points (synced by the channel listeners above); these cover the
+      // rest so a /sync repopulates the overlay from device state.
+      for (final p in const [
+        '/send/1/color/poster/enable',
+        '/send/1/color/poster/band',
+        '/send/1/color/poster/zebra',
+      ]) {
+        registry.registerAddress(p);
+      }
+      registry.registerListener('/send/1/color/poster/enable', (args) {
+        if (!mounted || args.isEmpty || args[0] is! int) return;
+        setState(() => _poster = (args[0] as int) != 0);
+      });
+      registry.registerListener('/send/1/color/poster/band', (args) {
+        if (!mounted ||
+            args.length < 3 ||
+            args[0] is! int ||
+            args[1] is! int ||
+            args[2] is! int) {
+          return;
+        }
+        final loc = args[0] as int;
+        if (loc < 0 || loc >= 16) return;
+        setState(() {
+          _bandType[loc] = args[1] as int;
+          _bandColor[loc] = (args[2] as int) & 0xFFFFFF;
+        });
+      });
+      registry.registerListener('/send/1/color/poster/zebra', (args) {
+        if (!mounted || args.length < 2 || args[0] is! int || args[1] is! int) {
+          return;
+        }
+        setState(() {
+          _zebraW = args[0] as int;
+          _zebraRep = args[1] as int;
+        });
+      });
+
       // Initial build and one network send
       _rebuildSplines();
       _sendCurrentChannel();
@@ -859,17 +898,10 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
     if (widget.gradePath == null) return;
     final path = '${widget.gradePath}/$suffix';
     final net = context.read<Network>();
-    net.sendOscMessage(path, [v]);
+    net.sendOscMessage(path, [v]); // Network logs the send centrally
     final reg = OscRegistry();
     reg.registerAddress(path);
     reg.dispatchLocal(path, [v]);
-    oscLogKey.currentState?.logOscMessage(
-      address: path,
-      arg: [v],
-      status: OscStatus.ok,
-      direction: Direction.sent,
-      binary: Uint8List(0),
-    );
   }
 
   @override

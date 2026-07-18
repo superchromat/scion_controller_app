@@ -8,6 +8,7 @@ import 'osc_registry.dart';
 
 import 'color_space_matrix.dart';
 import 'color_wheel.dart';
+import 'color_wheel_arc.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'lighting_settings.dart';
@@ -509,7 +510,7 @@ class _VideoFormatSelectionSectionState
     // With staggered layout and Stack positioning, wheels can overlap horizontally
     // 105px = 17% larger than original 90px
     const totalSize = 105.0;
-    const arcWidth = 6.0;
+    const arcWidth = 9.0;
     const arcGap = 2.0;  // Gap between arc and wheel
     final sliderValue = _getSliderForPrimary(primaryIndex);
 
@@ -1257,10 +1258,6 @@ class _WheelWithArcPainter extends CustomPainter {
   final double arcWidth;
   final double arcGap;
 
-  // Arc angles matching rotary knob
-  static const double startAngle = 0.75 * pi;  // 135°
-  static const double sweepAngle = 1.5 * pi;   // 270°
-
   _WheelWithArcPainter({
     required this.rgb,
     required this.other1,
@@ -1276,160 +1273,18 @@ class _WheelWithArcPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final outerRadius = size.width / 2;
     final arcRadius = outerRadius - arcWidth / 2;
-    final slotOuterRadius = outerRadius;
     final slotInnerRadius = outerRadius - arcWidth;
     final wheelRadius = slotInnerRadius - arcGap;
 
-    // === NEUMORPHIC SLOT (matching rotary knob) ===
-    const lightOffset = Alignment(0.0, -0.4);
-
-    // Border gradient
-    final borderGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF686868), Color(0xFF484848), Color(0xFF383838)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth + 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = borderGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Outer shadow
-    final outerShadowGradient = RadialGradient(
-      center: const Alignment(0.0, 0.5),
-      radius: 0.6,
-      colors: const [Color(0xFF0C0C0C), Color(0xFF040404), Color(0x00000000)],
-      stops: const [0.0, 0.3, 0.8],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: slotOuterRadius - 1),
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.butt
-        ..shader = outerShadowGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Inner highlight
-    final innerHighlightGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.6,
-      colors: const [Color(0xFF353535), Color(0xFF252525), Color(0x00000000)],
-      stops: const [0.0, 0.2, 0.5],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.butt
-        ..shader = innerHighlightGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Dark floor
-    final floorGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.7,
-      colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = floorGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // === BIPOLAR VALUE ARC ===
-    // Same amber color as rotary knob
+    // Neumorphic slot + bipolar intensity arc, using the shared treatment
+    // (rounded slot ends, groove-wall lip, value-colour glow, rounded fill at
+    // the extremes) — matching the rotary knobs and luma slot.
+    paintArcSlot(canvas, center, outerRadius, arcRadius, slotInnerRadius);
     const Color activeColor = Color(0xFFF0B830);
-
-    // sliderValue: -2 to +2, neutral at 0
-    // Map to normalized: -2 -> 0, 0 -> 0.5, +2 -> 1
+    // sliderValue: -2..+2, neutral at 0 → normalized 0..1 with 0.5 = neutral.
     final normalized = (sliderValue + 2.0) / 4.0;
-    const neutralNormalized = 0.5;
-
-    final neutralAngle = startAngle + neutralNormalized * sweepAngle;
-    final valueAngle = startAngle + normalized * sweepAngle;
-    final arcStartAngle = min(neutralAngle, valueAngle);
-    final arcEndAngle = max(neutralAngle, valueAngle);
-    var arcSweep = arcEndAngle - arcStartAngle;
-
-    // Minimum arc width for visibility
-    const minArcSweep = 0.10;
-    var drawArcStart = arcStartAngle;
-    var drawArcSweep = arcSweep;
-
-    if (arcSweep < minArcSweep) {
-      drawArcStart = valueAngle - minArcSweep / 2;
-      drawArcSweep = minArcSweep;
-    }
-
-    // Value arc gradient (same as rotary knob)
-    final valueArcGradient = RadialGradient(
-      center: lightOffset,
-      radius: 0.8,
-      colors: [
-        activeColor,
-        Color.lerp(activeColor, Colors.black, 0.10)!,
-        Color.lerp(activeColor, Colors.black, 0.20)!,
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    );
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      drawArcStart,
-      drawArcSweep,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = valueArcGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
-
-    // Highlight on value arc
-    final highlightGradient = RadialGradient(
-      center: const Alignment(0.0, -0.6),
-      radius: 0.5,
-      colors: [
-        Colors.white.withValues(alpha: 0.35),
-        Colors.white.withValues(alpha: 0.10),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.3, 0.7],
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: arcRadius),
-      drawArcStart,
-      drawArcSweep,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = arcWidth - 2
-        ..strokeCap = StrokeCap.butt
-        ..shader = highlightGradient.createShader(Rect.fromCircle(center: center, radius: outerRadius)),
-    );
+    paintBipolarArc(
+        canvas, center, arcRadius, outerRadius, normalized, activeColor);
 
     // === DRAW INNER WHEEL ===
     canvas.save();

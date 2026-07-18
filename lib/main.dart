@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
+import 'disconnected_scrim.dart';
+import 'discovery.dart';
 import 'network.dart';
 import 'network_selection.dart';
 import 'file_selection.dart';
@@ -24,7 +26,7 @@ final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 /// Debug/testing toggle: set false to hide disconnected UI scrim + dimming.
-const bool kShowDisconnectedOverlay = false;
+const bool kShowDisconnectedOverlay = true;
 
 /// Returns true for network noise we expect during idle auto-reconnects
 /// (e.g., no device reachable on the network). These should not surface a
@@ -117,10 +119,17 @@ void main() {
 
     _installGlobalErrorHooks();
 
+    final network = Network();
     runApp(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<Network>.value(value: Network()),
+          ChangeNotifierProvider<Network>.value(value: network),
+          // Continuously discovers SCION devices and auto-connects (starts
+          // immediately, not lazily).
+          ChangeNotifierProvider<ScionDiscovery>(
+            create: (_) => ScionDiscovery(network),
+            lazy: false,
+          ),
           ChangeNotifierProvider<LightingSettings>(create: (_) => LightingSettings()),
         ],
         child: const MyApp(),
@@ -141,7 +150,7 @@ class MyApp extends StatelessWidget {
       create: (_) => MyAppState(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'scion',
+        title: 'SCION',
         scaffoldMessengerKey: globalScaffoldMessengerKey,
         theme: ThemeData(
           brightness: Brightness.dark,
@@ -346,8 +355,10 @@ class _MyHomePageState extends State<MyHomePage> {
     final allPages = pages;
     return LayoutBuilder(builder: (context, constraints) {
       final network = context.watch<Network>();
-      final showDisconnectedOverlay =
-          kShowDisconnectedOverlay && !network.isConnected;
+      final discovery = context.watch<ScionDiscovery>();
+      final showDisconnectedOverlay = kShowDisconnectedOverlay &&
+          !network.isConnected &&
+          !discovery.demoMode;
       // Determine whether rail is extended
       final bool isRailExtended = constraints.maxWidth >= 1000;
       // Use the same constants passed to NavigationRail:
@@ -378,7 +389,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 children: [
                   _NeumorphicNavRail(
                     lighting: lighting,
-                    child: SafeArea(
+                    child: SizedBox(
+                      width: isRailExtended
+                          ? railExtendedWidth
+                          : railCollapsedWidth,
+                      child: Column(
+                      children: [
+                        Expanded(
+                          child: SafeArea(
                       child: NavigationRail(
                         backgroundColor: Colors.transparent,
                         minWidth: railCollapsedWidth,
@@ -449,6 +467,11 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ],
                       ),
+                          ),
+                        ),
+                        if (discovery.demoMode) const _DemoModeBanner(),
+                      ],
+                    ),
                     ),
                   ),
                   Expanded(
@@ -466,7 +489,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ),
                         if (showDisconnectedOverlay)
-                          const Positioned.fill(child: _DisconnectedScrim()),
+                          const Positioned.fill(child: DisconnectedScrim()),
                       ],
                     ),
                   ),
@@ -477,6 +500,50 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       );
     });
+  }
+}
+
+/// Full-width amber strip pinned to the bottom of the sidebar while demo mode
+/// is on. Tap to exit.
+class _DemoModeBanner extends StatelessWidget {
+  const _DemoModeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF0B830),
+      child: InkWell(
+        onTap: () => context.read<ScionDiscovery>().exitDemoMode(),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.play_circle_outline, color: Colors.black, size: 15),
+                  SizedBox(width: 6),
+                  Text('DEMO MODE',
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5)),
+                ],
+              ),
+              SizedBox(height: 2),
+              Text('tap to exit',
+                  style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -509,35 +576,3 @@ class _FadedRailDivider extends StatelessWidget {
   }
 }
 
-/// Semi-transparent overlay shown when the device is disconnected.
-class _DisconnectedScrim extends StatelessWidget {
-  const _DisconnectedScrim();
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = Colors.white.withValues(alpha: 0.78);
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 78, 78, 78).withValues(alpha: 0.35),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off, color: textColor, size: 32),
-            const SizedBox(height: 10),
-            Text(
-              'Device disconnected',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

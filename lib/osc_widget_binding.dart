@@ -1,6 +1,5 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -85,18 +84,6 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
 
 // inside your State or wherever sendOsc lives:
 
-/// Minimum interval between log entries
-final Duration _minLogInterval = const Duration(milliseconds: 50);
-DateTime _lastLogTime = DateTime.fromMillisecondsSinceEpoch(0);
-Timer? _logTimer;
-
-/// Cache of the most recent log info
-String? _cachedAddress;
-List<Object>? _cachedArgs;
-OscStatus? _cachedStatus;
-Direction? _cachedDirection;
-Uint8List? _cachedBinary;
-
 void sendOsc(dynamic arg, {String? address}) {
   final addr = (address == null || address.isEmpty)
       ? oscAddress
@@ -105,50 +92,17 @@ void sendOsc(dynamic arg, {String? address}) {
       ? arg.map((e) => e as Object).toList()
       : <Object>[arg as Object];
 
-  // 1) always fire the real OSC packet immediately:
+  // Fire the real OSC packet. Network logs every send centrally, so widgets
+  // don't log here (that used to miss any path that bypassed this mixin).
   context.read<Network>().sendOscMessage(addr, argsList);
 
-  // 1a) local echo: immediately update OscRegistry so all widgets bound to
-  // the same address reflect the new value without waiting for server /sync.
-  // Suppress log entries for these locally originated updates.
+  // Local echo: immediately update OscRegistry so all widgets bound to the
+  // same address reflect the new value without waiting for server /sync.
   try {
     final reg = OscRegistry();
     reg.registerAddress(addr);
     reg.dispatchLocal(addr, argsList.cast<Object?>());
   } catch (_) {}
-
-  // 2) cache for logging
-  _cachedAddress = addr;
-  _cachedArgs = argsList;
-  _cachedStatus = OscStatus.ok;
-  _cachedDirection = Direction.sent;
-  _cachedBinary = Uint8List(0);
-
-  // 3) decide whether to flush now or schedule
-  final now = DateTime.now();
-  final elapsed = now.difference(_lastLogTime);
-  if (elapsed >= _minLogInterval) {
-    _flushLog();
-  } else _logTimer ??= Timer(_minLogInterval - elapsed, _flushLog);
-}
-
-void _flushLog() {
-  // perform the log on the next frame
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (_cachedAddress != null && _cachedArgs != null) {
-      oscLogKey.currentState?.logOscMessage(
-        address: _cachedAddress!,
-        arg: _cachedArgs!,
-        status: _cachedStatus!,
-        direction: _cachedDirection!,
-        binary: _cachedBinary!,
-      );
-    }
-  });
-
-  _lastLogTime = DateTime.now();
-  _logTimer?.cancel();
-  _logTimer = null;
 }
 
 

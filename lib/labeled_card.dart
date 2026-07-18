@@ -24,6 +24,13 @@ class LabeledCard extends StatelessWidget {
   /// /assets/presets/*; a card can have any number of them.
   final String? snapPath;
 
+  /// Optional extra reset run alongside the subtree "Reset to defaults" icon.
+  /// For cards whose controls span more than one OSC subtree (e.g. Texture,
+  /// which also holds the glitch block on /send/N/glitch and needs its own
+  /// hardware reinit), this folds the second reset into the same button so
+  /// there's a single "Reset to defaults".
+  final VoidCallback? onReset;
+
   const LabeledCard({
     super.key,
     required this.title,
@@ -33,6 +40,7 @@ class LabeledCard extends StatelessWidget {
     this.fillChild = false,
     this.borderColor,
     this.snapPath,
+    this.onReset,
   });
 
   String _resolveSnapPath(BuildContext context) {
@@ -141,6 +149,7 @@ class LabeledCard extends StatelessWidget {
   void _resetPreset(BuildContext context) {
     final path = _resolveSnapPath(context);
     context.read<Network>().sendOscMessage('/assets/presets/reset', [path]);
+    onReset?.call(); // extra reset for sibling subtrees (e.g. glitch)
     _toast(context, '$title: reset to defaults');
   }
 
