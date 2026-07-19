@@ -53,7 +53,7 @@ class _ReturnPageBody extends StatelessWidget {
         return GridProvider(
           tokens: t,
           child: ListView(
-            padding: EdgeInsets.all(t.md),
+            padding: t.pagePadding,
             children: [
               GridRow(
                 gutter: t.md,
@@ -381,7 +381,7 @@ class _ReturnTbcToggleState extends State<_ReturnTbcToggle> {
           Text(
             'On',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: _editable ? null : Colors.grey,
             ),
           ),
@@ -959,7 +959,7 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
       child: Row(
         children: [
           const Text('ADV7842 LLC Phase',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const Spacer(),
           controls,
         ],

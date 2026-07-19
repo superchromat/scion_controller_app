@@ -223,10 +223,13 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
     final valueText = Text(
       _formattedValue,
       style: const TextStyle(
-        fontSize: 12,
+        fontSize: 11,
         fontFamily: 'DINPro',
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
         color: Color(0xFFF2F2F2),
+        // Barlow's digits are proportional by default; keep the live value from
+        // jittering as it changes.
+        fontFeatures: [FontFeature.tabularFigures()],
       ),
     );
 

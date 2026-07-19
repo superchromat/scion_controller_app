@@ -525,7 +525,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
           LabeledCard(
             title: 'Storage',
             child: Padding(
-              padding: EdgeInsets.all(t.sm),
+              padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.sm, t.sm, t.sm),
               child: _usageBars(context),
             ),
           ),
@@ -614,7 +614,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
                       sortColumnIndex: _sortCol,
                       sortAscending: _sortAsc,
                       headingRowColor: WidgetStatePropertyAll(Colors.white.withValues(alpha: 0.04)),
-                      headingTextStyle: t.textLabel.copyWith(fontWeight: FontWeight.w600, color: Colors.white),
+                      headingTextStyle: t.textLabel.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
                       dataTextStyle: t.textLabel,
                       dividerThickness: 0.5,
                       columnSpacing: t.lg,

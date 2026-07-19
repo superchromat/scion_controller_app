@@ -61,7 +61,7 @@ class _OscNumberFieldState extends State<OscNumberField> with OscAddressMixin {
       controller: _controller,
       readOnly: widget.readOnly,
       keyboardType: TextInputType.number,
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
       decoration: const InputDecoration(
         isDense: true,
         contentPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 4),

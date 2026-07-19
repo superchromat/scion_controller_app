@@ -102,7 +102,7 @@ class _KnobPageState extends State<KnobPage> {
                 children: [
                   Text(
                     'These controls adjust the global lighting direction for all neumorphic UI elements.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -685,7 +685,7 @@ class _KnobPageState extends State<KnobPage> {
             child: Text(
               action,
               style: const TextStyle(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 color: Colors.yellow,
               ),
             ),

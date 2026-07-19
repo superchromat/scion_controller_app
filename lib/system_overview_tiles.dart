@@ -10,19 +10,19 @@ import 'lighting_settings.dart';
 const TextStyle _systemTextStyle = TextStyle(
   color: Colors.green,
   fontFamily: 'Courier',
-  fontSize: 12,
+  fontSize: 11,
 );
 const TextStyle _systemTextStyleRed = TextStyle(
   color: Colors.red,
   fontFamily: 'Courier',
-  fontSize: 12,
+  fontSize: 11,
 );
 
 // Overlay label style for tile indices and letters
 final TextStyle kOverlayTextStyle = TextStyle(
   color: Colors.grey[800],
   fontSize: 72,
-  fontWeight: FontWeight.bold,
+  fontWeight: FontWeight.w700,
 );
 
 /// Overlay text with lighting gradient and noise texture

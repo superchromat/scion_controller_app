@@ -106,7 +106,7 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('ADC / ADV7842 Tuning',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 24,

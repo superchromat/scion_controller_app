@@ -10,6 +10,7 @@ import 'sync_mode_selection.dart';
 import 'device_diagnostics.dart';
 import 'firmware_update.dart';
 import 'front_panel_section.dart';
+import 'about.dart';
 import 'labeled_card.dart';
 import 'file_selection.dart';
 import 'app_button.dart';
@@ -33,20 +34,29 @@ class _SystemPageState extends State<SystemPage> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final pageGutter = constraints.maxWidth * AppGrid.gutterFraction;
-          return GridGutterProvider(
-            gutter: pageGutter,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(pageGutter),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  GridRow(cells: [(span: 12, child: SystemOverview())]),
-                  const GridGap(),
-                  GridRow(cells: [
-                    (span: 7, child: VideoFormatSelectionSection()),
-                    (span: 5, child: SyncSettingsSection()),
-                  ]),
-                ],
+          // Provide real tokens as well as the legacy gutter: without a
+          // GridProvider every card fell back to GridTokens(1200), so insets
+          // stopped tracking the window and disagreed with the page gutter.
+          final t = GridTokens(constraints.maxWidth);
+          return GridProvider(
+            tokens: t,
+            child: GridGutterProvider(
+              gutter: pageGutter,
+              child: SingleChildScrollView(
+                padding: t.pagePadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GridRow(
+                        gutter: t.md,
+                        cells: [(span: 12, child: SystemOverview())]),
+                    SizedBox(height: t.md),
+                    GridRow(gutter: t.md, cells: [
+                      (span: 7, child: VideoFormatSelectionSection()),
+                      (span: 5, child: SyncSettingsSection()),
+                    ]),
+                  ],
+                ),
               ),
             ),
           );
@@ -73,7 +83,7 @@ class SetupPage extends StatelessWidget {
           return GridProvider(
             tokens: t,
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(t.md),
+              padding: t.pagePadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -122,8 +132,18 @@ class SetupPage extends StatelessWidget {
                   SizedBox(height: t.md),
                   GridRow(
                     gutter: t.md,
+                    cells: const [
+                      (span: 12, child: AboutSection()),
+                    ],
+                  ),
+                  SizedBox(height: t.md),
+                  GridRow(
+                    gutter: t.md,
                     cells: [
-                      (span: 12, child: DeviceDiagnosticsSection(isActive: isActive)),
+                      (
+                        span: 12,
+                        child: DeviceDiagnosticsSection(isActive: isActive)
+                      ),
                     ],
                   ),
                 ],
@@ -178,7 +198,6 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     reg.registerListener(_oscNetworkRouter, _onRouterOsc);
     _hydrateFromRegistry(reg);
   }
-
 
   @override
   void dispose() {
@@ -262,7 +281,8 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     });
   }
 
-  static final _ipv4Allowed = FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'));
+  static final _ipv4Allowed =
+      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'));
   static final _hostnameAllowed =
       FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9.-]'));
 
@@ -314,7 +334,8 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     if (ipv4Err != null) return ipv4Err;
 
     final parts = value!.trim().split('.').map(int.parse).toList();
-    final mask = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+    final mask =
+        (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
     if (mask == 0 || mask == 0xFFFFFFFF) return 'Use a valid subnet mask';
 
     // Valid masks are contiguous 1s followed by 0s.
@@ -342,7 +363,8 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     final net = context.read<Network>();
     if (!net.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connect to a device to apply network settings')),
+        const SnackBar(
+            content: Text('Connect to a device to apply network settings')),
       );
       return;
     }
@@ -353,19 +375,29 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
       net,
       _oscNetworkHostname,
       <Object>[_hostnameController.text.trim()],
-    ) ? 1 : 0;
-    sentCount += _sendNetworkOsc(net, _oscNetworkDhcp, <Object>[_dhcpEnabled]) ? 1 : 0;
-    sentCount += _sendNetworkOsc(net, _oscNetworkIp, <Object>[_ipController.text.trim()]) ? 1 : 0;
+    )
+        ? 1
+        : 0;
+    sentCount +=
+        _sendNetworkOsc(net, _oscNetworkDhcp, <Object>[_dhcpEnabled]) ? 1 : 0;
+    sentCount +=
+        _sendNetworkOsc(net, _oscNetworkIp, <Object>[_ipController.text.trim()])
+            ? 1
+            : 0;
     sentCount += _sendNetworkOsc(
       net,
       _oscNetworkNetmask,
       <Object>[_maskController.text.trim()],
-    ) ? 1 : 0;
+    )
+        ? 1
+        : 0;
     sentCount += _sendNetworkOsc(
       net,
       _oscNetworkRouter,
       <Object>[_routerController.text.trim()],
-    ) ? 1 : 0;
+    )
+        ? 1
+        : 0;
     sentCount += _sendNetworkOsc(net, '/network/apply', <Object>[1]) ? 1 : 0;
 
     final msg = _dhcpEnabled
@@ -393,7 +425,7 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.only(left: t.xs * 0.25, bottom: t.xs * 0.3),
+          padding: EdgeInsets.only(bottom: t.xs * 0.3),
           child: Text(
             label,
             style: t.textLabel.copyWith(
@@ -419,14 +451,12 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
             fontFamily: 'Courier',
             fontFamilyFallback: const ['Courier New', 'monospace'],
             fontSize: (t.u * 1.15).clamp(13.0, 17.0),
-            color: enabled
-                ? const Color(0xFFF0F0F3)
-                : const Color(0xFF9A9AA1),
+            color: enabled ? const Color(0xFFF0F0F3) : const Color(0xFF9A9AA1),
           ),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: t.sm * 0.9, vertical: t.xs * 0.9),
+            contentPadding: EdgeInsets.symmetric(
+                horizontal: t.sm * 0.9, vertical: t.xs * 0.9),
             border: const OutlineInputBorder(),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(
@@ -440,7 +470,10 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.8),
                 width: 1.2,
               ),
             ),
@@ -450,7 +483,7 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
             focusedErrorBorder: const OutlineInputBorder(
               borderSide: BorderSide(color: Color(0xFFE46F86), width: 1.2),
             ),
-            errorStyle: const TextStyle(fontSize: 0, height: 0),
+            errorStyle: const TextStyle(fontSize: 11, height: 0),
           ),
         ),
         SizedBox(
@@ -479,7 +512,9 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     return Form(
       key: _formKey,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(t.md, t.xs, t.md, t.md),
+        // Left edge comes from the token so it lines up with the card title;
+        // right/bottom are just breathing room.
+        padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.xs, t.md, t.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

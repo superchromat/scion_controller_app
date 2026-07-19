@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
+import 'about.dart';
 import 'disconnected_scrim.dart';
 import 'discovery.dart';
 import 'network.dart';
@@ -86,7 +87,7 @@ void _installGlobalErrorHooks() {
     if (!kDebugMode) return ErrorWidget(details.exception);
     final textStyle = const TextStyle(
       color: Colors.white,
-      fontSize: 12,
+      fontSize: 11,
       fontFamily: 'monospace',
     );
     return Container(
@@ -383,15 +384,15 @@ class _MyHomePageState extends State<MyHomePage> {
       const double railExtendedWidth = 190;
       const selectedRailLabelStyle = TextStyle(
         fontFamily: 'DINPro',
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.10,
         color: Color(0xFFF1F1F3),
       );
       const unselectedRailLabelStyle = TextStyle(
         fontFamily: 'DINPro',
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
+        fontSize: 17,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0.10,
         color: Color(0xFFD2D2D4),
       );
@@ -545,8 +546,8 @@ class _DemoModeBanner extends StatelessWidget {
                   Text('DEMO MODE',
                       style: TextStyle(
                           color: Colors.black,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: 1.5)),
                 ],
               ),
@@ -554,8 +555,8 @@ class _DemoModeBanner extends StatelessWidget {
               Text('tap to exit',
                   style: TextStyle(
                       color: Colors.black54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700)),
             ],
           ),
         ),

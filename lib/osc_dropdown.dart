@@ -252,7 +252,7 @@ class _NeumorphicDropdownState<T> extends State<NeumorphicDropdown<T>> {
     );
     final valueStyle = (t?.textValue ??
             const TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: Colors.white,
             ))
         .copyWith(
@@ -267,10 +267,20 @@ class _NeumorphicDropdownState<T> extends State<NeumorphicDropdown<T>> {
       children: [
         if (widget.showLabel)
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            // No left inset: the label must share a left edge with the button
+            // below it (and so with the panel title above).
+            padding: const EdgeInsets.only(bottom: 6),
             child: Text(
               widget.label,
-              style: labelStyle,
+              // Trim the half-leading above the ascent so the Text box top ==
+              // the glyph ink top. Without this the label's box is taller than
+              // what you see, and any symmetric padding around it renders
+              // visibly top-heavy. Same treatment LabeledCard gives its title.
+              style: labelStyle.copyWith(height: 1.0),
+              textHeightBehavior: const TextHeightBehavior(
+                applyHeightToFirstAscent: false,
+                applyHeightToLastDescent: false,
+              ),
             ),
           ),
         // Button
@@ -294,9 +304,13 @@ class _NeumorphicDropdownState<T> extends State<NeumorphicDropdown<T>> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // Scales with the grid unit: a fixed 16px chevron plus fixed
+                  // 10px side padding inside a u-scaled button overflowed it on
+                  // narrow (tablet) layouts, where the box shrinks but these
+                  // did not.
                   Icon(
                     Icons.unfold_more,
-                    size: 16,
+                    size: 1.3 * GridProvider.of(context).u,
                     color: widget.enabled ? Colors.grey[400] : Colors.grey[700],
                   ),
                 ],
@@ -357,7 +371,8 @@ class _NeumorphicDropdownButtonState extends State<_NeumorphicDropdownButton>
             globalRect: trackedGlobalRect,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.symmetric(
+                horizontal: 0.8 * GridProvider.of(context).u),
             child: widget.child,
           ),
         ),
@@ -759,8 +774,8 @@ class _NeumorphicMenuItemState extends State<_NeumorphicMenuItem> {
                 child: Text(
                   widget.label,
                   style:
-                      (t?.textValue ?? const TextStyle(fontSize: 13)).copyWith(
-                    fontSize: 13,
+                      (t?.textValue ?? const TextStyle(fontSize: 14)).copyWith(
+                    fontSize: 14,
                     fontFamily: 'DINPro',
                     color: widget.isSelected
                         ? const Color(0xFFFFF176)

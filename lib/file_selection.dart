@@ -7,8 +7,11 @@ import 'osc_registry.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'app_button.dart';
+import 'grid.dart';
+import 'panel.dart';
 
-final GlobalKey<FileManagementSectionState> fileManagementKey = GlobalKey<FileManagementSectionState>();
+final GlobalKey<FileManagementSectionState> fileManagementKey =
+    GlobalKey<FileManagementSectionState>();
 
 /// Stateful widget to manage config file I/O and currentFile state.
 class FileManagementSection extends StatefulWidget {
@@ -32,7 +35,10 @@ class FileManagementSectionState extends State<FileManagementSection> {
   Rect? _shareOriginRect(BuildContext context) {
     RenderBox? box;
     final ro = context.findRenderObject();
-    if (ro is RenderBox && ro.hasSize && ro.size.width > 0 && ro.size.height > 0) {
+    if (ro is RenderBox &&
+        ro.hasSize &&
+        ro.size.width > 0 &&
+        ro.size.height > 0) {
       box = ro;
     } else {
       final overlay = Overlay.maybeOf(context)?.context.findRenderObject();
@@ -100,11 +106,10 @@ class FileManagementSectionState extends State<FileManagementSection> {
     try {
       String? path = _currentFile;
       if (path == null || _isClearlyBadPath(path)) {
-        path =
-            await _promptSavePath(
-              dialogTitle: 'Save Configuration',
-              fileName: 'default.config',
-            );
+        path = await _promptSavePath(
+          dialogTitle: 'Save Configuration',
+          fileName: 'default.config',
+        );
       }
       if (path == null) return;
 
@@ -114,9 +119,9 @@ class FileManagementSectionState extends State<FileManagementSection> {
         path = await _fallbackSavePath('default.config');
         if (path == null || _isClearlyBadPath(path)) {
           path = await _promptSavePath(
-          dialogTitle: 'Save Configuration',
-          fileName: 'default.config',
-        );
+            dialogTitle: 'Save Configuration',
+            fileName: 'default.config',
+          );
         }
         if (path == null) return;
         await OscRegistry().saveToFile(path);
@@ -192,7 +197,9 @@ class FileManagementSectionState extends State<FileManagementSection> {
               // Send OSC message to reset configuration to defaults, and echo it
               // locally so client-side overlay state (sprites, etc.) clears too.
               try {
-                context.read<Network>().sendOscMessage('/config/reset', const []);
+                context
+                    .read<Network>()
+                    .sendOscMessage('/config/reset', const []);
                 OscRegistry()
                   ..registerAddress('/config/reset')
                   ..dispatchLocal('/config/reset', const []);
@@ -216,8 +223,8 @@ class FileManagementSectionState extends State<FileManagementSection> {
         verticalOffset: 14,
         textStyle: const TextStyle(
           fontFamily: 'DINPro',
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
           letterSpacing: 0.08,
           color: Color(0xFFF0F0F3),
         ),
@@ -238,36 +245,39 @@ class FileManagementSectionState extends State<FileManagementSection> {
           ],
         ),
       ),
-      child: Row(
-        children: [
-          if (!isIos)
+      // LabeledCard gives its child no horizontal padding (it assumes a GridRow
+      // of Panels). These are bare buttons, so inset to line up with the title.
+      child: CardBody(
+        child: Row(
+          children: [
+            if (!isIos)
+              AppButton(
+                label: 'Save',
+                icon: Icons.save,
+                onPressed: () => _save(context),
+              )
+            else
+              AppButton(
+                label: 'Export',
+                icon: Icons.ios_share,
+                onPressed: () => _export(context),
+              ),
+            const SizedBox(width: 10),
             AppButton(
-              label: 'Save',
-              icon: Icons.save,
-              onPressed: () => _save(context),
-            )
-          else
-            AppButton(
-              label: 'Export',
-              icon: Icons.ios_share,
-              onPressed: () => _export(context),
+              label: 'Load',
+              icon: Icons.folder_open,
+              onPressed: () => _load(context),
             ),
-          const SizedBox(width: 10),
-          AppButton(
-            label: 'Load',
-            icon: Icons.folder_open,
-            onPressed: () => _load(context),
-          ),
-          const Spacer(),
-          AppButton(
-            label: 'Restore to Defaults',
-            icon: Icons.restore,
-            accentColor: const Color(0xFFB56A77),
-            onPressed: () => _reset(context),
-          ),
-        ],
+            const Spacer(),
+            AppButton(
+              label: 'Restore to Defaults',
+              icon: Icons.restore,
+              accentColor: const Color(0xFFB56A77),
+              onPressed: () => _reset(context),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-

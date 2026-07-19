@@ -11,7 +11,7 @@ const Color kOnboardAccent = Color(0xFFF0B830);
 
 /// Platform whose direct-connection instructions the help shows. Defaults to the
 /// host OS; overridable for tests / previews.
-enum OnboardingOS { mac, windows, other }
+enum OnboardingOS { mac, windows, ios, other }
 
 /// Overlay shown over the page (not the sidebar) while disconnected. It reflects
 /// the [ScionDiscovery] state: a "searching" spinner, a device picker when more
@@ -52,8 +52,8 @@ class _SearchingView extends StatelessWidget {
           Text('Searching for SCION…',
               style: TextStyle(
                   color: textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 0.2)),
           const SizedBox(height: 18),
           const _DemoModeButton(),
@@ -75,7 +75,7 @@ class _DemoModeButton extends StatelessWidget {
           size: 16, color: Colors.white.withValues(alpha: 0.6)),
       label: Text('Explore in demo mode',
           style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
+              color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
     );
   }
 }
@@ -101,14 +101,14 @@ class _DevicePicker extends StatelessWidget {
                   Text('Choose your SCION',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.w700)),
                 ],
               ),
               const SizedBox(height: 4),
               Text('More than one SCION is on the network.',
                   style:
-                      TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+                      TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
               const SizedBox(height: 14),
               for (final d in devices)
                 Padding(
@@ -133,7 +133,7 @@ class _DevicePicker extends StatelessWidget {
                               child: Text('${d.host}:${d.port}',
                                   style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 13.5,
+                                      fontSize: 14,
                                       fontFamily: 'monospace')),
                             ),
                             const Icon(Icons.chevron_right,
@@ -157,8 +157,20 @@ class OnboardingGuide extends StatelessWidget {
   final OnboardingOS? osOverride;
   const OnboardingGuide({super.key, this.osOverride});
 
+  OnboardingOS get _os =>
+      osOverride ??
+      (Platform.isMacOS
+          ? OnboardingOS.mac
+          : Platform.isWindows
+              ? OnboardingOS.windows
+              : Platform.isIOS
+                  ? OnboardingOS.ios
+                  : OnboardingOS.other);
+
   @override
   Widget build(BuildContext context) {
+    final bool isTablet = _os == OnboardingOS.ios;
+    final String deviceNoun = isTablet ? 'iPad' : 'computer';
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -177,7 +189,7 @@ class OnboardingGuide extends StatelessWidget {
                       child: Text('Connect your SCION',
                           style: TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 17,
                               fontWeight: FontWeight.w700)),
                     ),
                   ],
@@ -187,13 +199,19 @@ class OnboardingGuide extends StatelessWidget {
                   "Couldn't find a SCION on your network. It'll connect on its "
                   "own the moment it's reachable — here's how to get it there.",
                   style: TextStyle(
-                      color: Colors.white70, fontSize: 13, height: 1.4),
+                      color: Colors.white70, fontSize: 14, height: 1.4),
                 ),
                 const SizedBox(height: 18),
-                _step(1, Icons.settings_ethernet, 'Connect over Ethernet',
-                    'Plug the SCION into your computer or router with an Ethernet cable.'),
+                _step(
+                    1,
+                    Icons.settings_ethernet,
+                    'Connect over Ethernet',
+                    isTablet
+                        ? 'Plug the SCION into a router with an Ethernet cable, or '
+                            'straight into your iPad using a USB-C Ethernet adapter.'
+                        : 'Plug the SCION into your computer or router with an Ethernet cable.'),
                 _step(2, Icons.hub_outlined, 'Same network',
-                    'The SCION and this computer must be on the same network to find each other.'),
+                    'The SCION and this $deviceNoun must be on the same network to find each other.'),
                 _step(3, Icons.bolt_outlined, 'It connects automatically',
                     'No need to do anything else — the app keeps looking and links up as soon as the SCION appears. You can also type its IP into “Network address” (top-left).'),
                 const SizedBox(height: 12),
@@ -213,7 +231,7 @@ class OnboardingGuide extends StatelessWidget {
                     Text('Still searching…',
                         style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 12)),
+                            fontSize: 11)),
                     const Spacer(),
                     const _DemoModeButton(),
                     const SizedBox(width: 4),
@@ -251,7 +269,7 @@ class OnboardingGuide extends StatelessWidget {
                   style: const TextStyle(
                       color: kOnboardAccent,
                       fontWeight: FontWeight.w700,
-                      fontSize: 13)),
+                      fontSize: 14)),
             ),
           ),
           const SizedBox(width: 12),
@@ -268,7 +286,7 @@ class OnboardingGuide extends StatelessWidget {
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
-                              fontWeight: FontWeight.w600)),
+                              fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
@@ -276,7 +294,7 @@ class OnboardingGuide extends StatelessWidget {
                 Text(body,
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.66),
-                        fontSize: 12.5,
+                        fontSize: 11,
                         height: 1.35)),
               ],
             ),
@@ -287,15 +305,23 @@ class OnboardingGuide extends StatelessWidget {
   }
 
   Widget _directBox() {
-    final OnboardingOS os = osOverride ??
-        (Platform.isMacOS
-            ? OnboardingOS.mac
-            : Platform.isWindows
-                ? OnboardingOS.windows
-                : OnboardingOS.other);
+    final OnboardingOS os = _os;
     final String label;
     final String body;
     switch (os) {
+      case OnboardingOS.ios:
+        // iPadOS/iOS has no Internet Sharing, so the desktop advice can't work
+        // here. A USB Ethernet adapter plus SCION's link-local addressing gets
+        // both ends onto 169.254.0.0/16 with no DHCP server involved.
+        label = 'iPad / iPhone — direct Ethernet';
+        body = 'No router? Use a USB-C Ethernet adapter (or a Lightning-to-USB '
+            'adapter on older devices) and run a cable straight to the SCION. '
+            'In Settings → Ethernet, leave “Configure IP” on Automatic — the '
+            'SCION assigns itself an address and this app will find it. '
+            'Alternatively, plug the SCION into a travel router or any router’s '
+            'LAN port and join that network — iPadOS can’t share its own '
+            'connection the way a Mac or PC can.';
+        break;
       case OnboardingOS.mac:
         label = 'macOS — Internet Sharing';
         body = 'No router? Open System Settings → General → Sharing → Internet '
@@ -331,14 +357,20 @@ class OnboardingGuide extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(os == OnboardingOS.windows ? Icons.window_outlined : Icons.laptop_mac,
-                  color: Colors.white70, size: 15),
+              Icon(
+                  switch (os) {
+                    OnboardingOS.windows => Icons.window_outlined,
+                    OnboardingOS.ios => Icons.tablet_mac,
+                    _ => Icons.laptop_mac,
+                  },
+                  color: Colors.white70,
+                  size: 15),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(label,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700)),
               ),
             ],
@@ -347,7 +379,7 @@ class OnboardingGuide extends StatelessWidget {
           Text(body,
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.66),
-                  fontSize: 12,
+                  fontSize: 11,
                   height: 1.4)),
         ],
       ),

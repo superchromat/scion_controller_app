@@ -581,7 +581,7 @@ class _TextCopperToggleState extends State<TextCopperToggle> {
               width: _on ? 1.5 : 1,
             ),
           ),
-          child: const Text('🌈', style: TextStyle(fontSize: 16)),
+          child: const Text('🌈', style: TextStyle(fontSize: 17)),
         ),
       ),
     );

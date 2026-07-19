@@ -1113,8 +1113,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                 const SizedBox(width: 5),
                 Text('Posterize',
                     style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                         color:
                             _poster ? Colors.black : const Color(0xFF9A9AA2))),
               ]),
@@ -1212,8 +1212,8 @@ class _PresetDragButtonState extends State<_PresetDragButton> {
                     i == _hover ? const Color(0xFFF0B830) : Colors.transparent,
                 child: Text(_presets[i].label,
                     style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                         color: i == _hover ? Colors.black : Colors.white)),
               ),
           ]),

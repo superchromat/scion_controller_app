@@ -33,14 +33,10 @@ Future<void> loadAppFonts() async {
     await loader.load();
   }
 
+  // Two weights, matching pubspec.yaml. Keep in step with it.
   await load('DINPro', [
-    'assets/fonts/FF_DIN_Pro_Light_Italic.otf',
     'assets/fonts/FF_DIN_Pro_Regular_Italic.otf',
-    'assets/fonts/FF_DIN_Pro_Medium_Italic.otf',
     'assets/fonts/FF_DIN_Pro_Bold_Italic.otf',
-  ]);
-  await load('DIN', [
-    'assets/fonts/DIN1451-Mittelschrift.ttf',
   ]);
 }
 
@@ -60,11 +56,21 @@ Widget labScaffold({required Widget child, required double width}) {
         scaffoldBackgroundColor: kAppBackground,
         fontFamily: 'DINPro',
       ),
+      // NO GridProvider here. The real app (main.dart) has none above its
+      // pages — each page installs its own from its own LayoutBuilder. An
+      // outer provider here silently supplied tokens to every widget that
+      // resolves them outside a page's provider, hiding the exact fallback
+      // divergence that shows up in production.
+      //
+      // The nav rail is subtracted for the same reason: pages see the width
+      // left over after the rail, not the window width.
       home: Scaffold(
         backgroundColor: kAppBackground,
-        body: GridProvider(
-          tokens: GridTokens(width),
-          child: child,
+        body: Row(
+          children: [
+            SizedBox(width: width >= 1000 ? 190.0 : 84.0),
+            Expanded(child: child),
+          ],
         ),
       ),
     ),

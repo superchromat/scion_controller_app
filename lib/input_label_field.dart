@@ -10,12 +10,12 @@ import 'osc_registry.dart';
 const TextStyle kInputRowStyle = TextStyle(
   color: Colors.green,
   fontFamily: 'Courier',
-  fontSize: 12,
+  fontSize: 11,
   height: 1.32,
 );
 const StrutStyle kInputRowStrut = StrutStyle(
   fontFamily: 'Courier',
-  fontSize: 12,
+  fontSize: 11,
   height: 1.32,
   forceStrutHeight: true,
 );

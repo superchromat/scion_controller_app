@@ -494,7 +494,7 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
       fillChild: true,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          t?.md ?? 16,
+          GridProvider.of(context).cardBodyInset,
           t?.xs ?? 8,
           t?.md ?? 16,
           t?.md ?? 16,

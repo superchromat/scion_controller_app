@@ -216,7 +216,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     return widget.labelStyle ??
         t?.textLabel ??
         const TextStyle(
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
           fontFamily: 'DINPro',
           color: Colors.white,
@@ -846,7 +846,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                         style: const TextStyle(
                           fontFamily: 'Courier',
                           fontSize: 11,
-                          fontWeight: FontWeight.w300,
+                          fontWeight: FontWeight.w400,
                           color: Colors.white54,
                           decoration: TextDecoration.none,
                         ),
@@ -914,7 +914,7 @@ class _RotaryKnobState extends State<RotaryKnob>
               fontSize: valueFontSize,
               fontFamily: 'Courier',
               fontFeatures: const [FontFeature.tabularFigures()],
-              fontWeight: FontWeight.normal,
+              fontWeight: FontWeight.w400,
               letterSpacing: 0,
               height: 1.0,
             );
@@ -1798,11 +1798,11 @@ class _DragBar extends StatelessWidget {
               children: [
                 Text(
                   _formatValue(minValue),
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
                 Text(
                   _formatValue(maxValue),
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               ],
             ),

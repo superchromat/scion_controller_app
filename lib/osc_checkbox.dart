@@ -108,7 +108,7 @@ class _OscCheckboxState extends State<OscCheckbox> with OscAddressMixin {
             Text(
               widget.label!,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: widget.readOnly ? Colors.grey[600] : Colors.white,
               ),
             ),

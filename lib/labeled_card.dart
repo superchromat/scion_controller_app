@@ -180,14 +180,22 @@ class LabeledCard extends StatelessWidget {
     final lighting = context.watch<LightingSettings>();
 
     // Use grid tokens when available, fall back to legacy gutter.
-    final t = GridProvider.maybeOf(context);
-    final titlePadH = t?.cardTitleAlignToPanelTitle ?? 16.0;
+    // GridProvider.of (not maybeOf + a private fallback): Panel and CardBody
+    // resolve tokens the same way, so on a page with no GridProvider ancestor
+    // the title and the content still land on the same edge. They previously
+    // disagreed by 14px there — LabeledCard fell back to a hardcoded 16.0
+    // while everything else fell back to GridTokens(1200).
+    final t = GridProvider.of(context);
+    final titlePadH = t.cardTitleAlignToPanelTitle;
     // Pull the title closer to the top so its visual inset matches the left inset.
-    final titlePadTop = titlePadH - (t?.xs ?? ((GridGutterProvider.maybeOf(context) ?? 16.0) / 2));
-    final titleGap = t?.xs ?? (titlePadH / 2);
-    final contentPadH = 0.0; // GridRow handles horizontal spacing
-    final contentPadBot = t?.md ?? (GridGutterProvider.maybeOf(context) ?? 16.0);
-    final titleStyle = t?.textTitle ?? Theme.of(context).textTheme.titleLarge!;
+    final titlePadTop = titlePadH - (t.xs);
+    final titleGap = t.xs;
+    // The card owns this, not GridRow. titlePadH = md + panelContentInset, so
+    // the card indents its body by md and whatever sits inside (a Panel, or a
+    // CardBody) adds panelContentInset — landing exactly on the title.
+    final contentPadH = t.md;
+    final contentPadBot = t.md;
+    final titleStyle = t.textTitle;
 
     Widget card = _NeumorphicCard(
       lighting: lighting,

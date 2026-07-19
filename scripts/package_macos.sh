@@ -35,6 +35,16 @@ ENT="macos/Runner/Release.entitlements"
 APP="build/macos/Build/Products/Release/${APP_NAME}.app"
 ZIP="build/${APP_NAME}-macos.zip"
 
+echo "==> Stamping version from git"
+"$ROOT/scripts/set_version.sh"
+
+# A previously signed-and-launched bundle picks up the SIP-protected
+# com.apple.provenance xattr, after which Xcode's copy step fails with
+# "Operation not permitted" (EPERM) when overwriting Contents/Resources.
+# Scoped to build/macos so the release zip at build/ is never touched.
+echo "==> Clearing stale macOS build tree"
+rm -rf "$ROOT/build/macos"
+
 echo "==> Building release"
 flutter build macos --release
 

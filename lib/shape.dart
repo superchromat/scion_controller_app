@@ -315,8 +315,8 @@ class _RotationSend3WarningIconState extends State<_RotationSend3WarningIcon> {
       verticalOffset: 14,
       textStyle: const TextStyle(
         fontFamily: 'DINPro',
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0.08,
         color: Color(0xFFF0F0F3),
       ),
@@ -572,7 +572,7 @@ class ShapeState extends State<Shape> {
             style: t.textCaption.copyWith(
               fontSize: t.u * 1.15,
               color: active ? Colors.white : const Color(0xFF7A7A82),
-              fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w700,
               letterSpacing: 0.2,
             ),
           ),

@@ -106,7 +106,7 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('ADV7842 DE Window',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           controls,
         ],

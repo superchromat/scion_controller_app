@@ -106,7 +106,7 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('ADV7842 Sync Adjust',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           controls,
         ],

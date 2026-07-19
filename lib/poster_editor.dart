@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'network.dart';
 import 'grid.dart';
+import 'drag_area.dart';
 
 /// Posterizer band editor (Send 1 only — drives the global /poster/*
 /// endpoints on the monitor zebra/colour-pattern block).
@@ -188,26 +189,28 @@ class _PosterEditorState extends State<PosterEditor> {
         // The band strip
         LayoutBuilder(builder: (context, box) {
           final w = box.maxWidth;
-          return GestureDetector(
-            onPanDown: (d) {
-              final fx = d.localPosition.dx / w;
+          // DragArea (not GestureDetector) so dragging a band divider wins over
+          // the scrolling page on touch devices.
+          return DragArea(
+            onPointerDown: (p, _) {
+              final fx = p.dx / w;
               _dragDivider = _hitDivider(fx);
               if (_dragDivider == null) {
                 setState(() => _selected = _bandAt(fx));
               }
             },
-            onPanUpdate: (d) {
+            onDragUpdate: (p, _) {
               final i = _dragDivider;
               if (i == null) return;
               final lo = (i > 0) ? _th[i - 1] + 1 : 1;
               final hi = (i < 14) ? _th[i + 1] - 1 : 255;
-              final v = (d.localPosition.dx / w * 255).round().clamp(lo, hi);
+              final v = (p.dx / w * 255).round().clamp(lo, hi);
               if (v != _th[i]) {
                 setState(() => _th[i] = v);
                 _send('/send/1/color/poster/th', [i, v]);
               }
             },
-            onPanEnd: (_) => _dragDivider = null,
+            onDragEnd: () => _dragDivider = null,
             child: CustomPaint(
               size: Size(w, 56),
               painter: _BandStripPainter(

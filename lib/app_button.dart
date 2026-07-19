@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'grid.dart';
 import 'labeled_card.dart'; // NeumorphicContainer / NeumorphicInset
 
 /// The single button used everywhere in the app.
@@ -86,15 +87,20 @@ class _AppButtonState extends State<AppButton> {
     final fg = _foreground(enabled);
     final base = _face(enabled);
 
-    final double h = widget.dense ? 30 : 40;
-    final double iconSize = widget.dense ? 16 : 20;
+    // Everything here scales with the grid unit. Hardcoded px meant button
+    // labels stayed at 14pt while every surrounding label grew with the
+    // window, so buttons read as tiny on large displays. The multipliers
+    // reproduce the old 30/40px heights at the u≈14 they were chosen at.
+    final t = GridProvider.of(context);
+    final double h = (widget.dense ? 2.15 : 2.85) * t.u;
+    final double iconSize = (widget.dense ? 1.15 : 1.4) * t.u;
     final bool iconOnly = widget.label == null;
     const double radius = 8;
 
     final textStyle = TextStyle(
       fontFamily: 'DINPro',
-      fontWeight: FontWeight.w500,
-      fontSize: widget.dense ? 12.5 : 14,
+      fontWeight: FontWeight.w400,
+      fontSize: (widget.dense ? 0.95 : 1.05) * t.u,
       letterSpacing: 0.05,
       color: fg,
     );
@@ -105,16 +111,12 @@ class _AppButtonState extends State<AppButton> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(widget.icon, size: iconSize, color: fg),
-          const SizedBox(width: 8),
-          // DINPro sits ~2px low when metrically centred; nudge up.
-          Transform.translate(offset: const Offset(0, -1), child: Text(widget.label!, style: textStyle)),
+          SizedBox(width: t.xs),
+          Text(widget.label!, style: textStyle),
         ],
       );
     } else if (widget.label != null) {
-      inner = Transform.translate(
-        offset: const Offset(0, -2),
-        child: Text(widget.label!, style: textStyle),
-      );
+      inner = Text(widget.label!, style: textStyle);
     } else {
       inner = Icon(widget.icon, size: iconSize, color: fg);
     }
@@ -125,7 +127,7 @@ class _AppButtonState extends State<AppButton> {
       alignment: Alignment.center,
       padding: iconOnly
           ? null
-          : EdgeInsets.symmetric(horizontal: widget.dense ? 12 : 18),
+          : EdgeInsets.symmetric(horizontal: (widget.dense ? 0.85 : 1.3) * t.u),
       child: inner,
     );
     if (!iconOnly) content = IntrinsicWidth(child: content);

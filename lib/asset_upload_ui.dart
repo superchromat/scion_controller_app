@@ -25,7 +25,7 @@ Future<void> _withProgress(
     barrierDismissible: false,
     builder: (_) => AlertDialog(
       backgroundColor: const Color(0xFF2A2A2E),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 15)),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
       content: ValueListenableBuilder<double>(
         valueListenable: progress,
         builder: (_, v, __) => LinearProgressIndicator(value: v),
@@ -144,7 +144,7 @@ Future<void> uploadFontFlow(BuildContext context) async {
     builder: (dctx) => AlertDialog(
       backgroundColor: const Color(0xFF2A2A2E),
       title: const Text('Font names',
-          style: TextStyle(color: Colors.white, fontSize: 15)),
+          style: TextStyle(color: Colors.white, fontSize: 14)),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(
             controller: famCtl,

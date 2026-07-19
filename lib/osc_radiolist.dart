@@ -144,7 +144,7 @@ class _NeumorphicRadioOptionState extends State<_NeumorphicRadioOption> {
             Text(
               widget.label,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: widget.isSelected ? Colors.white : Colors.grey[400],
               ),
             ),
@@ -401,7 +401,7 @@ class _NeumorphicRadioState<T> extends State<NeumorphicRadio<T>> {
             Text(
               widget.label!,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: isSelected ? Colors.white : Colors.grey[400],
               ),
             ),

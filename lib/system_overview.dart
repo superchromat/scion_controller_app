@@ -92,7 +92,7 @@ class _SystemOverviewState extends State<SystemOverview>
   }) {
     final label = Text(
       title,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
     );
     return Padding(
       padding: EdgeInsets.all(TileLayout.tileOuterMargin),
@@ -118,11 +118,15 @@ class _SystemOverviewState extends State<SystemOverview>
           ),
           if (borderColor != null)
             Positioned(
-              left: 1, top: 1, right: 1, bottom: 1,
+              left: 1,
+              top: 1,
+              right: 1,
+              bottom: 1,
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    border: Border.all(color: borderColor.withOpacity(0.2), width: 1),
+                    border: Border.all(
+                        color: borderColor.withOpacity(0.2), width: 1),
                     borderRadius: BorderRadius.circular(4.0),
                   ),
                 ),
@@ -136,15 +140,21 @@ class _SystemOverviewState extends State<SystemOverview>
   void _updateArrows() {
     final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-    const tileWidth = TileLayout.tileWidth;
-    const tileHeight = TileLayout.tileHeight;
     final registry = OscRegistry();
     final List<Arrow> newArrows = [];
 
-    void connect(GlobalKey fromKey, GlobalKey toKey, Offset fromOffset, Offset toOffset, {double arcUp = 0}) {
+    // Anchors are FRACTIONS of each tile, not pixels: the tiles flex to fill
+    // the card, so their width is not known here.
+    void connect(
+        GlobalKey fromKey, GlobalKey toKey, Offset fromFrac, Offset toFrac,
+        {double arcUp = 0}) {
       final fromBox = fromKey.currentContext?.findRenderObject() as RenderBox?;
       final toBox = toKey.currentContext?.findRenderObject() as RenderBox?;
       if (fromBox == null || toBox == null) return;
+      final fromOffset = Offset(
+          fromBox.size.width * fromFrac.dx, fromBox.size.height * fromFrac.dy);
+      final toOffset =
+          Offset(toBox.size.width * toFrac.dx, toBox.size.height * toFrac.dy);
       final fromGlobal = fromBox.localToGlobal(fromOffset);
       final toGlobal = toBox.localToGlobal(toOffset);
       final fromLocal = box.globalToLocal(fromGlobal);
@@ -170,15 +180,15 @@ class _SystemOverviewState extends State<SystemOverview>
         connect(
           _inputKeys[inIdx - 1],
           _sendKeys[i],
-          Offset(tileWidth / 2, tileHeight),
-          Offset(tileWidth / 2, 0),
+          const Offset(0.5, 1),
+          const Offset(0.5, 0),
         );
       } else if (inIdx == 5) {
         connect(
           _returnKey,
           _sendKeys[i],
-          Offset(tileWidth / 2, 0),
-          Offset(tileWidth / 2, 0),
+          const Offset(0.5, 0),
+          const Offset(0.5, 0),
           arcUp: TileLayout.rowSpacing / 2,
         );
       }
@@ -188,8 +198,8 @@ class _SystemOverviewState extends State<SystemOverview>
     connect(
       _returnKey,
       _outputKey,
-      Offset(tileWidth / 2, 0),
-      Offset(tileWidth / 2, tileHeight),
+      const Offset(0.5, 0),
+      const Offset(0.5, 1),
     );
 
     setState(() => _arrows = newArrows);
@@ -199,8 +209,10 @@ class _SystemOverviewState extends State<SystemOverview>
   Widget build(BuildContext context) {
     // Use the page-level gutter for internal content padding, matching the
     // old LabeledCard inner padding that the grid refactor removed.
-    final g = GridGutterProvider.maybeOf(context) ?? 16.0;
-    final contentPadding = g;
+    // Must equal the card-title inset, or the tiles sit left of the title.
+    // computeRightOffset() takes the same value, so the tile maths stays
+    // consistent with whatever this is.
+    final contentPadding = GridProvider.of(context).cardBodyInset;
 
     return LabeledCard(
       networkIndependent: false,
@@ -213,101 +225,147 @@ class _SystemOverviewState extends State<SystemOverview>
             const tileHeight = TileLayout.tileHeight;
             final rightOffset = TileLayout.computeRightOffset(contentPadding);
             // Clamp rightOffset so it never pushes content past the available width.
-            const inputSectionMinWidth = 4 * (TileLayout.tileWidth + TileLayout.marginPerTile)
-                + 2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
-            const rightColMinWidth = TileLayout.tileWidth
-                + 2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
-            final safeRightOffset = (constraints.maxWidth
-                    - inputSectionMinWidth
-                    - TileLayout.lockColumnWidth
-                    - rightColMinWidth)
+            const inputSectionMinWidth = 4 *
+                    (TileLayout.tileWidth + TileLayout.marginPerTile) +
+                2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
+            const rightColMinWidth = TileLayout.tileWidth +
+                2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
+            // The diagram is built from fixed-size tiles, so below this width
+            // it cannot fit — no amount of clamping helps, and it used to just
+            // overflow (the yellow stripe). Lay it out at its natural width and
+            // let the FittedBox below scale the whole schematic down instead.
+            const minDiagramWidth = inputSectionMinWidth +
+                TileLayout.lockColumnWidth +
+                rightColMinWidth;
+            final diagramWidth = constraints.maxWidth > minDiagramWidth
+                ? constraints.maxWidth
+                : minDiagramWidth;
+            // Grow every tile so the four Inputs span the width left of the
+            // Out/Return column. Fixed 151px tiles left a large dead zone in
+            // the middle of the card on any reasonably wide window.
+            final slackForInputs = diagramWidth -
+                TileLayout.lockColumnWidth -
+                rightColMinWidth -
+                rightOffset -
+                2 * (TileLayout.tileOuterMargin + TileLayout.sectionBoxPadding);
+            final tileW = (slackForInputs / 4 - TileLayout.marginPerTile)
+                .clamp(TileLayout.tileWidth, 2.2 * TileLayout.tileWidth);
+
+            final safeRightOffset = (diagramWidth -
+                    inputSectionMinWidth -
+                    TileLayout.lockColumnWidth -
+                    rightColMinWidth)
                 .clamp(0.0, rightOffset);
-            Widget sizedTile(Widget tile, GlobalKey key) => SizedBox(
+            // Width defaults to the computed [tileW] so Inputs/Sends stretch
+            // across the card; the Out/Return column passes the fixed width so
+            // it stays put over the Return Sync card below.
+            Widget sizedTile(Widget tile, GlobalKey key, {double? width}) =>
+                SizedBox(
                   key: key,
-                  width: tileWidth,
+                  width: width ?? tileW,
                   height: tileHeight,
                   child: tile,
                 );
-            return Stack(
-              key: _stackKey,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            // Only scale when the diagram genuinely cannot fit. Wrapping
+            // unconditionally meant any width mistake silently shrank the whole
+            // schematic instead of reporting an overflow.
+            final needsScaling = constraints.maxWidth < minDiagramWidth;
+            Widget wrap(Widget d) => needsScaling
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.topLeft,
+                    child: d)
+                : d;
+            return wrap(
+              SizedBox(
+                width: diagramWidth,
+                child: Stack(
+                  key: _stackKey,
                   children: [
-                    Column(
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _sectionBox(
-                          title: 'Inputs',
-                          labelPosition: LabelPosition.top,
-                          borderColor: Colors.white,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(
-                              4,
-                              (i) => Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: TileLayout.marginPerTile / 2),
-                                child: sizedTile(
-                                    InputTile(index: i + 1), _inputKeys[i]),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _sectionBox(
+                              title: 'Inputs',
+                              labelPosition: LabelPosition.top,
+                              borderColor: Colors.white,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(
+                                  4,
+                                  (i) => Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal:
+                                            TileLayout.marginPerTile / 2),
+                                    child: sizedTile(
+                                        InputTile(index: i + 1), _inputKeys[i]),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        SizedBox(height: TileLayout.rowSpacing),
-                        _sectionBox(
-                          title: 'Sends',
-                          labelPosition: LabelPosition.bottom,
-                          borderColor: const Color(0xFFF8BA00),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(
-                              3,
-                              (i) => Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: TileLayout.marginPerTile / 2),
-                                child: sizedTile(
-                                    AnalogSendTile(index: i + 1), _sendKeys[i]),
+                            SizedBox(height: TileLayout.rowSpacing),
+                            _sectionBox(
+                              title: 'Sends',
+                              labelPosition: LabelPosition.bottom,
+                              borderColor: const Color(0xFFF8BA00),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(
+                                  3,
+                                  (i) => Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal:
+                                            TileLayout.marginPerTile / 2),
+                                    child: sizedTile(
+                                        AnalogSendTile(index: i + 1),
+                                        _sendKeys[i]),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
+                        SizedBox(width: TileLayout.lockColumnWidth),
+                        const Spacer(),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _sectionBox(
+                              title: 'Out',
+                              labelPosition: LabelPosition.top,
+                              borderColor: const Color(0xFF49A0F8),
+                              alignLabelRight: true,
+                              child: sizedTile(const HDMIOutTile(), _outputKey,
+                                  width: tileWidth),
+                            ),
+                            SizedBox(height: TileLayout.rowSpacing),
+                            _sectionBox(
+                              title: 'Return',
+                              labelPosition: LabelPosition.bottom,
+                              borderColor: const Color(0xFF49A0F8),
+                              alignLabelRight: true,
+                              child: sizedTile(const ReturnTile(), _returnKey,
+                                  width: tileWidth),
+                            ),
+                          ],
+                        ),
+                        SizedBox(width: safeRightOffset),
                       ],
                     ),
-                    SizedBox(width: TileLayout.lockColumnWidth),
-                    const Spacer(),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _sectionBox(
-                          title: 'Out',
-                          labelPosition: LabelPosition.top,
-                          borderColor: const Color(0xFF49A0F8),
-                          alignLabelRight: true,
-                          child: sizedTile(const HDMIOutTile(), _outputKey),
-                        ),
-                        SizedBox(height: TileLayout.rowSpacing),
-                        _sectionBox(
-                          title: 'Return',
-                          labelPosition: LabelPosition.bottom,
-                          borderColor: const Color(0xFF49A0F8),
-                          alignLabelRight: true,
-                          child: sizedTile(const ReturnTile(), _returnKey),
-                        ),
-                      ],
+                    // Decorative arrow overlay — must never absorb pointer events,
+                    // or the (now-interactive) input tiles below it can't be tapped.
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(painter: ArrowsPainter(_arrows)),
+                      ),
                     ),
-                    SizedBox(width: safeRightOffset),
                   ],
                 ),
-                // Decorative arrow overlay — must never absorb pointer events,
-                // or the (now-interactive) input tiles below it can't be tapped.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(painter: ArrowsPainter(_arrows)),
-                  ),
-                ),
-              ],
+              ),
             );
           },
         ),

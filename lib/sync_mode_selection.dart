@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'app_button.dart';
 import 'labeled_card.dart';
+import 'panel.dart';
 import 'osc_widget_binding.dart';
 import 'osc_registry.dart';
 import 'lighting_settings.dart';
@@ -64,87 +65,107 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
     return LabeledCard(
       title: 'Return Sync',
-      child: Center(
-        heightFactor: 1.0,
+      // Left-aligned, not centred: the card title is left-aligned, so centring
+      // this fixed-width composition made it drift right by an amount that
+      // changed with the window width.
+      child: CardBody(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          // Top spacing to align with Analog Format grey area
-          const SizedBox(height: 24),
-          // Sync mode tiles
-          Row(
-            mainAxisSize: MainAxisSize.min,
-              children: [
-                _SyncTile(
-                  lighting: lighting,
-                  label: 'Sync locked\nto sends',
-                  isSelected: _selectedSync == 'locked',
-                  onTap: () => _selectSyncMode('locked'),
-                  child: CustomPaint(
-                    size: const Size(52, 68),
-                    painter: _LockPainter(),
+            // No top spacing: the Analog card's grey panel starts flush with
+            // its card content top, so these tiles must too or the two cards'
+            // boxed areas sit at different heights. (There used to be a
+            // hand-tuned 24px here, matched to geometry that has since moved.)
+            // Sync mode tiles. The tiles and the button beneath them are a
+            // fixed-width composition (3 x 105 + gaps), so on a narrow card it
+            // used to overflow. Scale the whole group down as one unit instead,
+            // which keeps the button centred under the same two tiles.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SyncTile(
+                        lighting: lighting,
+                        label: 'Sync locked\nto sends',
+                        isSelected: _selectedSync == 'locked',
+                        onTap: () => _selectSyncMode('locked'),
+                        child: CustomPaint(
+                          size: const Size(52, 68),
+                          painter: _LockPainter(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _SyncTile(
+                        lighting: lighting,
+                        label: 'Component\nsync (Y/G)',
+                        isSelected: _selectedSync == 'component',
+                        onTap: () => _selectSyncMode('component'),
+                        cableColors: const [
+                          Color(0xFF22AA22),
+                          Color(0xFF2266DD),
+                          Color(0xFFDD2222),
+                        ],
+                        selectedCableIndices: const [0],
+                      ),
+                      const SizedBox(width: 12),
+                      _SyncTile(
+                        lighting: lighting,
+                        label: 'External H/V\nsync input',
+                        isSelected: _selectedSync == 'external',
+                        onTap: () => _selectSyncMode('external'),
+                        cableColors: const [
+                          Color(0xFF22AA22),
+                          Color(0xFF2266DD),
+                          Color(0xFFDD2222),
+                          Color(0xFFE0E0E0),
+                          Color(0xFF808080),
+                        ],
+                        selectedCableIndices: const [3, 4],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                _SyncTile(
-                  lighting: lighting,
-                  label: 'Component\nsync (Y/G)',
-                  isSelected: _selectedSync == 'component',
-                  onTap: () => _selectSyncMode('component'),
-                  cableColors: const [
-                    Color(0xFF22AA22),
-                    Color(0xFF2266DD),
-                    Color(0xFFDD2222),
-                  ],
-                  selectedCableIndices: const [0],
-                ),
-                const SizedBox(width: 12),
-                _SyncTile(
-                  lighting: lighting,
-                  label: 'External H/V\nsync input',
-                  isSelected: _selectedSync == 'external',
-                  onTap: () => _selectSyncMode('external'),
-                  cableColors: const [
-                    Color(0xFF22AA22),
-                    Color(0xFF2266DD),
-                    Color(0xFFDD2222),
-                    Color(0xFFE0E0E0),
-                    Color(0xFF808080),
-                  ],
-                  selectedCableIndices: const [3, 4],
-                ),
-              ],
-            ),
-          const SizedBox(height: 16),
-          // "Genlock Sends to Return" toggle button, centred under the
-          // Component + External sync tiles. (TBC moved to the Return page's
-          // ADC Adjustments card.)
-          SizedBox(
-            width: 3 * 105.0 + 2 * 12, // matches the sync-tiles row width
-            child: Row(
-              children: [
-                const SizedBox(width: 105.0 + 12), // span the "locked" tile + gap
-                Expanded(
-                  child: Center(
-                    child: AppButton(
-                      label: 'Genlock Sends to Return',
-                      dense: true,
-                      selected: _dacGenlock,
-                      accentColor: const Color(0xFFF0B830),
-                      onPressed: _dacGenlockEnabled
-                          ? () {
-                              final v = !_dacGenlock;
-                              setState(() => _dacGenlock = v);
-                              sendOsc(v, address: '/dac_genlock');
-                            }
-                          : null,
+                  const SizedBox(height: 16),
+                  // "Genlock Sends to Return" toggle button, centred under the
+                  // Component + External sync tiles. (TBC moved to the Return page's
+                  // ADC Adjustments card.)
+                  SizedBox(
+                    width:
+                        3 * 105.0 + 2 * 12, // matches the sync-tiles row width
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                            width: 105.0 + 12), // span the "locked" tile + gap
+                        Expanded(
+                          child: Center(
+                            child: AppButton(
+                              label: 'Genlock Sends to Return',
+                              dense: true,
+                              selected: _dacGenlock,
+                              accentColor: const Color(0xFFF0B830),
+                              onPressed: _dacGenlockEnabled
+                                  ? () {
+                                      final v = !_dacGenlock;
+                                      setState(() => _dacGenlock = v);
+                                      sendOsc(v, address: '/dac_genlock');
+                                    }
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -199,7 +220,8 @@ class _SyncTile extends StatelessWidget {
                               size: Size(tileWidth - 16, 68),
                               painter: _CableGroupPainter(
                                 cableColors: cableColors!,
-                                selectedIndices: selectedCableIndices ?? const [],
+                                selectedIndices:
+                                    selectedCableIndices ?? const [],
                               ),
                             )
                           : child ?? const SizedBox(),
@@ -212,7 +234,8 @@ class _SyncTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected ? Colors.white : Colors.grey[400],
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ],
@@ -236,7 +259,8 @@ class _TilePainter extends CustomPainter {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 
-    final baseColor = isSelected ? const Color(0xFF606068) : const Color(0xFF505055);
+    final baseColor =
+        isSelected ? const Color(0xFF606068) : const Color(0xFF505055);
     final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.08,
@@ -405,7 +429,8 @@ class _LockPainter extends CustomPainter {
         const Color(0xFF1A1A1A),
       ],
     );
-    final keyholeRect = Rect.fromCircle(center: Offset(centerX, keyholeY), radius: 5);
+    final keyholeRect =
+        Rect.fromCircle(center: Offset(centerX, keyholeY), radius: 5);
     canvas.drawCircle(
       Offset(centerX, keyholeY),
       5,
@@ -414,7 +439,8 @@ class _LockPainter extends CustomPainter {
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(centerX, keyholeY + 7), width: 4, height: 10),
+        Rect.fromCenter(
+            center: Offset(centerX, keyholeY + 7), width: 4, height: 10),
         const Radius.circular(1.5),
       ),
       Paint()..shader = keyholeGradient.createShader(keyholeRect),
@@ -478,15 +504,19 @@ class _CableGroupPainter extends CustomPainter {
       path.lineTo(0, centerY + 5);
       path.close();
 
-      canvas.drawPath(path, Paint()
-        ..color = const Color(0xFFFFD700)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 18);
+      canvas.drawPath(
+          path,
+          Paint()
+            ..color = const Color(0xFFFFD700)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 18);
 
-      canvas.drawPath(path, Paint()
-        ..color = const Color(0xFF606060)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 12);
+      canvas.drawPath(
+          path,
+          Paint()
+            ..color = const Color(0xFF606060)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 12);
     }
 
     _drawCylindricalSection(
@@ -509,8 +539,10 @@ class _CableGroupPainter extends CustomPainter {
       width: 50,
       radius: 5,
       baseColor: heatShrinkColor,
-      highlightColor: hsl.withLightness((hsl.lightness + 0.2).clamp(0, 1)).toColor(),
-      shadowColor: hsl.withLightness((hsl.lightness - 0.2).clamp(0, 1)).toColor(),
+      highlightColor:
+          hsl.withLightness((hsl.lightness + 0.2).clamp(0, 1)).toColor(),
+      shadowColor:
+          hsl.withLightness((hsl.lightness - 0.2).clamp(0, 1)).toColor(),
     );
 
     _drawCylindricalSection(
@@ -596,7 +628,8 @@ class _CableGroupPainter extends CustomPainter {
     );
   }
 
-  void _drawBraidPattern(Canvas canvas, double startX, double centerY, double width, double radius) {
+  void _drawBraidPattern(Canvas canvas, double startX, double centerY,
+      double width, double radius) {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(startX, centerY - radius, width, radius * 2));
 
@@ -610,7 +643,9 @@ class _CableGroupPainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    for (double x = startX - radius * 2; x < startX + width + radius * 2; x += 8) {
+    for (double x = startX - radius * 2;
+        x < startX + width + radius * 2;
+        x += 8) {
       canvas.drawLine(
         Offset(x, centerY - radius),
         Offset(x + radius * 2, centerY + radius),
@@ -626,7 +661,8 @@ class _CableGroupPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawKnurlPattern(Canvas canvas, double startX, double centerY, double width, double radius) {
+  void _drawKnurlPattern(Canvas canvas, double startX, double centerY,
+      double width, double radius) {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(startX, centerY - radius, width, radius * 2));
 
@@ -640,7 +676,9 @@ class _CableGroupPainter extends CustomPainter {
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
-    for (double x = startX - radius * 2; x < startX + width + radius * 2; x += 3.5) {
+    for (double x = startX - radius * 2;
+        x < startX + width + radius * 2;
+        x += 3.5) {
       canvas.drawLine(
         Offset(x, centerY - radius),
         Offset(x + radius * 2, centerY + radius),
@@ -678,7 +716,8 @@ class _CableGroupPainter extends CustomPainter {
     );
   }
 
-  void _drawTaper(Canvas canvas, double startX, double centerY, double startRadius, double endRadius, double width) {
+  void _drawTaper(Canvas canvas, double startX, double centerY,
+      double startRadius, double endRadius, double width) {
     final path = Path();
     path.moveTo(startX, centerY - startRadius);
     path.lineTo(startX + width, centerY - endRadius);
@@ -696,7 +735,8 @@ class _CableGroupPainter extends CustomPainter {
       ],
     );
 
-    final rect = Rect.fromLTWH(startX, centerY - startRadius, width, startRadius * 2);
+    final rect =
+        Rect.fromLTWH(startX, centerY - startRadius, width, startRadius * 2);
     canvas.drawPath(path, Paint()..shader = gradient.createShader(rect));
   }
 

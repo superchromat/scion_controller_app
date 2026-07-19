@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'color_wheel_arc.dart';
+import 'drag_area.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -81,7 +82,7 @@ class DacParameters extends StatelessWidget {
     // checkbox at the same height — keeps every row of checkboxes aligned
     // across the card.
     final labelStyle =
-        (t?.textLabel ?? const TextStyle(fontSize: 12)).copyWith(height: 1.15);
+        (t?.textLabel ?? const TextStyle(fontSize: 11)).copyWith(height: 1.15);
     final labelBoxHeight = (labelStyle.fontSize ?? 12) * 1.15 * 2;
     return _tip(
       segment,
@@ -630,17 +631,17 @@ class _CscWheelsState extends State<_CscWheels> {
         // Primary name, always white, above the wheel.
         Text(_wheelLabels[i],
             style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: Colors.white,
-                fontWeight: FontWeight.bold)),
+                fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Tooltip(
           message: _wheelTips[i],
           waitDuration: const Duration(milliseconds: 400),
-          child: GestureDetector(
-            onPanStart: (d) => _onDrag(d.localPosition, i, isStart: true),
-            onPanUpdate: (d) => _onDrag(d.localPosition, i, isStart: false),
-            onTapDown: (d) => _onDrag(d.localPosition, i, isStart: true),
+          // DragArea so the wheel drag wins over the scrolling page on touch.
+          child: DragArea(
+            onPointerDown: (p, _) => _onDrag(p, i, isStart: true),
+            onDragUpdate: (p, _) => _onDrag(p, i, isStart: false),
             child: CustomPaint(
               size: const Size(_wheelSize, _wheelSize),
               painter: _CscArcPainter(rgb: rgb, index: i),
@@ -657,10 +658,17 @@ class _CscWheelsState extends State<_CscWheels> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [_wheel(0), _wheel(1), _wheel(2)],
+    // spaceEvenly distributes slack but cannot take it away: at iPad-portrait
+    // widths three fixed 96px wheels need more room than the panel has, which
+    // overflowed. scaleDown shrinks the group instead. Pointer coordinates stay
+    // in the child's own space, so the drag maths below is unaffected.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [_wheel(0), _wheel(1), _wheel(2)],
+      ),
     );
   }
 }

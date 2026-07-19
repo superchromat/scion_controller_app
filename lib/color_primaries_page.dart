@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'color_wheel.dart';
+import 'drag_area.dart';
 import 'color_space_matrix.dart';
 import 'video_format_selection.dart' show computeRequiredAdcBias;
 
@@ -217,18 +218,18 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
             color: Colors.grey[300],
           ),
         ),
         const SizedBox(height: 12),
 
         // Wheel
-        GestureDetector(
-          onPanStart: (d) => _handleWheelDrag(d.localPosition, wheelSize, primaryIndex),
-          onPanUpdate: (d) => _handleWheelDrag(d.localPosition, wheelSize, primaryIndex),
-          onTapDown: (d) => _handleWheelDrag(d.localPosition, wheelSize, primaryIndex),
+        // DragArea so the wheel drag wins over the scrolling page on touch.
+        DragArea(
+          onPointerDown: (p, _) => _handleWheelDrag(p, wheelSize, primaryIndex),
+          onDragUpdate: (p, _) => _handleWheelDrag(p, wheelSize, primaryIndex),
           child: CustomPaint(
             size: const Size(wheelSize, wheelSize),
             painter: ColorWheelPainter(
@@ -271,7 +272,7 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
         // Slider value display
         Text(
           'Intensity: ${sliderValue.toStringAsFixed(2)}',
-          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
         ),
         const SizedBox(height: 12),
 
@@ -306,7 +307,7 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
             channel,
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
@@ -395,7 +396,7 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                     'Condition Number (κ): ${kappa.isFinite ? kappa.toStringAsFixed(2) : '∞'}',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: kappa < 3 ? Colors.green[300] :
                              kappa < 10 ? Colors.yellow[300] :
                              kappa < 100 ? Colors.orange[300] :
@@ -423,7 +424,7 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                           'ADC Bias Overflow: ${adcBias.toStringAsFixed(2)} > ${kMaxAdcBiasNormalized.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: Colors.red[300],
                           ),
                         ),

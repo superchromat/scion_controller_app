@@ -15,18 +15,18 @@ import 'neumorphic_slider.dart';
 const TextStyle _greenText = TextStyle(
   color: Colors.green,
   fontFamily: 'Courier',
-  fontSize: 12,
+  fontSize: 11,
 );
 const TextStyle _redText = TextStyle(
   color: Colors.red,
   fontFamily: 'Courier',
-  fontSize: 12,
+  fontSize: 11,
 );
 
 final TextStyle _overlayStyle = TextStyle(
   color: Colors.grey[800],
   fontSize: 72,
-  fontWeight: FontWeight.bold,
+  fontWeight: FontWeight.w700,
 );
 
 /// PIP layer number (1-based) for a given source.
@@ -84,6 +84,9 @@ class _SelectorInnerState extends State<_SelectorInner> with OscAddressMixin {
     return SizedBox(
       height: TileLayout.tileHeight,
       child: GridRow(
+        // This row *is* the card body, so its outer edge is the card's
+        // content edge — not the page gutter.
+        outerInset: GridProvider.of(context).cardBodyInset,
         cells: [
           for (int i = 1; i <= 4; i++)
             (

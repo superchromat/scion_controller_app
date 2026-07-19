@@ -154,7 +154,7 @@ class OscLogTableState extends State<OscLogTable> {
       decoration: BoxDecoration(border: Border(bottom: bottom)),
       child: DefaultTextStyle.merge(
         style: isHeader
-            ? const TextStyle(fontWeight: FontWeight.bold)
+            ? const TextStyle(fontWeight: FontWeight.w700)
             : const TextStyle(),
         child: tooltip != null
             ? Tooltip(
@@ -165,8 +165,8 @@ class OscLogTableState extends State<OscLogTable> {
                 verticalOffset: 14,
                 textStyle: const TextStyle(
                   fontFamily: 'DINPro',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
                   letterSpacing: 0.08,
                   color: Color(0xFFF0F0F3),
                 ),
@@ -219,7 +219,7 @@ class OscLogTableState extends State<OscLogTable> {
             children: [
               Checkbox(value: _filterStatuses.contains(s), onChanged: null),
               const SizedBox(width: 4),
-              Text(label, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+              Text(label, style: const TextStyle(fontFamily: 'Courier', fontSize: 11)),
             ],
           ),
         );
@@ -236,7 +236,7 @@ class OscLogTableState extends State<OscLogTable> {
             children: [
               Checkbox(value: _filterDirections.contains(d), onChanged: null),
               const SizedBox(width: 4),
-              Text(label, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)),
+              Text(label, style: const TextStyle(fontFamily: 'Courier', fontSize: 11)),
             ],
           ),
         );
@@ -248,7 +248,7 @@ class OscLogTableState extends State<OscLogTable> {
       _buildCell(
         PopupMenuButton<OscStatus>(
           tooltip: 'Filter by status',
-          child: Row(children: const [Text('Status', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), Icon(Icons.arrow_drop_down, size: 12)]),
+          child: Row(children: const [Text('Status', style: TextStyle(fontFamily: 'Courier', fontSize: 11)), Icon(Icons.arrow_drop_down, size: 12)]),
           itemBuilder: (c) => statusItems(),
           onSelected: (s) => setState(() => _filterStatuses.contains(s) ? _filterStatuses.remove(s) : _filterStatuses.add(s)),
         ),
@@ -258,16 +258,16 @@ class OscLogTableState extends State<OscLogTable> {
       _buildCell(
         PopupMenuButton<Direction>(
           tooltip: 'Filter by direction',
-          child: Row(children: const [Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), Icon(Icons.arrow_drop_down, size: 12)]),
+          child: Row(children: const [Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 11)), Icon(Icons.arrow_drop_down, size: 12)]),
           itemBuilder: (c) => dirItems(),
           onSelected: (d) => setState(() => _filterDirections.contains(d) ? _filterDirections.remove(d) : _filterDirections.add(d)),
         ),
         1,
         isHeader: true,
       ),
-      _buildCell(const Text('Time', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 2, isHeader: true),
-      _buildCell(const Text('Address', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 4, isHeader: true),
-      _buildCell(const Text('Args', style: TextStyle(fontFamily: 'Courier', fontSize: 10)), 6, isHeader: true),
+      _buildCell(const Text('Time', style: TextStyle(fontFamily: 'Courier', fontSize: 11)), 2, isHeader: true),
+      _buildCell(const Text('Address', style: TextStyle(fontFamily: 'Courier', fontSize: 11)), 4, isHeader: true),
+      _buildCell(const Text('Args', style: TextStyle(fontFamily: 'Courier', fontSize: 11)), 6, isHeader: true),
       _buildCell(const SizedBox(), 1, isHeader: true),
     ]);
   }
@@ -291,9 +291,9 @@ class OscLogTableState extends State<OscLogTable> {
     return Row(children: [
       _buildCell(Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)), 1, copyText: statusText),
       _buildCell(icon, 1, copyText: e.direction.toString().split('.').last.toUpperCase()),
-      _buildCell(Text(timeText, style: const TextStyle(fontFamily: 'Courier', fontSize: 10)), 2, copyText: timeText),
-      _buildCell(Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis), 4, tooltip: e.address, copyText: e.address),
-      _buildCell(Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 10), overflow: TextOverflow.ellipsis), 6, tooltip: e.args, copyText: e.args),
+      _buildCell(Text(timeText, style: const TextStyle(fontFamily: 'Courier', fontSize: 11)), 2, copyText: timeText),
+      _buildCell(Text(e.address, style: const TextStyle(fontFamily: 'Courier', fontSize: 11), overflow: TextOverflow.ellipsis), 4, tooltip: e.address, copyText: e.address),
+      _buildCell(Text(e.args, style: const TextStyle(fontFamily: 'Courier', fontSize: 11), overflow: TextOverflow.ellipsis), 6, tooltip: e.args, copyText: e.args),
       _buildCell(GestureDetector(onTap: () => widget.onDownload(e.binary), child: const Icon(Icons.download, size: 12)), 1),
     ]);
   }
@@ -392,7 +392,7 @@ class OscLogTableState extends State<OscLogTable> {
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   alignment: Alignment.center,
                   child: Text('$_pendingCount more messages below',
-                      style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),

@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'drag_area.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
@@ -30,7 +31,8 @@ const double _outW = 1920, _outH = 1080;
 const int _warpMeshMax = 9;
 
 class ShapeCanvas extends StatefulWidget {
-  final int? pageNumber; // null/1 = Send 1 (full rig); 2/3 = reduced; Return uses 2 under /output
+  final int?
+      pageNumber; // null/1 = Send 1 (full rig); 2/3 = reduced; Return uses 2 under /output
   // Which editing overlay to show, driven by the active tab on the Shape page:
   // 'transform' (scale/crop/warp handles), 'text' / 'sprites' (screen-space
   // placeholder boxes), or 'colorField' (the uniformity gain mesh).
@@ -47,11 +49,15 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   double rotOsc = 180; // 0..360, 180 = identity
   double cl = 0, cr = 0, ct = 0, cb = 0; // crop 0..0.95
   // Send-1 warp (parametric — the canvas reflects the knobs and drives them back)
-  double keyH = 0, keyV = 0, shearX = 0, shearY = 0; // keystone/shear px (output)
-  double barrel = 0;                                 // lens k2 x1000 (<0 barrel)
-  double lensX = 0, lensY = 0;                       // lens optical centre px (output)
+  double keyH = 0,
+      keyV = 0,
+      shearX = 0,
+      shearY = 0; // keystone/shear px (output)
+  double barrel = 0; // lens k2 x1000 (<0 barrel)
+  double lensX = 0, lensY = 0; // lens optical centre px (output)
   int meshN = 0;
-  final List<Offset> mesh = List<Offset>.filled(_warpMeshMax * _warpMeshMax, Offset.zero); // px
+  final List<Offset> mesh =
+      List<Offset>.filled(_warpMeshMax * _warpMeshMax, Offset.zero); // px
 
   // ── device warp LUT (source→output forward map, the real deformation) ────────
   // Frame-normalized output positions for a regular _lutN×_lutN source grid.
@@ -90,11 +96,11 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   final int _ucNx = 20, _ucNy = 11; // bake grid (220 cells, one packet)
   final List<_UcPoint> _ucPts = [];
   List<int> _ucR = [], _ucG = [], _ucB = []; // baked gains 0..1023, row-major
-  int? _ucSel;            // selected control point
-  String _ucMode = 'A';   // A = falloff (fade to neutral), B = gradient fill
-  Timer? _ucTimer;        // coalesces bake→send during a drag
+  int? _ucSel; // selected control point
+  String _ucMode = 'A'; // A = falloff (fade to neutral), B = gradient fill
+  Timer? _ucTimer; // coalesces bake→send during a drag
   bool _ucDirty = false;
-  int _ucAddHue = 0;      // cycles the colour of freshly-dropped points
+  int _ucAddHue = 0; // cycles the colour of freshly-dropped points
 
   // Addresses to re-query (empty-arg readback) on connect / after a reset —
   // the text + colour-field state the overlays reflect.
@@ -168,7 +174,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       // engine only recomputes at ~8 Hz anyway). Coalescing here keeps a fast
       // drag from flooding the device with Newton-solve queries.
       _lutPoll = Timer.periodic(const Duration(milliseconds: 66), (_) {
-        if (_lutDirty || _animating) { _lutDirty = false; _requestLut(); }
+        if (_lutDirty || _animating) {
+          _lutDirty = false;
+          _requestLut();
+        }
       });
       // Seed the first LUT once the widget is mounted / connected.
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestLut());
@@ -196,6 +205,7 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       _sprites.clear();
       _queryOverlays();
     }
+
     _subs[resetAddr] = onReset;
     OscRegistry().registerListener(resetAddr, onReset);
   }
@@ -204,13 +214,15 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     final addr = '$_base/$rel';
     final reg = OscRegistry()..registerAddress(addr);
     final cur = reg.allParams[addr]?.currentValue;
-    if (cur != null && cur.isNotEmpty && cur.first is num) set((cur.first as num).toDouble());
+    if (cur != null && cur.isNotEmpty && cur.first is num)
+      set((cur.first as num).toDouble());
     void cb(List<Object?> a) {
       if (a.isNotEmpty && a.first is num && mounted) {
         setState(() => set((a.first as num).toDouble()));
         _scheduleLut();
       }
     }
+
     _subs[addr] = cb;
     reg.registerListener(addr, cb);
   }
@@ -219,13 +231,15 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     final addr = '$_base/$rel';
     final reg = OscRegistry()..registerAddress(addr);
     final cur = reg.allParams[addr]?.currentValue;
-    if (cur != null && cur.isNotEmpty && cur.first is num) set((cur.first as num).toInt());
+    if (cur != null && cur.isNotEmpty && cur.first is num)
+      set((cur.first as num).toInt());
     void cb(List<Object?> a) {
       if (a.isNotEmpty && a.first is num && mounted) {
         setState(() => set((a.first as num).toInt()));
         _scheduleLut();
       }
     }
+
     _subs[addr] = cb;
     reg.registerListener(addr, cb);
   }
@@ -241,12 +255,17 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       final bytes = a[3] as Uint8List;
       if (n < 2 || bytes.length < n * n * 4) return;
       final bd = ByteData.sublistView(bytes);
-      final pts = List<Offset>.generate(n * n, (k) => Offset(
-          bd.getInt16(k * 4, Endian.little) / 4096.0,
-          bd.getInt16(k * 4 + 2, Endian.little) / 4096.0));
+      final pts = List<Offset>.generate(
+          n * n,
+          (k) => Offset(bd.getInt16(k * 4, Endian.little) / 4096.0,
+              bd.getInt16(k * 4 + 2, Endian.little) / 4096.0));
       if (!mounted) return;
-      setState(() { _lutN = n; _lut = pts; });
+      setState(() {
+        _lutN = n;
+        _lut = pts;
+      });
     }
+
     _subs[addr] = cb;
     reg.registerListener(addr, cb);
   }
@@ -273,11 +292,13 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         if (a.length > 1 && a[1] is List) {
           final vals = (a[1] as List).cast<num>();
           for (int k = 0; k < n * n && (k * 2 + 1) < vals.length; k++) {
-            mesh[k] = Offset(vals[k * 2].toDouble(), vals[k * 2 + 1].toDouble());
+            mesh[k] =
+                Offset(vals[k * 2].toDouble(), vals[k * 2 + 1].toDouble());
           }
         }
       });
     }
+
     _subs[addr] = cb;
     reg.registerListener(addr, cb);
   }
@@ -295,8 +316,13 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       parse(a);
       if (!_seeding && mounted) setState(() {});
     }
+
     final cur = reg.allParams[addr]?.currentValue;
-    if (cur != null && cur.isNotEmpty) { _seeding = true; cb(cur); _seeding = false; }
+    if (cur != null && cur.isNotEmpty) {
+      _seeding = true;
+      cb(cur);
+      _seeding = false;
+    }
     _subs[addr] = cb;
     reg.registerListener(addr, cb);
     if (query) _extraQuery.add(addr);
@@ -311,10 +337,12 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         if (a.isNotEmpty && a.first is String) _txtStr[i] = a.first as String;
       }, query: true);
       _listen('$_base/$rb/pos/x', (a) {
-        if (a.isNotEmpty && a.first is num) _txtX[i] = (a.first as num).toDouble();
+        if (a.isNotEmpty && a.first is num)
+          _txtX[i] = (a.first as num).toDouble();
       }, query: true);
       _listen('$_base/$rb/pos/y', (a) {
-        if (a.isNotEmpty && a.first is num) _txtY[i] = (a.first as num).toDouble();
+        if (a.isNotEmpty && a.first is num)
+          _txtY[i] = (a.first as num).toDouble();
       }, query: true);
       _listen('$_base/$rb/size', (a) {
         if (a.isNotEmpty && a.first is num) {
@@ -343,7 +371,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       _ucG = List.filled(_ucNx * _ucNy, 1023);
       _ucB = List.filled(_ucNx * _ucNy, 1023);
       _ucTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
-        if (_ucDirty) { _ucDirty = false; _ucSend(); }
+        if (_ucDirty) {
+          _ucDirty = false;
+          _ucSend();
+        }
       });
     }
   }
@@ -352,7 +383,8 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     if (!mounted) return;
     final net = context.read<Network>();
     for (final a in _extraQuery) net.sendOscMessage(a, const []);
-    net.sendOscMessage('/assets/sprites/count', const []); // repopulate catalogue
+    net.sendOscMessage(
+        '/assets/sprites/count', const []); // repopulate catalogue
   }
 
   // ── sprite tracking ─────────────────────────────────────────────────────────
@@ -372,7 +404,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     if ((a[0] as num).toInt() != _sendIdx) return;
     final region = (a[1] as num).toInt();
     final b = _sprites[region];
-    if (b != null) { b.x = (a[2] as num).toDouble(); b.y = (a[3] as num).toDouble(); }
+    if (b != null) {
+      b.x = (a[2] as num).toDouble();
+      b.y = (a[3] as num).toDouble();
+    }
   }
 
   void _onSpriteHide(List<Object?> a) {
@@ -428,21 +463,35 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         final infl = p.amount * _smoother(1 - t);
         if (infl <= 0) continue;
         prod *= (1 - infl);
-        cr += p.rgb[0] * infl; cg += p.rgb[1] * infl; cb += p.rgb[2] * infl; sumW += infl;
+        cr += p.rgb[0] * infl;
+        cg += p.rgb[1] * infl;
+        cb += p.rgb[2] * infl;
+        sumW += infl;
       }
       if (sumW <= 1e-6) return const [1.0, 1.0, 1.0];
       final s = 1 - prod;
-      return [1 - s * (1 - cr / sumW), 1 - s * (1 - cg / sumW), 1 - s * (1 - cb / sumW)];
+      return [
+        1 - s * (1 - cr / sumW),
+        1 - s * (1 - cg / sumW),
+        1 - s * (1 - cb / sumW)
+      ];
     } else {
       double sumAmt = 0;
       for (final p in _ucPts) {
         final dx = (sx - p.x) * _ucAspect, dy = sy - p.y;
         final w = 1 / (dx * dx + dy * dy + 0.0009);
-        cr += p.rgb[0] * w; cg += p.rgb[1] * w; cb += p.rgb[2] * w;
-        sumW += w; sumAmt += p.amount * w;
+        cr += p.rgb[0] * w;
+        cg += p.rgb[1] * w;
+        cb += p.rgb[2] * w;
+        sumW += w;
+        sumAmt += p.amount * w;
       }
       final s = sumAmt / sumW;
-      return [1 - s * (1 - cr / sumW), 1 - s * (1 - cg / sumW), 1 - s * (1 - cb / sumW)];
+      return [
+        1 - s * (1 - cr / sumW),
+        1 - s * (1 - cg / sumW),
+        1 - s * (1 - cb / sumW)
+      ];
     }
   }
 
@@ -459,7 +508,8 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       bd.setInt16(i * 6 + 2, _ucG[i], Endian.little);
       bd.setInt16(i * 6 + 4, _ucB[i], Endian.little);
     }
-    context.read<Network>()
+    context
+        .read<Network>()
         .sendOscMessage('/send/1/color/field/cells', [_ucNx, _ucNy, bytes]);
   }
 
@@ -474,7 +524,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   void _ucStart(Offset p) {
     final hit = _hitUcPoint(p);
     if (hit != null) {
-      setState(() { _drag = 'uc'; _ucSel = hit; });
+      setState(() {
+        _drag = 'uc';
+        _ucSel = hit;
+      });
       return;
     }
     // Painting only shows if the block is on and not being overwritten by the
@@ -493,7 +546,7 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       _drag = 'uc';
     });
     if (first) {
-      _send3('/send/1/color/field/fx', [0]);      // Basis = Flat (manual grid)
+      _send3('/send/1/color/field/fx', [0]); // Basis = Flat (manual grid)
       _send3('/send/1/color/field/enable', [1]);
     }
     _ucBake();
@@ -517,12 +570,18 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
 
   void _ucDelete() {
     if (_ucSel == null) return;
-    setState(() { _ucPts.removeAt(_ucSel!); _ucSel = null; });
+    setState(() {
+      _ucPts.removeAt(_ucSel!);
+      _ucSel = null;
+    });
     _ucBake();
   }
 
   void _ucClear() {
-    setState(() { _ucPts.clear(); _ucSel = null; });
+    setState(() {
+      _ucPts.clear();
+      _ucSel = null;
+    });
     _ucBake();
   }
 
@@ -560,10 +619,24 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
 
   // ── geometry ────────────────────────────────────────────────────────────────
   _Geo _geo() => _computeGeo(_size,
-      rotDeg: rotDeg, cl: cl, cr: cr, ct: ct, cb: cb,
-      sx: scaleX, sy: scaleY, px: posX, py: posY, mesh: mesh, n: meshN,
-      keyH: keyH, keyV: keyV, shearX: shearX, shearY: shearY,
-      barrel: barrel, lensX: lensX, lensY: lensY);
+      rotDeg: rotDeg,
+      cl: cl,
+      cr: cr,
+      ct: ct,
+      cb: cb,
+      sx: scaleX,
+      sy: scaleY,
+      px: posX,
+      py: posY,
+      mesh: mesh,
+      n: meshN,
+      keyH: keyH,
+      keyV: keyV,
+      shearX: shearX,
+      shearY: shearY,
+      barrel: barrel,
+      lensX: lensX,
+      lensY: lensY);
 
   String? _hit(Offset p) {
     final g = _geo();
@@ -589,7 +662,8 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     final g = _geo();
     final d = _drag!;
     if (d == 'rot') {
-      final a = math.atan2(p.dy - g.center.dy, p.dx - g.center.dx) * 180 / math.pi;
+      final a =
+          math.atan2(p.dy - g.center.dy, p.dx - g.center.dx) * 180 / math.pi;
       double rd = -(a + 90);
       double osc = rd + 180;
       osc = ((osc % 360) + 360) % 360;
@@ -599,19 +673,40 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       // The frame centre moves (1+scale)·size per unit position, so invert that
       // to keep the image tracking the cursor 1:1.
       final sxc = scaleX.clamp(0.05, 4.0), syc = scaleY.clamp(0.05, 4.0);
-      final nx = (_px0 + (p.dx - _p0.dx) / (_size.width * (1 + sxc))).clamp(0.0, 1.0);
-      final ny = (_py0 + (p.dy - _p0.dy) / (_size.height * (1 + syc))).clamp(0.0, 1.0);
-      setState(() { posX = nx; posY = ny; });
+      final nx =
+          (_px0 + (p.dx - _p0.dx) / (_size.width * (1 + sxc))).clamp(0.0, 1.0);
+      final ny =
+          (_py0 + (p.dy - _p0.dy) / (_size.height * (1 + syc))).clamp(0.0, 1.0);
+      setState(() {
+        posX = nx;
+        posY = ny;
+      });
       _send('shape/pos/x', [nx]);
       _send('shape/pos/y', [ny]);
     } else if (d.startsWith('e')) {
       final i = int.parse(d.substring(1));
       final (u, v) = _invMap(p, g);
       switch (i) {
-        case 0: final t = v.clamp(0.0, 0.95); setState(() => ct = t); _send('shape/crop/top', [t]); break;
-        case 1: final t = (1 - u).clamp(0.0, 0.95); setState(() => cr = t); _send('shape/crop/right', [t]); break;
-        case 2: final t = (1 - v).clamp(0.0, 0.95); setState(() => cb = t); _send('shape/crop/bottom', [t]); break;
-        case 3: final t = u.clamp(0.0, 0.95); setState(() => cl = t); _send('shape/crop/left', [t]); break;
+        case 0:
+          final t = v.clamp(0.0, 0.95);
+          setState(() => ct = t);
+          _send('shape/crop/top', [t]);
+          break;
+        case 1:
+          final t = (1 - u).clamp(0.0, 0.95);
+          setState(() => cr = t);
+          _send('shape/crop/right', [t]);
+          break;
+        case 2:
+          final t = (1 - v).clamp(0.0, 0.95);
+          setState(() => cb = t);
+          _send('shape/crop/bottom', [t]);
+          break;
+        case 3:
+          final t = u.clamp(0.0, 0.95);
+          setState(() => cl = t);
+          _send('shape/crop/left', [t]);
+          break;
       }
     } else if (d == 'lens') {
       // lens optical centre → the same lens_x / lens_y the knobs bind to, so the
@@ -620,7 +715,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       final o = _unrot(p, g);
       final lx = (o.dx / g.fw * _outW).clamp(-960.0, 960.0);
       final ly = (o.dy / g.fh * _outH).clamp(-540.0, 540.0);
-      setState(() { lensX = lx; lensY = ly; });
+      setState(() {
+        lensX = lx;
+        lensY = ly;
+      });
       _send('shape/warp/lens_x', [lx.round()]);
       _send('shape/warp/lens_y', [ly.round()]);
     } else if (d.startsWith('s')) {
@@ -629,7 +727,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       final o = _unrot(p, g);
       final nsx = (2 * o.dx.abs() / _size.width).clamp(0.05, 4.0);
       final nsy = (2 * o.dy.abs() / _size.height).clamp(0.05, 4.0);
-      setState(() { scaleX = nsx; scaleY = nsy; });
+      setState(() {
+        scaleX = nsx;
+        scaleY = nsy;
+      });
       _send('shape/scale/x', [nsx]);
       _send('shape/scale/y', [nsy]);
     } else if (d.startsWith('w')) {
@@ -637,8 +738,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
       final k = int.parse(d.substring(1));
       final n = meshN;
       final i = k % n, j = k ~/ n;
-      Offset lp(Offset a, Offset b, double t) => Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
-      Offset bil(List<Offset> q, double u, double v) => lp(lp(q[0], q[1], u), lp(q[3], q[2], u), v);
+      Offset lp(Offset a, Offset b, double t) =>
+          Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
+      Offset bil(List<Offset> q, double u, double v) =>
+          lp(lp(q[0], q[1], u), lp(q[3], q[2], u), v);
       final base = bil(g.quad, i / (n - 1), j / (n - 1));
       final off = _unrot(p - base + g.center, g);
       final ddx = off.dx / g.fw * _outW, ddy = off.dy / g.fh * _outH;
@@ -661,9 +764,12 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   Rect _textRect(int i) {
     final lines = _txtStr[i].split('\n');
     int maxLen = 1;
-    for (final l in lines) { if (l.length > maxLen) maxLen = l.length; }
+    for (final l in lines) {
+      if (l.length > maxLen) maxLen = l.length;
+    }
     final sz = _txtSize[i] <= 0 ? 48.0 : _txtSize[i];
-    final tl = Offset(_txtX[i] / _outW * _size.width, _txtY[i] / _outH * _size.height);
+    final tl =
+        Offset(_txtX[i] / _outW * _size.width, _txtY[i] / _outH * _size.height);
     final w = math.max(12.0, maxLen * sz * 0.55 / _outW * _size.width);
     final h = math.max(12.0, lines.length * sz * 1.2 / _outH * _size.height);
     return tl & Size(w, h);
@@ -682,25 +788,45 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   // ── overlay gesture routing ──────────────────────────────────────────────────
   void _panStart(Offset p) {
     switch (_overlay) {
-      case 'text': _textStart(p); break;
-      case 'sprites': _spriteStart(p); break;
-      case 'colorField': _ucStart(p); break;
+      case 'text':
+        _textStart(p);
+        break;
+      case 'sprites':
+        _spriteStart(p);
+        break;
+      case 'colorField':
+        _ucStart(p);
+        break;
       default:
         final hit = _hit(p);
         setState(() {
-          if (hit != null) { _drag = hit; }
-          else if (tool == 'move') { _drag = 'body'; _p0 = p; _px0 = posX; _py0 = posY; }
-          else { _drag = null; }
+          if (hit != null) {
+            _drag = hit;
+          } else if (tool == 'move') {
+            _drag = 'body';
+            _p0 = p;
+            _px0 = posX;
+            _py0 = posY;
+          } else {
+            _drag = null;
+          }
         });
     }
   }
 
   void _panUpdate(Offset p) {
     switch (_overlay) {
-      case 'text': _textUpdate(p); break;
-      case 'sprites': _spriteUpdate(p); break;
-      case 'colorField': _ucUpdate(p); break;
-      default: _apply(p);
+      case 'text':
+        _textUpdate(p);
+        break;
+      case 'sprites':
+        _spriteUpdate(p);
+        break;
+      case 'colorField':
+        _ucUpdate(p);
+        break;
+      default:
+        _apply(p);
     }
   }
 
@@ -708,11 +834,20 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     int? hit;
     for (int i = 3; i >= 0; i--) {
       if (_txtStr[i].trim().isEmpty) continue;
-      if (_textRect(i).inflate(6).contains(p)) { hit = i; break; }
+      if (_textRect(i).inflate(6).contains(p)) {
+        hit = i;
+        break;
+      }
     }
     setState(() {
-      if (hit != null) { _drag = 't$hit'; _p0 = p; _px0 = _txtX[hit]; _py0 = _txtY[hit]; }
-      else { _drag = null; }
+      if (hit != null) {
+        _drag = 't$hit';
+        _p0 = p;
+        _px0 = _txtX[hit];
+        _py0 = _txtY[hit];
+      } else {
+        _drag = null;
+      }
     });
     if (hit != null) _sel?.select(ShapeSel.text, hit + 1);
   }
@@ -727,12 +862,17 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   void _textUpdate(Offset p) {
     if (_drag == null || !_drag!.startsWith('t')) return;
     final i = int.parse(_drag!.substring(1));
-    final nx = (_px0 + (p.dx - _p0.dx) / _size.width * _outW).clamp(0.0, 3840.0);
-    final ny = (_py0 + (p.dy - _p0.dy) / _size.height * _outH).clamp(0.0, 2160.0);
+    final nx =
+        (_px0 + (p.dx - _p0.dx) / _size.width * _outW).clamp(0.0, 3840.0);
+    final ny =
+        (_py0 + (p.dy - _p0.dy) / _size.height * _outH).clamp(0.0, 2160.0);
     // Local UI tracks the pointer every frame; the device update is throttled
     // to ~30 Hz (each send is 2 msgs + a local echo) and the final position is
     // flushed on release, so dragging stays smooth without flooding the device.
-    setState(() { _txtX[i] = nx; _txtY[i] = ny; });
+    setState(() {
+      _txtX[i] = nx;
+      _txtY[i] = ny;
+    });
     final now = DateTime.now();
     if (now.difference(_lastTextSend).inMilliseconds >= 33) {
       _lastTextSend = now;
@@ -743,13 +883,20 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   void _spriteStart(Offset p) {
     int? hit;
     for (final e in _sprites.entries) {
-      if (_spriteRect(e.value).inflate(6).contains(p)) { hit = e.key; break; }
+      if (_spriteRect(e.value).inflate(6).contains(p)) {
+        hit = e.key;
+        break;
+      }
     }
     setState(() {
       if (hit != null) {
-        _drag = 'sp$hit'; _p0 = p;
-        _px0 = _sprites[hit]!.x; _py0 = _sprites[hit]!.y;
-      } else { _drag = null; }
+        _drag = 'sp$hit';
+        _p0 = p;
+        _px0 = _sprites[hit]!.x;
+        _py0 = _sprites[hit]!.y;
+      } else {
+        _drag = null;
+      }
     });
     if (hit != null) _sel?.select(ShapeSel.sprite, hit);
   }
@@ -759,9 +906,14 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     final r = int.parse(_drag!.substring(2));
     final b = _sprites[r];
     if (b == null) return;
-    final nx = (_px0 + (p.dx - _p0.dx) / _size.width * _outW).clamp(0.0, 1920.0);
-    final ny = (_py0 + (p.dy - _p0.dy) / _size.height * _outH).clamp(0.0, 1080.0);
-    setState(() { b.x = nx; b.y = ny; });
+    final nx =
+        (_px0 + (p.dx - _p0.dx) / _size.width * _outW).clamp(0.0, 1920.0);
+    final ny =
+        (_py0 + (p.dy - _p0.dy) / _size.height * _outH).clamp(0.0, 1080.0);
+    setState(() {
+      b.x = nx;
+      b.y = ny;
+    });
     _send3('/assets/sprites/move', [_sendIdx, r, nx.round(), ny.round()]);
   }
 
@@ -800,7 +952,6 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
@@ -814,82 +965,112 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     // Big working area filling the left side; the 16:9 output frame is centred
     // inside it, so handles can roam into the margin and stay grabbable.
     const overlayTitles = {
-      'transform': 'TRANSFORM', 'text': 'TEXT',
-      'sprites': 'SPRITES', 'colorField': 'COLOR FIELD',
+      'transform': 'TRANSFORM',
+      'text': 'TEXT',
+      'sprites': 'SPRITES',
+      'colorField': 'COLOR FIELD',
     };
     final isTransform = _overlay == 'transform';
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // Fixed-height header so the canvas top stays put regardless of whether
-      // the active tab shows tool buttons or a plain hint.
-      SizedBox(
-        height: t.u * 2.4,
-        child: Row(children: [
-        Text(overlayTitles[_overlay] ?? 'TRANSFORM',
-            style: t.textCaption.copyWith(letterSpacing: 1.5, color: const Color(0xFF8A8A92))),
-        const Spacer(),
-        // Hint / tool affordances per overlay.
-        if (isTransform) ...[
-          _toolBtn(t, Icons.open_with, 'Move', 'move'),
-          if (_full) _WarpToolButton(active: tool == 'warp', n: meshN, onPick: (n) { setState(() => tool = 'warp'); if (n != meshN) _setMeshSize(n); }),
-        ] else if (_overlay == 'colorField') ...[
-          _ucModeBtn(t, 'A', 'Falloff'),
-          _ucModeBtn(t, 'B', 'Fill'),
-          if (_ucPts.isNotEmpty) Padding(
-            padding: EdgeInsets.only(left: t.sm),
-            child: GestureDetector(
-              onTap: _ucClear,
-              child: Text('Clear', style: t.textCaption.copyWith(color: const Color(0xFF8A8A92))),
-            ),
-          ),
-        ] else
-          Text(_overlayHint(), style: t.textCaption.copyWith(color: const Color(0xFF6A6A72))),
-      ]),
-      ),
-      SizedBox(height: t.sm),
-      // Fills the whole left column (Stack so it carries no intrinsic height,
-      // letting the taller knob column set the row height under IntrinsicHeight;
-      // the painter self-measures and centres the 16:9 output frame inside).
-      Expanded(
-        child: NeumorphicInset(
-          baseColor: const Color(0xFF0C0C0E),
-          padding: EdgeInsets.all(t.xs),
-          child: Stack(children: [
-            Positioned.fill(
-              child: MouseRegion(
-                onHover: (e) => setState(() => _hover = e.localPosition - _stageOffset),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapUp: (dg) => _tapSelect(dg.localPosition - _stageOffset),
-                  onPanStart: (dg) => _panStart(dg.localPosition - _stageOffset),
-                  onPanUpdate: (dg) => _panUpdate(dg.localPosition - _stageOffset),
-                  onPanEnd: (_) {
-                    // Make sure the final (possibly throttled-away) text
-                    // position lands on the device.
-                    final d = _drag;
-                    if (d != null && d.startsWith('t')) {
-                      final i = int.parse(d.substring(1));
-                      _sendTextPos(i, _txtX[i], _txtY[i]);
-                    }
-                    setState(() => _drag = null);
-                  },
-                  child: CustomPaint(
-                      painter: _ShapePainter(this,
-                          isTransform ? (_drag ?? (_hover == null ? null : _hit(_hover!))) : null)),
+    // This sits directly in a GridRow cell rather than inside a Panel, so it
+    // has to reach the card's content edge itself — otherwise its header and
+    // canvas sit a panel-inset to the left of every sibling panel's title.
+    return Padding(
+      padding: EdgeInsets.only(left: t.panelContentInset),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Fixed-height header so the canvas top stays put regardless of whether
+        // the active tab shows tool buttons or a plain hint.
+        SizedBox(
+          height: t.u * 2.4,
+          child: Row(children: [
+            Text(overlayTitles[_overlay] ?? 'TRANSFORM',
+                style: t.textCaption.copyWith(
+                    letterSpacing: 1.5, color: const Color(0xFF8A8A92))),
+            const Spacer(),
+            // Hint / tool affordances per overlay.
+            if (isTransform) ...[
+              _toolBtn(t, Icons.open_with, 'Move', 'move'),
+              if (_full)
+                _WarpToolButton(
+                    active: tool == 'warp',
+                    n: meshN,
+                    onPick: (n) {
+                      setState(() => tool = 'warp');
+                      if (n != meshN) _setMeshSize(n);
+                    }),
+            ] else if (_overlay == 'colorField') ...[
+              _ucModeBtn(t, 'A', 'Falloff'),
+              _ucModeBtn(t, 'B', 'Fill'),
+              if (_ucPts.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(left: t.sm),
+                  child: GestureDetector(
+                    onTap: _ucClear,
+                    child: Text('Clear',
+                        style: t.textCaption
+                            .copyWith(color: const Color(0xFF8A8A92))),
+                  ),
                 ),
-              ),
-            ),
+            ] else
+              Text(_overlayHint(),
+                  style:
+                      t.textCaption.copyWith(color: const Color(0xFF6A6A72))),
           ]),
         ),
-      ),
-      if (_overlay == 'colorField' && _ucSel != null) _ucInspector(t),
-    ]);
+        SizedBox(height: t.sm),
+        // Fills the whole left column (Stack so it carries no intrinsic height,
+        // letting the taller knob column set the row height under IntrinsicHeight;
+        // the painter self-measures and centres the 16:9 output frame inside).
+        Expanded(
+          child: NeumorphicInset(
+            baseColor: const Color(0xFF0C0C0E),
+            padding: EdgeInsets.all(t.xs),
+            child: Stack(children: [
+              Positioned.fill(
+                child: MouseRegion(
+                  onHover: (e) =>
+                      setState(() => _hover = e.localPosition - _stageOffset),
+                  // DragArea (not GestureDetector) so dragging a crop handle or
+                  // warp point wins over the scrolling page on touch devices.
+                  child: DragArea(
+                    onTap: (p, _) => _tapSelect(p - _stageOffset),
+                    onDragStart: (p, _) => _panStart(p - _stageOffset),
+                    onDragUpdate: (p, _) => _panUpdate(p - _stageOffset),
+                    onDragEnd: () {
+                      // Make sure the final (possibly throttled-away) text
+                      // position lands on the device.
+                      final d = _drag;
+                      if (d != null && d.startsWith('t')) {
+                        final i = int.parse(d.substring(1));
+                        _sendTextPos(i, _txtX[i], _txtY[i]);
+                      }
+                      setState(() => _drag = null);
+                    },
+                    child: CustomPaint(
+                        painter: _ShapePainter(
+                            this,
+                            isTransform
+                                ? (_drag ??
+                                    (_hover == null ? null : _hit(_hover!)))
+                                : null)),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+        if (_overlay == 'colorField' && _ucSel != null) _ucInspector(t),
+      ]),
+    );
   }
 
   String _overlayHint() {
     switch (_overlay) {
-      case 'text': return 'drag to position';
-      case 'sprites': return _sprites.isEmpty ? 'no sprites shown' : 'drag to position';
-      default: return '';
+      case 'text':
+        return 'drag to position';
+      case 'sprites':
+        return _sprites.isEmpty ? 'no sprites shown' : 'drag to position';
+      default:
+        return '';
     }
   }
 
@@ -901,9 +1082,13 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         onTap: () => _ucSetMode(key),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.8),
-          decoration: BoxDecoration(color: on ? _amber : const Color(0xFF212124), borderRadius: BorderRadius.circular(4)),
-          child: Text(label, style: t.textCaption.copyWith(
-              color: on ? Colors.black : const Color(0xFF8A8A92), fontWeight: FontWeight.w600)),
+          decoration: BoxDecoration(
+              color: on ? _amber : const Color(0xFF212124),
+              borderRadius: BorderRadius.circular(4)),
+          child: Text(label,
+              style: t.textCaption.copyWith(
+                  color: on ? Colors.black : const Color(0xFF8A8A92),
+                  fontWeight: FontWeight.w700)),
         ),
       ),
     );
@@ -913,41 +1098,61 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   Widget _ucInspector(GridTokens t) {
     final p = _ucPts[_ucSel!];
     final swatch = HSVColor.fromAHSV(1, p.hue % 360, 0.85, 1).toColor();
-    Widget slider(String label, double v, double min, double max, ValueChanged<double> on, {List<Color>? track}) {
+    Widget slider(
+        String label, double v, double min, double max, ValueChanged<double> on,
+        {List<Color>? track}) {
       return Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: t.textLabel.copyWith(color: const Color(0xFF8A8A92))),
-          SizedBox(
-            height: 22,
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: track != null ? 5 : 2.5,
-                overlayShape: SliderComponentShape.noOverlay,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                activeTrackColor: track != null ? Colors.transparent : _amber,
-                inactiveTrackColor: track != null ? Colors.transparent : const Color(0xFF3A3A40),
-                thumbColor: Colors.white,
-              ),
-              child: Stack(alignment: Alignment.center, children: [
-                if (track != null)
-                  Container(
-                    height: 5, margin: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                      gradient: LinearGradient(colors: track),
-                    ),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: t.textLabel.copyWith(color: const Color(0xFF8A8A92))),
+              SizedBox(
+                height: 22,
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: track != null ? 5 : 2.5,
+                    overlayShape: SliderComponentShape.noOverlay,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    activeTrackColor:
+                        track != null ? Colors.transparent : _amber,
+                    inactiveTrackColor: track != null
+                        ? Colors.transparent
+                        : const Color(0xFF3A3A40),
+                    thumbColor: Colors.white,
                   ),
-                Slider(value: v.clamp(min, max), min: min, max: max, onChanged: on),
-              ]),
-            ),
-          ),
-        ]),
+                  child: Stack(alignment: Alignment.center, children: [
+                    if (track != null)
+                      Container(
+                        height: 5,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          gradient: LinearGradient(colors: track),
+                        ),
+                      ),
+                    Slider(
+                        value: v.clamp(min, max),
+                        min: min,
+                        max: max,
+                        onChanged: on),
+                  ]),
+                ),
+              ),
+            ]),
       );
     }
 
     const hueTrack = [
-      Color(0xFFFF4444), Color(0xFFFFDD44), Color(0xFF44FF66),
-      Color(0xFF44DDFF), Color(0xFF6666FF), Color(0xFFFF44EE), Color(0xFFFF4444),
+      Color(0xFFFF4444),
+      Color(0xFFFFDD44),
+      Color(0xFF44FF66),
+      Color(0xFF44DDFF),
+      Color(0xFF6666FF),
+      Color(0xFFFF44EE),
+      Color(0xFFFF4444),
     ];
     return Padding(
       padding: EdgeInsets.only(top: t.sm),
@@ -959,19 +1164,27 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(children: [
-          Container(width: 14, height: 14, decoration: BoxDecoration(
-              color: swatch, borderRadius: BorderRadius.circular(3))),
+          Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                  color: swatch, borderRadius: BorderRadius.circular(3))),
           SizedBox(width: t.xs),
-          Text('Point ${_ucSel! + 1}', style: t.textCaption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+          Text('Point ${_ucSel! + 1}',
+              style: t.textCaption
+                  .copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
           SizedBox(width: t.md),
-          slider('Colour', p.hue, 0, 360, (v) => _ucEdit((q) => q.hue = v), track: hueTrack),
+          slider('Colour', p.hue, 0, 360, (v) => _ucEdit((q) => q.hue = v),
+              track: hueTrack),
           SizedBox(width: t.md),
           slider('Amount', p.amount, 0, 1, (v) => _ucEdit((q) => q.amount = v)),
           SizedBox(width: t.md),
-          slider('Falloff', p.radius, 0.05, 0.9, (v) => _ucEdit((q) => q.radius = v)),
+          slider('Falloff', p.radius, 0.05, 0.9,
+              (v) => _ucEdit((q) => q.radius = v)),
           SizedBox(width: t.sm),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFE08A8E)),
+            icon: const Icon(Icons.delete_outline,
+                size: 18, color: Color(0xFFE08A8E)),
             visualDensity: VisualDensity.compact,
             onPressed: _ucDelete,
           ),
@@ -980,17 +1193,27 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     );
   }
 
-  Widget _toolBtn(GridTokens t, IconData ic, String label, String key) => Padding(
+  Widget _toolBtn(GridTokens t, IconData ic, String label, String key) =>
+      Padding(
         padding: EdgeInsets.only(left: t.xs),
         child: GestureDetector(
           onTap: () => setState(() => tool = key),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.8),
-            decoration: BoxDecoration(color: tool == key ? _amber : const Color(0xFF212124), borderRadius: BorderRadius.circular(4)),
+            padding:
+                EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.8),
+            decoration: BoxDecoration(
+                color: tool == key ? _amber : const Color(0xFF212124),
+                borderRadius: BorderRadius.circular(4)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(ic, size: t.u * 1.4, color: tool == key ? Colors.black : const Color(0xFF8A8A92)),
+              Icon(ic,
+                  size: t.u * 1.4,
+                  color: tool == key ? Colors.black : const Color(0xFF8A8A92)),
               SizedBox(width: t.xs),
-              Text(label, style: t.textCaption.copyWith(color: tool == key ? Colors.black : const Color(0xFF8A8A92), fontWeight: FontWeight.w600)),
+              Text(label,
+                  style: t.textCaption.copyWith(
+                      color:
+                          tool == key ? Colors.black : const Color(0xFF8A8A92),
+                      fontWeight: FontWeight.w700)),
             ]),
           ),
         ),
@@ -1020,7 +1243,11 @@ class _UcPoint {
   })  : _hue = hue,
         rgb = _hueRgb(hue);
   double get hue => _hue;
-  set hue(double h) { _hue = h; rgb = _hueRgb(h); }
+  set hue(double h) {
+    _hue = h;
+    rgb = _hueRgb(h);
+  }
+
   // Full-saturation HSV→RGB (0..1); manual so it doesn't depend on the Color
   // component accessors, which differ across Flutter versions.
   static List<double> _hueRgb(double h) {
@@ -1041,44 +1268,73 @@ class _Geo {
   final double ang, fw, fh, barrel;
   final List<Offset> full, quad, cropEdges, mesh;
   final Offset grip, lens;
-  _Geo(this.center, this.ang, this.fw, this.fh, this.barrel, this.full, this.quad,
-      this.cropEdges, this.mesh, this.grip, this.lens);
+  _Geo(this.center, this.ang, this.fw, this.fh, this.barrel, this.full,
+      this.quad, this.cropEdges, this.mesh, this.grip, this.lens);
 }
 
-_Geo _computeGeo(Size size, {
-  required double rotDeg, required double cl, required double cr, required double ct, required double cb,
-  required double sx, required double sy, required double px, required double py,
-  required List<Offset> mesh, required int n,
-  double keyH = 0, double keyV = 0, double shearX = 0, double shearY = 0,
-  double barrel = 0, double lensX = 0, double lensY = 0,
+_Geo _computeGeo(
+  Size size, {
+  required double rotDeg,
+  required double cl,
+  required double cr,
+  required double ct,
+  required double cb,
+  required double sx,
+  required double sy,
+  required double px,
+  required double py,
+  required List<Offset> mesh,
+  required int n,
+  double keyH = 0,
+  double keyV = 0,
+  double shearX = 0,
+  double shearY = 0,
+  double barrel = 0,
+  double lensX = 0,
+  double lensY = 0,
 }) {
   final sxc = sx.clamp(0.05, 4.0), syc = sy.clamp(0.05, 4.0);
   // Position couples with scale exactly as the device does — both the RECT path
   // (dst_x = pos·(W+scale·W)−scale·W) and the warp affine give:
   //   centre = 0.5 + (pos−0.5)·(1+scale).
   final c = size.center(Offset.zero) +
-      Offset((px - 0.5) * size.width * (1 + sxc), (py - 0.5) * size.height * (1 + syc));
+      Offset((px - 0.5) * size.width * (1 + sxc),
+          (py - 0.5) * size.height * (1 + syc));
   final ang = -rotDeg * math.pi / 180;
   final ca = math.cos(ang), sa = math.sin(ang);
   final fw = size.width * sxc, fh = size.height * syc;
-  Offset rot(double dx, double dy) => c + Offset(dx * ca - dy * sa, dx * sa + dy * ca);
+  Offset rot(double dx, double dy) =>
+      c + Offset(dx * ca - dy * sa, dx * sa + dy * ca);
   // Keystone/shear corner offsets (output px → frame-local px), matching the
   // firmware's k[] deltas (warp_keystone_matrix).
   final kh = keyH / _outW * fw, kv = keyV / _outH * fh;
   final shx = shearX / _outW * fw, shy = shearY / _outH * fh;
   final full = [
     rot(-fw / 2 + kh - shx, -fh / 2 + kv - shy), // TL
-    rot(fw / 2 - kh - shx, -fh / 2 + shy),        // TR
-    rot(fw / 2 + shx, fh / 2 + shy),              // BR
-    rot(-fw / 2 + shx, fh / 2 - kv - shy),        // BL
+    rot(fw / 2 - kh - shx, -fh / 2 + shy), // TR
+    rot(fw / 2 + shx, fh / 2 + shy), // BR
+    rot(-fw / 2 + shx, fh / 2 - kv - shy), // BL
   ];
-  Offset lerp(Offset a, Offset b, double t) => Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
-  Offset bil(List<Offset> q, double u, double v) => lerp(lerp(q[0], q[1], u), lerp(q[3], q[2], u), v);
-  final quad = [bil(full, cl, ct), bil(full, 1 - cr, ct), bil(full, 1 - cr, 1 - cb), bil(full, cl, 1 - cb)];
-  final cropEdges = [lerp(quad[0], quad[1], .5), lerp(quad[1], quad[2], .5), lerp(quad[2], quad[3], .5), lerp(quad[3], quad[0], .5)];
+  Offset lerp(Offset a, Offset b, double t) =>
+      Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
+  Offset bil(List<Offset> q, double u, double v) =>
+      lerp(lerp(q[0], q[1], u), lerp(q[3], q[2], u), v);
+  final quad = [
+    bil(full, cl, ct),
+    bil(full, 1 - cr, ct),
+    bil(full, 1 - cr, 1 - cb),
+    bil(full, cl, 1 - cb)
+  ];
+  final cropEdges = [
+    lerp(quad[0], quad[1], .5),
+    lerp(quad[1], quad[2], .5),
+    lerp(quad[2], quad[3], .5),
+    lerp(quad[3], quad[0], .5)
+  ];
   final topFull = lerp(full[0], full[1], .5);
   final dir = topFull - c;
-  final grip = topFull + (dir.distance == 0 ? const Offset(0, -1) : dir / dir.distance) * 26;
+  final grip = topFull +
+      (dir.distance == 0 ? const Offset(0, -1) : dir / dir.distance) * 26;
   final lens = rot(lensX / _outW * fw, lensY / _outH * fh);
   final mp = <Offset>[];
   if (n >= 2) {
@@ -1103,7 +1359,8 @@ _Geo _computeGeo(Size size, {
 
 Offset _unrot(Offset p, _Geo g) {
   final d = p - g.center;
-  return Offset(d.dx * math.cos(g.ang) + d.dy * math.sin(g.ang), -d.dx * math.sin(g.ang) + d.dy * math.cos(g.ang));
+  return Offset(d.dx * math.cos(g.ang) + d.dy * math.sin(g.ang),
+      -d.dx * math.sin(g.ang) + d.dy * math.cos(g.ang));
 }
 
 // ── painter ───────────────────────────────────────────────────────────────────
@@ -1117,72 +1374,108 @@ class _ShapePainter extends CustomPainter {
     // it for the gesture layer (avoids a LayoutBuilder, which can't live under
     // IntrinsicHeight — needed so the canvas fills the whole left column).
     double w = size.width, h = w * 9 / 16;
-    if (h > size.height) { h = size.height; w = h * 16 / 9; }
+    if (h > size.height) {
+      h = size.height;
+      w = h * 16 / 9;
+    }
     s._size = Size(w, h);
     s._stageOffset = Offset((size.width - w) / 2, (size.height - h) / 2);
 
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF08080A));
+    canvas.drawRect(
+        Offset.zero & size, Paint()..color = const Color(0xFF08080A));
     canvas.save();
     canvas.translate(s._stageOffset.dx, s._stageOffset.dy);
     final ss = s._size;
     final r = Offset.zero & ss;
     canvas.drawRect(r, Paint()..color = const Color(0xFF0A0A0C));
-    final grid = Paint()..color = Colors.white.withValues(alpha: 0.05)..strokeWidth = 1;
-    for (int i = 1; i < 16; i++) canvas.drawLine(Offset(ss.width * i / 16, 0), Offset(ss.width * i / 16, ss.height), grid);
-    for (int i = 1; i < 9; i++) canvas.drawLine(Offset(0, ss.height * i / 9), Offset(ss.width, ss.height * i / 9), grid);
-    canvas.drawRect(r.deflate(1), Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = Colors.white.withValues(alpha: 0.18));
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: 0.05)
+      ..strokeWidth = 1;
+    for (int i = 1; i < 16; i++)
+      canvas.drawLine(Offset(ss.width * i / 16, 0),
+          Offset(ss.width * i / 16, ss.height), grid);
+    for (int i = 1; i < 9; i++)
+      canvas.drawLine(Offset(0, ss.height * i / 9),
+          Offset(ss.width, ss.height * i / 9), grid);
+    canvas.drawRect(
+        r.deflate(1),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: 0.18));
 
     final g = s._geo();
-    Offset lerp(Offset a, Offset b, double t) => Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
+    Offset lerp(Offset a, Offset b, double t) =>
+        Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
     final warping = s._full && s.tool == 'warp';
 
     // Nominal (un-warped) output frame — faint white reference rectangle.
-    canvas.drawPath(Path()..addPolygon(g.full, true), Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = Colors.white.withValues(alpha: 0.18));
+    canvas.drawPath(
+        Path()..addPolygon(g.full, true),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: 0.18));
 
     // Content = the real device deformation (forward LUT: keystone/barrel/lens/
     // field/mesh, live-animated), or the parametric cropped quad until it lands.
     // Skipped under the colour-field mesh, which owns the whole output raster.
     if (s._overlay != 'colorField') {
-    final lut = s._lut;
-    final ln = s._lutN;
-    final hasLut = lut != null && ln >= 2;
-    Offset lp(int i, int j) => Offset(lut![j * ln + i].dx * ss.width, lut[j * ln + i].dy * ss.height);
-    List<Offset> boundary;
-    if (hasLut) {
-      boundary = <Offset>[];
-      for (int i = 0; i < ln; i++) boundary.add(lp(i, 0));
-      for (int j = 1; j < ln; j++) boundary.add(lp(ln - 1, j));
-      for (int i = ln - 2; i >= 0; i--) boundary.add(lp(i, ln - 1));
-      for (int j = ln - 2; j >= 1; j--) boundary.add(lp(0, j));
-    } else {
-      boundary = g.quad;
-    }
-    final bp = Path()..addPolygon(boundary, true);
-    canvas.drawPath(bp, Paint()..color = _amber.withValues(alpha: 0.06));
-    canvas.save();
-    canvas.clipPath(bp);
-    final hatch = Paint()..color = _amber.withValues(alpha: 0.10)..strokeWidth = 1;
-    for (double d = -ss.height; d < ss.width; d += 10) canvas.drawLine(Offset(d, 0), Offset(d + ss.height, ss.height), hatch);
-    canvas.restore();
-    if (!warping) {
+      final lut = s._lut;
+      final ln = s._lutN;
+      final hasLut = lut != null && ln >= 2;
+      Offset lp(int i, int j) => Offset(
+          lut![j * ln + i].dx * ss.width, lut[j * ln + i].dy * ss.height);
+      List<Offset> boundary;
       if (hasLut) {
-        // Interior deformation grid straight from the device.
-        final gl = Paint()..color = _amber.withValues(alpha: 0.20)..strokeWidth = 0.75;
-        for (int j = 0; j < ln; j++) {
-          for (int i = 0; i < ln; i++) {
-            if (i < ln - 1) canvas.drawLine(lp(i, j), lp(i + 1, j), gl);
-            if (j < ln - 1) canvas.drawLine(lp(i, j), lp(i, j + 1), gl);
+        boundary = <Offset>[];
+        for (int i = 0; i < ln; i++) boundary.add(lp(i, 0));
+        for (int j = 1; j < ln; j++) boundary.add(lp(ln - 1, j));
+        for (int i = ln - 2; i >= 0; i--) boundary.add(lp(i, ln - 1));
+        for (int j = ln - 2; j >= 1; j--) boundary.add(lp(0, j));
+      } else {
+        boundary = g.quad;
+      }
+      final bp = Path()..addPolygon(boundary, true);
+      canvas.drawPath(bp, Paint()..color = _amber.withValues(alpha: 0.06));
+      canvas.save();
+      canvas.clipPath(bp);
+      final hatch = Paint()
+        ..color = _amber.withValues(alpha: 0.10)
+        ..strokeWidth = 1;
+      for (double d = -ss.height; d < ss.width; d += 10)
+        canvas.drawLine(Offset(d, 0), Offset(d + ss.height, ss.height), hatch);
+      canvas.restore();
+      if (!warping) {
+        if (hasLut) {
+          // Interior deformation grid straight from the device.
+          final gl = Paint()
+            ..color = _amber.withValues(alpha: 0.20)
+            ..strokeWidth = 0.75;
+          for (int j = 0; j < ln; j++) {
+            for (int i = 0; i < ln; i++) {
+              if (i < ln - 1) canvas.drawLine(lp(i, j), lp(i + 1, j), gl);
+              if (j < ln - 1) canvas.drawLine(lp(i, j), lp(i, j + 1), gl);
+            }
+          }
+        } else {
+          final thirds = Paint()
+            ..color = _amber.withValues(alpha: 0.22)
+            ..strokeWidth = 0.75;
+          for (int i = 1; i < 3; i++) {
+            canvas.drawLine(lerp(g.quad[0], g.quad[1], i / 3),
+                lerp(g.quad[3], g.quad[2], i / 3), thirds);
+            canvas.drawLine(lerp(g.quad[0], g.quad[3], i / 3),
+                lerp(g.quad[1], g.quad[2], i / 3), thirds);
           }
         }
-      } else {
-        final thirds = Paint()..color = _amber.withValues(alpha: 0.22)..strokeWidth = 0.75;
-        for (int i = 1; i < 3; i++) {
-          canvas.drawLine(lerp(g.quad[0], g.quad[1], i / 3), lerp(g.quad[3], g.quad[2], i / 3), thirds);
-          canvas.drawLine(lerp(g.quad[0], g.quad[3], i / 3), lerp(g.quad[1], g.quad[2], i / 3), thirds);
-        }
       }
-    }
-    canvas.drawPath(bp, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = _amber);
+      canvas.drawPath(
+          bp,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..color = _amber);
     } // end content boundary
 
     // The colour-field mesh owns the whole canvas. On every other tab, show the
@@ -1196,27 +1489,47 @@ class _ShapePainter extends CustomPainter {
       double alphaFor(String o) => s._overlay == o ? 1.0 : 0.26;
 
       // ── geometry handles (active on Transform / Warp) ──
-      canvas.saveLayer(lb, Paint()..color = Colors.white.withValues(alpha: alphaFor('transform')));
+      canvas.saveLayer(
+          lb,
+          Paint()
+            ..color = Colors.white.withValues(alpha: alphaFor('transform')));
       final aa = warping ? 0.5 : 1.0;
       // scale corners (blue circles)
       for (int i = 0; i < 4; i++) {
         final on = hot == 's$i';
-        canvas.drawCircle(g.full[i], on ? 8 : 6, Paint()..color = (on ? Colors.white : _blue).withValues(alpha: on ? 1 : aa));
+        canvas.drawCircle(
+            g.full[i],
+            on ? 8 : 6,
+            Paint()
+              ..color =
+                  (on ? Colors.white : _blue).withValues(alpha: on ? 1 : aa));
       }
       // crop bars — oriented along the frame edges
       for (int i = 0; i < 4; i++) {
         final on = hot == 'e$i';
         final edge = g.quad[(i + 1) % 4] - g.quad[i];
         final ang = math.atan2(edge.dy, edge.dx);
-        canvas.save(); canvas.translate(g.cropEdges[i].dx, g.cropEdges[i].dy); canvas.rotate(ang);
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: on ? 20 : 16, height: on ? 7 : 6), const Radius.circular(2)),
-            Paint()..color = (on ? Colors.white : _amber).withValues(alpha: on ? 1 : aa));
+        canvas.save();
+        canvas.translate(g.cropEdges[i].dx, g.cropEdges[i].dy);
+        canvas.rotate(ang);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromCenter(
+                    center: Offset.zero,
+                    width: on ? 20 : 16,
+                    height: on ? 7 : 6),
+                const Radius.circular(2)),
+            Paint()
+              ..color =
+                  (on ? Colors.white : _amber).withValues(alpha: on ? 1 : aa));
         canvas.restore();
       }
       // warp mesh — visible whenever a mesh exists (editable only in warp tool)
       if (g.mesh.isNotEmpty) {
         final n = s.meshN;
-        final line = Paint()..color = _teal.withValues(alpha: 0.55)..strokeWidth = 1;
+        final line = Paint()
+          ..color = _teal.withValues(alpha: 0.55)
+          ..strokeWidth = 1;
         for (int j = 0; j < n; j++) {
           for (int i = 0; i < n; i++) {
             final p = g.mesh[j * n + i];
@@ -1226,31 +1539,52 @@ class _ShapePainter extends CustomPainter {
         }
         for (int k = 0; k < g.mesh.length; k++) {
           final on = hot == 'w$k';
-          canvas.drawCircle(g.mesh[k], on ? 6 : 4, Paint()..color = on ? Colors.white : _teal);
+          canvas.drawCircle(g.mesh[k], on ? 6 : 4,
+              Paint()..color = on ? Colors.white : _teal);
         }
       }
       // lens optical-centre puck (Send 1) — green dot, drag to set lens X/Y
       if (s._full) {
         final on = hot == 'lens';
-        canvas.drawCircle(g.lens, on ? 13 : 11, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = on ? Colors.white : _green);
+        canvas.drawCircle(
+            g.lens,
+            on ? 13 : 11,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2
+              ..color = on ? Colors.white : _green);
         canvas.drawCircle(g.lens, 3.5, Paint()..color = _green);
       }
       // rotation grip (Send 1)
       if (s._canRotate) {
         final topFull = lerp(g.full[0], g.full[1], .5);
-        canvas.drawLine(topFull, g.grip, Paint()..color = _amber..strokeWidth = 1.5);
-        canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = hot == 'rot' ? Colors.white : _amber);
-        canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5, Paint()..color = const Color(0xFF0A0A0C));
+        canvas.drawLine(
+            topFull,
+            g.grip,
+            Paint()
+              ..color = _amber
+              ..strokeWidth = 1.5);
+        canvas.drawCircle(
+            g.grip,
+            hot == 'rot' ? 7 : 5,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5
+              ..color = hot == 'rot' ? Colors.white : _amber);
+        canvas.drawCircle(g.grip, hot == 'rot' ? 7 : 5,
+            Paint()..color = const Color(0xFF0A0A0C));
       }
       canvas.restore();
 
       // ── text placeholders (active on Text) ──
-      canvas.saveLayer(lb, Paint()..color = Colors.white.withValues(alpha: alphaFor('text')));
+      canvas.saveLayer(lb,
+          Paint()..color = Colors.white.withValues(alpha: alphaFor('text')));
       _paintText(canvas, ss);
       canvas.restore();
 
       // ── sprite placeholders (active on Sprites) ──
-      canvas.saveLayer(lb, Paint()..color = Colors.white.withValues(alpha: alphaFor('sprites')));
+      canvas.saveLayer(lb,
+          Paint()..color = Colors.white.withValues(alpha: alphaFor('sprites')));
       _paintSprites(canvas, ss);
       canvas.restore();
     }
@@ -1262,7 +1596,8 @@ class _ShapePainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
           text: text,
-          style: TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.w700)),
+          style:
+              TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.w700)),
       textDirection: TextDirection.ltr,
       maxLines: 1,
       ellipsis: '…',
@@ -1279,7 +1614,12 @@ class _ShapePainter extends CustomPainter {
           (s._sel?.kind == ShapeSel.text && s._sel?.region == i + 1);
       final c = sel ? Colors.white : _teal;
       canvas.drawRect(r, Paint()..color = c.withValues(alpha: 0.10));
-      canvas.drawRect(r, Paint()..style = PaintingStyle.stroke..strokeWidth = sel ? 2 : 1.5..color = c);
+      canvas.drawRect(
+          r,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = sel ? 2 : 1.5
+            ..color = c);
       final first = s._txtStr[i].split('\n').first;
       _label(canvas, r, 'T${i + 1}  $first', c);
     }
@@ -1293,13 +1633,21 @@ class _ShapePainter extends CustomPainter {
           (s._sel?.kind == ShapeSel.sprite && s._sel?.region == e.key);
       final c = sel ? Colors.white : _green;
       canvas.drawRect(r, Paint()..color = c.withValues(alpha: 0.08));
-      canvas.drawRect(r, Paint()..style = PaintingStyle.stroke..strokeWidth = sel ? 2 : 1.5..color = c);
+      canvas.drawRect(
+          r,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = sel ? 2 : 1.5
+            ..color = c);
       // Diagonals read as an image placeholder.
-      final x = Paint()..color = c.withValues(alpha: 0.35)..strokeWidth = 1;
+      final x = Paint()
+        ..color = c.withValues(alpha: 0.35)
+        ..strokeWidth = 1;
       canvas.drawLine(r.topLeft, r.bottomRight, x);
       canvas.drawLine(r.topRight, r.bottomLeft, x);
       final info = s._spriteInfo[e.value.sprite];
-      _label(canvas, r, 'R${e.key}  ${info?.name ?? 'sprite ${e.value.sprite}'}', c);
+      _label(canvas, r,
+          'R${e.key}  ${info?.name ?? 'sprite ${e.value.sprite}'}', c);
     }
   }
 
@@ -1321,15 +1669,21 @@ class _ShapePainter extends CustomPainter {
             Paint()..color = Color.fromARGB(255, r, g, b));
       }
     }
-    final gl = Paint()..color = Colors.black.withValues(alpha: 0.10)..strokeWidth = 0.75;
+    final gl = Paint()
+      ..color = Colors.black.withValues(alpha: 0.10)
+      ..strokeWidth = 0.75;
     for (int cx = 1; cx < nx; cx++) {
       canvas.drawLine(Offset(cx * cw, 0), Offset(cx * cw, ss.height), gl);
     }
     for (int cy = 1; cy < ny; cy++) {
       canvas.drawLine(Offset(0, cy * ch), Offset(ss.width, cy * ch), gl);
     }
-    canvas.drawRect(Offset.zero & ss,
-        Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = Colors.white.withValues(alpha: 0.18));
+    canvas.drawRect(
+        Offset.zero & ss,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: 0.18));
 
     // Control points.
     for (int i = 0; i < s._ucPts.length; i++) {
@@ -1341,14 +1695,23 @@ class _ShapePainter extends CustomPainter {
         // Falloff extent — an ellipse (x compressed by the frame aspect, since
         // the bake measures distance in aspect-corrected units).
         canvas.drawOval(
-            Rect.fromCenter(center: ctr,
+            Rect.fromCenter(
+                center: ctr,
                 width: 2 * p.radius / (_outW / _outH) * ss.width,
                 height: 2 * p.radius * ss.height),
-            Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = c.withValues(alpha: 0.6));
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1
+              ..color = c.withValues(alpha: 0.6));
       }
       canvas.drawCircle(ctr, sel ? 8 : 6, Paint()..color = c);
-      canvas.drawCircle(ctr, sel ? 8 : 6,
-          Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = sel ? Colors.white : const Color(0x99000000));
+      canvas.drawCircle(
+          ctr,
+          sel ? 8 : 6,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = sel ? Colors.white : const Color(0x99000000));
       canvas.drawCircle(ctr, 2, Paint()..color = const Color(0x99000000));
     }
   }
@@ -1362,7 +1725,8 @@ class _WarpToolButton extends StatefulWidget {
   final bool active;
   final int n;
   final ValueChanged<int> onPick;
-  const _WarpToolButton({required this.active, required this.n, required this.onPick});
+  const _WarpToolButton(
+      {required this.active, required this.n, required this.onPick});
   @override
   State<_WarpToolButton> createState() => _WarpToolButtonState();
 }
@@ -1380,13 +1744,19 @@ class _WarpToolButtonState extends State<_WarpToolButton> {
     widget.onPick(n); // activates warp with current/default N
     final box = _key.currentContext!.findRenderObject() as RenderBox;
     final tl = box.localToGlobal(Offset.zero);
-    _menu = Rect.fromLTWH(tl.dx, tl.dy + box.size.height + 4, math.max(box.size.width, 56), sizes.length * _ih);
+    _menu = Rect.fromLTWH(tl.dx, tl.dy + box.size.height + 4,
+        math.max(box.size.width, 56), sizes.length * _ih);
     _hoverIdx = sizes.indexOf(n);
     _entry = OverlayEntry(builder: (_) => _build());
     Overlay.of(context).insert(_entry!);
   }
 
-  void _close() { _entry?.remove(); _entry = null; _hoverIdx = -1; }
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+    _hoverIdx = -1;
+  }
+
   int _at(Offset g) {
     if (!_menu.inflate(8).contains(g)) return -1;
     final i = ((g.dy - _menu.top) / _ih).floor();
@@ -1395,44 +1765,96 @@ class _WarpToolButtonState extends State<_WarpToolButton> {
 
   Widget _build() {
     final t = GridProvider.of(context);
-    return Positioned(left: _menu.left, top: _menu.top, width: _menu.width, child: Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(color: const Color(0xFF212124), borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 14)]),
-        clipBehavior: Clip.antiAlias,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (int i = 0; i < sizes.length; i++)
-            Container(height: _ih, width: double.infinity, alignment: Alignment.center,
-                color: i == _hoverIdx ? _amber : (sizes[i] == widget.n ? _amber.withValues(alpha: 0.18) : Colors.transparent),
-                child: Text('${sizes[i]}×${sizes[i]}', style: t.textLabel.copyWith(color: i == _hoverIdx ? Colors.black : Colors.white, fontWeight: FontWeight.w600))),
-        ]),
-      ),
-    ));
+    return Positioned(
+        left: _menu.left,
+        top: _menu.top,
+        width: _menu.width,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+                color: const Color(0xFF212124),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 14)
+                ]),
+            clipBehavior: Clip.antiAlias,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (int i = 0; i < sizes.length; i++)
+                Container(
+                    height: _ih,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    color: i == _hoverIdx
+                        ? _amber
+                        : (sizes[i] == widget.n
+                            ? _amber.withValues(alpha: 0.18)
+                            : Colors.transparent),
+                    child: Text('${sizes[i]}×${sizes[i]}',
+                        style: t.textLabel.copyWith(
+                            color: i == _hoverIdx ? Colors.black : Colors.white,
+                            fontWeight: FontWeight.w700))),
+            ]),
+          ),
+        ));
   }
 
   @override
-  void dispose() { _entry?.remove(); super.dispose(); }
+  void dispose() {
+    _entry?.remove();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
     final on = widget.active;
-    return Padding(padding: EdgeInsets.only(left: t.xs), child: Listener(
-      onPointerDown: (_) => _open(),
-      onPointerMove: (e) { final i = _at(e.position); if (i != _hoverIdx) { _hoverIdx = i; _entry?.markNeedsBuild(); } },
-      onPointerUp: (_) { if (_hoverIdx >= 0) widget.onPick(sizes[_hoverIdx]); _close(); },
-      child: Container(key: _key, padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.8),
-        decoration: BoxDecoration(color: on ? _amber : const Color(0xFF212124), borderRadius: BorderRadius.circular(4)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.grid_on, size: t.u * 1.4, color: on ? Colors.black : const Color(0xFF8A8A92)),
-          SizedBox(width: t.xs),
-          Text('Warp', style: t.textCaption.copyWith(color: on ? Colors.black : const Color(0xFF8A8A92), fontWeight: FontWeight.w600)),
-          if (widget.n >= 2) ...[SizedBox(width: t.xs * 0.8), Text('${widget.n}', style: t.textCaption.copyWith(color: on ? Colors.black : Colors.white, fontWeight: FontWeight.w700))],
-          Icon(Icons.arrow_drop_down, size: t.u * 1.4, color: on ? Colors.black : const Color(0xFF8A8A92)),
-        ]),
-      ),
-    ));
+    return Padding(
+        padding: EdgeInsets.only(left: t.xs),
+        child: Listener(
+          onPointerDown: (_) => _open(),
+          onPointerMove: (e) {
+            final i = _at(e.position);
+            if (i != _hoverIdx) {
+              _hoverIdx = i;
+              _entry?.markNeedsBuild();
+            }
+          },
+          onPointerUp: (_) {
+            if (_hoverIdx >= 0) widget.onPick(sizes[_hoverIdx]);
+            _close();
+          },
+          child: Container(
+            key: _key,
+            padding:
+                EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.8),
+            decoration: BoxDecoration(
+                color: on ? _amber : const Color(0xFF212124),
+                borderRadius: BorderRadius.circular(4)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.grid_on,
+                  size: t.u * 1.4,
+                  color: on ? Colors.black : const Color(0xFF8A8A92)),
+              SizedBox(width: t.xs),
+              Text('Warp',
+                  style: t.textCaption.copyWith(
+                      color: on ? Colors.black : const Color(0xFF8A8A92),
+                      fontWeight: FontWeight.w700)),
+              if (widget.n >= 2) ...[
+                SizedBox(width: t.xs * 0.8),
+                Text('${widget.n}',
+                    style: t.textCaption.copyWith(
+                        color: on ? Colors.black : Colors.white,
+                        fontWeight: FontWeight.w700))
+              ],
+              Icon(Icons.arrow_drop_down,
+                  size: t.u * 1.4,
+                  color: on ? Colors.black : const Color(0xFF8A8A92)),
+            ]),
+          ),
+        ));
   }
 }

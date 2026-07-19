@@ -28,7 +28,7 @@ class MixerPage extends StatelessWidget {
         return GridProvider(
           tokens: t,
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(t.md),
+            padding: t.pagePadding,
             child: LabeledCard(
               title: 'Mixer',
               child: _MixerMatrix(tokens: t),
@@ -96,7 +96,7 @@ class _MixerMatrixState extends State<_MixerMatrix> {
     final t = widget.tokens;
     final headerStyle = t.textLabel.copyWith(
       color: const Color(0xFFE1E1E3),
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w700,
     );
 
     return Column(

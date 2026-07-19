@@ -54,7 +54,7 @@ void showAppAlert(
                 style: const TextStyle(
                   fontFamily: 'DINPro',
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                   letterSpacing: 0.08,
                   color: Color(0xFFF1F1F3),
                 ),

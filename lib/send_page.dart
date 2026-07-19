@@ -55,7 +55,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
           child: Stack(
             children: [
               SingleChildScrollView(
-                padding: EdgeInsets.all(t.md),
+                padding: t.pagePadding,
                 child: Stack(
                   children: [
                     Column(
@@ -338,8 +338,8 @@ class _Send3RotationDisabledOverlayState
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
                 ),
               ),

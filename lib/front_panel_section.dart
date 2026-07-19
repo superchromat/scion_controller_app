@@ -122,7 +122,7 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
       title: 'Front Panel',
       fillChild: true,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(t.md, t.xs, t.md, t.md),
+        padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.xs, t.md, t.md),
         child: Column(
           // Centre the controls vertically — the card is stretched to share
           // Network Setup's height with Firmware Update.

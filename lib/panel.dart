@@ -44,7 +44,15 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    final titleInsetLeft = t.panelTitleInsetLeft;
+    // The panel owns the content edge: this padding applies to the title and
+    // the body alike, so they cannot disagree. Leaf controls inside must add no
+    // left padding of their own. See GridTokens.panelContentInset.
+    final panelPad = EdgeInsets.fromLTRB(
+      t.panelContentInset,
+      t.panelPadding.top,
+      t.panelPadding.right,
+      t.panelPadding.bottom,
+    );
 
     if (rows != null) {
       // Reference includes title area so height matches a titled knob panel.
@@ -52,12 +60,9 @@ class Panel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.only(left: titleInsetLeft),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(' ', style: t.textHeading),
-            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(' ', style: t.textHeading),
           ),
           SizedBox(height: t.xs),
           for (int i = 0; i < rows!; i++) ...[
@@ -69,7 +74,7 @@ class Panel extends StatelessWidget {
       );
 
       return NeumorphicInset(
-        padding: t.panelPadding,
+        padding: panelPad,
         baseColor: baseColor ?? const Color(0xFF2A2A2C),
         child: Stack(
           children: [
@@ -87,28 +92,25 @@ class Panel extends StatelessWidget {
         mainAxisSize: fillChild ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.only(left: titleInsetLeft),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      title!,
-                      style: t.textHeading,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                    ),
+          Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title!,
+                    style: t.textHeading,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                   ),
                 ),
-                if (titleTrailing != null) ...[
-                  SizedBox(width: t.xs),
-                  titleTrailing!,
-                ],
+              ),
+              if (titleTrailing != null) ...[
+                SizedBox(width: t.xs),
+                titleTrailing!,
               ],
-            ),
+            ],
           ),
           SizedBox(height: t.xs),
           if (fillChild) Expanded(child: child) else child,
@@ -119,9 +121,36 @@ class Panel extends StatelessWidget {
     }
 
     return NeumorphicInset(
-      padding: t.panelPadding,
+      padding: panelPad,
       baseColor: baseColor ?? const Color(0xFF2A2A2C),
       child: body,
+    );
+  }
+}
+
+/// Wraps card content that is NOT a [GridRow] of [Panel]s — plain text, a bare
+/// row of buttons — so it lands on the same left edge as the card title.
+///
+/// [LabeledCard] gives its child no horizontal padding, because the usual child
+/// is a [GridRow] which brings its own gutter. Anything else has to inset
+/// itself, and doing that by hand is what left the About and Configuration
+/// cards' contents flush against the card edge. Use this instead of reaching
+/// for [GridTokens.cardBodyInset] directly.
+class CardBody extends StatelessWidget {
+  final Widget child;
+  final double? top;
+
+  const CardBody({super.key, required this.child, this.top});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = GridProvider.of(context);
+    return Padding(
+      // Symmetric: a card's content edge applies on both sides, so trailing
+      // controls (e.g. "Restore to Defaults") don't touch the card border.
+      padding: EdgeInsets.fromLTRB(
+          t.cardBodyInset, top ?? 0, t.cardBodyInset, 0),
+      child: child,
     );
   }
 }

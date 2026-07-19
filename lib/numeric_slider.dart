@@ -54,7 +54,7 @@ class NumericSliderState extends State<NumericSlider>
   double _animTarget = 0;
 
   final _textStyle = const TextStyle(
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Courier',
     color: Colors.white,
   );
@@ -497,7 +497,7 @@ class _NumericSliderPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
       strutStyle: const StrutStyle(
-        fontSize: 12,
+        fontSize: 11,
         forceStrutHeight: true,
         height: 1,
       ),
