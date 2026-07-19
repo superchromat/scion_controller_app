@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-class _GlobalRectResizeSignal extends ChangeNotifier with WidgetsBindingObserver {
+class _GlobalRectResizeSignal extends ChangeNotifier
+    with WidgetsBindingObserver {
   _GlobalRectResizeSignal._() {
     WidgetsBinding.instance.addObserver(this);
   }
@@ -67,7 +68,8 @@ mixin GlobalRectTracking<T extends StatefulWidget> on State<T> {
   }
 
   void _updateGlobalRectNow() {
-    final renderBox = globalRectKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        globalRectKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
 
     final position = renderBox.localToGlobal(Offset.zero);

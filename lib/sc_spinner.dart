@@ -89,10 +89,9 @@ class ScMarkPainter extends CustomPainter {
   static const double _grooveW = 8.5;
   static const double _amberW = 4.0;
 
-  static void _a(Path p, double x, double y, bool clockwise) => p.arcToPoint(
-      Offset(x, y),
-      radius: const Radius.circular(10),
-      clockwise: clockwise);
+  static void _a(Path p, double x, double y, bool clockwise) =>
+      p.arcToPoint(Offset(x, y),
+          radius: const Radius.circular(10), clockwise: clockwise);
 
   // Main trace: tip of C (top-right) → across the top → down the S → middle bar
   // → branch point (45,35). Reversed arcs vs. the source path flip clockwise.
@@ -199,22 +198,23 @@ class ScMarkPainter extends CustomPainter {
       ..strokeWidth = w
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..maskFilter =
-          blur > 0 ? MaskFilter.blur(BlurStyle.normal, blur) : null;
+      ..maskFilter = blur > 0 ? MaskFilter.blur(BlurStyle.normal, blur) : null;
 
     // recessed floor
     canvas.drawPath(_full, stroke(const Color(0xFF2C2C30), _grooveW));
     // top-left inner shadow
     canvas.save();
     canvas.translate(-0.7, -0.7);
-    canvas.drawPath(
-        _full, stroke(Colors.black.withValues(alpha: 0.55), _grooveW, blur: 1.1));
+    canvas.drawPath(_full,
+        stroke(Colors.black.withValues(alpha: 0.55), _grooveW, blur: 1.1));
     canvas.restore();
     // bottom-right lip highlight
     canvas.save();
     canvas.translate(0.8, 0.8);
-    canvas.drawPath(_full,
-        stroke(const Color(0xFF5C5C61).withValues(alpha: 0.65), _grooveW, blur: 1.1));
+    canvas.drawPath(
+        _full,
+        stroke(const Color(0xFF5C5C61).withValues(alpha: 0.65), _grooveW,
+            blur: 1.1));
     canvas.restore();
     // re-darken the channel bottom (bevels bleed inward)
     canvas.drawPath(_full, stroke(const Color(0xFF242427), _grooveW - 3.2));

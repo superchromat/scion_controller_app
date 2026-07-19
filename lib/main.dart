@@ -136,7 +136,8 @@ void main() {
             create: (_) => ScionDiscovery(network),
             lazy: false,
           ),
-          ChangeNotifierProvider<LightingSettings>(create: (_) => LightingSettings()),
+          ChangeNotifierProvider<LightingSettings>(
+              create: (_) => LightingSettings()),
         ],
         child: const MyApp(),
       ),
@@ -207,7 +208,6 @@ class _NeumorphicNavRail extends StatefulWidget {
 
 class _NeumorphicNavRailState extends State<_NeumorphicNavRail>
     with GlobalRectTracking<_NeumorphicNavRail> {
-
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
@@ -241,8 +241,7 @@ class _NavRailPainter extends CustomPainter {
       intensity: 0.04,
       globalRect: globalRect,
     );
-    final gradientPaint = Paint()
-      ..shader = gradient.createShader(rect);
+    final gradientPaint = Paint()..shader = gradient.createShader(rect);
 
     canvas.drawRect(rect, gradientPaint);
 
@@ -412,84 +411,98 @@ class _MyHomePageState extends State<MyHomePage> {
                           ? railExtendedWidth
                           : railCollapsedWidth,
                       child: Column(
-                      children: [
-                        Expanded(
-                          child: SafeArea(
-                      child: NavigationRail(
-                        backgroundColor: Colors.transparent,
-                        minWidth: railCollapsedWidth,
-                        minExtendedWidth: railExtendedWidth,
-                        extended: isRailExtended,
-                        groupAlignment: -1.0,
-                        selectedLabelTextStyle: selectedRailLabelStyle,
-                        unselectedLabelTextStyle: unselectedRailLabelStyle,
-                        leading: SizedBox(
-                          width: isRailExtended
-                              ? railExtendedWidth
-                              : railCollapsedWidth,
-                          child: Padding(
-                            // Extra right inset so the Network Address box clears
-                            // the 12px neumorphic lip on the rail's right edge.
-                            padding: const EdgeInsets.fromLTRB(9, 0, 16, 0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                SizedBox(height: 8),
-                                NetworkConnectionSection(),
-                                SizedBox(height: 16),
-                                _FadedRailDivider(),
-                              ],
+                        children: [
+                          Expanded(
+                            child: SafeArea(
+                              child: NavigationRail(
+                                backgroundColor: Colors.transparent,
+                                minWidth: railCollapsedWidth,
+                                minExtendedWidth: railExtendedWidth,
+                                extended: isRailExtended,
+                                groupAlignment: -1.0,
+                                selectedLabelTextStyle: selectedRailLabelStyle,
+                                unselectedLabelTextStyle:
+                                    unselectedRailLabelStyle,
+                                leading: SizedBox(
+                                  width: isRailExtended
+                                      ? railExtendedWidth
+                                      : railCollapsedWidth,
+                                  child: Padding(
+                                    // Extra right inset so the Network Address box clears
+                                    // the 12px neumorphic lip on the rail's right edge.
+                                    padding:
+                                        const EdgeInsets.fromLTRB(9, 0, 16, 0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        SizedBox(height: 8),
+                                        NetworkConnectionSection(),
+                                        SizedBox(height: 16),
+                                        _FadedRailDivider(),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                selectedIndex: selectedIndex,
+                                onDestinationSelected: (value) {
+                                  setState(() => selectedIndex = value);
+                                },
+                                destinations: [
+                                  const NavigationRailDestination(
+                                    icon: Icon(Icons.memory),
+                                    label: Text('System'),
+                                  ),
+                                  NavigationRailDestination(
+                                    icon: const Icon(Icons.output,
+                                        color: Color(0xFFC9B066)),
+                                    label: const Text('Send 1',
+                                        style: TextStyle(
+                                            color: Color(0xFFC9B066))),
+                                  ),
+                                  NavigationRailDestination(
+                                    icon: const Icon(Icons.output,
+                                        color: Color(0xFFC9B066)),
+                                    label: const Text('Send 2',
+                                        style: TextStyle(
+                                            color: Color(0xFFC9B066))),
+                                  ),
+                                  NavigationRailDestination(
+                                    icon: const Icon(Icons.output,
+                                        color: Color(0xFFC9B066)),
+                                    label: const Text('Send 3',
+                                        style: TextStyle(
+                                            color: Color(0xFFC9B066))),
+                                  ),
+                                  const NavigationRailDestination(
+                                    icon: Icon(Icons.tune),
+                                    label: Text('Mixer'),
+                                  ),
+                                  NavigationRailDestination(
+                                    icon: const Icon(Icons.input,
+                                        color: Color(0xFF83A6C9)),
+                                    label: const Text('Return',
+                                        style: TextStyle(
+                                            color: Color(0xFF83A6C9))),
+                                  ),
+                                  const NavigationRailDestination(
+                                    icon: Icon(Icons.settings),
+                                    label: Text('Setup'),
+                                  ),
+                                  const NavigationRailDestination(
+                                    icon: Icon(Icons.folder_open),
+                                    label: Text('Files'),
+                                  ),
+                                  const NavigationRailDestination(
+                                    icon: Icon(Icons.view_list),
+                                    label: Text('OSC Log'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        selectedIndex: selectedIndex,
-                        onDestinationSelected: (value) {
-                          setState(() => selectedIndex = value);
-                        },
-                        destinations: [
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.memory),
-                            label: Text('System'),
-                          ),
-                          NavigationRailDestination(
-                            icon: const Icon(Icons.output, color: Color(0xFFC9B066)),
-                            label: const Text('Send 1', style: TextStyle(color: Color(0xFFC9B066))),
-                          ),
-                          NavigationRailDestination(
-                            icon: const Icon(Icons.output, color: Color(0xFFC9B066)),
-                            label: const Text('Send 2', style: TextStyle(color: Color(0xFFC9B066))),
-                          ),
-                          NavigationRailDestination(
-                            icon: const Icon(Icons.output, color: Color(0xFFC9B066)),
-                            label: const Text('Send 3', style: TextStyle(color: Color(0xFFC9B066))),
-                          ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.tune),
-                            label: Text('Mixer'),
-                          ),
-                          NavigationRailDestination(
-                            icon: const Icon(Icons.input, color: Color(0xFF83A6C9)),
-                            label: const Text('Return', style: TextStyle(color: Color(0xFF83A6C9))),
-                          ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.settings),
-                            label: Text('Setup'),
-                          ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.folder_open),
-                            label: Text('Files'),
-                          ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.view_list),
-                            label: Text('OSC Log'),
-                          ),
+                          if (discovery.demoMode) const _DemoModeBanner(),
                         ],
                       ),
-                          ),
-                        ),
-                        if (discovery.demoMode) const _DemoModeBanner(),
-                      ],
-                    ),
                     ),
                   ),
                   Expanded(
@@ -501,7 +514,8 @@ class _MyHomePageState extends State<MyHomePage> {
                           child: Container(
                             color: Theme.of(context).colorScheme.surface,
                             child: IndexedStack(
-                              index: selectedIndex.clamp(0, allPages.length - 1),
+                              index:
+                                  selectedIndex.clamp(0, allPages.length - 1),
                               children: allPages,
                             ),
                           ),
@@ -541,7 +555,8 @@ class _DemoModeBanner extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.play_circle_outline, color: Colors.black, size: 15),
+                  Icon(Icons.play_circle_outline,
+                      color: Colors.black, size: 15),
                   SizedBox(width: 6),
                   Text('DEMO MODE',
                       style: TextStyle(
@@ -593,4 +608,3 @@ class _FadedRailDivider extends StatelessWidget {
     );
   }
 }
-

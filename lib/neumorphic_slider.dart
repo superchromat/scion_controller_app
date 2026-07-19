@@ -94,7 +94,8 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
     final range = widget.maxValue - widget.minValue;
     final valueDelta = (deltaPx / travel) * range;
     // For vertical, dragging down = decrease
-    final directed = widget.axis == SliderAxis.vertical ? -valueDelta : valueDelta;
+    final directed =
+        widget.axis == SliderAxis.vertical ? -valueDelta : valueDelta;
     final v = (_value + directed).clamp(widget.minValue, widget.maxValue);
     if (v != _value) {
       setState(() => _value = v);
@@ -172,14 +173,16 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
     // vertical capsule thumb only needs modest overhang.
     final crossSize = isVertical
         ? widget.trackWidth + 24
-        : (widget.trackWidth / 2 + 18) * 2 + 8; // match handle halfH + shadow margin
+        : (widget.trackWidth / 2 + 18) * 2 +
+            8; // match handle halfH + shadow margin
 
     // For null trackLength in horizontal mode, measure once via LayoutBuilder
     // but keep the GestureDetector outside so drags aren't interrupted by rebuilds.
     if (explicitLength == null && !isVertical) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          final len = constraints.maxWidth.isFinite ? constraints.maxWidth : 200.0;
+          final len =
+              constraints.maxWidth.isFinite ? constraints.maxWidth : 200.0;
           _resolvedLength = len;
           return _buildBody(len, crossSize, isVertical);
         },
@@ -333,18 +336,21 @@ class _SliderPainter extends CustomPainter {
 
     // ─── Graduations inside the slot ───
     if (graduations > 0) {
-      _drawGraduations(canvas, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
+      _drawGraduations(
+          canvas, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
     }
 
     // ─── Value fill ───
-    _drawValueFill(canvas, size, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
+    _drawValueFill(
+        canvas, size, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
 
     // ─── Thumb ───
-    _drawThumb(canvas, size, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
+    _drawThumb(
+        canvas, size, isVertical, cx, cy, trackStart, trackEnd, halfSlot);
   }
 
-  void _drawSlot(Canvas canvas, Size size, bool isVertical,
-      double cx, double cy, double trackStart, double trackEnd, double halfSlot) {
+  void _drawSlot(Canvas canvas, Size size, bool isVertical, double cx,
+      double cy, double trackStart, double trackEnd, double halfSlot) {
     // Slot border (outer bright edge)
     final borderGradient = isVertical
         ? const LinearGradient(
@@ -361,12 +367,14 @@ class _SliderPainter extends CustomPainter {
     final RRect slotOuter;
     if (isVertical) {
       slotOuter = RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx - halfSlot - 1, trackStart, cx + halfSlot + 1, trackEnd),
+        Rect.fromLTRB(
+            cx - halfSlot - 1, trackStart, cx + halfSlot + 1, trackEnd),
         Radius.circular(halfSlot + 1),
       );
     } else {
       slotOuter = RRect.fromRectAndRadius(
-        Rect.fromLTRB(trackStart, cy - halfSlot - 1, trackEnd, cy + halfSlot + 1),
+        Rect.fromLTRB(
+            trackStart, cy - halfSlot - 1, trackEnd, cy + halfSlot + 1),
         Radius.circular(halfSlot + 1),
       );
     }
@@ -391,12 +399,14 @@ class _SliderPainter extends CustomPainter {
     final RRect slotInner;
     if (isVertical) {
       slotInner = RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx - halfSlot, trackStart + 1, cx + halfSlot, trackEnd - 1),
+        Rect.fromLTRB(
+            cx - halfSlot, trackStart + 1, cx + halfSlot, trackEnd - 1),
         Radius.circular(halfSlot),
       );
     } else {
       slotInner = RRect.fromRectAndRadius(
-        Rect.fromLTRB(trackStart + 1, cy - halfSlot, trackEnd - 1, cy + halfSlot),
+        Rect.fromLTRB(
+            trackStart + 1, cy - halfSlot, trackEnd - 1, cy + halfSlot),
         Radius.circular(halfSlot),
       );
     }
@@ -433,8 +443,8 @@ class _SliderPainter extends CustomPainter {
     canvas.drawRRect(slotInner.deflate(0.5), shadowPaint);
   }
 
-  void _drawGraduations(Canvas canvas, bool isVertical,
-      double cx, double cy, double trackStart, double trackEnd, double halfSlot) {
+  void _drawGraduations(Canvas canvas, bool isVertical, double cx, double cy,
+      double trackStart, double trackEnd, double halfSlot) {
     final travel = trackEnd - trackStart;
     final markHalf = halfSlot * 0.5; // half-width of each graduation line
 
@@ -444,9 +454,7 @@ class _SliderPainter extends CustomPainter {
       final pos = trackStart + t * travel;
 
       final paint = Paint()
-        ..color = isMid
-            ? const Color(0xFF666669)
-            : const Color(0xFF4A4A4D)
+        ..color = isMid ? const Color(0xFF666669) : const Color(0xFF4A4A4D)
         ..strokeWidth = isMid ? 1.5 : 1.0
         ..strokeCap = StrokeCap.round;
 
@@ -466,8 +474,8 @@ class _SliderPainter extends CustomPainter {
     }
   }
 
-  void _drawValueFill(Canvas canvas, Size size, bool isVertical,
-      double cx, double cy, double trackStart, double trackEnd, double halfSlot) {
+  void _drawValueFill(Canvas canvas, Size size, bool isVertical, double cx,
+      double cy, double trackStart, double trackEnd, double halfSlot) {
     final travel = trackLength - thumbLength;
     final baseColor = isActive ? _activeColor : _inactiveColor;
 
@@ -573,8 +581,8 @@ class _SliderPainter extends CustomPainter {
     );
   }
 
-  void _drawThumb(Canvas canvas, Size size, bool isVertical,
-      double cx, double cy, double trackStart, double trackEnd, double halfSlot) {
+  void _drawThumb(Canvas canvas, Size size, bool isVertical, double cx,
+      double cy, double trackStart, double trackEnd, double halfSlot) {
     final travel = trackLength - thumbLength;
 
     // Thumb centre position along track
@@ -611,13 +619,15 @@ class _SliderPainter extends CustomPainter {
   /// T-bar handle for horizontal sliders. Fully convex rounded rectangle shape —
   /// like a smooth pebble or bar of soap. Tall, narrow, rounded corners,
   /// no concavities. Straddles the slot track.
-  void _drawTBarThumb(Canvas canvas, double thumbX, double cy, double halfSlot) {
+  void _drawTBarThumb(
+      Canvas canvas, double thumbX, double cy, double halfSlot) {
     final halfW = thumbLength * 0.32;
     final halfH = halfSlot + 18;
     final r = halfW; // corner radius = half width → fully rounded short sides
 
     final thumbRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(thumbX, cy), width: halfW * 2, height: halfH * 2),
+      Rect.fromCenter(
+          center: Offset(thumbX, cy), width: halfW * 2, height: halfH * 2),
       Radius.circular(r),
     );
 

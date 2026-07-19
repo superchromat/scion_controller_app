@@ -11,8 +11,8 @@ import 'panel.dart';
 /// cards; knob segments are card-relative (shape/warp/*, color/field/*,
 /// glitch/gac/*) under the ambient /send/1 path.
 
-Widget _knob(BuildContext context, String label, String seg, double min,
-    double max,
+Widget _knob(
+    BuildContext context, String label, String seg, double min, double max,
     {double initial = 0, bool bipolar = false, double? size}) {
   final t = GridProvider.maybeOf(context);
   return OscPathSegment(
@@ -130,16 +130,19 @@ class WarpAffinePanel extends StatelessWidget {
     final ks = compact ? GridProvider.maybeOf(context)?.knobSm : null;
     return Panel(
       title: 'Keystone',
-      child: _wrap(context, [
-        _knob(context, 'Key H', 'shape/warp/key_h', -600, 600,
-            bipolar: true, size: ks),
-        _knob(context, 'Key V', 'shape/warp/key_v', -400, 400,
-            bipolar: true, size: ks),
-        _knob(context, 'Shear X', 'shape/warp/shear_x', -600, 600,
-            bipolar: true, size: ks),
-        _knob(context, 'Shear Y', 'shape/warp/shear_y', -400, 400,
-            bipolar: true, size: ks),
-      ], cols: compact ? 2 : 4),
+      child: _wrap(
+          context,
+          [
+            _knob(context, 'Key H', 'shape/warp/key_h', -600, 600,
+                bipolar: true, size: ks),
+            _knob(context, 'Key V', 'shape/warp/key_v', -400, 400,
+                bipolar: true, size: ks),
+            _knob(context, 'Shear X', 'shape/warp/shear_x', -600, 600,
+                bipolar: true, size: ks),
+            _knob(context, 'Shear Y', 'shape/warp/shear_y', -400, 400,
+                bipolar: true, size: ks),
+          ],
+          cols: compact ? 2 : 4),
     );
   }
 }
@@ -156,15 +159,18 @@ class WarpLutPanel extends StatelessWidget {
     final ks = compact ? GridProvider.maybeOf(context)?.knobSm : null;
     return Panel(
       title: 'Lens',
-      child: _wrap(context, [
-        _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400,
-            bipolar: true, size: ks),
-        _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960,
-            bipolar: true, size: ks),
-        _knob(context, 'Lens Y', 'shape/warp/lens_y', -540, 540,
-            bipolar: true, size: ks),
-        _knob(context, 'Radius', 'shape/warp/radius', 0, 960, size: ks),
-      ], cols: compact ? 2 : 4),
+      child: _wrap(
+          context,
+          [
+            _knob(context, 'Barrel', 'shape/warp/barrel', -400, 400,
+                bipolar: true, size: ks),
+            _knob(context, 'Lens X', 'shape/warp/lens_x', -960, 960,
+                bipolar: true, size: ks),
+            _knob(context, 'Lens Y', 'shape/warp/lens_y', -540, 540,
+                bipolar: true, size: ks),
+            _knob(context, 'Radius', 'shape/warp/radius', 0, 960, size: ks),
+          ],
+          cols: compact ? 2 : 4),
     );
   }
 }
@@ -181,7 +187,8 @@ class WarpAnimationPanel extends StatelessWidget {
       title: 'Animation',
       child: _wrap(context, [
         _dropdown('Field', 'shape/warp/field',
-            const ['Off', 'Ripple', 'Twirl', 'Wave'], width: 90),
+            const ['Off', 'Ripple', 'Twirl', 'Wave'],
+            width: 90),
         _knob(context, 'F Amp', 'shape/warp/famp', 0, 300),
         _knob(context, 'F Freq', 'shape/warp/ffreq', 50, 1200, initial: 300),
         _knob(context, 'Speed', 'shape/warp/speed', -2000, 2000,
@@ -201,21 +208,21 @@ class ColorFieldPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _wrap(context, [
-        const OscPathSegment(
-            segment: 'color/field/enable', child: _Toggle(label: 'Enable')),
-        _dropdown('Basis', 'color/field/fx',
-            const ['Flat', 'Gradient', 'Rings', 'Plaid']),
-        _knob(context, 'Amount', 'color/field/amount', 0, 127, initial: 127),
-        _knob(context, 'Amp R', 'color/field/amp_r', -1023, 1023, bipolar: true),
-        _knob(context, 'Amp G', 'color/field/amp_g', -1023, 1023, bipolar: true),
-        _knob(context, 'Amp B', 'color/field/amp_b', -1023, 1023, bipolar: true),
-        _knob(context, 'Freq', 'color/field/freq', 10, 800, initial: 100),
-        _knob(context, 'Angle', 'color/field/angle', 0, 360),
-        _knob(context, 'Speed', 'color/field/speed', -2000, 2000, bipolar: true),
-        _knob(context, 'Center X', 'color/field/cx', 0, 1920, initial: 960),
-        _knob(context, 'Center Y', 'color/field/cy', 0, 1080, initial: 540),
-        _knob(context, 'Res', 'color/field/res', 4, 63, initial: 16),
-        _knob(context, 'Bias', 'color/field/bias', 0, 1023, initial: 768),
+      const OscPathSegment(
+          segment: 'color/field/enable', child: _Toggle(label: 'Enable')),
+      _dropdown('Basis', 'color/field/fx',
+          const ['Flat', 'Gradient', 'Rings', 'Plaid']),
+      _knob(context, 'Amount', 'color/field/amount', 0, 127, initial: 127),
+      _knob(context, 'Amp R', 'color/field/amp_r', -1023, 1023, bipolar: true),
+      _knob(context, 'Amp G', 'color/field/amp_g', -1023, 1023, bipolar: true),
+      _knob(context, 'Amp B', 'color/field/amp_b', -1023, 1023, bipolar: true),
+      _knob(context, 'Freq', 'color/field/freq', 10, 800, initial: 100),
+      _knob(context, 'Angle', 'color/field/angle', 0, 360),
+      _knob(context, 'Speed', 'color/field/speed', -2000, 2000, bipolar: true),
+      _knob(context, 'Center X', 'color/field/cx', 0, 1920, initial: 960),
+      _knob(context, 'Center Y', 'color/field/cy', 0, 1080, initial: 540),
+      _knob(context, 'Res', 'color/field/res', 4, 63, initial: 16),
+      _knob(context, 'Bias', 'color/field/bias', 0, 1023, initial: 768),
     ]);
   }
 }
@@ -250,8 +257,10 @@ class RectCopyPanel extends StatelessWidget {
         _knob(context, 'Radial', 'glitch/gac/morph', 0, 1000),
         const OscPathSegment(
             segment: 'glitch/gac/yonly', child: _Toggle(label: 'Y Only')),
-        _knob(context, 'Shear In', 'glitch/gac/shear_src', -192, 192, bipolar: true),
-        _knob(context, 'Shear Out', 'glitch/gac/shear_dst', -192, 192, bipolar: true),
+        _knob(context, 'Shear In', 'glitch/gac/shear_src', -192, 192,
+            bipolar: true),
+        _knob(context, 'Shear Out', 'glitch/gac/shear_dst', -192, 192,
+            bipolar: true),
       ],
     );
   }

@@ -23,19 +23,19 @@ class _KnobPageState extends State<KnobPage> {
   double _percentValue = 75.0;
 
   // Nonlinear mapping values
-  double _scaleValue = 1.0;  // 0x to 4x, neutral at 1x
-  double _expValue = 0.0;    // exponential curve
-  double _logFreqValue = 1000.0;  // log frequency
+  double _scaleValue = 1.0; // 0x to 4x, neutral at 1x
+  double _expValue = 0.0; // exponential curve
+  double _logFreqValue = 1000.0; // log frequency
 
   // Soft snap tuning values
   double _softSnapDemoValue = 0.0;
-  double _softSnapExponent = 2.0;  // 0.5 to 4.0
-  double _softSnapRegionWidth = 0.3;  // 0.1 to 1.0
+  double _softSnapExponent = 2.0; // 0.5 to 4.0
+  double _softSnapRegionWidth = 0.3; // 0.1 to 1.0
 
   // Arc geometry controls (local to demo knob)
-  double _arcWidth = 8.0;     // Arc/slot width in pixels
-  double _notchDepth = 4.0;   // Notch depth in pixels
-  double _notchAngle = 3.15;  // Notch half-angle in degrees
+  double _arcWidth = 8.0; // Arc/slot width in pixels
+  double _notchDepth = 4.0; // Notch depth in pixels
+  double _notchAngle = 3.15; // Notch half-angle in degrees
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +473,8 @@ class _KnobPageState extends State<KnobPage> {
                     defaultValue: 2.0,
                     size: 80,
                     mappingSegments: [
-                      MappingSegment.linear(t0: 0.0, t1: 0.5, v0: 0.25, v1: 2.0),
+                      MappingSegment.linear(
+                          t0: 0.0, t1: 0.5, v0: 0.25, v1: 2.0),
                       MappingSegment.linear(t0: 0.5, t1: 1.0, v0: 2.0, v1: 4.0),
                     ],
                     snapConfig: const SnapConfig(
@@ -637,10 +638,12 @@ class _KnobPageState extends State<KnobPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _instructionRow('Click and drag horizontally', 'Adjust value with drag bar'),
+                _instructionRow('Click and drag horizontally',
+                    'Adjust value with drag bar'),
                 _instructionRow('Double-tap', 'Reset to default value'),
                 _instructionRow('Slow drag', 'Bypass snap points'),
-                _instructionRow('Fast drag', 'Snap briefly when crossing snap points'),
+                _instructionRow(
+                    'Fast drag', 'Snap briefly when crossing snap points'),
               ],
             ),
           ),
@@ -665,7 +668,8 @@ class _KnobPageState extends State<KnobPage> {
                 Text('Percent: ${_percentValue.toStringAsFixed(1)}%'),
                 const SizedBox(height: 8),
                 Text('Scale: ${_scaleValue.toStringAsFixed(2)}x'),
-                Text('Exposure: ${_expValue >= 0 ? '+' : ''}${_expValue.toStringAsFixed(1)} EV'),
+                Text(
+                    'Exposure: ${_expValue >= 0 ? '+' : ''}${_expValue.toStringAsFixed(1)} EV'),
                 Text('Frequency: ${_logFreqValue.toStringAsFixed(0)} Hz'),
               ],
             ),

@@ -41,10 +41,12 @@ Uint8List sctf(List<(String, String, List<int>)> faces) {
   final eb = ByteData.sublistView(Uint8List.fromList(e));
   final off = eb.getUint32(32, Endian.little);
   final len = eb.getUint32(36, Endian.little);
-  String str(List<int> b) =>
-      String.fromCharCodes(b.takeWhile((c) => c != 0));
-  return (str(e.sublist(0, 16)), str(e.sublist(16, 32)),
-      Uint8List.sublistView(blob, off, off + len));
+  String str(List<int> b) => String.fromCharCodes(b.takeWhile((c) => c != 0));
+  return (
+    str(e.sublist(0, 16)),
+    str(e.sublist(16, 32)),
+    Uint8List.sublistView(blob, off, off + len)
+  );
 }
 
 void main() {
@@ -75,8 +77,7 @@ void main() {
     expect((f2.$1, f2.$2), ('Archivo', 'Black'));
     expect(f2.$3, orderedEquals([6, 6, 6, 6, 6, 6, 6]));
     expect(face(out, 0).$3, orderedEquals([1, 2, 3, 4, 5]));
-    expect(
-        ByteData.sublistView(out).getUint16(6, Endian.little), 3);
+    expect(ByteData.sublistView(out).getUint16(6, Endian.little), 3);
   });
 
   test('remove then remove leaves one face', () {

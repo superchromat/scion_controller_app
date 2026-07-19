@@ -179,7 +179,8 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
       }
 
       // Ignore local echo (value we just sent)
-      if (_lastSentValue != null && (newValue - _lastSentValue!).abs() < 0.0001) {
+      if (_lastSentValue != null &&
+          (newValue - _lastSentValue!).abs() < 0.0001) {
         return OscStatus.ok;
       }
 
@@ -212,8 +213,9 @@ class OscRotaryKnobState extends State<OscRotaryKnob> with OscAddressMixin {
 
   @override
   Widget build(BuildContext context) {
-    final format =
-        (widget.preferInteger && widget.format == '%.2f') ? '%.0f' : widget.format;
+    final format = (widget.preferInteger && widget.format == '%.2f')
+        ? '%.0f'
+        : widget.format;
 
     return RotaryKnob(
       minValue: widget.minValue,

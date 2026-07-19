@@ -14,9 +14,7 @@ import 'asset_store.dart';
 import 'font_catalog.dart';
 import 'network.dart';
 
-Future<void> _withProgress(
-    BuildContext context,
-    String title,
+Future<void> _withProgress(BuildContext context, String title,
     Future<void> Function(void Function(double)) job) async {
   final progress = ValueNotifier<double>(0);
   var failed = '';
@@ -25,7 +23,8 @@ Future<void> _withProgress(
     barrierDismissible: false,
     builder: (_) => AlertDialog(
       backgroundColor: const Color(0xFF2A2A2E),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+      title: Text(title,
+          style: const TextStyle(color: Colors.white, fontSize: 14)),
       content: ValueListenableBuilder<double>(
         valueListenable: progress,
         builder: (_, v, __) => LinearProgressIndicator(value: v),
@@ -40,7 +39,8 @@ Future<void> _withProgress(
   if (context.mounted) {
     Navigator.of(context, rootNavigator: true).pop();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(failed.isEmpty ? '$title — done' : '$title failed: $failed'),
+      content:
+          Text(failed.isEmpty ? '$title — done' : '$title failed: $failed'),
       backgroundColor: failed.isEmpty ? Colors.green[800] : Colors.red[800],
     ));
   }
@@ -51,8 +51,8 @@ Future<void> _withProgress(
 /// Pick an image, convert to a 15-colour 4bpp sprite, and append it to the
 /// device sprite store. Returns true if the store changed.
 Future<bool> uploadSpriteFlow(BuildContext context) async {
-  final pick = await FilePicker.platform.pickFiles(
-      type: FileType.image, withData: true);
+  final pick =
+      await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
   final f = pick?.files.firstOrNull;
   if (f == null) return false;
   final bytes = f.bytes ?? await File(f.path!).readAsBytes();
@@ -63,7 +63,8 @@ Future<bool> uploadSpriteFlow(BuildContext context) async {
   var img = (await codec.getNextFrame()).image;
   final (tw, th) = fitSpriteSize(img.width, img.height);
   if (tw != img.width) {
-    codec = await ui.instantiateImageCodec(bytes, targetWidth: tw, targetHeight: th);
+    codec = await ui.instantiateImageCodec(bytes,
+        targetWidth: tw, targetHeight: th);
     img = (await codec.getNextFrame()).image;
   }
   final rgba = (await img.toByteData(format: ui.ImageByteFormat.rawRgba))!

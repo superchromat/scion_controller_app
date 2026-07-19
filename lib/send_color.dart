@@ -23,15 +23,15 @@ class SendColor extends StatefulWidget {
 class _SendColorState extends State<SendColor> {
   // Keys for each knob to preserve state
   final _brightnessKey = GlobalKey<OscRotaryKnobState>();
-  final _contrastKey   = GlobalKey<OscRotaryKnobState>();
+  final _contrastKey = GlobalKey<OscRotaryKnobState>();
   final _saturationKey = GlobalKey<OscRotaryKnobState>();
-  final _hueKey        = GlobalKey<OscRotaryKnobState>();
+  final _hueKey = GlobalKey<OscRotaryKnobState>();
 
   // Initial values for reset
   static const double _initialBrightness = 0.5;
-  static const double _initialContrast   = 0.5;
+  static const double _initialContrast = 0.5;
   static const double _initialSaturation = 0.5;
-  static const double _initialHue        = 0.0;
+  static const double _initialHue = 0.0;
 
   Widget _labeledKnob({
     required String label,
@@ -93,7 +93,6 @@ class _SendColorState extends State<SendColor> {
   Widget _buildContent(bool showGrade, GridTokens t) {
     return GridRow(
       columns: 12,
-      gutter: t.md,
       cells: [
         (
           span: 6,

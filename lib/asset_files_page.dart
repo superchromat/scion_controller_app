@@ -157,8 +157,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
       for (var i = 0; i < nFonts; i++) {
         final e = await nor.call('/assets/fonts/entry', [i]);
         if (e.length >= 5 && (e[1] as String).isNotEmpty) {
-          files.add(AssetFile(AssetType.font, e[1] as String, e[4] as int, i,
-              e[2] as String));
+          files.add(AssetFile(
+              AssetType.font, e[1] as String, e[4] as int, i, e[2] as String));
         }
       }
 
@@ -238,8 +238,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
 
   void _toast(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(m), duration: const Duration(seconds: 3)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(m), duration: const Duration(seconds: 3)));
   }
 
   Future<void> _rename(AssetFile f) async {
@@ -311,13 +311,11 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         bytes = _spriteToPng(sprites[f.index]);
         suggested = '${f.name}.png';
       case AssetType.preset:
-        bytes =
-            await nor.read(_prstSlotOff(f.index), _prstHdrSize + f.size);
+        bytes = await nor.read(_prstSlotOff(f.index), _prstHdrSize + f.size);
         suggested = '${f.name}.spre';
     }
     final path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save ${f.type.label.toLowerCase()}',
-        fileName: suggested);
+        dialogTitle: 'Save ${f.type.label.toLowerCase()}', fileName: suggested);
     if (path == null) return;
     await File(path).writeAsBytes(bytes);
     _toast('saved $path (${bytes.length} bytes)');
@@ -376,15 +374,15 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
   }
 
   Future<void> _uploadPreset() async {
-    final pick = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Upload preset (.spre)', withData: true);
+    final pick = await FilePicker.platform
+        .pickFiles(dialogTitle: 'Upload preset (.spre)', withData: true);
     final data = pick?.files.single.bytes;
     if (data == null || data.length < _prstHdrSize) return;
     if (String.fromCharCodes(data.sublist(0, 4)) != 'PRST') {
       return _toast('not a .spre file');
     }
-    final name = String.fromCharCodes(
-        data.sublist(8, 40).takeWhile((c) => c != 0));
+    final name =
+        String.fromCharCodes(data.sublist(8, 40).takeWhile((c) => c != 0));
     // Pick a slot: same-name slot, else first free of the right size class.
     final nor = _nor;
     final needsLarge = data.length > _prstSmallSize;
@@ -404,8 +402,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     if (slot < 0) slot = free;
     if (slot < 0) return _toast('no free preset slot');
     if (!await _confirm('Upload preset "$name"?')) return;
-    await nor.call('/assets/fonts/nor/erase',
-        [_prstSlotSize(slot), _prstSlotOff(slot)]);
+    await nor.call(
+        '/assets/fonts/nor/erase', [_prstSlotSize(slot), _prstSlotOff(slot)]);
     await nor.writeBlob(_prstSlotOff(slot), Uint8List.fromList(data));
     _toast('uploaded "$name"');
     _refresh();
@@ -421,7 +419,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         1 => a.type.index.compareTo(b.type.index),
         _ => a.size.compareTo(b.size),
       };
-      final tie = r != 0 ? r : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      final tie =
+          r != 0 ? r : a.name.toLowerCase().compareTo(b.name.toLowerCase());
       return _sortAsc ? tie : -tie;
     });
     return l;
@@ -490,9 +489,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
               ]),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Container(
-                  width: 10,
-                  height: 10,
-                  color: scheme.surfaceContainerHighest),
+                  width: 10, height: 10, color: scheme.surfaceContainerHighest),
               SizedBox(width: t.xs),
               Text('free ${_fmtSize(total - sumUsed)}', style: t.textLabel),
             ]),
@@ -591,96 +588,106 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
             child: Padding(
               padding: EdgeInsets.all(t.sm),
               child: _error != null
-                ? Padding(
-                    padding: EdgeInsets.all(t.md),
-                    child: Text('load failed: $_error',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error)),
-                  )
-                : NeumorphicInset(
-                    baseColor: const Color(0xFF232326),
-                    borderRadius: 8,
-                    depth: 3,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        dividerColor: Colors.white.withValues(alpha: 0.025),
-                      ),
-                      child: DataTable(
-                      sortColumnIndex: _sortCol,
-                      sortAscending: _sortAsc,
-                      headingRowColor: WidgetStatePropertyAll(Colors.white.withValues(alpha: 0.04)),
-                      headingTextStyle: t.textLabel.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
-                      dataTextStyle: t.textLabel,
-                      dividerThickness: 0.5,
-                      columnSpacing: t.lg,
-                      horizontalMargin: t.md,
-                      dataRowMinHeight: 34,
-                      dataRowMaxHeight: 42,
-                      columns: [
-                        _col('Name', 0),
-                        _col('Type', 1),
-                        _col('Size', 2),
-                        const DataColumn(label: Text('Details')),
-                        const DataColumn(label: Text('')),
-                      ],
-                      rows: [
-                        for (final f in _sorted)
-                          DataRow(
-                            cells: [
-                            DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(f.type.icon, size: 16),
-                              SizedBox(width: t.xs),
-                              Text(f.name),
-                            ])),
-                            DataCell(Text(f.type.label)),
-                            DataCell(Text(_fmtSize(f.size))),
-                            DataCell(Text(f.detail)),
-                            DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                              // Icon-only in the cramped table cell — same
-                              // neumorphic key style, just no room for labels.
-                              if (f.type == AssetType.preset) ...[
-                                AppButton(
-                                  dense: true,
-                                  icon: Icons.play_arrow,
-                                  tooltip: 'Load onto device',
-                                  onPressed: () => _loadPreset(f),
-                                ),
-                                SizedBox(width: t.xs),
+                  ? Padding(
+                      padding: EdgeInsets.all(t.md),
+                      child: Text('load failed: $_error',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
+                    )
+                  : NeumorphicInset(
+                      baseColor: const Color(0xFF232326),
+                      borderRadius: 8,
+                      depth: 3,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              dividerColor:
+                                  Colors.white.withValues(alpha: 0.025),
+                            ),
+                            child: DataTable(
+                              sortColumnIndex: _sortCol,
+                              sortAscending: _sortAsc,
+                              headingRowColor: WidgetStatePropertyAll(
+                                  Colors.white.withValues(alpha: 0.04)),
+                              headingTextStyle: t.textLabel.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white),
+                              dataTextStyle: t.textLabel,
+                              dividerThickness: 0.5,
+                              columnSpacing: t.lg,
+                              horizontalMargin: t.md,
+                              dataRowMinHeight: 34,
+                              dataRowMaxHeight: 42,
+                              columns: [
+                                _col('Name', 0),
+                                _col('Type', 1),
+                                _col('Size', 2),
+                                const DataColumn(label: Text('Details')),
+                                const DataColumn(label: Text('')),
                               ],
-                              AppButton(
-                                dense: true,
-                                icon: Icons.drive_file_rename_outline,
-                                tooltip: 'Rename',
-                                onPressed: () => _rename(f),
-                              ),
-                              SizedBox(width: t.xs),
-                              AppButton(
-                                dense: true,
-                                icon: Icons.download,
-                                tooltip: 'Download',
-                                onPressed: () => _download(f),
-                              ),
-                              SizedBox(width: t.xs),
-                              AppButton(
-                                dense: true,
-                                icon: Icons.delete_outline,
-                                tooltip: 'Delete',
-                                accentColor: const Color(0xFFD0605F),
-                                onPressed: () => _delete(f),
-                              ),
-                            ])),
-                          ]),
-                      ],
-                      ), // DataTable
-                    ), // Theme
-                      ), // SingleChildScrollView
-                    ), // ClipRRect
-                  ), // NeumorphicInset
+                              rows: [
+                                for (final f in _sorted)
+                                  DataRow(cells: [
+                                    DataCell(Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(f.type.icon, size: 16),
+                                          SizedBox(width: t.xs),
+                                          Text(f.name),
+                                        ])),
+                                    DataCell(Text(f.type.label)),
+                                    DataCell(Text(_fmtSize(f.size))),
+                                    DataCell(Text(f.detail)),
+                                    DataCell(Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Icon-only in the cramped table cell — same
+                                          // neumorphic key style, just no room for labels.
+                                          if (f.type == AssetType.preset) ...[
+                                            AppButton(
+                                              dense: true,
+                                              icon: Icons.play_arrow,
+                                              tooltip: 'Load onto device',
+                                              onPressed: () => _loadPreset(f),
+                                            ),
+                                            SizedBox(width: t.xs),
+                                          ],
+                                          AppButton(
+                                            dense: true,
+                                            icon:
+                                                Icons.drive_file_rename_outline,
+                                            tooltip: 'Rename',
+                                            onPressed: () => _rename(f),
+                                          ),
+                                          SizedBox(width: t.xs),
+                                          AppButton(
+                                            dense: true,
+                                            icon: Icons.download,
+                                            tooltip: 'Download',
+                                            onPressed: () => _download(f),
+                                          ),
+                                          SizedBox(width: t.xs),
+                                          AppButton(
+                                            dense: true,
+                                            icon: Icons.delete_outline,
+                                            tooltip: 'Delete',
+                                            accentColor:
+                                                const Color(0xFFD0605F),
+                                            onPressed: () => _delete(f),
+                                          ),
+                                        ])),
+                                  ]),
+                              ],
+                            ), // DataTable
+                          ), // Theme
+                        ), // SingleChildScrollView
+                      ), // ClipRRect
+                    ), // NeumorphicInset
             ), // Padding
           ), // LabeledCard
         ],

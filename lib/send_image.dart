@@ -134,6 +134,7 @@ class _SendImageState extends State<SendImage> {
         receivedAck = args.first as int;
       }
     }
+
     registry.registerListener(rowPath, ackListener);
 
     bool uploadFailed = false;
@@ -142,7 +143,8 @@ class _SendImageState extends State<SendImage> {
     // May need multiple vsyncs to flush, so allow more time
     const maxRetries = 10;
     const ackTimeout = Duration(milliseconds: 200);
-    const retryDelay = Duration(milliseconds: 50);  // Wait between retries for vsync flush
+    const retryDelay =
+        Duration(milliseconds: 50); // Wait between retries for vsync flush
 
     // CRC32 accumulator - calculate as we build rows
     int crc = 0;
@@ -157,11 +159,11 @@ class _SendImageState extends State<SendImage> {
         for (int x = 0; x < width; x++) {
           final pixel = image.getPixel(x, y);
           final offset = x * 4;
-          final a5 = (pixel.a.toInt() >> 3) << 3;  // 5-bit alpha in upper bits
-          rowData[offset + 0] = a5;                 // Alpha (5-bit) + padding
-          rowData[offset + 1] = pixel.r.toInt();   // R
-          rowData[offset + 2] = pixel.g.toInt();   // G
-          rowData[offset + 3] = pixel.b.toInt();   // B
+          final a5 = (pixel.a.toInt() >> 3) << 3; // 5-bit alpha in upper bits
+          rowData[offset + 0] = a5; // Alpha (5-bit) + padding
+          rowData[offset + 1] = pixel.r.toInt(); // R
+          rowData[offset + 2] = pixel.g.toInt(); // G
+          rowData[offset + 3] = pixel.b.toInt(); // B
         }
 
         // Update CRC with this row's data
@@ -170,7 +172,8 @@ class _SendImageState extends State<SendImage> {
         // Per-row CRC to compare with firmware
         if (y < 5 || y == height - 1) {
           final rowCrc = getCrc32(rowData);
-          debugPrint('Row $y CRC=0x${rowCrc.toRadixString(16).toUpperCase().padLeft(8, '0')} (len=$bytesPerRow)');
+          debugPrint(
+              'Row $y CRC=0x${rowCrc.toRadixString(16).toUpperCase().padLeft(8, '0')} (len=$bytesPerRow)');
         }
 
         // Retry loop for this row
@@ -197,13 +200,15 @@ class _SendImageState extends State<SendImage> {
             // Wait for firmware to flush buffer during vsync before retry
             await Future.delayed(retryDelay);
             if (attempt >= 2) {
-              setState(() => _statusMessage = 'Row $y: waiting for buffer flush (attempt ${attempt + 2})');
+              setState(() => _statusMessage =
+                  'Row $y: waiting for buffer flush (attempt ${attempt + 2})');
             }
           }
         }
 
         if (!rowAcked) {
-          setState(() => _statusMessage = 'Failed row $y after $maxRetries attempts - aborting');
+          setState(() => _statusMessage =
+              'Failed row $y after $maxRetries attempts - aborting');
           uploadFailed = true;
           break;
         }
@@ -230,7 +235,8 @@ class _SendImageState extends State<SendImage> {
     }
 
     // Print CRC for comparison with firmware
-    debugPrint('Client CRC32 = 0x${crc.toRadixString(16).toUpperCase().padLeft(8, '0')} ($height rows x $bytesPerRow bytes)');
+    debugPrint(
+        'Client CRC32 = 0x${crc.toRadixString(16).toUpperCase().padLeft(8, '0')} ($height rows x $bytesPerRow bytes)');
 
     // Small delay before end
     await Future.delayed(const Duration(milliseconds: 100));
@@ -318,7 +324,8 @@ class _SendImageState extends State<SendImage> {
                   AppButton(
                     onPressed: _toggleEnable,
                     selected: _imageEnabled,
-                    icon: _imageEnabled ? Icons.visibility : Icons.visibility_off,
+                    icon:
+                        _imageEnabled ? Icons.visibility : Icons.visibility_off,
                     label: _imageEnabled ? 'Hide' : 'Show',
                   ),
                 ],

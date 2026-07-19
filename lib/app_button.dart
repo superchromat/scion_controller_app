@@ -32,6 +32,11 @@ class AppButton extends StatefulWidget {
 
   final String? tooltip;
 
+  /// Fill the height offered by the parent instead of the standard button
+  /// height. For a button that must align its bottom edge with a neighbouring
+  /// element rather than stand at its natural size.
+  final bool fillHeight;
+
   const AppButton({
     super.key,
     this.onPressed,
@@ -41,7 +46,9 @@ class AppButton extends StatefulWidget {
     this.accentColor,
     this.dense = false,
     this.tooltip,
-  }) : assert(label != null || icon != null, 'AppButton needs a label or an icon');
+    this.fillHeight = false,
+  }) : assert(label != null || icon != null,
+            'AppButton needs a label or an icon');
 
   @override
   State<AppButton> createState() => _AppButtonState();
@@ -112,17 +119,24 @@ class _AppButtonState extends State<AppButton> {
         children: [
           Icon(widget.icon, size: iconSize, color: fg),
           SizedBox(width: t.xs),
-          Text(widget.label!, style: textStyle),
+          CapCenteredText(widget.label!, style: textStyle),
         ],
       );
     } else if (widget.label != null) {
-      inner = Text(widget.label!, style: textStyle);
+      inner = CapCenteredText(widget.label!, style: textStyle);
     } else {
       inner = Icon(widget.icon, size: iconSize, color: fg);
     }
 
+    // A button given a tight width by its parent (e.g. stretched in a column)
+    // can be narrower than its label. Shrink the label to fit rather than
+    // overflow — scaleDown never enlarges, so buttons with room are unchanged.
+    inner = FittedBox(fit: BoxFit.scaleDown, child: inner);
+
     Widget content = Container(
-      height: h,
+      height: widget.fillHeight ? null : h,
+      constraints:
+          widget.fillHeight ? const BoxConstraints(minHeight: 0) : null,
       width: iconOnly ? h : null,
       alignment: Alignment.center,
       padding: iconOnly

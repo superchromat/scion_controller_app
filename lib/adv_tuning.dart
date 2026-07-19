@@ -79,7 +79,10 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
     int vh = (args[3] as num).toInt();
     if (mounted) {
       setState(() {
-        _hStart = hs; _hWidth = hw; _vStart = vs; _vHeight = vh;
+        _hStart = hs;
+        _hWidth = hw;
+        _vStart = vs;
+        _vHeight = vh;
       });
       _hStartKey.currentState?.setValue(hs.toDouble(), emit: false);
       _hWidthKey.currentState?.setValue(hw.toDouble(), emit: false);
@@ -155,10 +158,22 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _deKnob('H Start', _hStartKey, 0, 2200, (v){ _hStart = v; _sendDe(); }),
-                _deKnob('H Width', _hWidthKey, 0, 2200, (v){ _hWidth = v; _sendDe(); }),
-                _deKnob('V Start', _vStartKey, 0, 200, (v){ _vStart = v; _sendDe(); }),
-                _deKnob('V Height', _vHeightKey, 0, 1080, (v){ _vHeight = v; _sendDe(); }),
+                _deKnob('H Start', _hStartKey, 0, 2200, (v) {
+                  _hStart = v;
+                  _sendDe();
+                }),
+                _deKnob('H Width', _hWidthKey, 0, 2200, (v) {
+                  _hWidth = v;
+                  _sendDe();
+                }),
+                _deKnob('V Start', _vStartKey, 0, 200, (v) {
+                  _vStart = v;
+                  _sendDe();
+                }),
+                _deKnob('V Height', _vHeightKey, 0, 1080, (v) {
+                  _vHeight = v;
+                  _sendDe();
+                }),
               ],
             ),
           ],
@@ -167,8 +182,8 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
     );
   }
 
-  Widget _deKnob(String label, GlobalKey<OscRotaryKnobState> key,
-      double min, double max, void Function(int) onCommit) {
+  Widget _deKnob(String label, GlobalKey<OscRotaryKnobState> key, double min,
+      double max, void Function(int) onCommit) {
     return OscRotaryKnob(
       key: key,
       initialValue: 0,
@@ -186,4 +201,3 @@ class _AdvTuningCardState extends State<AdvTuningCard> {
     );
   }
 }
-

@@ -212,7 +212,6 @@ class _DeviceDiagnosticsSectionState extends State<DeviceDiagnosticsSection> {
       title: 'Diagnostics',
       child: GridRow(
         columns: 12,
-        gutter: t.md,
         cells: [
           (
             span: 12,

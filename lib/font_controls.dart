@@ -105,8 +105,8 @@ class _FontControlsState extends State<FontControls> {
               child: Row(
                 children: [
                   Expanded(
-                    child: fontDropdown<String>(t, cur.family, cat.families,
-                        (f) => f, (f) {
+                    child: fontDropdown<String>(
+                        t, cur.family, cat.families, (f) => f, (f) {
                       if (f == null) return;
                       final vs = cat.variantsOf(f);
                       final match = vs.firstWhere(

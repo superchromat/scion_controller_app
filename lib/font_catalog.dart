@@ -26,8 +26,8 @@ class FontCatalog extends ChangeNotifier {
   Network? _net;
 
   /// Fully-loaded entries in device (index) order.
-  List<FontEntry> get entries =>
-      _entries.whereType<FontEntry>().toList()..sort((a, b) => a.index - b.index);
+  List<FontEntry> get entries => _entries.whereType<FontEntry>().toList()
+    ..sort((a, b) => a.index - b.index);
 
   bool get isLoaded => _gotCount && entries.length == _expected;
 
@@ -63,8 +63,11 @@ class FontCatalog extends ChangeNotifier {
     _sendCount();
     _retry?.cancel();
     _retry = Timer.periodic(const Duration(milliseconds: 1500), (t) {
-      if (isLoaded || _net == null) { t.cancel(); return; }
-      _sendCount();               // re-query count (+ re-request missing infos)
+      if (isLoaded || _net == null) {
+        t.cancel();
+        return;
+      }
+      _sendCount(); // re-query count (+ re-request missing infos)
     });
   }
 
@@ -92,7 +95,10 @@ class FontCatalog extends ChangeNotifier {
         ..clear()
         ..addAll(List<FontEntry?>.filled(n, null));
     }
-    if (n == 0) { notifyListeners(); return; }
+    if (n == 0) {
+      notifyListeners();
+      return;
+    }
     // Request any entries we don't have yet (idempotent; covers dropped replies).
     for (int i = 0; i < n; i++) {
       if (_entries[i] == null) _net?.sendOscMessage('/assets/fonts/info', [i]);

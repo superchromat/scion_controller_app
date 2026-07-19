@@ -84,7 +84,8 @@ class _OscCheckboxState extends State<OscCheckbox> with OscAddressMixin {
     Widget checkbox = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      cursor: widget.readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      cursor:
+          widget.readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: GestureDetector(
         onTap: _toggle,
         child: _NeumorphicCheckbox(
@@ -142,7 +143,6 @@ class _NeumorphicCheckbox extends StatefulWidget {
 
 class _NeumorphicCheckboxState extends State<_NeumorphicCheckbox>
     with GlobalRectTracking<_NeumorphicCheckbox> {
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -241,7 +241,7 @@ class _CheckboxPainter extends CustomPainter {
     // === 4. FLOOR (the surface behind the hole) ===
     final floorRRect = rrect.deflate(borderInset + 1);
     final floorColor = value
-        ? const Color(0xFFFFF176)  // Yellow when checked
+        ? const Color(0xFFFFF176) // Yellow when checked
         : const Color(0xFF1A1A1A); // Dark grey when unchecked
 
     final floorGradient = RadialGradient(
@@ -271,7 +271,8 @@ class _CheckboxPainter extends CustomPainter {
         ],
         stops: const [0.0, 0.3, 0.7],
       );
-      final highlightPaint = Paint()..shader = highlightGradient.createShader(rect);
+      final highlightPaint = Paint()
+        ..shader = highlightGradient.createShader(rect);
       canvas.drawRRect(floorRRect, highlightPaint);
     }
 
@@ -291,7 +292,6 @@ class _CheckboxPainter extends CustomPainter {
       canvas.drawRect(rect, noisePaint);
       canvas.restore();
     }
-
   }
 
   @override

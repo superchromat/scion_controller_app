@@ -48,7 +48,9 @@ class _DesignLabAppState extends State<_DesignLabApp> {
                 child: LayoutBuilder(
                   builder: (context, c) => GridProvider(
                     tokens: GridTokens(c.maxWidth),
-                    child: _surface == 0 ? const SignalDesk() : const CaptureDesk(),
+                    child: _surface == 0
+                        ? const SignalDesk()
+                        : const CaptureDesk(),
                   ),
                 ),
               ),

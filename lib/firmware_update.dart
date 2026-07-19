@@ -308,11 +308,9 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
       raf = await file.open();
       final head = await raf.read(4);
       if (head.length < 4) return false;
-      final magic = (head[0] |
-              (head[1] << 8) |
-              (head[2] << 16) |
-              (head[3] << 24)) &
-          0xFFFFFFFF;
+      final magic =
+          (head[0] | (head[1] << 8) | (head[2] << 16) | (head[3] << 24)) &
+              0xFFFFFFFF;
       return magic == _mcubootMagic;
     } catch (e, st) {
       if (kDebugMode) debugPrint('Firmware validation error: $e\n$st');
@@ -454,8 +452,8 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
       _stage == FirmwareStage.done;
 
   Widget _versionRow(GridTokens? t) {
-    final labelStyle = t?.textCaption ??
-        const TextStyle(fontSize: 11, letterSpacing: 0.5);
+    final labelStyle =
+        t?.textCaption ?? const TextStyle(fontSize: 11, letterSpacing: 0.5);
     final valueStyle = TextStyle(
       fontFamily: 'Courier',
       fontFamilyFallback: const ['Courier New', 'monospace'],

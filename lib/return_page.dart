@@ -43,7 +43,6 @@ class _ReturnPageBody extends StatelessWidget {
       builder: (context, constraints) {
         final t = GridTokens(constraints.maxWidth);
         final topRow = GridRow(
-          gutter: t.md,
           cells: const [
             (span: 6, child: _ReturnOutputFormatCard(compact: true)),
             (span: 6, child: _AdcAdjustmentsCard()),
@@ -56,7 +55,6 @@ class _ReturnPageBody extends StatelessWidget {
             padding: t.pagePadding,
             children: [
               GridRow(
-                gutter: t.md,
                 cells: [
                   (
                     span: 12,
@@ -67,22 +65,21 @@ class _ReturnPageBody extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: t.md),
+              SizedBox(height: t.panelGap),
               GridRow(
-                gutter: t.md,
                 cells: const [
                   (
                     span: 12,
                     child: LabeledCard(
                       title: 'Color',
-                      child: SendColor(showGrade: true, gradePath: '/output/color/grade'),
+                      child: SendColor(
+                          showGrade: true, gradePath: '/output/color/grade'),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: t.md),
+              SizedBox(height: t.panelGap),
               GridRow(
-                gutter: t.md,
                 cells: const [
                   (
                     span: 12,
@@ -93,7 +90,7 @@ class _ReturnPageBody extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: t.md),
+              SizedBox(height: t.panelGap),
               // Return Output Format + ADC Adjustments moved to the bottom.
               topRow,
             ],
@@ -130,7 +127,6 @@ class _ReturnOutputControls extends StatelessWidget {
 
     if (compact) {
       return GridRow(
-        gutter: t.md,
         cells: [
           (
             span: 12,
@@ -141,7 +137,6 @@ class _ReturnOutputControls extends StatelessWidget {
                 children: [
                   GridRow(
                     columns: 12,
-                    gutter: t.md,
                     cells: [
                       (
                         span: 4,
@@ -150,9 +145,10 @@ class _ReturnOutputControls extends StatelessWidget {
                           children: [
                             const OscPathSegment(
                               segment: 'resolution',
-                              child: OscValueLabel(label: 'Resolution', width: null),
+                              child: OscValueLabel(
+                                  label: 'Resolution', width: null),
                             ),
-                            SizedBox(height: t.md),
+                            SizedBox(height: t.panelGap),
                             const OscPathSegment(
                               segment: 'framerate',
                               child: OscValueLabel(
@@ -227,13 +223,11 @@ class _AdcAdjustmentsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
     return CardColumn(
       children: [
         // TBC enable (moved here from the System page's Return Sync card). Only
         // meaningful in Component sync mode, so it greys out otherwise.
         GridRow(
-          gutter: t.md,
           cells: const [
             (
               span: 4,
@@ -245,7 +239,6 @@ class _AdcAdjustmentsContent extends StatelessWidget {
           ],
         ),
         GridRow(
-          gutter: t.md,
           cells: const [
             (
               span: 8,
@@ -264,7 +257,6 @@ class _AdcAdjustmentsContent extends StatelessWidget {
           ],
         ),
         GridRow(
-          gutter: t.md,
           cells: const [
             (
               span: 8,
@@ -283,7 +275,6 @@ class _AdcAdjustmentsContent extends StatelessWidget {
           ],
         ),
         GridRow(
-          gutter: t.md,
           cells: const [
             (
               span: 5,
@@ -409,8 +400,22 @@ class _AdvAaCardState extends State<_AdvAaCard> {
   // The 16 filter cutoffs (datasheet Table 10). The OSC value is the INDEX
   // (0..15); the knob works in real MHz with a hard detent per cutoff.
   static const List<double> _cutoffsMHz = [
-    10, 12, 14, 16, 27, 32, 36, 41,
-    59, 69, 80, 91, 95, 109, 126, 145,
+    10,
+    12,
+    14,
+    16,
+    27,
+    32,
+    36,
+    41,
+    59,
+    69,
+    80,
+    91,
+    95,
+    109,
+    126,
+    145,
   ];
 
   // Give every detent an equal slice of drag travel (the cutoffs are 2..19 MHz
@@ -496,7 +501,8 @@ class _AdvAaCardState extends State<_AdvAaCard> {
         OscCheckbox(
           initialValue: _enabled,
           size: t.knobSm * 0.42,
-          bindOsc: false, // OSC handled manually via _sendEnable -> /adv/aa/enable
+          bindOsc:
+              false, // OSC handled manually via _sendEnable -> /adv/aa/enable
           onChanged: (v) {
             setState(() => _enabled = v);
             _sendEnable(v);
@@ -585,12 +591,17 @@ class _AgcCardState extends State<_AgcCard> {
   void _onGainMsg(List<Object?> args) {
     if (args.length < 3) return;
     // Protocol units (2.8-format, 0..4) -> applied gain (0..2).
-    final a = ((args[0] as num) / _protocolPerApplied).clamp(0.0, 2.0).toDouble();
-    final b = ((args[1] as num) / _protocolPerApplied).clamp(0.0, 2.0).toDouble();
-    final c = ((args[2] as num) / _protocolPerApplied).clamp(0.0, 2.0).toDouble();
+    final a =
+        ((args[0] as num) / _protocolPerApplied).clamp(0.0, 2.0).toDouble();
+    final b =
+        ((args[1] as num) / _protocolPerApplied).clamp(0.0, 2.0).toDouble();
+    final c =
+        ((args[2] as num) / _protocolPerApplied).clamp(0.0, 2.0).toDouble();
     if (!mounted) return;
     setState(() {
-      _gainA = a; _gainB = b; _gainC = c;
+      _gainA = a;
+      _gainB = b;
+      _gainC = c;
     });
     _gainAKey.currentState?.setValue(a, emit: false);
     _gainBKey.currentState?.setValue(b, emit: false);
@@ -615,9 +626,8 @@ class _AgcCardState extends State<_AgcCard> {
     OscRegistry().dispatchLocal('/adv/agc/gain', args);
   }
 
-  Widget _gainKnob(
-      String label, GlobalKey<OscRotaryKnobState> key, double value, GridTokens t,
-      void Function(double) onCommit) {
+  Widget _gainKnob(String label, GlobalKey<OscRotaryKnobState> key,
+      double value, GridTokens t, void Function(double) onCommit) {
     return OscRotaryKnob(
       key: key,
       initialValue: value,
@@ -645,7 +655,8 @@ class _AgcCardState extends State<_AgcCard> {
         OscCheckbox(
           initialValue: _agcEnabled,
           size: t.knobSm * 0.42,
-          bindOsc: false, // OSC handled manually via _sendEnable -> /adv/agc/enable
+          bindOsc:
+              false, // OSC handled manually via _sendEnable -> /adv/agc/enable
           onChanged: (v) {
             setState(() => _agcEnabled = v);
             _sendEnable(v);
@@ -667,14 +678,20 @@ class _AgcCardState extends State<_AgcCard> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _gainKnob('A·G', _gainAKey, _gainA, t,
-                      (v) { _gainA = v; _sendGain(); }),
+                  _gainKnob('A·G', _gainAKey, _gainA, t, (v) {
+                    _gainA = v;
+                    _sendGain();
+                  }),
                   SizedBox(width: t.sm),
-                  _gainKnob('B·B', _gainBKey, _gainB, t,
-                      (v) { _gainB = v; _sendGain(); }),
+                  _gainKnob('B·B', _gainBKey, _gainB, t, (v) {
+                    _gainB = v;
+                    _sendGain();
+                  }),
                   SizedBox(width: t.sm),
-                  _gainKnob('C·R', _gainCKey, _gainC, t,
-                      (v) { _gainC = v; _sendGain(); }),
+                  _gainKnob('C·R', _gainCKey, _gainC, t, (v) {
+                    _gainC = v;
+                    _sendGain();
+                  }),
                 ],
               ),
             ),
@@ -890,7 +907,7 @@ class _AdvPhaseCardState extends State<_AdvPhaseCard> {
       labelStyle: t.textLabel,
       defaultValue: 0,
       size: phaseKnobSize,
-      sendOsc: false,  // Manual OSC handling
+      sendOsc: false, // Manual OSC handling
       preferInteger: true,
       oscPathOverride: '/adv/phase',
       onChanged: (v) {

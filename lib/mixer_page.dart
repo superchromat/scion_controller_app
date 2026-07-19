@@ -52,7 +52,8 @@ class _MixerMatrix extends StatefulWidget {
 class _MixerMatrixState extends State<_MixerMatrix> {
   // Per-row A/B state: row index (0-2) -> { sourceSend -> group }
   final List<Map<int, ABGroup>> _groups = [
-    for (var _ in List.filled(3, null)) {for (var s in MixerPage.sources) s: ABGroup.none},
+    for (var _ in List.filled(3, null))
+      {for (var s in MixerPage.sources) s: ABGroup.none},
   ];
 
   // Per-row crossfade position: 0.0 = A, 1.0 = B
@@ -104,7 +105,6 @@ class _MixerMatrixState extends State<_MixerMatrix> {
       children: [
         // Column headers
         GridRow(
-          gutter: t.md,
           cells: [
             (
               span: 12,
@@ -131,10 +131,11 @@ class _MixerMatrixState extends State<_MixerMatrix> {
             groups: _groups[targetSend - 1],
             crossfade: _crossfade[targetSend - 1],
             weightFor: (source) => _weightFor(targetSend - 1, source),
-            onGroupChanged: (source, group) => _setGroup(targetSend - 1, source, group),
+            onGroupChanged: (source, group) =>
+                _setGroup(targetSend - 1, source, group),
             onCrossfadeChanged: (value) => _setCrossfade(targetSend - 1, value),
           ),
-          if (targetSend < 3) SizedBox(height: t.md),
+          if (targetSend < 3) SizedBox(height: t.panelGap),
         ],
       ],
     );
@@ -188,7 +189,6 @@ class _MixerRowState extends State<_MixerRow> {
     final t = GridProvider.of(context);
 
     return GridRow(
-      gutter: t.md,
       cells: [
         (
           span: 12,
@@ -208,7 +208,8 @@ class _MixerRowState extends State<_MixerRow> {
                             sourceSend: MixerPage.sources[i],
                             group: widget.groups[MixerPage.sources[i]]!,
                             alphaWeight: widget.weightFor(MixerPage.sources[i]),
-                            onGroupChanged: (g) => widget.onGroupChanged(MixerPage.sources[i], g),
+                            onGroupChanged: (g) =>
+                                widget.onGroupChanged(MixerPage.sources[i], g),
                             flashTrigger: _flashTrigger,
                           ),
                         ),
@@ -319,7 +320,8 @@ class _ABToggleState extends State<_ABToggle>
           return GestureDetector(
             onTap: () => widget.onChanged(target),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.5),
+              padding:
+                  EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs * 0.5),
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.circular(4),
@@ -347,6 +349,7 @@ class _ABToggleState extends State<_ABToggle>
 class _Crossfader extends StatefulWidget {
   final double value;
   final ValueChanged<double> onChanged;
+
   /// Called before auto-crossfade starts. Return true to block it.
   final bool Function(double target)? onAutoRequest;
 
@@ -385,7 +388,8 @@ class _CrossfaderState extends State<_Crossfader>
     }
     _lastStep = elapsed;
 
-    final t = (elapsed.inMicroseconds / _autoDuration.inMicroseconds).clamp(0.0, 1.0);
+    final t =
+        (elapsed.inMicroseconds / _autoDuration.inMicroseconds).clamp(0.0, 1.0);
     // Ease in-out
     final eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) * (-2 * t + 2) / 2;
     final v = _autoFrom + (_autoTo - _autoFrom) * eased;
@@ -419,8 +423,10 @@ class _CrossfaderState extends State<_Crossfader>
     final t = GridProvider.of(context);
     const aColor = Color(0xFF5B8DEF);
     const bColor = Color(0xFFEF7B5B);
-    final labelStyle = t.textLabel.copyWith(fontWeight: FontWeight.w700, fontSize: t.u * 1.4);
-    final btnStyle = t.textCaption.copyWith(fontWeight: FontWeight.w700, fontSize: t.u * 0.9);
+    final labelStyle =
+        t.textLabel.copyWith(fontWeight: FontWeight.w700, fontSize: t.u * 1.4);
+    final btnStyle = t.textCaption
+        .copyWith(fontWeight: FontWeight.w700, fontSize: t.u * 0.9);
 
     Widget autoBtn(String label, Color color, double target) {
       return GestureDetector(
@@ -526,14 +532,20 @@ class _MixerCell extends StatelessWidget {
                       ),
               ),
               SizedBox(height: t.xs),
-              _ABToggle(group: group, onChanged: onGroupChanged, flashTrigger: flashTrigger),
+              _ABToggle(
+                  group: group,
+                  onChanged: onGroupChanged,
+                  flashTrigger: flashTrigger),
               SizedBox(height: t.sm),
             ],
           ),
         ),
         if (isIdentity)
           Positioned(
-            left: 1, top: 1, right: 1, bottom: 1,
+            left: 1,
+            top: 1,
+            right: 1,
+            bottom: 1,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(

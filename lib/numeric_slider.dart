@@ -107,7 +107,8 @@ class NumericSliderState extends State<NumericSlider>
   // Updates the slider's value programmatically.
   // - immediate: jump directly (no animation)
   // - emit: when true, calls onChanged/sendOsc; when false, updates UI only
-  Future<void> setValue(double newValue, {bool immediate = false, bool emit = true}) {
+  Future<void> setValue(double newValue,
+      {bool immediate = false, bool emit = true}) {
     final clamped = newValue.clamp(_range.start, _range.end);
     if ((clamped - _value).abs() >= 0.0001) {
       if (immediate) {
@@ -121,14 +122,13 @@ class NumericSliderState extends State<NumericSlider>
 
       _animStart = _displayValue;
       _animTarget = clamped;
-      _anim =
-          Tween(begin: _animStart, end: _animTarget).animate(
-            CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-          )..addListener(() {
-            setState(() {
-              _displayValue = _anim.value;
-            });
+      _anim = Tween(begin: _animStart, end: _animTarget).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+      )..addListener(() {
+          setState(() {
+            _displayValue = _anim.value;
           });
+        });
 
       _externallySet = true;
       return _animController.forward(from: 0).whenComplete(() {
@@ -435,8 +435,8 @@ class _NumericSliderPainter extends CustomPainter {
     final baseColor = externallySet
         ? Colors.yellow[700]!
         : interacting
-        ? Colors.yellow
-        : Colors.white;
+            ? Colors.yellow
+            : Colors.white;
 
     final bgPaint = Paint()..color = Colors.transparent;
     final linePaint = Paint()
@@ -462,16 +462,15 @@ class _NumericSliderPainter extends CustomPainter {
     canvas.clipPath(clipPath);
 
     for (var d in detents) {
-      final X =
-          (d - range.start) /
+      final X = (d - range.start) /
           (range.end - range.start).clamp(0, 1) *
           size.width;
       canvas.drawLine(Offset(X, 0), Offset(X, size.height), linePaint);
     }
 
     if (!editing) {
-      final normalized = ((value - range.start) / (range.end - range.start))
-          .clamp(0.0, 1.0);
+      final normalized =
+          ((value - range.start) / (range.end - range.start)).clamp(0.0, 1.0);
       final posX = size.width * normalized;
       final centerX = size.width / 2;
 

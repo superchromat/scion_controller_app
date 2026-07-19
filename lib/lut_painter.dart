@@ -158,10 +158,12 @@ class LUTPainter extends CustomPainter {
         final showRight = band.center + band.blend <= 1.0;
 
         if (showLeft) {
-          _drawDottedLine(canvas, Offset(leftX, 0), Offset(leftX, h), dashPaint);
+          _drawDottedLine(
+              canvas, Offset(leftX, 0), Offset(leftX, h), dashPaint);
         }
         if (showRight) {
-          _drawDottedLine(canvas, Offset(rightX, 0), Offset(rightX, h), dashPaint);
+          _drawDottedLine(
+              canvas, Offset(rightX, 0), Offset(rightX, h), dashPaint);
         }
 
         // Handles (below plot)
@@ -356,8 +358,8 @@ class GradeBand {
   });
 }
 
-void _drawFlagHandle(Canvas canvas, Offset tip, double triHeight,
-    double stemHeight, Paint paint,
+void _drawFlagHandle(
+    Canvas canvas, Offset tip, double triHeight, double stemHeight, Paint paint,
     {bool active = false, double level = 0.5}) {
   // Closed 5-sided polygon (triangle on top, square below), all rounded.
   final width = triHeight * 1.0;
@@ -449,12 +451,14 @@ void _drawZebra(Canvas canvas, Rect rect, int type, int zw, int zr) {
   canvas.restore();
 }
 
-void _drawDottedHLine(Canvas canvas, double x0, double x1, double y, Paint paint) {
+void _drawDottedHLine(
+    Canvas canvas, double x0, double x1, double y, Paint paint) {
   const double dotW = 1.4, dotH = 0.9, gap = 3.0;
   final lo = min(x0, x1), hi = max(x0, x1);
   for (double x = lo; x <= hi; x += dotW + gap) {
     canvas.drawRect(
-        Rect.fromCenter(center: Offset(x, y), width: dotW, height: dotH), paint);
+        Rect.fromCenter(center: Offset(x, y), width: dotW, height: dotH),
+        paint);
   }
 }
 

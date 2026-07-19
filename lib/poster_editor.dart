@@ -32,14 +32,30 @@ class _PosterEditorState extends State<PosterEditor> {
   int? _dragDivider;
 
   static const List<String> _typeLabels = [
-    'Original', 'Zebra ↗', 'Zebra ↖', 'Zebra —', 'Zebra |',
-    '5', '6', 'Solid',
+    'Original',
+    'Zebra ↗',
+    'Zebra ↖',
+    'Zebra —',
+    'Zebra |',
+    '5',
+    '6',
+    'Solid',
   ];
   static const List<int> _typeValues = [0, 1, 2, 3, 4, 7];
 
   static const List<int> _swatches = [
-    0x000000, 0xFFFFFF, 0xFF0000, 0xFF8000, 0xFFFF00, 0x00FF00,
-    0x00FFFF, 0x0080FF, 0x0000FF, 0x8000FF, 0xFF00FF, 0x808080,
+    0x000000,
+    0xFFFFFF,
+    0xFF0000,
+    0xFF8000,
+    0xFFFF00,
+    0x00FF00,
+    0x00FFFF,
+    0x0080FF,
+    0x0000FF,
+    0x8000FF,
+    0xFF00FF,
+    0x808080,
   ];
 
   void _send(String path, List<Object> args) {
@@ -81,12 +97,24 @@ class _PosterEditorState extends State<PosterEditor> {
             final seg = h ~/ 255, f = h % 255;
             int r = 0, g = 0, b = 0;
             switch (seg) {
-              case 0: r = 255; g = f;
-              case 1: r = 255 - f; g = 255;
-              case 2: g = 255; b = f;
-              case 3: g = 255 - f; b = 255;
-              case 4: r = f; b = 255;
-              default: r = 255; b = 255 - f;
+              case 0:
+                r = 255;
+                g = f;
+              case 1:
+                r = 255 - f;
+                g = 255;
+              case 2:
+                g = 255;
+                b = f;
+              case 3:
+                g = 255 - f;
+                b = 255;
+              case 4:
+                r = f;
+                b = 255;
+              default:
+                r = 255;
+                b = 255 - f;
             }
             _color[i] = (r << 16) | (g << 8) | b;
           case 2:
@@ -100,11 +128,14 @@ class _PosterEditorState extends State<PosterEditor> {
 
   // Map an x fraction (0..1) to the divider index being grabbed, or null.
   int? _hitDivider(double fx) {
-    double best = 0.02;  // grab radius in fraction of width
+    double best = 0.02; // grab radius in fraction of width
     int? hit;
     for (int i = 0; i < 15; i++) {
       final d = (fx - _th[i] / 255.0).abs();
-      if (d < best) { best = d; hit = i; }
+      if (d < best) {
+        best = d;
+        hit = i;
+      }
     }
     return hit;
   }
@@ -169,18 +200,26 @@ class _PosterEditorState extends State<PosterEditor> {
             // Zebra stripe geometry (applies to zebra-type bands)
             Text('Stripe W', style: t.textLabel),
             Slider(
-              value: _zebraWidth.toDouble(), min: 0, max: 15, divisions: 15,
+              value: _zebraWidth.toDouble(),
+              min: 0,
+              max: 15,
+              divisions: 15,
               onChanged: (v) {
                 setState(() => _zebraWidth = v.round());
-                _send('/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
+                _send(
+                    '/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
               },
             ),
             Text('Repeat', style: t.textLabel),
             Slider(
-              value: _zebraRepeat.toDouble(), min: 0, max: 15, divisions: 15,
+              value: _zebraRepeat.toDouble(),
+              min: 0,
+              max: 15,
+              divisions: 15,
               onChanged: (v) {
                 setState(() => _zebraRepeat = v.round());
-                _send('/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
+                _send(
+                    '/send/1/color/poster/zebra', [_zebraWidth, _zebraRepeat]);
               },
             ),
           ],
@@ -227,7 +266,8 @@ class _PosterEditorState extends State<PosterEditor> {
           children: [
             Text('Band ${_selected + 1}', style: t.textLabel),
             DropdownButton<int>(
-              value: _typeValues.contains(_type[_selected]) ? _type[_selected] : 7,
+              value:
+                  _typeValues.contains(_type[_selected]) ? _type[_selected] : 7,
               isDense: true,
               dropdownColor: const Color(0xFF2A2A2E),
               style: t.textLabel.copyWith(color: Colors.white),
@@ -251,7 +291,8 @@ class _PosterEditorState extends State<PosterEditor> {
                   _pushBand(_selected);
                 },
                 child: Container(
-                  width: 22, height: 22,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: Color(0xFF000000 | c),
                     borderRadius: BorderRadius.circular(4),

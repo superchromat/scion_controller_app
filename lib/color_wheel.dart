@@ -80,7 +80,7 @@ List<double> wheelPositionToRgb(Offset pos, double size, double sliderValue) {
   const double wheelScale = 2.0;
 
   final a = (offset.dx / radius) * wheelScale;
-  final b = (-offset.dy / radius) * wheelScale;  // Flip Y so up = positive
+  final b = (-offset.dy / radius) * wheelScale; // Flip Y so up = positive
 
   return wheelCoordsToRgb(a, b, sliderValue);
 }
@@ -106,7 +106,7 @@ ui.Image _generateOpponentWheel(int size, double sliderValue) {
       if (dist <= radius + 1.0) {
         // Convert screen position to (a, b) coordinates
         final a = (dx / radius) * wheelScale;
-        final b = (-dy / radius) * wheelScale;  // Flip Y
+        final b = (-dy / radius) * wheelScale; // Flip Y
 
         // Get RGB from wheel coords
         final rgb = wheelCoordsToRgb(a, b, sliderValue);
@@ -121,12 +121,13 @@ ui.Image _generateOpponentWheel(int size, double sliderValue) {
 
         canvas.drawRect(
           Rect.fromLTWH(x.toDouble(), y.toDouble(), 1, 1),
-          Paint()..color = Color.fromRGBO(
-            (r * 255).round().clamp(0, 255),
-            (g * 255).round().clamp(0, 255),
-            (bl * 255).round().clamp(0, 255),
-            alpha,
-          ),
+          Paint()
+            ..color = Color.fromRGBO(
+              (r * 255).round().clamp(0, 255),
+              (g * 255).round().clamp(0, 255),
+              (bl * 255).round().clamp(0, 255),
+              alpha,
+            ),
         );
       }
     }
@@ -146,7 +147,7 @@ class ColorWheelPainter extends CustomPainter {
   final List<double> otherPrimary2;
   final int wheelIndex;
   final double sliderValue;
-  final bool isCompact;  // For smaller wheels: thinner lines, coarser sampling
+  final bool isCompact; // For smaller wheels: thinner lines, coarser sampling
   final bool showOverlays; // gamut boundary + invertibility danger zone
 
   ColorWheelPainter(
@@ -190,7 +191,7 @@ class ColorWheelPainter extends CustomPainter {
     // Convert (a, b) to screen position
     const double wheelScale = 2.0;
     final screenX = (a / wheelScale) * radius;
-    final screenY = (-bCoord / wheelScale) * radius;  // Flip Y back
+    final screenY = (-bCoord / wheelScale) * radius; // Flip Y back
 
     final selPos = center + Offset(screenX, screenY);
 
@@ -203,7 +204,13 @@ class ColorWheelPainter extends CustomPainter {
     );
 
     canvas.drawCircle(selPos, 8, Paint()..color = selColor);
-    canvas.drawCircle(selPos, 8, Paint()..color = Colors.grey[600]!..style = PaintingStyle.stroke..strokeWidth = 2);
+    canvas.drawCircle(
+        selPos,
+        8,
+        Paint()
+          ..color = Colors.grey[600]!
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
   }
 
   void _drawCachedWheel(Canvas canvas, Offset center, double radius) {
@@ -213,9 +220,11 @@ class ColorWheelPainter extends CustomPainter {
     if (_cachedWheelImage != null &&
         _cachedWheelSize == size &&
         (_cachedWheelSlider - sliderValue).abs() < 0.01) {
-      final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(), _cachedWheelImage!.height.toDouble());
+      final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(),
+          _cachedWheelImage!.height.toDouble());
       final dst = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawImageRect(_cachedWheelImage!, src, dst, Paint()..filterQuality = FilterQuality.high);
+      canvas.drawImageRect(_cachedWheelImage!, src, dst,
+          Paint()..filterQuality = FilterQuality.high);
       return;
     }
 
@@ -225,9 +234,11 @@ class ColorWheelPainter extends CustomPainter {
     _cachedWheelSlider = sliderValue;
 
     if (_cachedWheelImage != null) {
-      final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(), _cachedWheelImage!.height.toDouble());
+      final src = Rect.fromLTWH(0, 0, _cachedWheelImage!.width.toDouble(),
+          _cachedWheelImage!.height.toDouble());
       final dst = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawImageRect(_cachedWheelImage!, src, dst, Paint()..filterQuality = FilterQuality.high);
+      canvas.drawImageRect(_cachedWheelImage!, src, dst,
+          Paint()..filterQuality = FilterQuality.high);
     }
   }
 
@@ -249,9 +260,12 @@ class ColorWheelPainter extends CustomPainter {
         final a = cos(angle) * mid * wheelScale;
         final b = sin(angle) * mid * wheelScale;
         final rgb = wheelCoordsToRgb(a, b, sliderValue);
-        final inGamut = rgb[0] >= 0 && rgb[0] <= 1 &&
-                        rgb[1] >= 0 && rgb[1] <= 1 &&
-                        rgb[2] >= 0 && rgb[2] <= 1;
+        final inGamut = rgb[0] >= 0 &&
+            rgb[0] <= 1 &&
+            rgb[1] >= 0 &&
+            rgb[1] <= 1 &&
+            rgb[2] >= 0 &&
+            rgb[2] <= 1;
         if (inGamut) {
           lo = mid;
         } else {
@@ -328,7 +342,8 @@ class ColorWheelPainter extends CustomPainter {
 
   void _drawDangerZone(Canvas canvas, Offset center, double radius) {
     canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
+    canvas.clipPath(
+        Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
 
     const double kappaThreshold = 15.0;
     const double biasThreshold = 1.9;
@@ -383,7 +398,8 @@ class ColorWheelPainter extends CustomPainter {
     }
 
     // Draw white background with slight blur effect
-    canvas.drawPath(fillPath, Paint()..color = Colors.white.withValues(alpha: 0.7));
+    canvas.drawPath(
+        fillPath, Paint()..color = Colors.white.withValues(alpha: 0.7));
 
     // Hatch pattern
     canvas.save();
@@ -440,20 +456,50 @@ class ColorWheelPainter extends CustomPainter {
         }
 
         switch (caseIndex) {
-          case 1: addSeg(bottom, left); break;
-          case 2: addSeg(bottom, right); break;
-          case 3: addSeg(left, right); break;
-          case 4: addSeg(left, top); break;
-          case 5: addSeg(bottom, top); break;
-          case 6: addSeg(bottom, left); addSeg(top, right); break;
-          case 7: addSeg(top, right); break;
-          case 8: addSeg(top, right); break;
-          case 9: addSeg(bottom, right); addSeg(left, top); break;
-          case 10: addSeg(bottom, top); break;
-          case 11: addSeg(left, top); break;
-          case 12: addSeg(left, right); break;
-          case 13: addSeg(bottom, right); break;
-          case 14: addSeg(bottom, left); break;
+          case 1:
+            addSeg(bottom, left);
+            break;
+          case 2:
+            addSeg(bottom, right);
+            break;
+          case 3:
+            addSeg(left, right);
+            break;
+          case 4:
+            addSeg(left, top);
+            break;
+          case 5:
+            addSeg(bottom, top);
+            break;
+          case 6:
+            addSeg(bottom, left);
+            addSeg(top, right);
+            break;
+          case 7:
+            addSeg(top, right);
+            break;
+          case 8:
+            addSeg(top, right);
+            break;
+          case 9:
+            addSeg(bottom, right);
+            addSeg(left, top);
+            break;
+          case 10:
+            addSeg(bottom, top);
+            break;
+          case 11:
+            addSeg(left, top);
+            break;
+          case 12:
+            addSeg(left, right);
+            break;
+          case 13:
+            addSeg(bottom, right);
+            break;
+          case 14:
+            addSeg(bottom, left);
+            break;
         }
       }
     }
@@ -489,9 +535,9 @@ class ColorWheelPainter extends CustomPainter {
 ///
 /// κ² = ||M||_F² × ||adj(M)||_F² / det(M)²
 class _KappaPolynomial {
-  final List<double> fixed1;  // First fixed primary
-  final List<double> fixed2;  // Second fixed primary
-  final int wheelIndex;       // Which column is moving (0, 1, or 2)
+  final List<double> fixed1; // First fixed primary
+  final List<double> fixed2; // Second fixed primary
+  final int wheelIndex; // Which column is moving (0, 1, or 2)
   final double sliderValue;
 
   // Precomputed values
@@ -505,14 +551,18 @@ class _KappaPolynomial {
     required this.fixed2,
     required this.wheelIndex,
     required this.sliderValue,
-  }) : fixed1Sq = fixed1[0] * fixed1[0] + fixed1[1] * fixed1[1] + fixed1[2] * fixed1[2],
-       fixed2Sq = fixed2[0] * fixed2[0] + fixed2[1] * fixed2[1] + fixed2[2] * fixed2[2],
-       fixed1CrossFixed2 = [
-         fixed1[1] * fixed2[2] - fixed1[2] * fixed2[1],
-         fixed1[2] * fixed2[0] - fixed1[0] * fixed2[2],
-         fixed1[0] * fixed2[1] - fixed1[1] * fixed2[0],
-       ],
-       fixed1CrossFixed2Sq = _computeCrossProductNormSq(fixed1, fixed2);
+  })  : fixed1Sq = fixed1[0] * fixed1[0] +
+            fixed1[1] * fixed1[1] +
+            fixed1[2] * fixed1[2],
+        fixed2Sq = fixed2[0] * fixed2[0] +
+            fixed2[1] * fixed2[1] +
+            fixed2[2] * fixed2[2],
+        fixed1CrossFixed2 = [
+          fixed1[1] * fixed2[2] - fixed1[2] * fixed2[1],
+          fixed1[2] * fixed2[0] - fixed1[0] * fixed2[2],
+          fixed1[0] * fixed2[1] - fixed1[1] * fixed2[0],
+        ],
+        fixed1CrossFixed2Sq = _computeCrossProductNormSq(fixed1, fixed2);
 
   static double _computeCrossProductNormSq(List<double> a, List<double> b) {
     final cx = a[1] * b[2] - a[2] * b[1];
@@ -545,11 +595,17 @@ class _KappaPolynomial {
     // Build the three primaries in correct order
     List<double> p0, p1, p2;
     if (wheelIndex == 0) {
-      p0 = p; p1 = fixed1; p2 = fixed2;
+      p0 = p;
+      p1 = fixed1;
+      p2 = fixed2;
     } else if (wheelIndex == 1) {
-      p0 = fixed1; p1 = p; p2 = fixed2;
+      p0 = fixed1;
+      p1 = p;
+      p2 = fixed2;
     } else {
-      p0 = fixed1; p1 = fixed2; p2 = p;
+      p0 = fixed1;
+      p1 = fixed2;
+      p2 = p;
     }
 
     // ||M||_F² = |p0|² + |p1|² + |p2|²
@@ -563,7 +619,8 @@ class _KappaPolynomial {
     // ||adj(M)||_F² = |p1 × p2|² + |p2 × p0|² + |p0 × p1|²
     final p2CrossP0 = _cross(p2, p0);
     final p0CrossP1 = _cross(p0, p1);
-    final adjFrobSq = _normSq(p1CrossP2) + _normSq(p2CrossP0) + _normSq(p0CrossP1);
+    final adjFrobSq =
+        _normSq(p1CrossP2) + _normSq(p2CrossP0) + _normSq(p0CrossP1);
 
     // κ² = ||M||_F² × ||adj(M)||_F² / det²
     return mFrobSq * adjFrobSq / (det * det);

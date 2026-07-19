@@ -30,8 +30,8 @@ void main() {
     // plus enough to cross a chunk boundary, and check a directory entry.
     final blob = await nor.read(0, 2048);
     expect(blob.length, 2048);
-    final fam = String.fromCharCodes(
-        blob.sublist(16, 32).takeWhile((c) => c != 0));
+    final fam =
+        String.fromCharCodes(blob.sublist(16, 32).takeWhile((c) => c != 0));
     expect(fam, isNotEmpty);
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

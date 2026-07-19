@@ -36,7 +36,6 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
   double _slider2 = 0.0;
   double _slider3 = 0.0;
 
-
   @override
   void initState() {
     super.initState();
@@ -68,9 +67,21 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
   }
 
   void _syncPrimariesFromMatrix() {
-    _primary1 = [matrixModel.matrix[0][0], matrixModel.matrix[1][0], matrixModel.matrix[2][0]];
-    _primary2 = [matrixModel.matrix[0][1], matrixModel.matrix[1][1], matrixModel.matrix[2][1]];
-    _primary3 = [matrixModel.matrix[0][2], matrixModel.matrix[1][2], matrixModel.matrix[2][2]];
+    _primary1 = [
+      matrixModel.matrix[0][0],
+      matrixModel.matrix[1][0],
+      matrixModel.matrix[2][0]
+    ];
+    _primary2 = [
+      matrixModel.matrix[0][1],
+      matrixModel.matrix[1][1],
+      matrixModel.matrix[2][1]
+    ];
+    _primary3 = [
+      matrixModel.matrix[0][2],
+      matrixModel.matrix[1][2],
+      matrixModel.matrix[2][2]
+    ];
   }
 
   void _syncSlidersFromPrimaries() {
@@ -84,35 +95,49 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
 
   double _getSliderForPrimary(int index) {
     switch (index) {
-      case 0: return _slider1;
-      case 1: return _slider2;
-      case 2: return _slider3;
-      default: return 0.0;
+      case 0:
+        return _slider1;
+      case 1:
+        return _slider2;
+      case 2:
+        return _slider3;
+      default:
+        return 0.0;
     }
   }
 
   void _setSliderForPrimary(int index, double value) {
     switch (index) {
-      case 0: _slider1 = value;
-      case 1: _slider2 = value;
-      case 2: _slider3 = value;
+      case 0:
+        _slider1 = value;
+      case 1:
+        _slider2 = value;
+      case 2:
+        _slider3 = value;
     }
   }
 
   List<double> _getPrimary(int index) {
     switch (index) {
-      case 0: return _primary1;
-      case 1: return _primary2;
-      case 2: return _primary3;
-      default: return [1, 1, 1];
+      case 0:
+        return _primary1;
+      case 1:
+        return _primary2;
+      case 2:
+        return _primary3;
+      default:
+        return [1, 1, 1];
     }
   }
 
   void _setPrimary(int index, List<double> value) {
     switch (index) {
-      case 0: _primary1 = value;
-      case 1: _primary2 = value;
-      case 2: _primary3 = value;
+      case 0:
+        _primary1 = value;
+      case 1:
+        _primary2 = value;
+      case 2:
+        _primary3 = value;
     }
   }
 
@@ -180,15 +205,27 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
     frobM = sqrt(frobM);
 
     final det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
-                m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-                m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+        m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+        m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 
     if (det.abs() < 1e-10) return double.infinity;
 
     final adj = [
-      [m[1][1]*m[2][2] - m[1][2]*m[2][1], m[0][2]*m[2][1] - m[0][1]*m[2][2], m[0][1]*m[1][2] - m[0][2]*m[1][1]],
-      [m[1][2]*m[2][0] - m[1][0]*m[2][2], m[0][0]*m[2][2] - m[0][2]*m[2][0], m[0][2]*m[1][0] - m[0][0]*m[1][2]],
-      [m[1][0]*m[2][1] - m[1][1]*m[2][0], m[0][1]*m[2][0] - m[0][0]*m[2][1], m[0][0]*m[1][1] - m[0][1]*m[1][0]],
+      [
+        m[1][1] * m[2][2] - m[1][2] * m[2][1],
+        m[0][2] * m[2][1] - m[0][1] * m[2][2],
+        m[0][1] * m[1][2] - m[0][2] * m[1][1]
+      ],
+      [
+        m[1][2] * m[2][0] - m[1][0] * m[2][2],
+        m[0][0] * m[2][2] - m[0][2] * m[2][0],
+        m[0][2] * m[1][0] - m[0][0] * m[1][2]
+      ],
+      [
+        m[1][0] * m[2][1] - m[1][1] * m[2][0],
+        m[0][1] * m[2][0] - m[0][0] * m[2][1],
+        m[0][0] * m[1][1] - m[0][1] * m[1][0]
+      ],
     ];
 
     double frobAdj = 0;
@@ -233,7 +270,10 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
           child: CustomPaint(
             size: const Size(wheelSize, wheelSize),
             painter: ColorWheelPainter(
-              rgb, other1, other2, primaryIndex,
+              rgb,
+              other1,
+              other2,
+              primaryIndex,
               sliderValue: sliderValue,
             ),
           ),
@@ -245,12 +285,14 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
           width: wheelSize,
           child: Row(
             children: [
-              Text('Dark', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              Text('Dark',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               Expanded(
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 8),
                     activeTrackColor: Colors.grey[400],
                     inactiveTrackColor: Colors.grey[700],
                     thumbColor: Colors.grey[300],
@@ -263,7 +305,8 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                   ),
                 ),
               ),
-              Text('Bright', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              Text('Bright',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ],
           ),
         ),
@@ -348,10 +391,14 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                     initialValue: selectedColorspace,
                     decoration: InputDecoration(
                       labelText: 'Preset',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                     ),
-                    items: colorspaces.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    items: colorspaces
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
@@ -367,7 +414,8 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                             }
                           }
                         } else {
-                          matrixModel = ColorSpaceMatrix(_getMatrixForColorspace(value));
+                          matrixModel =
+                              ColorSpaceMatrix(_getMatrixForColorspace(value));
                           _syncPrimariesFromMatrix();
                         }
                         _syncSlidersFromPrimaries();
@@ -378,18 +426,25 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                 const SizedBox(width: 24),
                 // Condition number display
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: kappa < 3 ? Colors.green.withValues(alpha: 0.2) :
-                           kappa < 10 ? Colors.yellow.withValues(alpha: 0.2) :
-                           kappa < 100 ? Colors.orange.withValues(alpha: 0.2) :
-                           Colors.red.withValues(alpha: 0.2),
+                    color: kappa < 3
+                        ? Colors.green.withValues(alpha: 0.2)
+                        : kappa < 10
+                            ? Colors.yellow.withValues(alpha: 0.2)
+                            : kappa < 100
+                                ? Colors.orange.withValues(alpha: 0.2)
+                                : Colors.red.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: kappa < 3 ? Colors.green :
-                             kappa < 10 ? Colors.yellow :
-                             kappa < 100 ? Colors.orange :
-                             Colors.red,
+                      color: kappa < 3
+                          ? Colors.green
+                          : kappa < 10
+                              ? Colors.yellow
+                              : kappa < 100
+                                  ? Colors.orange
+                                  : Colors.red,
                     ),
                   ),
                   child: Text(
@@ -397,10 +452,13 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: kappa < 3 ? Colors.green[300] :
-                             kappa < 10 ? Colors.yellow[300] :
-                             kappa < 100 ? Colors.orange[300] :
-                             Colors.red[300],
+                      color: kappa < 3
+                          ? Colors.green[300]
+                          : kappa < 10
+                              ? Colors.yellow[300]
+                              : kappa < 100
+                                  ? Colors.orange[300]
+                                  : Colors.red[300],
                     ),
                   ),
                 ),
@@ -409,7 +467,8 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                 if (biasExceedsLimit) ...[
                   const SizedBox(width: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -418,7 +477,8 @@ class _ColorPrimariesPageState extends State<ColorPrimariesPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.warning_amber, color: Colors.red, size: 18),
+                        const Icon(Icons.warning_amber,
+                            color: Colors.red, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           'ADC Bias Overflow: ${adcBias.toStringAsFixed(2)} > ${kMaxAdcBiasNormalized.toStringAsFixed(2)}',

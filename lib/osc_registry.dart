@@ -183,9 +183,8 @@ class OscRegistry extends ChangeNotifier {
           registerAddress(addr);
           final param = _params[addr]!;
           final value = node[_nodeValueKey];
-          final args = value is List
-              ? List<Object?>.from(value)
-              : <Object?>[value];
+          final args =
+              value is List ? List<Object?>.from(value) : <Object?>[value];
           param.dispatch(args);
         }
       }

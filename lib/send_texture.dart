@@ -44,22 +44,23 @@ class SendTexture extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
     // Two packed panels side by side: Blur (H/V × Amount/Shape) and Sharpen
     // (H Amount/Shape, V Amount) — one row instead of the old 2×2 of near-empty
     // panels.
     return OscPathSegment(
       segment: 'texture',
-      child: GridRow(columns: 2, gutter: t.md, cells: [
+      child: GridRow(columns: 2, cells: [
         (
           span: 1,
           child: Panel(
             title: 'Blur',
             child: ControlGrid(children: [
               _knob(context, 'H Amt', 'blur/h/amount'),
-              _knob(context, 'H Shape', 'blur/h/shape', snapPoints: const [0.5]),
+              _knob(context, 'H Shape', 'blur/h/shape',
+                  snapPoints: const [0.5]),
               _knob(context, 'V Amt', 'blur/v/amount'),
-              _knob(context, 'V Shape', 'blur/v/shape', snapPoints: const [0.5]),
+              _knob(context, 'V Shape', 'blur/v/shape',
+                  snapPoints: const [0.5]),
             ]),
           ),
         ),
@@ -69,7 +70,8 @@ class SendTexture extends StatelessWidget {
             title: 'Sharpen',
             child: ControlGrid(children: [
               _knob(context, 'H Amt', 'sharp/h/amount'),
-              _knob(context, 'H Shape', 'sharp/h/shape', snapPoints: const [0.5]),
+              _knob(context, 'H Shape', 'sharp/h/shape',
+                  snapPoints: const [0.5]),
               _knob(context, 'V Amt', 'sharp/v/amount'),
             ]),
           ),

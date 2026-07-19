@@ -30,9 +30,12 @@ List<double> oklchToLinearRgb(double l, double c, double h) {
   final mCubed = m_ * m_ * m_;
   final sCubed = s_ * s_ * s_;
 
-  final r = 4.0767416621 * lCubed - 3.3077115913 * mCubed + 0.2309699292 * sCubed;
-  final g = -1.2684380046 * lCubed + 2.6097574011 * mCubed - 0.3413193965 * sCubed;
-  final bl = -0.0041960863 * lCubed - 0.7034186147 * mCubed + 1.7076147010 * sCubed;
+  final r =
+      4.0767416621 * lCubed - 3.3077115913 * mCubed + 0.2309699292 * sCubed;
+  final g =
+      -1.2684380046 * lCubed + 2.6097574011 * mCubed - 0.3413193965 * sCubed;
+  final bl =
+      -0.0041960863 * lCubed - 0.7034186147 * mCubed + 1.7076147010 * sCubed;
 
   return [r, g, bl];
 }
@@ -57,9 +60,12 @@ List<int> oklchToSrgb255(double l, double c, double h) {
 /// Check if OKLCH color is within sRGB gamut
 bool isInGamut(double l, double c, double h) {
   final linear = oklchToLinearRgb(l, c, h);
-  return linear[0] >= -0.001 && linear[0] <= 1.001 &&
-         linear[1] >= -0.001 && linear[1] <= 1.001 &&
-         linear[2] >= -0.001 && linear[2] <= 1.001;
+  return linear[0] >= -0.001 &&
+      linear[0] <= 1.001 &&
+      linear[1] >= -0.001 &&
+      linear[1] <= 1.001 &&
+      linear[2] >= -0.001 &&
+      linear[2] <= 1.001;
 }
 
 /// Find maximum chroma for given lightness and hue
@@ -90,9 +96,12 @@ List<double> srgbToOklch(int r, int g, int b) {
   final lb = srgbToLinear(b);
 
   // Linear RGB to LMS
-  final l_ = pow(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb, 1.0 / 3.0);
-  final m_ = pow(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb, 1.0 / 3.0);
-  final s_ = pow(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb, 1.0 / 3.0);
+  final l_ =
+      pow(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb, 1.0 / 3.0);
+  final m_ =
+      pow(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb, 1.0 / 3.0);
+  final s_ =
+      pow(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb, 1.0 / 3.0);
 
   // LMS to OKLab
   final L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
@@ -232,7 +241,8 @@ class OklchColorPickerState extends State<OklchColorPicker> {
         required arcValue,
         required wheelRadius,
         required center,
-      }) => _OklchWheelPainter(
+      }) =>
+          _OklchWheelPainter(
         lightness: arcValue,
         wheelX: wheelX,
         wheelY: wheelY,

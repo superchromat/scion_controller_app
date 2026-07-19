@@ -65,8 +65,11 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
   }
 
   void _sendSync() {
-    context.read<Network>().sendOscMessage('/adv/sync', [_hsStart, _hsEnd, _vsStart, _vsEnd]);
-    OscRegistry().dispatchLocal('/adv/sync', [_hsStart, _hsEnd, _vsStart, _vsEnd]);
+    context
+        .read<Network>()
+        .sendOscMessage('/adv/sync', [_hsStart, _hsEnd, _vsStart, _vsEnd]);
+    OscRegistry()
+        .dispatchLocal('/adv/sync', [_hsStart, _hsEnd, _vsStart, _vsEnd]);
   }
 
   @override
@@ -74,15 +77,26 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
     final t = GridProvider.of(context);
     final knobSize = widget.embedded ? t.knobSm : t.knobMd;
     final knobWidgets = [
-      _syncKnob(context, 'HS Start', _hsStartKey, -512, 511, knobSize, (v) { _hsStart = v; _sendSync(); }),
-      _syncKnob(context, 'HS End', _hsEndKey, -512, 511, knobSize, (v) { _hsEnd = v; _sendSync(); }),
-      _syncKnob(context, 'VS Start', _vsStartKey, -8, 7, knobSize, (v) { _vsStart = v; _sendSync(); }),
-      _syncKnob(context, 'VS End', _vsEndKey, -8, 7, knobSize, (v) { _vsEnd = v; _sendSync(); }),
+      _syncKnob(context, 'HS Start', _hsStartKey, -512, 511, knobSize, (v) {
+        _hsStart = v;
+        _sendSync();
+      }),
+      _syncKnob(context, 'HS End', _hsEndKey, -512, 511, knobSize, (v) {
+        _hsEnd = v;
+        _sendSync();
+      }),
+      _syncKnob(context, 'VS Start', _vsStartKey, -8, 7, knobSize, (v) {
+        _vsStart = v;
+        _sendSync();
+      }),
+      _syncKnob(context, 'VS End', _vsEndKey, -8, 7, knobSize, (v) {
+        _vsEnd = v;
+        _sendSync();
+      }),
     ];
     final controls = widget.embedded
         ? GridRow(
             columns: 4,
-            gutter: t.sm,
             equalHeight: false,
             cells: [
               for (final k in knobWidgets) (span: 1, child: k),
@@ -114,8 +128,14 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
     );
   }
 
-  Widget _syncKnob(BuildContext context, String label, GlobalKey<OscRotaryKnobState> key,
-      double min, double max, double size, void Function(int) onCommit) {
+  Widget _syncKnob(
+      BuildContext context,
+      String label,
+      GlobalKey<OscRotaryKnobState> key,
+      double min,
+      double max,
+      double size,
+      void Function(int) onCommit) {
     final t = GridProvider.of(context);
     return OscRotaryKnob(
       key: key,
@@ -136,7 +156,9 @@ class _AdvSyncAdjustCardState extends State<AdvSyncAdjustCard> {
         snapRegionHalfWidth: (max - min) * 0.02,
         snapBehavior: SnapBehavior.hard,
       ),
-      onChanged: (v) { onCommit(v.round()); },
+      onChanged: (v) {
+        onCommit(v.round());
+      },
     );
   }
 }

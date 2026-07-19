@@ -84,8 +84,8 @@ class AboutSection extends StatelessWidget {
               builder: (context, snap) => Text(
                 'SCION Controller  ${snap.data ?? '…'}  •  beta',
                 // Must not be smaller than the prose it heads.
-                style: t.textBody.copyWith(
-                    fontWeight: FontWeight.w400, color: Colors.white),
+                style: t.textBody
+                    .copyWith(fontWeight: FontWeight.w400, color: Colors.white),
               ),
             ),
             SizedBox(height: t.sm),

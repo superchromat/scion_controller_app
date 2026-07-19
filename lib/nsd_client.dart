@@ -42,27 +42,30 @@ class NSDClient {
 
     if (kDebugMode) {
       for (final s in discovery.services) {
-        debugPrint('NSD: service name="${s.name}" type="${s.type}" host=${s.host} port=${s.port}');
+        debugPrint(
+            'NSD: service name="${s.name}" type="${s.type}" host=${s.host} port=${s.port}');
       }
     }
 
     final results = discovery.services
-        .where((s) => s.port != null && (s.host != null || (s.addresses?.isNotEmpty ?? false)))
+        .where((s) =>
+            s.port != null &&
+            (s.host != null || (s.addresses?.isNotEmpty ?? false)))
         .map((s) {
-          String host;
-          if (s.addresses != null && s.addresses!.isNotEmpty) {
-            final addrs = s.addresses!;
-            final preferred = addrs.where((a) => a.type == InternetAddressType.IPv4);
-            host = (preferred.isNotEmpty ? preferred.first : addrs.first).address;
-          } else {
-            host = s.host!;
-          }
-          while (host.endsWith('.')) {
-            host = host.substring(0, host.length - 1);
-          }
-          return NetworkAddress(host: host, port: s.port!);
-        })
-        .toList();
+      String host;
+      if (s.addresses != null && s.addresses!.isNotEmpty) {
+        final addrs = s.addresses!;
+        final preferred =
+            addrs.where((a) => a.type == InternetAddressType.IPv4);
+        host = (preferred.isNotEmpty ? preferred.first : addrs.first).address;
+      } else {
+        host = s.host!;
+      }
+      while (host.endsWith('.')) {
+        host = host.substring(0, host.length - 1);
+      }
+      return NetworkAddress(host: host, port: s.port!);
+    }).toList();
 
     await stopDiscovery(discovery);
     return results;

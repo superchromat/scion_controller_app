@@ -41,6 +41,7 @@ class MappingSegment {
 enum SnapBehavior {
   /// Locks exactly to snap point until hysteresis threshold exceeded
   hard,
+
   /// Biases toward snap point with smooth weighting
   soft,
 }
@@ -65,7 +66,8 @@ class SnapConfig {
     this.snapPoints = const [],
     this.snapRegionHalfWidth = 0.05,
     this.snapHysteresisMultiplier = 1.5,
-    this.snapAvoidanceSpeedThreshold = 0.25,  // normalized range per second (0.25 = 4 sec to traverse full range)
+    this.snapAvoidanceSpeedThreshold =
+        0.25, // normalized range per second (0.25 = 4 sec to traverse full range)
     this.snapBriefHoldTimeMs = 100,
     this.snapBehavior = SnapBehavior.hard,
     this.softSnapExponent = 2.0,
@@ -168,11 +170,11 @@ class RotaryKnob extends StatefulWidget {
     this.dragBarWidth = 400,
     this.integerOnly = false,
     this.detentValues,
-    this.lightPhi = math.pi / 2,    // Default: 90°
-    this.lightTheta = 320 * math.pi / 180,  // Default: 320°
+    this.lightPhi = math.pi / 2, // Default: 90°
+    this.lightTheta = 320 * math.pi / 180, // Default: 320°
     this.arcWidth = 8.0,
     this.notchDepth = 5.0,
-    this.notchHalfAngle = 0.072,    // ~4.1 degrees
+    this.notchHalfAngle = 0.072, // ~4.1 degrees
     this.labelStyle,
     this.oscPath,
   });
@@ -226,7 +228,8 @@ class _RotaryKnobState extends State<RotaryKnob>
   @override
   void initState() {
     super.initState();
-    _currentValue = _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
+    _currentValue =
+        _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
     _lastValue = _currentValue;
 
     _settleController = AnimationController(
@@ -237,7 +240,8 @@ class _RotaryKnobState extends State<RotaryKnob>
     _textController = TextEditingController(text: _formatValue(_currentValue));
     _textFocusNode = FocusNode(
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
           _cancelEditing();
           _textFocusNode.unfocus();
           return KeyEventResult.handled;
@@ -293,7 +297,8 @@ class _RotaryKnobState extends State<RotaryKnob>
   void didUpdateWidget(RotaryKnob oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      _currentValue = _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
+      _currentValue =
+          _quantize(widget.value.clamp(widget.minValue, widget.maxValue));
       if (!_isEditing) {
         // Defer the text controller update to avoid triggering
         // markNeedsBuild during the build/update phase.
@@ -327,14 +332,15 @@ class _RotaryKnobState extends State<RotaryKnob>
         }
         int zerosEnd = start;
         while (zerosEnd < text.length - 1 &&
-               text[zerosEnd] == '0' &&
-               text[zerosEnd + 1] != '.') {
+            text[zerosEnd] == '0' &&
+            text[zerosEnd + 1] != '.') {
           zerosEnd++;
         }
         final editText = text.substring(0, start) + text.substring(zerosEnd);
         _textController.text = editText;
         // Put cursor at end
-        _textController.selection = TextSelection.collapsed(offset: editText.length);
+        _textController.selection =
+            TextSelection.collapsed(offset: editText.length);
         setState(() => _isEditing = true);
       }
     } else {
@@ -382,7 +388,8 @@ class _RotaryKnobState extends State<RotaryKnob>
     // Determine max length based on format string and value range
     final format = widget.format;
     final match = RegExp(r'%[+]?(\d*)\.?(\d*)f').firstMatch(format);
-    final precision = match != null ? int.tryParse(match.group(2) ?? '') ?? 2 : 2;
+    final precision =
+        match != null ? int.tryParse(match.group(2) ?? '') ?? 2 : 2;
 
     // Calculate max integer digits needed
     final maxAbs = [widget.minValue.abs(), widget.maxValue.abs()]
@@ -499,8 +506,8 @@ class _RotaryKnobState extends State<RotaryKnob>
   double _softSnap(double vProposed, double snapPoint) {
     // Bias toward snap point using smooth weighting
     final dist = (vProposed - snapPoint).abs();
-    final weight = 1.0 -
-        (dist / widget.snapConfig.snapRegionHalfWidth).clamp(0.0, 1.0);
+    final weight =
+        1.0 - (dist / widget.snapConfig.snapRegionHalfWidth).clamp(0.0, 1.0);
     // Apply exponent: lower = stronger pull, higher = gentler
     final adjustedWeight = math.pow(weight, widget.snapConfig.softSnapExponent);
     return vProposed + (snapPoint - vProposed) * adjustedWeight;
@@ -566,7 +573,8 @@ class _RotaryKnobState extends State<RotaryKnob>
     if (widget.integerOnly) {
       // If caller already provided a 0-decimal format, keep it
       final zeroDecMatch = RegExp(r'%[+]?\\d*\\.?0f');
-      if (zeroDecMatch.hasMatch(widget.format) || widget.format.contains('%d')) {
+      if (zeroDecMatch.hasMatch(widget.format) ||
+          widget.format.contains('%d')) {
         return widget.format.replaceAll('%d', '%.0f');
       }
       // Otherwise force no decimals
@@ -619,8 +627,9 @@ class _RotaryKnobState extends State<RotaryKnob>
 
       // Check if Ctrl key is held to bypass snapping
       final ctrlHeld = HardwareKeyboard.instance.logicalKeysPressed.any(
-        (key) => key == LogicalKeyboardKey.controlLeft ||
-                 key == LogicalKeyboardKey.controlRight,
+        (key) =>
+            key == LogicalKeyboardKey.controlLeft ||
+            key == LogicalKeyboardKey.controlRight,
       );
 
       final vFinal = _applySnapping(vProposed, bypassSnap: ctrlHeld);
@@ -628,7 +637,8 @@ class _RotaryKnobState extends State<RotaryKnob>
       _lastValue = _currentValue;
 
       setState(() {
-        _currentValue = _quantize(vFinal.clamp(widget.minValue, widget.maxValue));
+        _currentValue =
+            _quantize(vFinal.clamp(widget.minValue, widget.maxValue));
         if (!_isEditing) {
           _textController.text = _formatValue(_currentValue);
         }
@@ -670,8 +680,8 @@ class _RotaryKnobState extends State<RotaryKnob>
   void _resetToDefault() {
     if (widget.defaultValue != null) {
       setState(() {
-        _currentValue =
-            _quantize(widget.defaultValue!.clamp(widget.minValue, widget.maxValue));
+        _currentValue = _quantize(
+            widget.defaultValue!.clamp(widget.minValue, widget.maxValue));
         _textController.text = _formatValue(_currentValue);
       });
       widget.onChanged?.call(_currentValue);
@@ -714,7 +724,8 @@ class _RotaryKnobState extends State<RotaryKnob>
     final knobRadius = widget.size / 2;
 
     // Calculate ideal position centered below the knob and label
-    double barX = knobPosition.dx + knobSize.width / 2 - widget.dragBarWidth / 2;
+    double barX =
+        knobPosition.dx + knobSize.width / 2 - widget.dragBarWidth / 2;
     double barY = knobPosition.dy + knobSize.height + 4;
 
     // Clamp to viewport
@@ -733,7 +744,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     // Single overlay entry with background, knob copy, and drag bar all layered correctly
     _dragBarOverlay = OverlayEntry(
       builder: (context) => Stack(
-          children: [
+        children: [
           // Background shape (bottom layer)
           _KnobDragBackground(
             knobCenterX: knobCenterX,
@@ -768,7 +779,8 @@ class _RotaryKnobState extends State<RotaryKnob>
                               normalized: _normalizedFromValue(_currentValue),
                               isBipolar: widget.isBipolar,
                               neutralNormalized: widget.isBipolar
-                                  ? _normalizedFromValue(widget.neutralValue ?? 0)
+                                  ? _normalizedFromValue(
+                                      widget.neutralValue ?? 0)
                                   : null,
                               isActive: true,
                               snapPoints: widget.snapConfig.snapPoints
@@ -782,7 +794,8 @@ class _RotaryKnobState extends State<RotaryKnob>
                               noiseImage: _noiseImage,
                             ),
                           ),
-                          _buildCenterValueEditor(_valueEditorFontSize(), interactive: true),
+                          _buildCenterValueEditor(_valueEditorFontSize(),
+                              interactive: true),
                         ],
                       ),
                     ),
@@ -821,8 +834,10 @@ class _RotaryKnobState extends State<RotaryKnob>
             Positioned(
               left: barX,
               top: barBelow
-                  ? barY + barHeight - 8  // below: between drag bar bottom and background bottom
-                  : barY - 16,            // above: between background top and drag bar top
+                  ? barY +
+                      barHeight -
+                      8 // below: between drag bar bottom and background bottom
+                  : barY - 16, // above: between background top and drag bar top
               width: widget.dragBarWidth,
               height: 24, // 8 (drag bar padding) + 16 (background padding)
               child: Center(
@@ -856,8 +871,8 @@ class _RotaryKnobState extends State<RotaryKnob>
                 ),
               ),
             ),
-          ],
-        ),
+        ],
+      ),
     );
 
     overlay.insert(_dragBarOverlay!);
@@ -879,10 +894,10 @@ class _RotaryKnobState extends State<RotaryKnob>
     return headingSize ?? base;
   }
 
-  Widget _buildCenterValueEditor(double valueFontSize, {bool interactive = true}) {
-    final mainColor = _snappedTo != null
-        ? const Color(0xFFF0B830)
-        : Colors.grey[400]!;
+  Widget _buildCenterValueEditor(double valueFontSize,
+      {bool interactive = true}) {
+    final mainColor =
+        _snappedTo != null ? const Color(0xFFF0B830) : Colors.grey[400]!;
 
     Color borderColor;
     if (_isEditing) {
@@ -995,7 +1010,8 @@ class _RotaryKnobState extends State<RotaryKnob>
                         builder: (context) {
                           final text = _textController.text;
                           int signEnd = 0;
-                          if (text.isNotEmpty && (text[0] == '+' || text[0] == '-')) {
+                          if (text.isNotEmpty &&
+                              (text[0] == '+' || text[0] == '-')) {
                             signEnd = 1;
                           }
                           int zerosEnd = signEnd;
@@ -1017,7 +1033,8 @@ class _RotaryKnobState extends State<RotaryKnob>
                                 if (zerosEnd > signEnd)
                                   TextSpan(
                                     text: text.substring(signEnd, zerosEnd),
-                                    style: style.copyWith(color: Colors.grey[700]),
+                                    style:
+                                        style.copyWith(color: Colors.grey[700]),
                                   ),
                                 TextSpan(
                                   text: text.substring(zerosEnd),
@@ -1082,7 +1099,8 @@ class _RotaryKnobState extends State<RotaryKnob>
                     noiseImage: _noiseImage,
                   ),
                 ),
-                _buildCenterValueEditor(valueFontSize, interactive: !_isOverlayPinned),
+                _buildCenterValueEditor(valueFontSize,
+                    interactive: !_isOverlayPinned),
               ],
             ),
           ),
@@ -1108,14 +1126,15 @@ class _KnobPainter extends CustomPainter {
   final double? neutralNormalized;
   final bool isActive;
   final List<double> snapPoints;
-  final double lightPhi;   // Azimuthal angle in radians (0 = right, pi/2 = top)
-  final double lightTheta; // Polar angle from vertical in radians (0 = above, pi/2 = horizontal)
+  final double lightPhi; // Azimuthal angle in radians (0 = right, pi/2 = top)
+  final double
+      lightTheta; // Polar angle from vertical in radians (0 = above, pi/2 = horizontal)
 
   static const double startAngle = 0.75 * math.pi; // 135 degrees
   static const double sweepAngle = 1.5 * math.pi; // 270 degrees
   // Saturated amber for active state, bright white-ish for inactive
-  static const Color _activeColor = Color(0xFFF0B830);  // Vivid amber/gold
-  static const Color _inactiveColor = Color(0xFFE8E8E8);  // Brighter light grey
+  static const Color _activeColor = Color(0xFFF0B830); // Vivid amber/gold
+  static const Color _inactiveColor = Color(0xFFE8E8E8); // Brighter light grey
 
   _KnobPainter({
     required this.normalized,
@@ -1140,7 +1159,8 @@ class _KnobPainter extends CustomPainter {
   /// Returns (Lx, Ly) where positive Ly is down (screen coords)
   Offset get lightDir2D {
     final lx = math.sin(lightTheta) * math.cos(lightPhi);
-    final ly = -math.sin(lightTheta) * math.sin(lightPhi); // Negative because screen Y is down
+    final ly = -math.sin(lightTheta) *
+        math.sin(lightPhi); // Negative because screen Y is down
     return Offset(lx, ly);
   }
 
@@ -1248,7 +1268,8 @@ class _KnobPainter extends CustomPainter {
     }
 
     lipEdge(-0.5, -0.5, Colors.black.withValues(alpha: 0.55)); // shadowed edge
-    lipEdge(0.5, 0.5, const Color(0xFF6A6A6E).withValues(alpha: 0.6)); // lit edge
+    lipEdge(
+        0.5, 0.5, const Color(0xFF6A6A6E).withValues(alpha: 0.6)); // lit edge
 
     final borderGradient = RadialGradient(
       center: lightOffset,
@@ -1265,7 +1286,10 @@ class _KnobPainter extends CustomPainter {
       );
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      startAngle, sweepAngle, false, borderPaint,
+      startAngle,
+      sweepAngle,
+      false,
+      borderPaint,
     );
 
     final outerShadowGradient = RadialGradient(
@@ -1283,7 +1307,10 @@ class _KnobPainter extends CustomPainter {
       );
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius + arcWidth / 2 - 1),
-      startAngle, sweepAngle, false, outerShadowPaint,
+      startAngle,
+      sweepAngle,
+      false,
+      outerShadowPaint,
     );
 
     final innerHighlightGradient = RadialGradient(
@@ -1301,7 +1328,10 @@ class _KnobPainter extends CustomPainter {
       );
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - arcWidth / 2 + 1),
-      startAngle, sweepAngle, false, innerHighlightPaint,
+      startAngle,
+      sweepAngle,
+      false,
+      innerHighlightPaint,
     );
 
     final floorGradient = RadialGradient(
@@ -1319,7 +1349,10 @@ class _KnobPainter extends CustomPainter {
       );
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      startAngle, sweepAngle, false, bgPaint,
+      startAngle,
+      sweepAngle,
+      false,
+      bgPaint,
     );
 
     // === SLOT EDGE LIGHTING ===
@@ -1332,7 +1365,7 @@ class _KnobPainter extends CustomPainter {
       slotOuterRadius,
       startAngle,
       sweepAngle,
-      true,  // outward normal
+      true, // outward normal
       strokeWidth: 1.2,
       maxAlpha: 0.28,
       blur: 0.8,
@@ -1345,7 +1378,7 @@ class _KnobPainter extends CustomPainter {
       slotInnerRadius,
       startAngle,
       sweepAngle,
-      false,  // inward normal
+      false, // inward normal
       strokeWidth: 1.2,
       maxAlpha: 0.28,
       blur: 0.8,
@@ -1541,12 +1574,18 @@ class _KnobPainter extends CustomPainter {
       if (atArcStart || atArcEnd) continue;
 
       final leftBase = Offset(
-        center.dx + notchBaseRadius * math.cos(atArcStart ? startAngle : leftAngle),
-        center.dy + notchBaseRadius * math.sin(atArcStart ? startAngle : leftAngle),
+        center.dx +
+            notchBaseRadius * math.cos(atArcStart ? startAngle : leftAngle),
+        center.dy +
+            notchBaseRadius * math.sin(atArcStart ? startAngle : leftAngle),
       );
       final rightBase = Offset(
-        center.dx + notchBaseRadius * math.cos(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
-        center.dy + notchBaseRadius * math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+        center.dx +
+            notchBaseRadius *
+                math.cos(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+        center.dy +
+            notchBaseRadius *
+                math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
       );
       final tip = Offset(
         center.dx + notchOuterRadius * math.cos(snapAngle),
@@ -1630,19 +1669,27 @@ class _KnobPainter extends CustomPainter {
       // Each edge gets both a highlight (facing light) and shadow (away from light)
       // to match the depth appearance of the arc slot
       final leftEdgeStart = Offset(
-        center.dx + slotOuterRadius * math.cos(atArcStart ? startAngle : leftAngle),
-        center.dy + slotOuterRadius * math.sin(atArcStart ? startAngle : leftAngle),
+        center.dx +
+            slotOuterRadius * math.cos(atArcStart ? startAngle : leftAngle),
+        center.dy +
+            slotOuterRadius * math.sin(atArcStart ? startAngle : leftAngle),
       );
       final rightEdgeEnd = Offset(
-        center.dx + slotOuterRadius * math.cos(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
-        center.dy + slotOuterRadius * math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+        center.dx +
+            slotOuterRadius *
+                math.cos(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
+        center.dy +
+            slotOuterRadius *
+                math.sin(atArcEnd ? (startAngle + sweepAngle) : rightAngle),
       );
 
       // Left edge
       if (!atArcStart) {
         final leftMidAngle = (leftAngle + snapAngle) / 2;
-        final leftNormal = Offset(math.cos(leftMidAngle), math.sin(leftMidAngle));
-        final leftDot = leftNormal.dx * lightDir.dx + leftNormal.dy * lightDir.dy;
+        final leftNormal =
+            Offset(math.cos(leftMidAngle), math.sin(leftMidAngle));
+        final leftDot =
+            leftNormal.dx * lightDir.dx + leftNormal.dy * lightDir.dy;
 
         // Highlight on lit side
         if (leftDot > 0.05) {
@@ -1671,8 +1718,10 @@ class _KnobPainter extends CustomPainter {
       // Right edge
       if (!atArcEnd) {
         final rightMidAngle = (snapAngle + rightAngle) / 2;
-        final rightNormal = Offset(math.cos(rightMidAngle), math.sin(rightMidAngle));
-        final rightDot = rightNormal.dx * lightDir.dx + rightNormal.dy * lightDir.dy;
+        final rightNormal =
+            Offset(math.cos(rightMidAngle), math.sin(rightMidAngle));
+        final rightDot =
+            rightNormal.dx * lightDir.dx + rightNormal.dy * lightDir.dy;
 
         // Highlight on lit side
         if (rightDot > 0.05) {
@@ -1687,7 +1736,8 @@ class _KnobPainter extends CustomPainter {
         }
         // Shadow on dark side
         if (rightDot < -0.05) {
-          final shadowAlpha = (0.26 * (-rightDot).clamp(0.0, 1.0) * 255).round();
+          final shadowAlpha =
+              (0.26 * (-rightDot).clamp(0.0, 1.0) * 255).round();
           final shadowPaint = Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1.6
@@ -1786,7 +1836,7 @@ class _DragBar extends StatelessWidget {
     return Material(
       elevation: 0,
       borderRadius: BorderRadius.circular(8),
-      color: const Color(0xFF535355),  // 25% darker than 50% lighter
+      color: const Color(0xFF535355), // 25% darker than 50% lighter
       child: Container(
         width: width,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1846,7 +1896,7 @@ class _DragBarPainter extends CustomPainter {
   final ui.Image? noiseImage;
 
   // Same saturated amber as knob
-  static const Color _activeColor = Color(0xFFF0B830);  // Vivid amber/gold
+  static const Color _activeColor = Color(0xFFF0B830); // Vivid amber/gold
 
   _DragBarPainter({
     required this.normalizedValue,
@@ -1908,13 +1958,16 @@ class _DragBarPainter extends CustomPainter {
       // Start at left corner radius start point
       notchPath.moveTo(leftBaseX - cornerRadius, barY);
       // Corner radius at left junction
-      notchPath.quadraticBezierTo(leftBaseX, barY, leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
+      notchPath.quadraticBezierTo(leftBaseX, barY,
+          leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
       // Left edge to tip
       notchPath.lineTo(snapX, tipY);
       // Right edge from tip
-      notchPath.lineTo(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
+      notchPath.lineTo(
+          rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
       // Corner radius at right junction
-      notchPath.quadraticBezierTo(rightBaseX, barY, rightBaseX + cornerRadius, barY);
+      notchPath.quadraticBezierTo(
+          rightBaseX, barY, rightBaseX + cornerRadius, barY);
       notchPath.close();
 
       combinedPath.addPath(notchPath, Offset.zero);
@@ -1929,7 +1982,8 @@ class _DragBarPainter extends CustomPainter {
     final borderPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = borderGradient.createShader(
-        Rect.fromLTWH(-1, barY - notchDepth - 1, size.width + 2, barHeight + notchDepth + 2),
+        Rect.fromLTWH(-1, barY - notchDepth - 1, size.width + 2,
+            barHeight + notchDepth + 2),
       );
 
     canvas.drawRRect(
@@ -1990,11 +2044,13 @@ class _DragBarPainter extends CustomPainter {
       final valuePaint = Paint()
         ..style = PaintingStyle.fill
         ..shader = valueGradient.createShader(
-          Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
+          Rect.fromLTWH(
+              valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
         );
 
       canvas.drawRect(
-        Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
+        Rect.fromLTWH(
+            valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
         valuePaint,
       );
 
@@ -2029,7 +2085,8 @@ class _DragBarPainter extends CustomPainter {
           ..blendMode = BlendMode.overlay;
 
         canvas.drawRect(
-          Rect.fromLTWH(valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
+          Rect.fromLTWH(
+              valueLeft, barY - notchDepth, valueWidth, barHeight + notchDepth),
           noisePaint,
         );
       }
@@ -2076,12 +2133,14 @@ class _DragBarPainter extends CustomPainter {
         final snapX = snapNorm * size.width;
         final leftEdge = snapX - notchHalfWidth - cornerRadius;
         if (leftEdge > lastX) {
-          canvas.drawLine(Offset(lastX, barY), Offset(leftEdge, barY), topEdgePaint);
+          canvas.drawLine(
+              Offset(lastX, barY), Offset(leftEdge, barY), topEdgePaint);
         }
         lastX = snapX + notchHalfWidth + cornerRadius;
       }
       if (lastX < size.width) {
-        canvas.drawLine(Offset(lastX, barY), Offset(size.width, barY), topEdgePaint);
+        canvas.drawLine(
+            Offset(lastX, barY), Offset(size.width, barY), topEdgePaint);
       }
     }
 
@@ -2117,13 +2176,17 @@ class _DragBarPainter extends CustomPainter {
 
       // Left edge: only draw if not at bar start
       if (!atBarStart) {
-        final leftStart = Offset(leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
-        final leftEdgeVec = Offset(tip.dx - leftStart.dx, tip.dy - leftStart.dy);
+        final leftStart =
+            Offset(leftBaseX + cornerRadius * 0.7, barY - cornerRadius * 0.7);
+        final leftEdgeVec =
+            Offset(tip.dx - leftStart.dx, tip.dy - leftStart.dy);
         final leftNorm = Offset(leftEdgeVec.dy, -leftEdgeVec.dx);
-        final leftLen = math.sqrt(leftNorm.dx * leftNorm.dx + leftNorm.dy * leftNorm.dy);
+        final leftLen =
+            math.sqrt(leftNorm.dx * leftNorm.dx + leftNorm.dy * leftNorm.dy);
         final leftUnit = Offset(leftNorm.dx / leftLen, leftNorm.dy / leftLen);
 
-        final leftDot = (leftUnit.dx * lightDir.dx + leftUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+        final leftDot = (leftUnit.dx * lightDir.dx + leftUnit.dy * lightDir.dy)
+            .clamp(0.0, 1.0);
         final leftAlpha = (0.5 * leftDot * 255).round();
 
         if (leftAlpha > 5) {
@@ -2144,13 +2207,18 @@ class _DragBarPainter extends CustomPainter {
 
       // Right edge: only draw if not at bar end
       if (!atBarEnd) {
-        final rightEnd = Offset(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
+        final rightEnd =
+            Offset(rightBaseX - cornerRadius * 0.7, barY - cornerRadius * 0.7);
         final rightEdgeVec = Offset(rightEnd.dx - tip.dx, rightEnd.dy - tip.dy);
         final rightNorm = Offset(-rightEdgeVec.dy, rightEdgeVec.dx);
-        final rightLen = math.sqrt(rightNorm.dx * rightNorm.dx + rightNorm.dy * rightNorm.dy);
-        final rightUnit = Offset(rightNorm.dx / rightLen, rightNorm.dy / rightLen);
+        final rightLen = math
+            .sqrt(rightNorm.dx * rightNorm.dx + rightNorm.dy * rightNorm.dy);
+        final rightUnit =
+            Offset(rightNorm.dx / rightLen, rightNorm.dy / rightLen);
 
-        final rightDot = (rightUnit.dx * lightDir.dx + rightUnit.dy * lightDir.dy).clamp(0.0, 1.0);
+        final rightDot =
+            (rightUnit.dx * lightDir.dx + rightUnit.dy * lightDir.dy)
+                .clamp(0.0, 1.0);
         final rightAlpha = (0.5 * rightDot * 255).round();
 
         if (rightAlpha > 5) {
@@ -2164,7 +2232,8 @@ class _DragBarPainter extends CustomPainter {
           // Right corner fillet
           final cornerPath = Path()
             ..moveTo(rightEnd.dx, rightEnd.dy)
-            ..quadraticBezierTo(rightBaseX, barY, rightBaseX + cornerRadius, barY);
+            ..quadraticBezierTo(
+                rightBaseX, barY, rightBaseX + cornerRadius, barY);
           canvas.drawPath(cornerPath, rightPaint);
         }
       }
@@ -2254,7 +2323,7 @@ class _KnobDragBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF5A5A5E)  // Light grey
+      ..color = const Color(0xFF5A5A5E) // Light grey
       ..style = PaintingStyle.fill;
 
     final shadowPaint = Paint()
@@ -2270,15 +2339,18 @@ class _KnobDragBackgroundPainter extends CustomPainter {
     // Circle radius should be large enough that the circle's diameter
     // extends to where it can smoothly connect to the bar with fillets
     // The circle's edge at its widest should be at the fillet connection points
-    final circleRadius = knobRadius + padding + 8;  // Extra padding for the circle
+    final circleRadius =
+        knobRadius + padding + 8; // Extra padding for the circle
 
     // Create the combined path
     final path = Path();
 
     if (barBelow) {
-      _drawCircleWithBarBelow(path, circleRadius, barLeft, barRight, barTop, barBottom);
+      _drawCircleWithBarBelow(
+          path, circleRadius, barLeft, barRight, barTop, barBottom);
     } else {
-      _drawCircleWithBarAbove(path, circleRadius, barLeft, barRight, barTop, barBottom);
+      _drawCircleWithBarAbove(
+          path, circleRadius, barLeft, barRight, barTop, barBottom);
     }
 
     // Draw shadow first (offset down and slightly larger blur)
@@ -2295,9 +2367,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
     canvas.drawPath(path, borderPaint);
   }
 
-  void _drawCircleWithBarBelow(Path path, double circleRadius,
-      double barLeft, double barRight, double barTop, double barBottom) {
-
+  void _drawCircleWithBarBelow(Path path, double circleRadius, double barLeft,
+      double barRight, double barTop, double barBottom) {
     // The connection points where circle meets the bar (at circle's diameter level)
     // These are at the circle's horizontal extremes
     final connectLeft = knobCenterX - circleRadius;
@@ -2308,7 +2379,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Draw right half of circle (top to right side at horizontal diameter)
     path.arcTo(
-      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      Rect.fromCircle(
+          center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
       -math.pi / 2,
       math.pi / 2,
       false,
@@ -2317,8 +2389,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
     // Now at (knobCenterX + circleRadius, knobCenterY) - rightmost point
     // Draw fillet curve down and out to bar top
     path.quadraticBezierTo(
-      connectRight, barTop,  // Control point - straight down then curve
-      connectRight + filletRadius, barTop,  // End on bar top edge
+      connectRight, barTop, // Control point - straight down then curve
+      connectRight + filletRadius, barTop, // End on bar top edge
     );
 
     // Bar top edge to right corner
@@ -2326,7 +2398,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Bar top-right corner
     path.arcTo(
-      Rect.fromLTWH(barRight - cornerRadius * 2, barTop, cornerRadius * 2, cornerRadius * 2),
+      Rect.fromLTWH(barRight - cornerRadius * 2, barTop, cornerRadius * 2,
+          cornerRadius * 2),
       -math.pi / 2,
       math.pi / 2,
       false,
@@ -2337,7 +2410,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Bar bottom-right corner
     path.arcTo(
-      Rect.fromLTWH(barRight - cornerRadius * 2, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      Rect.fromLTWH(barRight - cornerRadius * 2, barBottom - cornerRadius * 2,
+          cornerRadius * 2, cornerRadius * 2),
       0,
       math.pi / 2,
       false,
@@ -2348,7 +2422,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Bar bottom-left corner
     path.arcTo(
-      Rect.fromLTWH(barLeft, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      Rect.fromLTWH(barLeft, barBottom - cornerRadius * 2, cornerRadius * 2,
+          cornerRadius * 2),
       math.pi / 2,
       math.pi / 2,
       false,
@@ -2370,13 +2445,14 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Left fillet: curve up and in to circle's left edge
     path.quadraticBezierTo(
-      connectLeft, barTop,  // Control point
-      connectLeft, knobCenterY,  // End at circle's leftmost point
+      connectLeft, barTop, // Control point
+      connectLeft, knobCenterY, // End at circle's leftmost point
     );
 
     // Complete left half of circle back to top
     path.arcTo(
-      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      Rect.fromCircle(
+          center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
       math.pi,
       math.pi / 2,
       false,
@@ -2385,9 +2461,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
     path.close();
   }
 
-  void _drawCircleWithBarAbove(Path path, double circleRadius,
-      double barLeft, double barRight, double barTop, double barBottom) {
-
+  void _drawCircleWithBarAbove(Path path, double circleRadius, double barLeft,
+      double barRight, double barTop, double barBottom) {
     final connectLeft = knobCenterX - circleRadius;
     final connectRight = knobCenterX + circleRadius;
 
@@ -2396,7 +2471,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Draw right half of circle (bottom to right side)
     path.arcTo(
-      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      Rect.fromCircle(
+          center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
       math.pi / 2,
       -math.pi / 2,
       false,
@@ -2404,8 +2480,10 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Fillet up to bar bottom
     path.quadraticBezierTo(
-      connectRight, barBottom,
-      connectRight + filletRadius, barBottom,
+      connectRight,
+      barBottom,
+      connectRight + filletRadius,
+      barBottom,
     );
 
     // Bar bottom edge to right
@@ -2413,7 +2491,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Bar bottom-right corner
     path.arcTo(
-      Rect.fromLTWH(barRight - cornerRadius * 2, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      Rect.fromLTWH(barRight - cornerRadius * 2, barBottom - cornerRadius * 2,
+          cornerRadius * 2, cornerRadius * 2),
       math.pi / 2,
       -math.pi / 2,
       false,
@@ -2424,7 +2503,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Bar top-right corner
     path.arcTo(
-      Rect.fromLTWH(barRight - cornerRadius * 2, barTop, cornerRadius * 2, cornerRadius * 2),
+      Rect.fromLTWH(barRight - cornerRadius * 2, barTop, cornerRadius * 2,
+          cornerRadius * 2),
       0,
       -math.pi / 2,
       false,
@@ -2446,7 +2526,8 @@ class _KnobDragBackgroundPainter extends CustomPainter {
 
     // Bar bottom-left corner
     path.arcTo(
-      Rect.fromLTWH(barLeft, barBottom - cornerRadius * 2, cornerRadius * 2, cornerRadius * 2),
+      Rect.fromLTWH(barLeft, barBottom - cornerRadius * 2, cornerRadius * 2,
+          cornerRadius * 2),
       math.pi,
       -math.pi / 2,
       false,
@@ -2455,13 +2536,16 @@ class _KnobDragBackgroundPainter extends CustomPainter {
     // Left fillet
     path.lineTo(connectLeft - filletRadius, barBottom);
     path.quadraticBezierTo(
-      connectLeft, barBottom,
-      connectLeft, knobCenterY,
+      connectLeft,
+      barBottom,
+      connectLeft,
+      knobCenterY,
     );
 
     // Complete left half of circle
     path.arcTo(
-      Rect.fromCircle(center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
+      Rect.fromCircle(
+          center: Offset(knobCenterX, knobCenterY), radius: circleRadius),
       math.pi,
       -math.pi / 2,
       false,

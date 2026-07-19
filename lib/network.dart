@@ -39,7 +39,7 @@ class Network extends ChangeNotifier {
   /// owned by [ScionDiscovery] instead (single connection authority).
   bool autoReconnectEnabled = true;
   DateTime? _suppressUntil; // suppress inactivity disconnect until this time
-  DateTime? _lastAckTime;   // last time we received an /ack
+  DateTime? _lastAckTime; // last time we received an /ack
   bool _manualConnectInProgress = false;
   bool _connectInFlight = false;
   int _connectGeneration = 0;

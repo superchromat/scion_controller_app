@@ -95,8 +95,7 @@ class ColorWheelArcState extends State<ColorWheelArc> {
     setState(() => arcValue = value);
   }
 
-  double get _innerRadius =>
-      widget.size / 2 - arcWidth - arcGap;
+  double get _innerRadius => widget.size / 2 - arcWidth - arcGap;
 
   void _handleDrag(Offset pos, {required bool isStart}) {
     final totalSize = widget.size;
@@ -237,7 +236,10 @@ void paintArcSlot(
     canvas.save();
     canvas.translate(dx, dy);
     canvas.drawArc(
-      arcRect, startAngle, sweepAngle, false,
+      arcRect,
+      startAngle,
+      sweepAngle,
+      false,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = arcWidth + 1
@@ -254,7 +256,9 @@ void paintArcSlot(
   // Border gradient (raised lip) — rounded ends.
   canvas.drawArc(
     arcRect,
-    startAngle, sweepAngle, false,
+    startAngle,
+    sweepAngle,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth + 1
@@ -270,7 +274,9 @@ void paintArcSlot(
   // Outer shadow
   canvas.drawArc(
     Rect.fromCircle(center: center, radius: outerRadius - 1),
-    startAngle, sweepAngle, false,
+    startAngle,
+    sweepAngle,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
@@ -286,7 +292,9 @@ void paintArcSlot(
   // Inner highlight
   canvas.drawArc(
     Rect.fromCircle(center: center, radius: slotInnerRadius + 1),
-    startAngle, sweepAngle, false,
+    startAngle,
+    sweepAngle,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
@@ -302,7 +310,9 @@ void paintArcSlot(
   // Dark floor — rounded ends.
   canvas.drawArc(
     arcRect,
-    startAngle, sweepAngle, false,
+    startAngle,
+    sweepAngle,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth - 1
@@ -350,7 +360,10 @@ void paintUnipolarArc(
   // Glow: the value colour bleeding through the slot onto the surrounding panel,
   // so it reads as lit from behind (matching the rotary knobs).
   canvas.drawArc(
-    arcRect, startAngle, drawSweep, false,
+    arcRect,
+    startAngle,
+    drawSweep,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth + 1.5
@@ -361,7 +374,9 @@ void paintUnipolarArc(
 
   canvas.drawArc(
     arcRect,
-    startAngle, drawSweep, false,
+    startAngle,
+    drawSweep,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth - 2
@@ -372,7 +387,9 @@ void paintUnipolarArc(
   // Highlight
   canvas.drawArc(
     arcRect,
-    startAngle, drawSweep, false,
+    startAngle,
+    drawSweep,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth - 2
@@ -447,7 +464,10 @@ void paintBipolarArc(
 
   // Glow bleeding through the slot (matching the rotary knobs).
   canvas.drawArc(
-    arcRect, drawStart, drawSweep, false,
+    arcRect,
+    drawStart,
+    drawSweep,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth + 1.5
@@ -458,7 +478,9 @@ void paintBipolarArc(
 
   canvas.drawArc(
     arcRect,
-    drawStart, drawSweep, false,
+    drawStart,
+    drawSweep,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth - 2
@@ -469,7 +491,9 @@ void paintBipolarArc(
   // Highlight
   canvas.drawArc(
     arcRect,
-    drawStart, drawSweep, false,
+    drawStart,
+    drawSweep,
+    false,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = arcWidth - 2
@@ -507,8 +531,9 @@ void paintBipolarArc(
 }
 
 /// Paints the selection indicator (circle outline + fill).
-void paintWheelIndicator(Canvas canvas, Offset center, Offset position,
-    double wheelRadius, {double radius = 5.0}) {
+void paintWheelIndicator(
+    Canvas canvas, Offset center, Offset position, double wheelRadius,
+    {double radius = 5.0}) {
   final pos = Offset(
     center.dx + position.dx * wheelRadius,
     center.dy + position.dy * wheelRadius,
@@ -555,10 +580,10 @@ void paintWheelImage(
   canvas.save();
   canvas.clipPath(
       Path()..addOval(Rect.fromCircle(center: center, radius: wheelRadius)));
-  final src = Rect.fromLTWH(
-      0, 0, image.width.toDouble(), image.height.toDouble());
+  final src =
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
   final dst = Rect.fromCircle(center: center, radius: wheelRadius);
-  canvas.drawImageRect(image, src, dst,
-      Paint()..filterQuality = FilterQuality.high);
+  canvas.drawImageRect(
+      image, src, dst, Paint()..filterQuality = FilterQuality.high);
   canvas.restore();
 }

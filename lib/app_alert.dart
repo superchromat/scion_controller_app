@@ -23,9 +23,7 @@ void showAppAlert(
           borderRadius: BorderRadius.circular(10),
           color: const Color(0xFF2E2F34),
           border: Border.all(
-            color: (isError
-                    ? const Color(0xFFB56A77)
-                    : const Color(0xFFF0D86A))
+            color: (isError ? const Color(0xFFB56A77) : const Color(0xFFF0D86A))
                 .withValues(alpha: 0.55),
             width: 1,
           ),

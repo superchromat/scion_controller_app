@@ -24,6 +24,14 @@ class GridTokens {
   double get md => 1.5 * u;
   double get lg => 2.0 * u;
 
+  /// Gap between sibling panels inside a card — on BOTH axes.
+  ///
+  /// [GridRow] (horizontal) and [CardColumn] (vertical) must read this same
+  /// token. They previously used `lg` and `md` respectively, which is why a
+  /// card's columns sat 2.0u apart while its rows sat 1.5u apart. One value,
+  /// one look, and no way to set one axis without the other.
+  double get panelGap => lg;
+
   // Knob diameters
   double get knobSm => 4 * u;
   double get knobMd => 5.5 * u;
@@ -83,8 +91,7 @@ class GridTokens {
       );
 
   /// A value readout: same size as [textLabel], brighter.
-  TextStyle get textValue =>
-      textLabel.copyWith(color: const Color(0xFFF2F2F2));
+  TextStyle get textValue => textLabel.copyWith(color: const Color(0xFFF2F2F2));
 
   /// Running prose: same size as [textLabel], with room to breathe between
   /// lines because it is read line by line rather than at a glance.
@@ -141,13 +148,84 @@ class GridTokens {
   /// row pads by `g`, and a multi-cell row pads by `g/2` on the row plus `g/2`
   /// on each cell — `g` either way. This previously used `md / 2`, which left
   /// every card title sitting `md / 2` to the left of its panels' titles.
-  double get cardTitleAlignToPanelTitle => md + panelContentInset;
+  double get cardTitleAlignToPanelTitle => panelGap + panelContentInset;
 
   /// Left inset for card content that is NOT a [GridRow] of [Panel]s — plain
   /// text or bare buttons sitting straight in a card. Use [CardBody] rather
   /// than applying this by hand; hand-application is what put the About and
   /// Configuration cards' contents flush against the card edge.
   double get cardBodyInset => panelContentInset;
+}
+
+/// Text centred on its CAP-HEIGHT band rather than on its em box.
+///
+/// Flutter centres a Text by its line box, which spans ascent+descent. The eye
+/// centres on the capitals. Those two agree only if a font's ascent overshoots
+/// its cap height by exactly its descent — DIN Pro's does not, which is why
+/// button labels sat visibly low.
+///
+/// Nothing here is tuned by eye. The only font constant is [capHeightEm], read
+/// straight from the OS/2 table; where the baseline actually lands is asked of
+/// the laid-out text, so this stays correct no matter what `height` or
+/// [TextHeightBehavior] do to the line box.
+class CapCenteredText extends StatelessWidget {
+  const CapCenteredText(this.data, {super.key, required this.style});
+
+  final String data;
+  final TextStyle style;
+
+  /// FF DIN Pro OS/2 sCapHeight 712 / unitsPerEm 1000.
+  static const double capHeightEm = 0.712;
+
+  /// Trims the font's leading so the line box is the glyph box. The probe below
+  /// MUST be laid out with this too — measuring one box and rendering another
+  /// is what made the first attempt at this drift.
+  static const TextHeightBehavior trim = TextHeightBehavior(
+    applyHeightToFirstAscent: false,
+    applyHeightToLastDescent: false,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final size = style.fontSize ?? 14.0;
+    final effective = style.copyWith(height: 1.0);
+    final capH = capHeightEm * size;
+
+    final tp = TextPainter(
+      text: TextSpan(text: data, style: effective),
+      textDirection: Directionality.of(context),
+      textHeightBehavior: trim,
+      maxLines: 1,
+    )..layout();
+
+    // The widget's own box IS the cap band: exactly capH tall, with the
+    // alphabetic baseline pinned to its bottom edge. Whatever the line box does
+    // above the capitals or below the baseline hangs outside and is ignored by
+    // the parent's centring — so `Alignment.center` centres the capitals, by
+    // construction rather than by a correction term.
+    return SizedBox(
+      width: tp.width,
+      height: capH,
+      child: OverflowBox(
+        alignment: Alignment.topLeft,
+        minWidth: 0,
+        maxWidth: double.infinity,
+        minHeight: 0,
+        maxHeight: double.infinity,
+        child: Baseline(
+          baseline: capH,
+          baselineType: TextBaseline.alphabetic,
+          child: Text(
+            data,
+            style: effective,
+            textHeightBehavior: trim,
+            maxLines: 1,
+            softWrap: false,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Provides [GridTokens] to all descendants.
@@ -332,7 +410,7 @@ class GridRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final knownGutter = gutter ??
-        GridProvider.maybeOf(context)?.lg ??
+        GridProvider.maybeOf(context)?.panelGap ??
         GridGutterProvider.maybeOf(context);
 
     // Fast path — gutter is known without measuring.  Avoids LayoutBuilder

@@ -148,8 +148,8 @@ class CardBody extends StatelessWidget {
     return Padding(
       // Symmetric: a card's content edge applies on both sides, so trailing
       // controls (e.g. "Restore to Defaults") don't touch the card border.
-      padding: EdgeInsets.fromLTRB(
-          t.cardBodyInset, top ?? 0, t.cardBodyInset, 0),
+      padding:
+          EdgeInsets.fromLTRB(t.cardBodyInset, top ?? 0, t.cardBodyInset, 0),
       child: child,
     );
   }
@@ -212,7 +212,7 @@ class CardColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    final gap = spacing ?? t.md;
+    final gap = spacing ?? t.panelGap;
 
     return Column(
       mainAxisSize: MainAxisSize.min,

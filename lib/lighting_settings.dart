@@ -126,7 +126,7 @@ class LightingSettings extends ChangeNotifier {
       rawNoise[i] = 128 + random.nextInt(10);
     }
 
-    // Apply 3x3 convolution: 
+    // Apply 3x3 convolution:
     final blurredNoise = Uint8List(size * size);
     for (int y = 0; y < size; y++) {
       for (int x = 0; x < size; x++) {
@@ -169,7 +169,8 @@ class LightingSettings extends ChangeNotifier {
   }
 
   /// Create a gradient shader for a card surface based on light direction
-  Shader createSurfaceGradient(Rect bounds, {Color baseColor = const Color(0xFF3A3A3C)}) {
+  Shader createSurfaceGradient(Rect bounds,
+      {Color baseColor = const Color(0xFF3A3A3C)}) {
     final light = lightDir2D;
     // Gradient center offset based on light direction
     final centerX = 0.5 - light.dx * 0.3;
@@ -292,8 +293,10 @@ class LightingSettings extends ChangeNotifier {
 
     // Compute light position relative to this widget's bounds
     // Convert to Alignment coordinates (-1 to 1)
-    final relLightX = 2 * (lightScreenX - globalRect.left) / globalRect.width - 1;
-    final relLightY = 2 * (lightScreenY - globalRect.top) / globalRect.height - 1;
+    final relLightX =
+        2 * (lightScreenX - globalRect.left) / globalRect.width - 1;
+    final relLightY =
+        2 * (lightScreenY - globalRect.top) / globalRect.height - 1;
 
     // Compute Phong diffuse at corners to determine brightness range
     // Use widget center as reference point
@@ -320,9 +323,11 @@ class LightingSettings extends ChangeNotifier {
       center: Alignment(relLightX.clamp(-3.0, 3.0), relLightY.clamp(-3.0, 3.0)),
       radius: radius,
       colors: [
-        Color.lerp(baseColor, Colors.white, brightness.clamp(0, intensity * 2))!,
+        Color.lerp(
+            baseColor, Colors.white, brightness.clamp(0, intensity * 2))!,
         baseColor,
-        Color.lerp(baseColor, Colors.black, (brightness * 0.3).clamp(0, intensity))!,
+        Color.lerp(
+            baseColor, Colors.black, (brightness * 0.3).clamp(0, intensity))!,
       ],
       stops: const [0.0, 0.7, 1.0],
     );

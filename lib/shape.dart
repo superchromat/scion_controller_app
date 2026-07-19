@@ -453,30 +453,29 @@ class ShapeState extends State<Shape> {
     return ChangeNotifierProvider<ShapeSelection>.value(
       value: _sel,
       child: GridRow(
-      columns: 12,
-      gutter: t.md,
-      cells: [
-        (
-          span: 6,
-          child: ShapeCanvas(
-              pageNumber: widget.pageNumber, overlay: activeOverlay),
-        ),
-        (
-          span: 6,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // One surface holds both the tab row and the content, so the
-              // active tab (transparent) is literally the same paint as the
-              // content below it — real connected tabs. Only the active tab's
-              // content is built (controls bind/unbind on switch; OSC state
-              // lives in the registry, so they re-seed).
-              _tabbedPanel(
-                  context, t, [for (final e in tabs) e.$1], tabs[_tab].$2),
-            ],
+        columns: 12,
+        cells: [
+          (
+            span: 6,
+            child: ShapeCanvas(
+                pageNumber: widget.pageNumber, overlay: activeOverlay),
           ),
-        ),
-      ],
+          (
+            span: 6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // One surface holds both the tab row and the content, so the
+                // active tab (transparent) is literally the same paint as the
+                // content below it — real connected tabs. Only the active tab's
+                // content is built (controls bind/unbind on switch; OSC state
+                // lives in the registry, so they re-seed).
+                _tabbedPanel(
+                    context, t, [for (final e in tabs) e.$1], tabs[_tab].$2),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -495,7 +494,8 @@ class ShapeState extends State<Shape> {
         // Subtle, tight shadow — a heavy one makes the bottom gap read as much
         // larger than the (equal) top gap between the tabs and first panel.
         boxShadow: [
-          BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 4)),
+          BoxShadow(
+              color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 4)),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -512,7 +512,10 @@ class ShapeState extends State<Shape> {
             ],
           ),
           Padding(
-            padding: EdgeInsets.all(t.sm),
+            // panelGap, not sm: this is the gap from the tab pane's edge to the
+            // panels inside it, which must read as the same gap as the one
+            // between two of those panels.
+            padding: EdgeInsets.all(t.panelGap),
             child: ConstrainedBox(
               // Floor set above the tallest tab's content (Warp ≈ 35u) so every
               // tab pane is the same height — switching tabs doesn't resize the
@@ -584,17 +587,15 @@ class ShapeState extends State<Shape> {
   // Inset a single-group tab's content to the same left/right grid margin as
   // the multi-panel tabs, without wrapping it in another card.
   Widget _tabBody(GridTokens t, Widget child) =>
-      GridRow(columns: 2, gutter: t.md, cells: [(span: 2, child: child)]);
+      GridRow(columns: 2, cells: [(span: 2, child: child)]);
 
   // Transform tab — the basic geometry available on every send: scale,
   // position and crop.
   Widget _transformColumn(BuildContext context, GridTokens t) {
     return CardColumn(
-      spacing: t.sm,
       children: [
         GridRow(
           columns: 2,
-          gutter: t.md,
           cells: [
             (
               span: 1,
@@ -637,7 +638,6 @@ class ShapeState extends State<Shape> {
         ),
         GridRow(
           columns: 2,
-          gutter: t.md,
           cells: [
             (
               span: 2,
@@ -664,10 +664,9 @@ class ShapeState extends State<Shape> {
   // it gets the same horizontal grid inset as the Transform panels.
   Widget _warpColumn(BuildContext context, GridTokens t) {
     return CardColumn(
-      spacing: t.sm,
       children: [
         // One compact row: Rotation (1 knob) | Keystone (2×2) | Lens (2×2).
-        GridRow(columns: 6, gutter: t.md, cells: [
+        GridRow(columns: 6, cells: [
           (
             span: 2,
             child: Panel(
@@ -700,7 +699,7 @@ class ShapeState extends State<Shape> {
           (span: 2, child: const WarpAffinePanel(compact: true)),
           (span: 2, child: const WarpLutPanel(compact: true)),
         ]),
-        GridRow(columns: 2, gutter: t.md, cells: [
+        GridRow(columns: 2, cells: [
           (span: 2, child: const WarpAnimationPanel()),
         ]),
       ],

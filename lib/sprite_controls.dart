@@ -31,7 +31,7 @@ class SpritePanel extends StatefulWidget {
 class _SpritePanelState extends State<SpritePanel> {
   // Sprites overlay OSD regions 2-4 (region 1 is the legacy text overlay).
   static const List<int> _regions = [2, 3, 4];
-  static const Color _show = Color(0xFF4E8A62);  // subtle "shown" green
+  static const Color _show = Color(0xFF4E8A62); // subtle "shown" green
 
   int _send = 1;
   final List<String> _names = [];
@@ -291,7 +291,6 @@ class _SpritePanelState extends State<SpritePanel> {
     if (await uploadSpriteFlow(context)) _refresh();
   }
 
-
   // ── Palette ────────────────────────────────────────────────────────────────
   // Limited-range (16..235) <-> full-range (0..255) per channel, matching the
   // device/upload convention (lim(v) = 16 + (v*219+127)/255).
@@ -301,8 +300,8 @@ class _SpritePanelState extends State<SpritePanel> {
   Color _swatchColor(int i) {
     final p = _palette;
     if (p == null || i * 4 + 3 >= p.length) return const Color(0x00000000);
-    return Color.fromARGB(
-        p[i * 4 + 1], _full(p[i * 4]), _full(p[i * 4 + 3]), _full(p[i * 4 + 2]));
+    return Color.fromARGB(p[i * 4 + 1], _full(p[i * 4]), _full(p[i * 4 + 3]),
+        _full(p[i * 4 + 2]));
   }
 
   // Load the selected sprite's palette from NOR (cheap — palette bytes only).
@@ -379,15 +378,16 @@ class _SpritePanelState extends State<SpritePanel> {
           content: Text('Palette saved')));
     } catch (_) {
       messenger?.showSnackBar(const SnackBar(
-          duration: Duration(seconds: 2), content: Text('Palette save failed')));
+          duration: Duration(seconds: 2),
+          content: Text('Palette save failed')));
     }
   }
 
   Future<void> _editSwatch(int i) async {
     final p = _palette;
     if (p == null || i * 4 + 3 >= p.length) return;
-    Color color =
-        Color.fromARGB(255, _full(p[i * 4]), _full(p[i * 4 + 3]), _full(p[i * 4 + 2]));
+    Color color = Color.fromARGB(
+        255, _full(p[i * 4]), _full(p[i * 4 + 3]), _full(p[i * 4 + 2]));
     int alpha = p[i * 4 + 1];
     await showDialog<void>(
       context: context,
@@ -469,7 +469,9 @@ class _SpritePanelState extends State<SpritePanel> {
     }
 
     int chroma(int i) {
-      final r = _full(p[i * 4]), g = _full(p[i * 4 + 3]), b = _full(p[i * 4 + 2]);
+      final r = _full(p[i * 4]),
+          g = _full(p[i * 4 + 3]),
+          b = _full(p[i * 4 + 2]);
       final mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
       final mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
       return mx - mn;
@@ -597,8 +599,8 @@ class _SpritePanelState extends State<SpritePanel> {
       child: blocked
           ? Tooltip(
               message: 'Region $r has text',
-              child:
-                  MouseRegion(cursor: SystemMouseCursors.forbidden, child: chip))
+              child: MouseRegion(
+                  cursor: SystemMouseCursors.forbidden, child: chip))
           : chip,
     );
   }
@@ -636,10 +638,9 @@ class _SpritePanelState extends State<SpritePanel> {
     // gutter: t.md matches the Text tab's grid inset (the default would be lg,
     // which pushes the sprite content ~6px further right than the other tabs).
     Widget cell(Widget child) =>
-        GridRow(columns: 1, gutter: t.md, cells: [(span: 1, child: child)]);
+        GridRow(columns: 1, cells: [(span: 1, child: child)]);
 
     return CardColumn(
-      spacing: t.md,
       children: [
         // Region layer picker + which sprite is loaded there + go live.
         cell(Row(
@@ -664,8 +665,9 @@ class _SpritePanelState extends State<SpritePanel> {
                 width: double.infinity,
                 height: 40, // match the buttons beside it
                 enabled: has,
-                items:
-                    has ? [for (int i = 0; i < _names.length; i++) i] : const [0],
+                items: has
+                    ? [for (int i = 0; i < _names.length; i++) i]
+                    : const [0],
                 itemLabels: has
                     ? {for (int i = 0; i < _names.length; i++) i: _names[i]}
                     : const {0: 'no sprites'},
@@ -707,29 +709,29 @@ class _SpritePanelState extends State<SpritePanel> {
             key: ValueKey(_region),
             // Same md gutter as the single-cell rows above, so these two panels'
             // outer edges align with the Sprite panel and match the Text tab.
-            child: GridRow(columns: 2, gutter: t.md, cells: [
-          (
-            span: 1,
-            child: Panel(
-              title: 'Position',
-              child: _body(
-                t,
-                ControlGrid(cols: 2, children: [
-                  _posKnob(t, 'X', _x, 1920, _setX),
-                  _posKnob(t, 'Y', _y, 1080, _setY),
-                ]),
+            child: GridRow(columns: 2, cells: [
+              (
+                span: 1,
+                child: Panel(
+                  title: 'Position',
+                  child: _body(
+                    t,
+                    ControlGrid(cols: 2, children: [
+                      _posKnob(t, 'X', _x, 1920, _setX),
+                      _posKnob(t, 'Y', _y, 1080, _setY),
+                    ]),
+                  ),
+                ),
               ),
-            ),
-          ),
-          (
-            span: 1,
-            child: Panel(
-              title: 'Resize',
-              fillChild: true,
-              child: Center(child: _body(t, _resizeControls(t))),
-            ),
-          ),
-        ])),
+              (
+                span: 1,
+                child: Panel(
+                  title: 'Resize',
+                  fillChild: true,
+                  child: Center(child: _body(t, _resizeControls(t))),
+                ),
+              ),
+            ])),
       ],
     );
   }

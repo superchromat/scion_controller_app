@@ -116,16 +116,16 @@ class _GradeWheelState extends State<GradeWheel> {
   void _onShiftX(List<Object?> args) {
     if (args.isNotEmpty && args.first is num) {
       final v = (args.first as num).toDouble();
-      _wheelKey.currentState?.setWheelPosition(
-        v, _wheelKey.currentState?.wheelY ?? 0.0);
+      _wheelKey.currentState
+          ?.setWheelPosition(v, _wheelKey.currentState?.wheelY ?? 0.0);
     }
   }
 
   void _onShiftY(List<Object?> args) {
     if (args.isNotEmpty && args.first is num) {
       final v = (args.first as num).toDouble();
-      _wheelKey.currentState?.setWheelPosition(
-        _wheelKey.currentState?.wheelX ?? 0.0, v);
+      _wheelKey.currentState
+          ?.setWheelPosition(_wheelKey.currentState?.wheelX ?? 0.0, v);
     }
   }
 
@@ -169,7 +169,8 @@ class _GradeWheelState extends State<GradeWheel> {
         required arcValue,
         required wheelRadius,
         required center,
-      }) => _GradeWheelPainter(
+      }) =>
+          _GradeWheelPainter(
         shiftX: wheelX,
         shiftY: wheelY,
         level: (-1.0 + arcValue * 2.0).clamp(-1.0, 1.0),
@@ -211,20 +212,17 @@ class _GradeWheelPainter extends CustomPainter {
 
     // Grade wheel image
     final oklchLightness = 0.5 + level * 0.4;
-    final wheelImage = _getGradeWheelImage(
-        (wheelRadius * 2).round(), oklchLightness);
+    final wheelImage =
+        _getGradeWheelImage((wheelRadius * 2).round(), oklchLightness);
     paintWheelImage(canvas, center, wheelRadius, wheelImage);
 
-    paintWheelIndicator(
-        canvas, center, Offset(shiftX, shiftY), wheelRadius);
+    paintWheelIndicator(canvas, center, Offset(shiftX, shiftY), wheelRadius);
     paintCrosshair(canvas, center, wheelRadius);
   }
 
   @override
   bool shouldRepaint(covariant _GradeWheelPainter old) =>
-      old.shiftX != shiftX ||
-      old.shiftY != shiftY ||
-      old.level != level;
+      old.shiftX != shiftX || old.shiftY != shiftY || old.level != level;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,9 +280,8 @@ class GradeZone extends StatelessWidget {
             final knobH = knobSize + 16;
             final diagH = knobH * 1.5;
             // Wheel gets remaining height
-            final wheelSize = h.isFinite
-                ? (h - titleH - gap - diagH).clamp(40.0, w)
-                : w;
+            final wheelSize =
+                h.isFinite ? (h - titleH - gap - diagH).clamp(40.0, w) : w;
             return Column(
               children: [
                 Stack(
@@ -338,7 +335,8 @@ class GradeZone extends StatelessWidget {
                             label: 'Contrast',
                             defaultValue: 0.5,
                             size: knobSize,
-                            labelStyle: GridProvider.maybeOf(context)?.textLabel,
+                            labelStyle:
+                                GridProvider.maybeOf(context)?.textLabel,
                             snapConfig: SnapConfig(
                               snapPoints: const [0.5],
                               snapRegionHalfWidth: 0.02,
@@ -360,7 +358,8 @@ class GradeZone extends StatelessWidget {
                             label: 'Saturation',
                             defaultValue: 0.5,
                             size: knobSize,
-                            labelStyle: GridProvider.maybeOf(context)?.textLabel,
+                            labelStyle:
+                                GridProvider.maybeOf(context)?.textLabel,
                             snapConfig: SnapConfig(
                               snapPoints: const [0.5],
                               snapRegionHalfWidth: 0.02,
@@ -399,11 +398,19 @@ class GradeWheels extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: GradeZone(label: 'Shadows', zoneName: 'shadows', basePath: basePath)),
+          Expanded(
+              child: GradeZone(
+                  label: 'Shadows', zoneName: 'shadows', basePath: basePath)),
           const SizedBox(width: 8),
-          Expanded(child: GradeZone(label: 'Midtones', zoneName: 'midtones', basePath: basePath)),
+          Expanded(
+              child: GradeZone(
+                  label: 'Midtones', zoneName: 'midtones', basePath: basePath)),
           const SizedBox(width: 8),
-          Expanded(child: GradeZone(label: 'Highlights', zoneName: 'highlights', basePath: basePath)),
+          Expanded(
+              child: GradeZone(
+                  label: 'Highlights',
+                  zoneName: 'highlights',
+                  basePath: basePath)),
         ],
       ),
     );

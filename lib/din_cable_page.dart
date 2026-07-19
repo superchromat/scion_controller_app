@@ -62,7 +62,10 @@ class _DinCablePageState extends State<DinCablePage> {
                 Color(0xFFE0E0E0), // White
                 Color(0xFF808080), // Grey
               ],
-              selectedCableIndices: const [3, 4], // White and Grey have yellow border
+              selectedCableIndices: const [
+                3,
+                4
+              ], // White and Grey have yellow border
             ),
           ],
         ),
@@ -119,7 +122,8 @@ class _SyncTile extends StatelessWidget {
                               size: Size(tileWidth - 16, 65),
                               painter: _CableGroupPainter(
                                 cableColors: cableColors!,
-                                selectedIndices: selectedCableIndices ?? const [],
+                                selectedIndices:
+                                    selectedCableIndices ?? const [],
                               ),
                             )
                           : child ?? const SizedBox(),
@@ -132,7 +136,8 @@ class _SyncTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected ? Colors.white : Colors.grey[400],
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
                 ],
@@ -157,7 +162,8 @@ class _TilePainter extends CustomPainter {
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 
     // Base gradient with lighting
-    final baseColor = isSelected ? const Color(0xFF606068) : const Color(0xFF505055);
+    final baseColor =
+        isSelected ? const Color(0xFF606068) : const Color(0xFF505055);
     final gradient = lighting.createPhongSurfaceGradient(
       baseColor: baseColor,
       intensity: 0.08,
@@ -343,7 +349,8 @@ class _LockPainter extends CustomPainter {
         const Color(0xFF1A1A1A),
       ],
     );
-    final keyholeRect = Rect.fromCircle(center: Offset(centerX, keyholeY), radius: 5);
+    final keyholeRect =
+        Rect.fromCircle(center: Offset(centerX, keyholeY), radius: 5);
     canvas.drawCircle(
       Offset(centerX, keyholeY),
       5,
@@ -353,7 +360,8 @@ class _LockPainter extends CustomPainter {
     // Keyhole slot
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(centerX, keyholeY + 7), width: 4, height: 10),
+        Rect.fromCenter(
+            center: Offset(centerX, keyholeY + 7), width: 4, height: 10),
         const Radius.circular(1.5),
       ),
       Paint()..shader = keyholeGradient.createShader(keyholeRect),
@@ -424,16 +432,20 @@ class _CableGroupPainter extends CustomPainter {
       path.close();
 
       // Outer yellow border (thicker)
-      canvas.drawPath(path, Paint()
-        ..color = const Color(0xFFFFD700)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 18);
+      canvas.drawPath(
+          path,
+          Paint()
+            ..color = const Color(0xFFFFD700)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 18);
 
       // Inner grey border (thinner)
-      canvas.drawPath(path, Paint()
-        ..color = const Color(0xFF606060)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 12);
+      canvas.drawPath(
+          path,
+          Paint()
+            ..color = const Color(0xFF606060)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 12);
     }
 
     // === Braided cable section (shortened) ===
@@ -458,8 +470,10 @@ class _CableGroupPainter extends CustomPainter {
       width: 50,
       radius: 5,
       baseColor: heatShrinkColor,
-      highlightColor: hsl.withLightness((hsl.lightness + 0.2).clamp(0, 1)).toColor(),
-      shadowColor: hsl.withLightness((hsl.lightness - 0.2).clamp(0, 1)).toColor(),
+      highlightColor:
+          hsl.withLightness((hsl.lightness + 0.2).clamp(0, 1)).toColor(),
+      shadowColor:
+          hsl.withLightness((hsl.lightness - 0.2).clamp(0, 1)).toColor(),
     );
 
     // === Rear ferrule (silver) ===
@@ -558,7 +572,8 @@ class _CableGroupPainter extends CustomPainter {
     );
   }
 
-  void _drawBraidPattern(Canvas canvas, double startX, double centerY, double width, double radius) {
+  void _drawBraidPattern(Canvas canvas, double startX, double centerY,
+      double width, double radius) {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(startX, centerY - radius, width, radius * 2));
 
@@ -573,7 +588,9 @@ class _CableGroupPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Diamond braid pattern
-    for (double x = startX - radius * 2; x < startX + width + radius * 2; x += 8) {
+    for (double x = startX - radius * 2;
+        x < startX + width + radius * 2;
+        x += 8) {
       // Diagonal lines going down-right
       canvas.drawLine(
         Offset(x, centerY - radius),
@@ -591,7 +608,8 @@ class _CableGroupPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawKnurlPattern(Canvas canvas, double startX, double centerY, double width, double radius) {
+  void _drawKnurlPattern(Canvas canvas, double startX, double centerY,
+      double width, double radius) {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(startX, centerY - radius, width, radius * 2));
 
@@ -606,7 +624,9 @@ class _CableGroupPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Diamond knurl pattern
-    for (double x = startX - radius * 2; x < startX + width + radius * 2; x += 3.5) {
+    for (double x = startX - radius * 2;
+        x < startX + width + radius * 2;
+        x += 3.5) {
       canvas.drawLine(
         Offset(x, centerY - radius),
         Offset(x + radius * 2, centerY + radius),
@@ -646,7 +666,8 @@ class _CableGroupPainter extends CustomPainter {
     );
   }
 
-  void _drawTaper(Canvas canvas, double startX, double centerY, double startRadius, double endRadius, double width) {
+  void _drawTaper(Canvas canvas, double startX, double centerY,
+      double startRadius, double endRadius, double width) {
     final path = Path();
     path.moveTo(startX, centerY - startRadius);
     path.lineTo(startX + width, centerY - endRadius);
@@ -665,7 +686,8 @@ class _CableGroupPainter extends CustomPainter {
       ],
     );
 
-    final rect = Rect.fromLTWH(startX, centerY - startRadius, width, startRadius * 2);
+    final rect =
+        Rect.fromLTWH(startX, centerY - startRadius, width, startRadius * 2);
     canvas.drawPath(path, Paint()..shader = gradient.createShader(rect));
   }
 

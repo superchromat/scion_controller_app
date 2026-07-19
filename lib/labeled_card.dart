@@ -55,8 +55,8 @@ class LabeledCard extends StatelessWidget {
   }
 
   /// One request/reply against the preset endpoints.
-  Future<List<Object?>?> _call(BuildContext context, String addr,
-      List<Object> args) async {
+  Future<List<Object?>?> _call(
+      BuildContext context, String addr, List<Object> args) async {
     final net = context.read<Network>();
     final c = Completer<List<Object?>>();
     void listener(List<Object?> a) {
@@ -99,12 +99,11 @@ class LabeledCard extends StatelessWidget {
       ),
     );
     if (name == null || name.isEmpty || !context.mounted) return;
-    final r =
-        await _call(context, '/assets/presets/save', [path, name]);
+    final r = await _call(context, '/assets/presets/save', [path, name]);
     if (!context.mounted) return;
     final n = (r != null && r.length >= 3) ? r[2] as int : -99;
-    _toast(context,
-        n >= 0 ? '$title: saved "$name"' : '$title: save failed ($n)');
+    _toast(
+        context, n >= 0 ? '$title: saved "$name"' : '$title: save failed ($n)');
   }
 
   /// List presets whose path matches this card, then offer a menu.
@@ -190,11 +189,16 @@ class LabeledCard extends StatelessWidget {
     // Pull the title closer to the top so its visual inset matches the left inset.
     final titlePadTop = titlePadH - (t.xs);
     final titleGap = t.xs;
-    // The card owns this, not GridRow. titlePadH = md + panelContentInset, so
-    // the card indents its body by md and whatever sits inside (a Panel, or a
-    // CardBody) adds panelContentInset — landing exactly on the title.
-    final contentPadH = t.md;
-    final contentPadBot = t.md;
+    // The card owns this, not GridRow. titlePadH = panelGap +
+    // panelContentInset, so the card indents its body by panelGap and whatever
+    // sits inside (a Panel, or a CardBody) adds panelContentInset — landing
+    // exactly on the title.
+    //
+    // panelGap, not md: the gap from a panel to the card edge is the same kind
+    // of gap as the one between two panels, so it reads wrong at a different
+    // value. Both now come from the one token.
+    final contentPadH = t.panelGap;
+    final contentPadBot = t.panelGap;
     final titleStyle = t.textTitle;
 
     Widget card = _NeumorphicCard(
@@ -225,13 +229,15 @@ class LabeledCard extends StatelessWidget {
           if (fillChild)
             Expanded(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
+                padding: EdgeInsets.fromLTRB(
+                    contentPadH, 0, contentPadH, contentPadBot),
                 child: child,
               ),
             )
           else
             Padding(
-              padding: EdgeInsets.fromLTRB(contentPadH, 0, contentPadH, contentPadBot),
+              padding: EdgeInsets.fromLTRB(
+                  contentPadH, 0, contentPadH, contentPadBot),
               child: child,
             ),
         ],
@@ -243,7 +249,10 @@ class LabeledCard extends StatelessWidget {
         children: [
           card,
           Positioned(
-            left: 1, top: 1, right: 1, bottom: 1,
+            left: 1,
+            top: 1,
+            right: 1,
+            bottom: 1,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -277,7 +286,6 @@ class _NeumorphicCard extends StatefulWidget {
 
 class _NeumorphicCardState extends State<_NeumorphicCard>
     with GlobalRectTracking<_NeumorphicCard> {
-
   @override
   Widget build(BuildContext context) {
     const borderRadius = 8.0;
@@ -288,7 +296,8 @@ class _NeumorphicCardState extends State<_NeumorphicCard>
         key: globalRectKey,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),
-          boxShadow: widget.lighting.createNeumorphicShadows(elevation: elevation),
+          boxShadow:
+              widget.lighting.createNeumorphicShadows(elevation: elevation),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),
@@ -332,8 +341,7 @@ class _NeumorphicCardPainter extends CustomPainter {
       intensity: 0.035,
       globalRect: globalRect,
     );
-    final gradientPaint = Paint()
-      ..shader = gradient.createShader(rect);
+    final gradientPaint = Paint()..shader = gradient.createShader(rect);
 
     canvas.drawRRect(rrect, gradientPaint);
 
@@ -411,7 +419,6 @@ class NeumorphicContainer extends StatefulWidget {
 
 class _NeumorphicContainerState extends State<NeumorphicContainer>
     with GlobalRectTracking<NeumorphicContainer> {
-
   @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
@@ -426,7 +433,8 @@ class _NeumorphicContainerState extends State<NeumorphicContainer>
         key: globalRectKey,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(widget.borderRadius),
-          boxShadow: lighting.createNeumorphicShadows(elevation: widget.elevation),
+          boxShadow:
+              lighting.createNeumorphicShadows(elevation: widget.elevation),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(widget.borderRadius),
@@ -469,7 +477,6 @@ class NeumorphicInset extends StatefulWidget {
 
 class _NeumorphicInsetState extends State<NeumorphicInset>
     with GlobalRectTracking<NeumorphicInset> {
-
   @override
   Widget build(BuildContext context) {
     final lighting = context.watch<LightingSettings>();
@@ -531,8 +538,7 @@ class _NeumorphicInsetPainter extends CustomPainter {
       intensity: 0.035,
       globalRect: globalRect,
     );
-    final gradientPaint = Paint()
-      ..shader = gradient.createShader(rect);
+    final gradientPaint = Paint()..shader = gradient.createShader(rect);
 
     canvas.drawRRect(rrect, gradientPaint);
 

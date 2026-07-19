@@ -132,14 +132,16 @@ class OscColorControl extends StatefulWidget {
   State<OscColorControl> createState() => _OscColorControlState();
 }
 
-class _OscColorControlState extends State<OscColorControl> with OscAddressMixin {
+class _OscColorControlState extends State<OscColorControl>
+    with OscAddressMixin {
   late Color _color;
   final _pickerKey = GlobalKey<OklchColorPickerState>();
 
   @override
   void initState() {
     super.initState();
-    _color = Color.fromARGB(255, widget.initialR, widget.initialG, widget.initialB);
+    _color =
+        Color.fromARGB(255, widget.initialR, widget.initialG, widget.initialB);
   }
 
   @override
@@ -149,7 +151,10 @@ class _OscColorControlState extends State<OscColorControl> with OscAddressMixin 
     final pickerState = _pickerKey.currentState;
     if (pickerState != null && pickerState.isDragging) return OscStatus.ok;
 
-    if (args.length >= 3 && args[0] is num && args[1] is num && args[2] is num) {
+    if (args.length >= 3 &&
+        args[0] is num &&
+        args[1] is num &&
+        args[2] is num) {
       final r = (args[0] as num).toInt().clamp(0, 255);
       final g = (args[1] as num).toInt().clamp(0, 255);
       final b = (args[2] as num).toInt().clamp(0, 255);
@@ -257,8 +262,7 @@ class _SendTextState extends State<SendText> {
             final tab = GestureDetector(
               onTap: blocked ? null : () => _selectRegion(r),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
+                padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
                 decoration: BoxDecoration(
                   color: _region == r
                       ? const Color(0xFF4A6A8A)
@@ -326,11 +330,10 @@ class _SendTextState extends State<SendText> {
     return OscPathSegment(
       segment: 'text',
       child: CardColumn(
-        spacing: t.sm,
         children: [
           // Region selector + the Layer (osd) dropdown for that region, inset
           // to the same grid margin as the panels below.
-          GridRow(columns: 1, gutter: t.md, cells: [
+          GridRow(columns: 1, cells: [
             (
               span: 1,
               child: Row(
@@ -353,172 +356,169 @@ class _SendTextState extends State<SendText> {
             key: ValueKey(_region),
             child: OscPathSegment(
               segment: 'region/$_region',
-              child: CardColumn(spacing: t.sm, children: [
-          GridRow(
-            columns: 1,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: _textInputSizedSlot(
-                  context,
-                  OscPathSegment(
-                    segment: 'string',
-                    child: OscTextField(
-                      hintText: 'Enter overlay text...',
-                      expands: true,
+              child: CardColumn(children: [
+                GridRow(
+                  columns: 1,
+                  cells: [
+                    (
+                      span: 1,
+                      child: _textInputSizedSlot(
+                        context,
+                        OscPathSegment(
+                          segment: 'string',
+                          child: OscTextField(
+                            hintText: 'Enter overlay text...',
+                            expands: true,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          // Font: nested typeface/variant + size + upload, with the small
-          // Tracking/Leading knobs riding on the space freed by the merge and
-          // by moving Layer up to the region row. (No title — it's redundant.)
-          GridRow(
-            columns: 1,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: Panel(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Expanded(child: FontControls()),
-                      SizedBox(width: t.md),
-                      OscPathSegment(
-                        segment: 'tracking',
-                        child: OscRotaryKnob(
-                          label: 'Tracking',
-                          minValue: -20,
-                          maxValue: 40,
-                          initialValue: 0,
-                          defaultValue: 0,
-                          format: '%.0f',
-                          size: t.knobSm,
-                          labelStyle: t.textLabel,
-                          preferInteger: true,
-                        ),
-                      ),
-                      SizedBox(width: t.sm),
-                      OscPathSegment(
-                        segment: 'leading',
-                        child: OscRotaryKnob(
-                          label: 'Leading',
-                          minValue: -20,
-                          maxValue: 60,
-                          initialValue: 0,
-                          defaultValue: 0,
-                          format: '%.0f',
-                          size: t.knobSm,
-                          labelStyle: t.textLabel,
-                          preferInteger: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          GridRow(
-            columns: 2,
-            gutter: t.md,
-            cells: [
-              (
-                span: 1,
-                child: Panel(
-                  title: 'Color',
-                  // Both knobs get an equal, centered half (matching the
-                  // Position card); the compact Copper toggle sits between them.
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: OscPathSegment(
-                            segment: 'color',
-                            child: OscColorControl(size: t.knobMd * 1.15),
-                          ),
-                        ),
-                      ),
-                      const TextCopperToggle(),
-                      Expanded(
-                        child: Center(
-                          child: OscPathSegment(
-                            segment: 'alpha',
-                            child: OscRotaryKnob(
-                              label: 'Alpha',
-                              minValue: 0,
-                              maxValue: 255,
-                              initialValue: 255,
-                              defaultValue: 255,
-                              format: '%.0f',
-                              size: t.knobMd,
-                              labelStyle: t.textLabel,
-                              preferInteger: true,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              (
-                span: 1,
-                child: Panel(
-                  title: 'Position',
-                  child: OscPathSegment(
-                    segment: 'pos',
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Center(
-                            child: OscPathSegment(
-                              segment: 'x',
+                // Font: nested typeface/variant + size + upload, with the small
+                // Tracking/Leading knobs riding on the space freed by the merge and
+                // by moving Layer up to the region row. (No title — it's redundant.)
+                GridRow(
+                  columns: 1,
+                  cells: [
+                    (
+                      span: 1,
+                      child: Panel(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Expanded(child: FontControls()),
+                            SizedBox(width: t.md),
+                            OscPathSegment(
+                              segment: 'tracking',
                               child: OscRotaryKnob(
-                                label: 'X',
-                                minValue: 0,
-                                maxValue: 3840,
-                                initialValue: 100,
-                                defaultValue: 100,
+                                label: 'Tracking',
+                                minValue: -20,
+                                maxValue: 40,
+                                initialValue: 0,
+                                defaultValue: 0,
                                 format: '%.0f',
-                                size: t.knobMd,
+                                size: t.knobSm,
                                 labelStyle: t.textLabel,
                                 preferInteger: true,
                               ),
                             ),
-                          ),
-                        ),
-                        SizedBox(width: t.md),
-                        Expanded(
-                          child: Center(
-                            child: OscPathSegment(
-                              segment: 'y',
+                            SizedBox(width: t.sm),
+                            OscPathSegment(
+                              segment: 'leading',
                               child: OscRotaryKnob(
-                                label: 'Y',
-                                minValue: 0,
-                                maxValue: 2160,
-                                initialValue: 100,
-                                defaultValue: 100,
+                                label: 'Leading',
+                                minValue: -20,
+                                maxValue: 60,
+                                initialValue: 0,
+                                defaultValue: 0,
                                 format: '%.0f',
-                                size: t.knobMd,
+                                size: t.knobSm,
                                 labelStyle: t.textLabel,
                                 preferInteger: true,
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                GridRow(
+                  columns: 2,
+                  cells: [
+                    (
+                      span: 1,
+                      child: Panel(
+                        title: 'Color',
+                        // Both knobs get an equal, centered half (matching the
+                        // Position card); the compact Copper toggle sits between them.
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Center(
+                                child: OscPathSegment(
+                                  segment: 'color',
+                                  child: OscColorControl(size: t.knobMd * 1.15),
+                                ),
+                              ),
+                            ),
+                            const TextCopperToggle(),
+                            Expanded(
+                              child: Center(
+                                child: OscPathSegment(
+                                  segment: 'alpha',
+                                  child: OscRotaryKnob(
+                                    label: 'Alpha',
+                                    minValue: 0,
+                                    maxValue: 255,
+                                    initialValue: 255,
+                                    defaultValue: 255,
+                                    format: '%.0f',
+                                    size: t.knobMd,
+                                    labelStyle: t.textLabel,
+                                    preferInteger: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    (
+                      span: 1,
+                      child: Panel(
+                        title: 'Position',
+                        child: OscPathSegment(
+                          segment: 'pos',
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Center(
+                                  child: OscPathSegment(
+                                    segment: 'x',
+                                    child: OscRotaryKnob(
+                                      label: 'X',
+                                      minValue: 0,
+                                      maxValue: 3840,
+                                      initialValue: 100,
+                                      defaultValue: 100,
+                                      format: '%.0f',
+                                      size: t.knobMd,
+                                      labelStyle: t.textLabel,
+                                      preferInteger: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: t.md),
+                              Expanded(
+                                child: Center(
+                                  child: OscPathSegment(
+                                    segment: 'y',
+                                    child: OscRotaryKnob(
+                                      label: 'Y',
+                                      minValue: 0,
+                                      maxValue: 2160,
+                                      initialValue: 100,
+                                      defaultValue: 100,
+                                      format: '%.0f',
+                                      size: t.knobMd,
+                                      labelStyle: t.textLabel,
+                                      preferInteger: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ),
-            ],
-          ),
               ]),
             ),
           ),
@@ -574,7 +574,8 @@ class _TextCopperToggleState extends State<TextCopperToggle> {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _on ? accent.withValues(alpha: 0.22) : const Color(0xFF2A2A2C),
+            color:
+                _on ? accent.withValues(alpha: 0.22) : const Color(0xFF2A2A2C),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _on ? accent : Colors.grey[700]!,

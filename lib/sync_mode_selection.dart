@@ -65,101 +65,103 @@ class _SyncSettingsSectionState extends State<SyncSettingsSection>
 
     return LabeledCard(
       title: 'Return Sync',
+      // Hand the card's full content height to the row below, so the locked
+      // tile can stretch to it rather than sit at a natural height.
+      fillChild: true,
       // Left-aligned, not centred: the card title is left-aligned, so centring
       // this fixed-width composition made it drift right by an amount that
       // changed with the window width.
       child: CardBody(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // Row, stretched: the locked tile and the Component/External column are
+        // both sized by the card's content height. The Analog card's grey wheel
+        // panel spans ITS card's content height, and both cards are cells of the
+        // same equal-height GridRow — so the locked tile and that grey panel come
+        // out identical at every window size, with nothing measured or pinned.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // No top spacing: the Analog card's grey panel starts flush with
-            // its card content top, so these tiles must too or the two cards'
-            // boxed areas sit at different heights. (There used to be a
-            // hand-tuned 24px here, matched to geometry that has since moved.)
-            // Sync mode tiles. The tiles and the button beneath them are a
-            // fixed-width composition (3 x 105 + gaps), so on a narrow card it
-            // used to overflow. Scale the whole group down as one unit instead,
-            // which keeps the button centred under the same two tiles.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.topLeft,
+            // Flex split in the tiles' own proportion: one tile against two
+            // tiles plus the gap between them. Every tile therefore fills its
+            // share of the card's width, at any card width, and nothing can
+            // overflow. A FittedBox can't do this job — it would scale the
+            // height too, and the height is what has to match the Analog card.
+            Expanded(
+              flex: 105,
+              // Align, not the bare tile: the row stretches its cells, which
+              // would force the tile to full card height. Align passes loose
+              // constraints down so the tile keeps its own height and sits at
+              // the top of its cell.
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _SyncTile(
+                  lighting: lighting,
+                  label: 'Sync locked\nto sends',
+                  isSelected: _selectedSync == 'locked',
+                  onTap: () => _selectSyncMode('locked'),
+                  child: CustomPaint(
+                    size: const Size(52, 68),
+                    painter: _LockPainter(),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 105 + 12 + 105,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _SyncTile(
-                        lighting: lighting,
-                        label: 'Sync locked\nto sends',
-                        isSelected: _selectedSync == 'locked',
-                        onTap: () => _selectSyncMode('locked'),
-                        child: CustomPaint(
-                          size: const Size(52, 68),
-                          painter: _LockPainter(),
+                      Expanded(
+                        child: _SyncTile(
+                          lighting: lighting,
+                          label: 'Component\nsync (Y/G)',
+                          isSelected: _selectedSync == 'component',
+                          onTap: () => _selectSyncMode('component'),
+                          cableColors: const [
+                            Color(0xFF22AA22),
+                            Color(0xFF2266DD),
+                            Color(0xFFDD2222),
+                          ],
+                          selectedCableIndices: const [0],
                         ),
                       ),
                       const SizedBox(width: 12),
-                      _SyncTile(
-                        lighting: lighting,
-                        label: 'Component\nsync (Y/G)',
-                        isSelected: _selectedSync == 'component',
-                        onTap: () => _selectSyncMode('component'),
-                        cableColors: const [
-                          Color(0xFF22AA22),
-                          Color(0xFF2266DD),
-                          Color(0xFFDD2222),
-                        ],
-                        selectedCableIndices: const [0],
-                      ),
-                      const SizedBox(width: 12),
-                      _SyncTile(
-                        lighting: lighting,
-                        label: 'External H/V\nsync input',
-                        isSelected: _selectedSync == 'external',
-                        onTap: () => _selectSyncMode('external'),
-                        cableColors: const [
-                          Color(0xFF22AA22),
-                          Color(0xFF2266DD),
-                          Color(0xFFDD2222),
-                          Color(0xFFE0E0E0),
-                          Color(0xFF808080),
-                        ],
-                        selectedCableIndices: const [3, 4],
+                      Expanded(
+                        child: _SyncTile(
+                          lighting: lighting,
+                          label: 'External H/V\nsync input',
+                          isSelected: _selectedSync == 'external',
+                          onTap: () => _selectSyncMode('external'),
+                          cableColors: const [
+                            Color(0xFF22AA22),
+                            Color(0xFF2266DD),
+                            Color(0xFFDD2222),
+                            Color(0xFFE0E0E0),
+                            Color(0xFF808080),
+                          ],
+                          selectedCableIndices: const [3, 4],
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // "Genlock Sends to Return" toggle button, centred under the
-                  // Component + External sync tiles. (TBC moved to the Return page's
-                  // ADC Adjustments card.)
-                  SizedBox(
-                    width:
-                        3 * 105.0 + 2 * 12, // matches the sync-tiles row width
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                            width: 105.0 + 12), // span the "locked" tile + gap
-                        Expanded(
-                          child: Center(
-                            child: AppButton(
-                              label: 'Genlock Sends to Return',
-                              dense: true,
-                              selected: _dacGenlock,
-                              accentColor: const Color(0xFFF0B830),
-                              onPressed: _dacGenlockEnabled
-                                  ? () {
-                                      final v = !_dacGenlock;
-                                      setState(() => _dacGenlock = v);
-                                      sendOsc(v, address: '/dac_genlock');
-                                    }
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 12),
+                  // Fills the rest of the column, so its bottom lands on the
+                  // locked tile's bottom and its sides on the two tiles' sides.
+                  Expanded(
+                    child: AppButton(
+                      label: 'Genlock Sends to Return',
+                      fillHeight: true,
+                      selected: _dacGenlock,
+                      accentColor: const Color(0xFFF0B830),
+                      onPressed: _dacGenlockEnabled
+                          ? () {
+                              final v = !_dacGenlock;
+                              setState(() => _dacGenlock = v);
+                              sendOsc(v, address: '/dac_genlock');
+                            }
+                          : null,
                     ),
                   ),
                 ],
@@ -181,6 +183,10 @@ class _SyncTile extends StatelessWidget {
   final List<Color>? cableColors;
   final List<int>? selectedCableIndices;
 
+  /// Stretch to the height the parent offers, keeping the icon at exactly the
+  /// offset it has in a standard tile and dropping the label to the bottom.
+  final bool tall;
+
   const _SyncTile({
     required this.lighting,
     required this.label,
@@ -189,17 +195,76 @@ class _SyncTile extends StatelessWidget {
     required this.onTap,
     this.cableColors,
     this.selectedCableIndices,
+    this.tall = false,
   });
 
   @override
   Widget build(BuildContext context) {
     const double tileWidth = 105.0;
+    // The standard tile's outer height, and the interior left after its
+    // Padding.all(8). A tall tile reserves exactly this interior at its top so
+    // its icon lands level with its neighbours' — derived, not re-measured.
+    const double tileHeight = 147.0;
+    const double interiorHeight = tileHeight - 16;
+
+    final iconArea = Center(
+      child: cableColors != null
+          ? CustomPaint(
+              size: Size(tileWidth - 16, 68),
+              painter: _CableGroupPainter(
+                cableColors: cableColors!,
+                selectedIndices: selectedCableIndices ?? const [],
+              ),
+            )
+          : child ?? const SizedBox(),
+    );
+
+    final labelText = Text(
+      label,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 11,
+        color: isSelected ? Colors.white : Colors.grey[400],
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+      ),
+    );
+
+    // Standard interior: icon takes the space above the label.
+    Widget standardInterior(Widget label) => Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(child: iconArea),
+            const SizedBox(height: 4),
+            label,
+          ],
+        );
+
+    final Widget interior = tall
+        ? Column(
+            children: [
+              // Reserve the standard interior verbatim. The label is drawn at
+              // zero opacity purely to occupy the space it would have taken, so
+              // the icon's offset is identical without computing a text height.
+              SizedBox(
+                height: interiorHeight,
+                child: standardInterior(Opacity(opacity: 0, child: labelText)),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: labelText,
+                ),
+              ),
+            ],
+          )
+        : standardInterior(labelText);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: tileWidth,
-        height: 147,
+        // No fixed width: every tile is placed in an Expanded cell, so the row
+        // divides the card's width between them and nothing can overflow it.
+        height: tall ? null : tileHeight,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           boxShadow: lighting.createNeumorphicShadows(elevation: 4.0),
@@ -210,36 +275,7 @@ class _SyncTile extends StatelessWidget {
             painter: _TilePainter(lighting: lighting, isSelected: isSelected),
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: cableColors != null
-                          ? CustomPaint(
-                              size: Size(tileWidth - 16, 68),
-                              painter: _CableGroupPainter(
-                                cableColors: cableColors!,
-                                selectedIndices:
-                                    selectedCableIndices ?? const [],
-                              ),
-                            )
-                          : child ?? const SizedBox(),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isSelected ? Colors.white : Colors.grey[400],
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
+              child: interior,
             ),
           ),
         ),

@@ -30,7 +30,8 @@ class CubeLut {
   (double, double, double) sample(double r, double g, double b) {
     double cl(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
     final fr = cl(r) * (n - 1), fg = cl(g) * (n - 1), fb = cl(b) * (n - 1);
-    final r0 = fr.floor().clamp(0, n - 2), g0 = fg.floor().clamp(0, n - 2),
+    final r0 = fr.floor().clamp(0, n - 2),
+        g0 = fg.floor().clamp(0, n - 2),
         b0 = fb.floor().clamp(0, n - 2);
     final tr = fr - r0, tg = fg - g0, tb = fb - b0;
     double at(int ri, int gi, int bi, int c) =>
@@ -118,8 +119,7 @@ Uint8List packLut3dBlob(CubeLut lut, String name) {
   for (var bi = 0; bi < n; bi++) {
     for (var gi = 0; gi < n; gi++) {
       for (var ri = 0; ri < n; ri++) {
-        final (r, g, b) =
-            lut.sample(ri / (n - 1), gi / (n - 1), bi / (n - 1));
+        final (r, g, b) = lut.sample(ri / (n - 1), gi / (n - 1), bi / (n - 1));
         for (final v in [r, g, b]) {
           final q = (v.clamp(0.0, 1.0) * 4095.0).round();
           body.setUint16(o, q, Endian.little);

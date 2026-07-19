@@ -87,7 +87,10 @@ class NorClient {
       final n = (len - pos).clamp(0, _chunk);
       final r = await _call('/assets/fonts/nor/read', [off + pos, n]);
       // reply: [off, count, blob]
-      if (r.length < 3 || r[1] is! int || (r[1] as int) < 0 || r[2] is! Uint8List) {
+      if (r.length < 3 ||
+          r[1] is! int ||
+          (r[1] as int) < 0 ||
+          r[2] is! Uint8List) {
         throw Exception('NOR read failed at ${off + pos}: $r');
       }
       final blob = r[2] as Uint8List;
@@ -108,8 +111,8 @@ class NorClient {
     for (var pos = 0; pos < blob.length; pos += _chunk) {
       final chunk = Uint8List.sublistView(
           blob, pos, (pos + _chunk).clamp(0, blob.length));
-      final r = await _call(
-          '/assets/fonts/nor/write', [off + pos, _signed32(crc32(chunk)), chunk]);
+      final r = await _call('/assets/fonts/nor/write',
+          [off + pos, _signed32(crc32(chunk)), chunk]);
       if (r.length < 2 || r[1] != 0) {
         throw Exception('write failed at ${off + pos}: $r');
       }
@@ -151,7 +154,8 @@ class SpriteStore {
     for (var i = 0; i < count; i++) {
       final e = await nor.read(sprtBase + 12 + i * 96, 96);
       final eb = ByteData.sublistView(e);
-      final name = String.fromCharCodes(e.sublist(0, 16).takeWhile((c) => c != 0));
+      final name =
+          String.fromCharCodes(e.sublist(0, 16).takeWhile((c) => c != 0));
       final w = eb.getUint16(16, Endian.little);
       final h = eb.getUint16(18, Endian.little);
       final off = eb.getUint32(20, Endian.little);
@@ -178,8 +182,12 @@ class SpriteStore {
       final eb = ByteData.sublistView(e);
       final name =
           String.fromCharCodes(e.sublist(0, 16).takeWhile((c) => c != 0));
-      out.add((name, eb.getUint16(16, Endian.little),
-          eb.getUint16(18, Endian.little), eb.getUint32(24, Endian.little)));
+      out.add((
+        name,
+        eb.getUint16(16, Endian.little),
+        eb.getUint16(18, Endian.little),
+        eb.getUint32(24, Endian.little)
+      ));
     }
     return out;
   }
@@ -232,8 +240,10 @@ class SpriteStore {
       dataOff += s.pixels.length;
     }
     final hdr = ByteData(12);
-    hdr.setUint8(0, 0x53); hdr.setUint8(1, 0x50); // 'S' 'P'
-    hdr.setUint8(2, 0x52); hdr.setUint8(3, 0x54); // 'R' 'T'
+    hdr.setUint8(0, 0x53);
+    hdr.setUint8(1, 0x50); // 'S' 'P'
+    hdr.setUint8(2, 0x52);
+    hdr.setUint8(3, 0x54); // 'R' 'T'
     hdr.setUint16(4, 1, Endian.little);
     hdr.setUint16(6, sprites.length, Endian.little);
     final out = BytesBuilder();
@@ -244,7 +254,7 @@ class SpriteStore {
   }
 
   Future<void> push(List<SpriteAsset> sprites,
-      {void Function(double)? onProgress}) =>
+          {void Function(double)? onProgress}) =>
       nor.writeBlob(sprtBase, buildBlob(sprites), onProgress: onProgress);
 }
 
@@ -286,7 +296,8 @@ List<List<int>> _medianCut(Uint8List rgba, int n) {
     }
     if (bi < 0 || brange <= 0) break;
     final sh = (2 - bch) * 8;
-    final box = boxes[bi]..sort((a, b) => ((a >> sh) & 0xFF) - ((b >> sh) & 0xFF));
+    final box = boxes[bi]
+      ..sort((a, b) => ((a >> sh) & 0xFF) - ((b >> sh) & 0xFF));
     final mid = box.length ~/ 2;
     boxes[bi] = box.sublist(0, mid);
     boxes.add(box.sublist(mid));
@@ -347,7 +358,8 @@ SpriteAsset convertSprite(String name, int w, int h, Uint8List rgba) {
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       final i = (y * w + x) * 4;
-      final idx = rgba[i + 3] < 128 ? 0 : nearest(rgba[i], rgba[i + 1], rgba[i + 2]);
+      final idx =
+          rgba[i + 3] < 128 ? 0 : nearest(rgba[i], rgba[i + 1], rgba[i + 2]);
       data[y * bpr + x ~/ 2] |= idx << (x % 2 == 0 ? 4 : 0);
     }
   }

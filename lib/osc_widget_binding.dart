@@ -84,27 +84,26 @@ mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
 
 // inside your State or wherever sendOsc lives:
 
-void sendOsc(dynamic arg, {String? address}) {
-  final addr = (address == null || address.isEmpty)
-      ? oscAddress
-      : (address.startsWith('/') ? address : '$oscAddress/$address');
-  final argsList = (arg is Iterable)
-      ? arg.map((e) => e as Object).toList()
-      : <Object>[arg as Object];
+  void sendOsc(dynamic arg, {String? address}) {
+    final addr = (address == null || address.isEmpty)
+        ? oscAddress
+        : (address.startsWith('/') ? address : '$oscAddress/$address');
+    final argsList = (arg is Iterable)
+        ? arg.map((e) => e as Object).toList()
+        : <Object>[arg as Object];
 
-  // Fire the real OSC packet. Network logs every send centrally, so widgets
-  // don't log here (that used to miss any path that bypassed this mixin).
-  context.read<Network>().sendOscMessage(addr, argsList);
+    // Fire the real OSC packet. Network logs every send centrally, so widgets
+    // don't log here (that used to miss any path that bypassed this mixin).
+    context.read<Network>().sendOscMessage(addr, argsList);
 
-  // Local echo: immediately update OscRegistry so all widgets bound to the
-  // same address reflect the new value without waiting for server /sync.
-  try {
-    final reg = OscRegistry();
-    reg.registerAddress(addr);
-    reg.dispatchLocal(addr, argsList.cast<Object?>());
-  } catch (_) {}
-}
-
+    // Local echo: immediately update OscRegistry so all widgets bound to the
+    // same address reflect the new value without waiting for server /sync.
+    try {
+      final reg = OscRegistry();
+      reg.registerAddress(addr);
+      reg.dispatchLocal(addr, argsList.cast<Object?>());
+    } catch (_) {}
+  }
 
   void _handleOsc(List<Object?> args) {
     final status = onOscMessage(args);

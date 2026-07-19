@@ -47,8 +47,8 @@ class _ColorLutActionsState extends State<ColorLutActions> {
     try {
       final r = await _nor.call('$_base/lut3d/status', const []);
       if (mounted && r.length >= 2) {
-        setState(() =>
-            _activeLut = (r[0] as int) != 0 ? (r[1] as String) : null);
+        setState(
+            () => _activeLut = (r[0] as int) != 0 ? (r[1] as String) : null);
       }
     } catch (_) {}
   }
@@ -77,8 +77,13 @@ class _ColorLutActionsState extends State<ColorLutActions> {
 
   Future<GradeZone> _qzone(String z) async {
     Future<double> p(String f) => _qf('$_base/grade/$z/$f');
-    return GradeZone(await p('shift_x'), await p('shift_y'), await p('lift'),
-        await p('contrast'), await p('saturation'), await p('level'),
+    return GradeZone(
+        await p('shift_x'),
+        await p('shift_y'),
+        await p('lift'),
+        await p('contrast'),
+        await p('saturation'),
+        await p('level'),
         await p('blend'));
   }
 
@@ -126,8 +131,8 @@ class _ColorLutActionsState extends State<ColorLutActions> {
   // ------------------------------------------------------------- import ----
 
   Future<void> _import() async {
-    final pick = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Import 3D LUT (.cube)', withData: true);
+    final pick = await FilePicker.platform
+        .pickFiles(dialogTitle: 'Import 3D LUT (.cube)', withData: true);
     final data = pick?.files.single.bytes;
     if (data == null) return;
     try {
@@ -168,8 +173,8 @@ class _ColorLutActionsState extends State<ColorLutActions> {
                 const Icon(Icons.grain, size: 15, color: Color(0xFFC9B066)),
                 const SizedBox(width: 3),
                 Text(_activeLut!,
-                    style:
-                        const TextStyle(fontSize: 11, color: Color(0xFFC9B066))),
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFFC9B066))),
               ]),
             ),
           ),

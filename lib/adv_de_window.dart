@@ -65,7 +65,9 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
   }
 
   void _sendDe() {
-    context.read<Network>().sendOscMessage('/adv/de', [_hStart, _hEnd, _vStart, _vEnd]);
+    context
+        .read<Network>()
+        .sendOscMessage('/adv/de', [_hStart, _hEnd, _vStart, _vEnd]);
     OscRegistry().dispatchLocal('/adv/de', [_hStart, _hEnd, _vStart, _vEnd]);
   }
 
@@ -74,15 +76,26 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
     final t = GridProvider.of(context);
     final knobSize = widget.embedded ? t.knobSm : t.knobMd;
     final knobWidgets = [
-      _deKnob(context, 'H Start', _hStartKey, -512, 511, knobSize, (v) { _hStart = v; _sendDe(); }),
-      _deKnob(context, 'H End', _hEndKey, -512, 511, knobSize, (v) { _hEnd = v; _sendDe(); }),
-      _deKnob(context, 'V Start', _vStartKey, -8, 7, knobSize, (v) { _vStart = v; _sendDe(); }),
-      _deKnob(context, 'V End', _vEndKey, -8, 7, knobSize, (v) { _vEnd = v; _sendDe(); }),
+      _deKnob(context, 'H Start', _hStartKey, -512, 511, knobSize, (v) {
+        _hStart = v;
+        _sendDe();
+      }),
+      _deKnob(context, 'H End', _hEndKey, -512, 511, knobSize, (v) {
+        _hEnd = v;
+        _sendDe();
+      }),
+      _deKnob(context, 'V Start', _vStartKey, -8, 7, knobSize, (v) {
+        _vStart = v;
+        _sendDe();
+      }),
+      _deKnob(context, 'V End', _vEndKey, -8, 7, knobSize, (v) {
+        _vEnd = v;
+        _sendDe();
+      }),
     ];
     final controls = widget.embedded
         ? GridRow(
             columns: 4,
-            gutter: t.sm,
             equalHeight: false,
             cells: [
               for (final k in knobWidgets) (span: 1, child: k),
@@ -114,8 +127,14 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
     );
   }
 
-  Widget _deKnob(BuildContext context, String label, GlobalKey<OscRotaryKnobState> key,
-      double min, double max, double size, void Function(int) onCommit) {
+  Widget _deKnob(
+      BuildContext context,
+      String label,
+      GlobalKey<OscRotaryKnobState> key,
+      double min,
+      double max,
+      double size,
+      void Function(int) onCommit) {
     final t = GridProvider.of(context);
     return OscRotaryKnob(
       key: key,
@@ -136,7 +155,9 @@ class _AdvDeWindowCardState extends State<AdvDeWindowCard> {
         snapRegionHalfWidth: (max - min) * 0.02,
         snapBehavior: SnapBehavior.hard,
       ),
-      onChanged: (v) { onCommit(v.round()); },
+      onChanged: (v) {
+        onCommit(v.round());
+      },
     );
   }
 }

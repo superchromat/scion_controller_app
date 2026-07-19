@@ -53,9 +53,12 @@ class ArrowsPainter extends CustomPainter {
       final shaftPath = Path()
         ..moveTo(a.from.dx, a.from.dy)
         ..cubicTo(
-          c1.dx, c1.dy,
-          c2.dx, c2.dy,
-          baseCenter.dx, baseCenter.dy,
+          c1.dx,
+          c1.dy,
+          c2.dx,
+          c2.dy,
+          baseCenter.dx,
+          baseCenter.dy,
         );
 
       final headPath = Path()
@@ -140,4 +143,3 @@ class ArrowsPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant ArrowsPainter old) => old.arrows != arrows;
 }
-

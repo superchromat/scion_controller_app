@@ -43,13 +43,14 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final t = GridTokens(constraints.maxWidth);
-        final sectionGap = t.md;
+        // Same token as the gap between panels: sectionGap separates sibling
+        // blocks inside a card as well as card from card.
+        final sectionGap = t.panelGap;
         return GridProvider(
           tokens: t,
           child: Stack(
@@ -66,7 +67,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              GridRow(gutter: t.md, cells: [
+                              GridRow(cells: [
                                 (
                                   span: 12,
                                   child: LabeledCard(
@@ -81,20 +82,20 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                               // Shape gets its own full-width row (canvas +
                               // knobs); Texture and Text move to the next row.
                               GridRow(
-                                gutter: t.md,
                                 cells: [
                                   (
                                     span: 12,
                                     child: LabeledCard(
                                       title: 'Shape',
                                       snapPath: 'shape',
-                                      child: Shape(pageNumber: widget.pageNumber),
+                                      child:
+                                          Shape(pageNumber: widget.pageNumber),
                                     ),
                                   ),
                                 ],
                               ),
                               SizedBox(height: sectionGap),
-                              GridRow(gutter: t.md, cells: [
+                              GridRow(cells: [
                                 (
                                   span: 12,
                                   child: LabeledCard(
@@ -115,7 +116,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                 )
                               ]),
                               SizedBox(height: sectionGap),
-                              GridRow(gutter: t.md, cells: [
+                              GridRow(cells: [
                                 (
                                   span: 12,
                                   child: LabeledCard(
@@ -138,7 +139,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                             pageNumber: widget.pageNumber),
                                         if (widget.pageNumber == 1) ...[
                                           SizedBox(height: sectionGap),
-                                          GridRow(gutter: t.md, cells: [
+                                          GridRow(cells: [
                                             (
                                               span: 12,
                                               child: Panel(
@@ -159,7 +160,7 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                         SizedBox(height: sectionGap),
                         OscPathSegment(
                           segment: 'dac/${widget.pageNumber}',
-                          child: GridRow(gutter: t.md, cells: [
+                          child: GridRow(cells: [
                             (
                               span: 12,
                               child: const LabeledCard(

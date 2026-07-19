@@ -47,11 +47,9 @@ class _SystemPageState extends State<SystemPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    GridRow(
-                        gutter: t.md,
-                        cells: [(span: 12, child: SystemOverview())]),
-                    SizedBox(height: t.md),
-                    GridRow(gutter: t.md, cells: [
+                    GridRow(cells: [(span: 12, child: SystemOverview())]),
+                    SizedBox(height: t.panelGap),
+                    GridRow(cells: [
                       (span: 7, child: VideoFormatSelectionSection()),
                       (span: 5, child: SyncSettingsSection()),
                     ]),
@@ -88,7 +86,6 @@ class SetupPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   GridRow(
-                    gutter: t.md,
                     cells: [
                       (
                         span: 12,
@@ -99,9 +96,8 @@ class SetupPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(height: t.md),
+                  SizedBox(height: t.panelGap),
                   GridRow(
-                    gutter: t.md,
                     equalHeight: true,
                     cells: [
                       // Left column: Network settings drives the row height
@@ -122,23 +118,21 @@ class SetupPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             const Expanded(child: FrontPanelSection()),
-                            SizedBox(height: t.md),
+                            SizedBox(height: t.panelGap),
                             const Expanded(child: FirmwareUpdateSection()),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: t.md),
+                  SizedBox(height: t.panelGap),
                   GridRow(
-                    gutter: t.md,
                     cells: const [
                       (span: 12, child: AboutSection()),
                     ],
                   ),
-                  SizedBox(height: t.md),
+                  SizedBox(height: t.panelGap),
                   GridRow(
-                    gutter: t.md,
                     cells: [
                       (
                         span: 12,

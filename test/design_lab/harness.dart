@@ -28,7 +28,8 @@ Future<void> loadAppFonts() async {
     final loader = FontLoader(family);
     for (final f in files) {
       final bytes = File('$dir/$f').readAsBytesSync();
-      loader.addFont(Future.value(ByteData.view(Uint8List.fromList(bytes).buffer)));
+      loader.addFont(
+          Future.value(ByteData.view(Uint8List.fromList(bytes).buffer)));
     }
     await loader.load();
   }
@@ -44,7 +45,8 @@ Future<void> loadAppFonts() async {
 Widget labScaffold({required Widget child, required double width}) {
   return MultiProvider(
     providers: [
-      ChangeNotifierProvider<LightingSettings>(create: (_) => LightingSettings()),
+      ChangeNotifierProvider<LightingSettings>(
+          create: (_) => LightingSettings()),
       // Bare, unconnected Network — only opens a socket on connect(), so it's
       // inert here but satisfies widgets that read<Network>() (e.g. OSC knobs).
       ChangeNotifierProvider<Network>(create: (_) => Network()),

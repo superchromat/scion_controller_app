@@ -19,7 +19,8 @@ class LabKnob extends StatelessWidget {
   final double value; // 0..1 normalized for the arc
   final bool bipolar;
   final double? size;
-  const LabKnob(this.label, {super.key, this.value = 0.5, this.bipolar = false, this.size});
+  const LabKnob(this.label,
+      {super.key, this.value = 0.5, this.bipolar = false, this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +40,8 @@ class LabKnob extends StatelessWidget {
           neutralValue: bipolar ? 0 : 0,
         ),
         SizedBox(height: t.xs * 0.8),
-        Text(label, style: t.textLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(label,
+            style: t.textLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
     );
   }
@@ -53,7 +55,10 @@ class KnobPanel extends StatelessWidget {
   final double? knobSize;
   final MainAxisAlignment align;
   const KnobPanel(this.title, this.knobs,
-      {super.key, this.bipolar = false, this.knobSize, this.align = MainAxisAlignment.spaceEvenly});
+      {super.key,
+      this.bipolar = false,
+      this.knobSize,
+      this.align = MainAxisAlignment.spaceEvenly});
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,8 @@ class KnobPanel extends StatelessWidget {
           for (final k in knobs)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: t.xs),
-              child: LabKnob(k.$1, value: k.$2, bipolar: bipolar, size: knobSize),
+              child:
+                  LabKnob(k.$1, value: k.$2, bipolar: bipolar, size: knobSize),
             ),
         ],
       ),
@@ -80,7 +86,8 @@ class KnobGridPanel extends StatelessWidget {
   final List<(String, double)> knobs;
   final int perRow;
   final double? knobSize;
-  const KnobGridPanel(this.title, this.knobs, {super.key, this.perRow = 4, this.knobSize});
+  const KnobGridPanel(this.title, this.knobs,
+      {super.key, this.perRow = 4, this.knobSize});
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +110,9 @@ class KnobGridPanel extends StatelessWidget {
                   LabKnob(k.$1, value: k.$2, size: knobSize ?? t.knobSm),
                 // pad short last row for alignment
                 for (var p = rows[r].length; p < perRow; p++)
-                  Opacity(opacity: 0, child: LabKnob('', size: knobSize ?? t.knobSm)),
+                  Opacity(
+                      opacity: 0,
+                      child: LabKnob('', size: knobSize ?? t.knobSm)),
               ],
             ),
           ],
@@ -147,13 +156,19 @@ class _WheelPainter extends CustomPainter {
     canvas.drawCircle(c, r, Paint()..color = const Color(0xFF1A1A1C));
     // hue conic
     final sweep = SweepGradient(colors: const [
-      Color(0xFFE04848), Color(0xFFE0C048), Color(0xFF48E060),
-      Color(0xFF48C0E0), Color(0xFF6048E0), Color(0xFFE048C0), Color(0xFFE04848),
+      Color(0xFFE04848),
+      Color(0xFFE0C048),
+      Color(0xFF48E060),
+      Color(0xFF48C0E0),
+      Color(0xFF6048E0),
+      Color(0xFFE048C0),
+      Color(0xFFE04848),
     ]).createShader(Rect.fromCircle(center: c, radius: r));
     canvas.drawCircle(c, r * 0.92, Paint()..shader = sweep);
     // desaturate center
     canvas.drawCircle(
-        c, r * 0.92,
+        c,
+        r * 0.92,
         Paint()
           ..shader = RadialGradient(colors: [
             const Color(0xFF3A3A3E).withValues(alpha: 0.95),
@@ -162,8 +177,8 @@ class _WheelPainter extends CustomPainter {
     // inner well
     canvas.drawCircle(c, r * 0.30, Paint()..color = const Color(0xFF242427));
     // crosshair handle
-    canvas.drawCircle(
-        c + Offset(r * 0.34, -r * 0.20), r * 0.09, Paint()..color = Colors.white.withValues(alpha: 0.9));
+    canvas.drawCircle(c + Offset(r * 0.34, -r * 0.20), r * 0.09,
+        Paint()..color = Colors.white.withValues(alpha: 0.9));
   }
 
   @override
@@ -195,7 +210,8 @@ class LabDropdown extends StatelessWidget {
               children: [
                 Text(value, style: t.textValue),
                 if (width != null) const Spacer() else SizedBox(width: t.md),
-                Icon(Icons.expand_more, size: t.sm * 1.4, color: const Color(0xFF9A9AA0)),
+                Icon(Icons.expand_more,
+                    size: t.sm * 1.4, color: const Color(0xFF9A9AA0)),
               ],
             ),
           ),
@@ -221,7 +237,11 @@ class LabValue extends StatelessWidget {
       children: [
         Row(mainAxisSize: MainAxisSize.min, children: [
           if (live) ...[
-            Container(width: t.xs, height: t.xs, decoration: const BoxDecoration(color: Color(0xFF56C271), shape: BoxShape.circle)),
+            Container(
+                width: t.xs,
+                height: t.xs,
+                decoration: const BoxDecoration(
+                    color: Color(0xFF56C271), shape: BoxShape.circle)),
             SizedBox(width: t.xs * 0.8),
           ],
           Text(label, style: t.textCaption),
@@ -249,7 +269,8 @@ class LabToggle extends StatelessWidget {
         decoration: BoxDecoration(
           color: on ? _amber.withValues(alpha: 0.9) : const Color(0xFF1E1E20),
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: on ? _amber : const Color(0xFF3A3A3E), width: 1),
+          border: Border.all(
+              color: on ? _amber : const Color(0xFF3A3A3E), width: 1),
         ),
         child: on ? Icon(Icons.check, size: t.sm, color: Colors.black) : null,
       ),
@@ -283,8 +304,12 @@ class LabSwatchStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
     const hues = [
-      Color(0xFFE05A5A), Color(0xFFE0A24A), Color(0xFFD8DC50),
-      Color(0xFF5AD070), Color(0xFF50B8D8), Color(0xFF7A6AE0),
+      Color(0xFFE05A5A),
+      Color(0xFFE0A24A),
+      Color(0xFFD8DC50),
+      Color(0xFF5AD070),
+      Color(0xFF50B8D8),
+      Color(0xFF7A6AE0),
     ];
     return NeumorphicInset(
       padding: EdgeInsets.all(t.xs),
@@ -323,7 +348,8 @@ class LabPreview extends StatelessWidget {
           child: Center(
             child: Text(tag,
                 style: t.textCaption.copyWith(
-                    letterSpacing: 2, color: Colors.white.withValues(alpha: 0.35))),
+                    letterSpacing: 2,
+                    color: Colors.white.withValues(alpha: 0.35))),
           ),
         ),
       ),
@@ -344,7 +370,9 @@ class _PreviewPainter extends CustomPainter {
             colors: [Color(0xFF243040), Color(0xFF3A2438)],
           ).createShader(rect));
     // faint scanlines
-    final p = Paint()..color = Colors.black.withValues(alpha: 0.10)..strokeWidth = 1;
+    final p = Paint()
+      ..color = Colors.black.withValues(alpha: 0.10)
+      ..strokeWidth = 1;
     for (double y = 0; y < size.height; y += 4) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
     }
@@ -366,9 +394,14 @@ class LabSectionHeader extends StatelessWidget {
       padding: EdgeInsets.only(top: t.sm, bottom: t.xs),
       child: Row(children: [
         Text(title.toUpperCase(),
-            style: t.textCaption.copyWith(letterSpacing: 1.5, fontWeight: FontWeight.w600, color: const Color(0xFF8A8A90))),
+            style: t.textCaption.copyWith(
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF8A8A90))),
         SizedBox(width: t.sm),
-        Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
+        Expanded(
+            child: Container(
+                height: 1, color: Colors.white.withValues(alpha: 0.08))),
         if (trailing != null) ...[SizedBox(width: t.sm), trailing!],
       ]),
     );
@@ -376,5 +409,10 @@ class LabSectionHeader extends StatelessWidget {
 }
 
 /// Convenience re-export so layout files import one thing.
-Widget card({required String title, required Widget child, Widget? action, Color? border}) =>
-    LabeledCard(title: title, action: action, borderColor: border, child: child);
+Widget card(
+        {required String title,
+        required Widget child,
+        Widget? action,
+        Color? border}) =>
+    LabeledCard(
+        title: title, action: action, borderColor: border, child: child);

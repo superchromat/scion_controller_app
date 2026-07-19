@@ -45,9 +45,8 @@ class _OscRadioListState extends State<OscRadioList>
 
   @override
   OscStatus onOscMessage(List<Object?> args) {
-    final incoming = args.isNotEmpty && args.first is String
-        ? args.first as String
-        : null;
+    final incoming =
+        args.isNotEmpty && args.first is String ? args.first as String : null;
     if (incoming != null && widget.options.any((o) => o[0] == incoming)) {
       setState(() => _selectedValue = incoming);
       return OscStatus.ok;
@@ -174,7 +173,6 @@ class _NeumorphicRadioButton extends StatefulWidget {
 
 class _NeumorphicRadioButtonState extends State<_NeumorphicRadioButton>
     with GlobalRectTracking<_NeumorphicRadioButton> {
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -223,9 +221,9 @@ class _RadioButtonPainter extends CustomPainter {
     final rect = Offset.zero & size;
 
     // Slot dimensions (like the knob)
-    final slotWidth = outerRadius * 0.8;  // Width of the slot/hole
-    final borderWidth = slotWidth + 2;    // Border is slightly wider
-    final floorWidth = slotWidth - 2;     // Floor is slightly smaller
+    final slotWidth = outerRadius * 0.8; // Width of the slot/hole
+    final borderWidth = slotWidth + 2; // Border is slightly wider
+    final floorWidth = slotWidth - 2; // Floor is slightly smaller
 
     // Light direction from settings
     final light = lighting.lightDir2D;
@@ -270,7 +268,8 @@ class _RadioButtonPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
       ..shader = innerHighlightGradient.createShader(rect);
-    final innerHighlightRadius = outerRadius - borderWidth / 2 - slotWidth / 2 + 1;
+    final innerHighlightRadius =
+        outerRadius - borderWidth / 2 - slotWidth / 2 + 1;
     canvas.drawCircle(center, innerHighlightRadius, innerHighlightPaint);
 
     // === 4. FLOOR (dark background of slot) - filled circle ===
@@ -282,8 +281,7 @@ class _RadioButtonPainter extends CustomPainter {
       colors: const [Color(0xFF1C1C1C), Color(0xFF161616), Color(0xFF101010)],
       stops: const [0.0, 0.5, 1.0],
     );
-    final floorPaint = Paint()
-      ..shader = floorGradient.createShader(floorRect);
+    final floorPaint = Paint()..shader = floorGradient.createShader(floorRect);
     canvas.drawCircle(center, floorRadius, floorPaint);
 
     // === 5. VALUE SURFACE (colored disk when selected) - filled circle ===

@@ -12,8 +12,8 @@ void main() {
   test('convertSprite packs 4bpp with transparent index 0', () {
     // 4x2 image: red, transparent, blue, red / blue, blue, transparent, red
     const r = [255, 0, 0, 255], b = [0, 0, 255, 255], t = [0, 0, 0, 0];
-    final rgba = Uint8List.fromList(
-        [...r, ...t, ...b, ...r, ...b, ...b, ...t, ...r]);
+    final rgba =
+        Uint8List.fromList([...r, ...t, ...b, ...r, ...b, ...b, ...t, ...r]);
     final s = convertSprite('test', 4, 2, rgba);
     expect(s.w, 4);
     expect(s.h, 2);
@@ -39,10 +39,10 @@ void main() {
   });
 
   test('SPRT blob layout round-trips', () {
-    final a = SpriteAsset('one', 4, 2, Uint8List(64),
-        Uint8List.fromList([1, 2, 3, 4]));
-    final b = SpriteAsset('two', 2, 2, Uint8List(64),
-        Uint8List.fromList([5, 6]));
+    final a = SpriteAsset(
+        'one', 4, 2, Uint8List(64), Uint8List.fromList([1, 2, 3, 4]));
+    final b =
+        SpriteAsset('two', 2, 2, Uint8List(64), Uint8List.fromList([5, 6]));
     final store = SpriteStore(NorClient(FakeNetworkNever()));
     final blob = store.buildBlob([a, b]);
     expect(String.fromCharCodes(blob.sublist(0, 4)), 'SPRT');
@@ -69,8 +69,10 @@ void main() {
     final ttf0 = Uint8List.fromList([9, 9, 9, 9, 9, 9, 9, 9]);
     final blob = BytesBuilder();
     final hdr = ByteData(16);
-    hdr.setUint8(0, 0x53); hdr.setUint8(1, 0x43); // SC
-    hdr.setUint8(2, 0x54); hdr.setUint8(3, 0x46); // TF
+    hdr.setUint8(0, 0x53);
+    hdr.setUint8(1, 0x43); // SC
+    hdr.setUint8(2, 0x54);
+    hdr.setUint8(3, 0x46); // TF
     hdr.setUint16(4, 1, Endian.little); // version
     hdr.setUint16(6, 1, Endian.little); // count
     hdr.setUint32(12, 16 + 40 + 8, Endian.little); // total

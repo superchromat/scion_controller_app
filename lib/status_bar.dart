@@ -29,11 +29,10 @@ class _StatusBarRowState extends State<StatusBarRow>
 
     _flashController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500), 
-    )
-      ..addListener(() {
-      if (!_connected) setState(() {});
-    });
+      duration: const Duration(milliseconds: 500),
+    )..addListener(() {
+        if (!_connected) setState(() {});
+      });
 
     _netListener = () {
       final nowConn = context.read<Network>().isConnected;

@@ -122,7 +122,6 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     }
   }
 
-
   Future<void> _showError(String message) async {
     await showDialog<void>(
       context: context,
@@ -173,9 +172,8 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
                 ),
         ),
         style: const TextStyle(fontFamily: 'monospace'),
-        onSubmitted: network.isConnecting
-            ? null
-            : (val) => _connectTo(val.trim()),
+        onSubmitted:
+            network.isConnecting ? null : (val) => _connectTo(val.trim()),
       ),
       suggestionsCallback: (pattern) async {
         final suggestions = List<String>.from(discovered);

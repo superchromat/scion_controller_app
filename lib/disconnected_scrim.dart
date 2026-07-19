@@ -107,8 +107,8 @@ class _DevicePicker extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text('More than one SCION is on the network.',
-                  style:
-                      TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
+                  style: TextStyle(
+                      color: Colors.white70, fontSize: 14, height: 1.4)),
               const SizedBox(height: 14),
               for (final d in devices)
                 Padding(
@@ -224,8 +224,7 @@ class OnboardingGuide extends StatelessWidget {
                       height: 14,
                       child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation(Colors.white38)),
+                          valueColor: AlwaysStoppedAnimation(Colors.white38)),
                     ),
                     const SizedBox(width: 8),
                     Text('Still searching…',
@@ -236,8 +235,7 @@ class OnboardingGuide extends StatelessWidget {
                     const _DemoModeButton(),
                     const SizedBox(width: 4),
                     TextButton(
-                      onPressed: () =>
-                          context.read<ScionDiscovery>().rescan(),
+                      onPressed: () => context.read<ScionDiscovery>().rescan(),
                       child: const Text('Rescan',
                           style: TextStyle(color: kOnboardAccent)),
                     ),
@@ -332,7 +330,8 @@ class OnboardingGuide extends StatelessWidget {
         break;
       case OnboardingOS.windows:
         label = 'Windows — Internet Connection Sharing';
-        body = 'No router? Open Network Connections (run “ncpa.cpl”). Right-click '
+        body =
+            'No router? Open Network Connections (run “ncpa.cpl”). Right-click '
             'your internet adapter (e.g. Wi-Fi) → Properties → Sharing, enable '
             '“Allow other network users to connect…”, and choose the Ethernet '
             'adapter the SCION is on.';
