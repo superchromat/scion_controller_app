@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'font_metrics.dart';
+
 /// Set true to render the 12-column guide overlay on the send page.
 const bool kShowGrid = false;
 
@@ -69,7 +71,47 @@ class GridTokens {
         fontFeatures: _tabular,
       );
 
-  /// Panel titles — the one step between a card title and body text.
+  /// Panel titles: a small centred all-caps legend.
+  ///
+  /// Panel titles used to be flush-left [textHeading], one size step under the
+  /// card title. Two flush-left titles that close in size never read as
+  /// aligned no matter how exactly their ink is placed — the eye compares
+  /// stroke weights, and the lighter one always looks like it starts late.
+  /// Centring sidesteps the comparison, and dropping to caps at caption size
+  /// makes a panel title read as a legend on its panel rather than as a
+  /// smaller sibling of the card title.
+  ///
+  /// Tracking is a fraction of the em, not a fixed pixel value, so it holds
+  /// its proportion as `u` scales. Caps need it; DIN's capitals set tight.
+  TextStyle get textPanelTitle => TextStyle(
+        fontSize: 0.9 * u,
+        fontWeight: regular,
+        fontFamily: _family,
+        letterSpacing: panelTitleTracking,
+        color: const Color(0xFFACACB2),
+        fontFeatures: _tabular,
+      );
+
+  /// Extra space between the letters of [textPanelTitle], in logical pixels.
+  double get panelTitleTracking => 0.09 * (0.9 * u);
+
+  /// Distance from a panel's top edge down to the TOP OF THE CAPITALS of its
+  /// title — the gap a reader actually measures.
+  ///
+  /// Equal to [panelContentInset] on purpose: the space above the title is the
+  /// same space as the one from the panel's left edge to its first control, so
+  /// a panel is inset by one distance, not two. It was [panelPadding.top]
+  /// (half this), which read as the title being crowded against the top.
+  ///
+  /// Not the padding above the title's layout box: the ascender reaches above
+  /// cap height, so equal box padding leaves titles at different sizes sitting
+  /// visibly differently. Whoever places a panel title subtracts
+  /// [CapCenteredText.capTopInset] from this.
+  double get panelTitleCapTop => panelContentInset;
+
+  /// One step between a card title and body text. No longer used by [Panel] —
+  /// see [textPanelTitle] — but still the size for in-place section headings
+  /// (LUT regions, palette entries).
   TextStyle get textHeading => TextStyle(
         fontSize: 1.4 * u,
         fontWeight: regular,
@@ -200,6 +242,25 @@ class CapCenteredText extends StatelessWidget {
     applyHeightToLastDescent: false,
   );
 
+  /// Distance from the top of [style]'s line box down to the top of its
+  /// capitals, for text laid out with [trim].
+  ///
+  /// This is the term that makes "pad the top by N" and "put the capitals N
+  /// from the top" different numbers. It scales with the font size, so it
+  /// cannot be absorbed into a constant: at a 2.0u card title it is ~4.5px,
+  /// at a 0.9u panel legend ~1.7px.
+  static double capTopInset(TextStyle style) {
+    final size = style.fontSize ?? 14.0;
+    final tp = TextPainter(
+      text: TextSpan(text: 'H', style: style.copyWith(height: 1.0)),
+      textDirection: TextDirection.ltr,
+      textHeightBehavior: trim,
+      maxLines: 1,
+    )..layout();
+    return tp.computeDistanceToActualBaseline(TextBaseline.alphabetic) -
+        capHeightEm * size;
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = style.fontSize ?? 14.0;
@@ -238,6 +299,108 @@ class CapCenteredText extends StatelessWidget {
             softWrap: false,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Text whose first glyph's INK starts on the widget's left edge, rather than
+/// its layout box.
+///
+/// Every font insets a glyph from the left of its advance width by that
+/// glyph's *left side bearing*, and that bearing is a fraction of the em — so
+/// it grows with the font size. Two labels can sit at byte-identical left
+/// padding and still not line up:
+///
+///   card title  'Color'  at 2.0u -> 'C' bearing 0.076em = 2.13px at u=14
+///   panel title 'Global' at 1.4u -> 'G' bearing 0.076em = 1.49px at u=14
+///
+/// The bearing is also per-glyph, so it varies between titles at the SAME
+/// size: in DIN Pro 'H' is 0.103em but 'V' is 0.008em — a 2.7px spread across
+/// card titles at 2.0u. No padding value can fix either problem, because the
+/// padding is already correct; it is the ink inside the box that moves.
+///
+/// This pulls the text left by exactly its own bearing, so the ink lands on
+/// the content edge. Use it for anything whose left edge a reader lines up by
+/// eye against another piece of text — [LabeledCard] and [Panel] titles do.
+///
+/// Purely a paint-time shift: the layout box does not move, so this cannot
+/// disturb the surrounding layout. The overhang is a fraction of a character
+/// and always lands inside the parent's padding.
+class OpticalLeftText extends StatelessWidget {
+  const OpticalLeftText(
+    this.data, {
+    super.key,
+    required this.style,
+    this.maxLines,
+    this.overflow,
+    this.softWrap,
+    this.textHeightBehavior,
+  });
+
+  final String data;
+  final TextStyle style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final bool? softWrap;
+  final TextHeightBehavior? textHeightBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(-FontMetrics.leftBearing(data, style), 0),
+      child: Text(
+        data,
+        style: style,
+        maxLines: maxLines,
+        overflow: overflow,
+        softWrap: softWrap,
+        textHeightBehavior: textHeightBehavior,
+      ),
+    );
+  }
+}
+
+/// Text centred on its GLYPHS rather than on its layout box.
+///
+/// `letterSpacing` is added after every character including the last, so a
+/// tracked run's box is one full tracking step wider than its ink. Centre that
+/// box and the letters sit half a step left of true centre — the more tracking
+/// a caps legend carries, the further off it drifts. This adds the half step
+/// back.
+///
+/// Like [OpticalLeftText] this is a paint-time shift; the box does not move.
+class OpticalCenterText extends StatelessWidget {
+  const OpticalCenterText(
+    this.data, {
+    super.key,
+    required this.style,
+    this.maxLines,
+    this.overflow,
+    this.softWrap,
+  });
+
+  final String data;
+  final TextStyle style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final bool? softWrap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset((style.letterSpacing ?? 0) / 2, 0),
+      // Trimmed to the glyph box so the widget's height IS the type, and
+      // whoever places it can offset by CapCenteredText.capTopInset and land
+      // the capitals exactly where they intended.
+      child: Text(
+        data,
+        style: style.copyWith(height: 1.0),
+        textHeightBehavior: CapCenteredText.trim,
+        textAlign: TextAlign.center,
+        maxLines: maxLines,
+        overflow: overflow,
+        softWrap: softWrap,
       ),
     );
   }

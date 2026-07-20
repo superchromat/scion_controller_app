@@ -44,14 +44,23 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    // The panel owns the content edge: this padding applies to the title and
-    // the body alike, so they cannot disagree. Leaf controls inside must add no
-    // left padding of their own. See GridTokens.panelContentInset.
-    final panelPad = EdgeInsets.fromLTRB(
-      t.panelContentInset,
-      t.panelPadding.top,
-      t.panelPadding.right,
-      t.panelPadding.bottom,
+    // Horizontal padding goes on the BODY, not on the panel, so the title can
+    // centre on the panel's true width. Centring it inside the content box
+    // instead would throw it off by half the difference between the left and
+    // right insets, which are deliberately unequal.
+    // A titled panel pads to put the title's CAPITALS at panelTitleCapTop; an
+    // untitled one has no capitals to place and just uses the raw padding.
+    final panelPad = EdgeInsets.only(
+      top: title == null
+          ? t.panelPadding.top
+          : t.panelTitleCapTop - CapCenteredText.capTopInset(t.textPanelTitle),
+      bottom: t.panelPadding.bottom,
+    );
+    // The panel owns the content edge. Leaf controls inside must add no left
+    // padding of their own. See GridTokens.panelContentInset.
+    final bodyPad = EdgeInsets.only(
+      left: t.panelContentInset,
+      right: t.panelPadding.right,
     );
 
     if (rows != null) {
@@ -62,7 +71,7 @@ class Panel extends StatelessWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(' ', style: t.textHeading),
+            child: Text(' ', style: t.textPanelTitle),
           ),
           SizedBox(height: t.xs),
           for (int i = 0; i < rows!; i++) ...[
@@ -76,11 +85,14 @@ class Panel extends StatelessWidget {
       return NeumorphicInset(
         padding: panelPad,
         baseColor: baseColor ?? const Color(0xFF2A2A2C),
-        child: Stack(
-          children: [
-            Opacity(opacity: 0, child: reference),
-            Positioned.fill(child: child),
-          ],
+        child: Padding(
+          padding: bodyPad,
+          child: Stack(
+            children: [
+              Opacity(opacity: 0, child: reference),
+              Positioned.fill(child: child),
+            ],
+          ),
         ),
       );
     }
@@ -88,36 +100,45 @@ class Panel extends StatelessWidget {
     // Natural-height panel (knob panels).
     Widget body;
     if (title != null) {
+      // Stack, not Row: titleTrailing must not push the title off centre, so
+      // it floats over the title band's right edge instead of sharing the row.
+      final titleBand = Stack(
+        alignment: Alignment.center,
+        children: [
+          OpticalCenterText(
+            title!.toUpperCase(),
+            style: t.textPanelTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
+          if (titleTrailing != null)
+            Positioned(
+              right: t.panelPadding.right,
+              top: 0,
+              bottom: 0,
+              child: Center(child: titleTrailing!),
+            ),
+        ],
+      );
+
       body = Column(
         mainAxisSize: fillChild ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    title!,
-                    style: t.textHeading,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                  ),
-                ),
-              ),
-              if (titleTrailing != null) ...[
-                SizedBox(width: t.xs),
-                titleTrailing!,
-              ],
-            ],
-          ),
+          titleBand,
           SizedBox(height: t.xs),
-          if (fillChild) Expanded(child: child) else child,
+          if (fillChild)
+            Expanded(child: Padding(padding: bodyPad, child: child))
+          else
+            Padding(padding: bodyPad, child: child),
         ],
       );
     } else {
-      body = fillChild ? SizedBox.expand(child: child) : child;
+      body = Padding(
+        padding: bodyPad,
+        child: fillChild ? SizedBox.expand(child: child) : child,
+      );
     }
 
     return NeumorphicInset(

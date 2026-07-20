@@ -972,8 +972,8 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     };
     final isTransform = _overlay == 'transform';
     // This sits directly in a GridRow cell rather than inside a Panel, so it
-    // has to reach the card's content edge itself — otherwise its header and
-    // canvas sit a panel-inset to the left of every sibling panel's title.
+    // has to reach the card's content edge itself — otherwise the canvas sits
+    // a panel-inset to the left of every sibling panel's body.
     return Padding(
       padding: EdgeInsets.only(left: t.panelContentInset),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -981,40 +981,52 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         // the active tab shows tool buttons or a plain hint.
         SizedBox(
           height: t.u * 2.4,
-          child: Row(children: [
-            Text(overlayTitles[_overlay] ?? 'TRANSFORM',
-                style: t.textCaption.copyWith(
-                    letterSpacing: 1.5, color: const Color(0xFF8A8A92))),
-            const Spacer(),
-            // Hint / tool affordances per overlay.
-            if (isTransform) ...[
-              _toolBtn(t, Icons.open_with, 'Move', 'move'),
-              if (_full)
-                _WarpToolButton(
-                    active: tool == 'warp',
-                    n: meshN,
-                    onPick: (n) {
-                      setState(() => tool = 'warp');
-                      if (n != meshN) _setMeshSize(n);
-                    }),
-            ] else if (_overlay == 'colorField') ...[
-              _ucModeBtn(t, 'A', 'Falloff'),
-              _ucModeBtn(t, 'B', 'Fill'),
-              if (_ucPts.isNotEmpty)
-                Padding(
-                  padding: EdgeInsets.only(left: t.sm),
-                  child: GestureDetector(
-                    onTap: _ucClear,
-                    child: Text('Clear',
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // This widget stands in for a Panel, so its legend is the same
+              // centred caps token every real Panel title uses — it used to
+              // hand-roll a near-copy (caption + letterSpacing 1.5 + its own
+              // grey) and drifted from them.
+              OpticalCenterText(overlayTitles[_overlay] ?? 'TRANSFORM',
+                  style: t.textPanelTitle),
+              // Trailing affordances float over the band, like Panel's
+              // titleTrailing, so they cannot push the legend off centre.
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  // Hint / tool affordances per overlay.
+                  if (isTransform) ...[
+                    _toolBtn(t, Icons.open_with, 'Move', 'move'),
+                    if (_full)
+                      _WarpToolButton(
+                          active: tool == 'warp',
+                          n: meshN,
+                          onPick: (n) {
+                            setState(() => tool = 'warp');
+                            if (n != meshN) _setMeshSize(n);
+                          }),
+                  ] else if (_overlay == 'colorField') ...[
+                    _ucModeBtn(t, 'A', 'Falloff'),
+                    _ucModeBtn(t, 'B', 'Fill'),
+                    if (_ucPts.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(left: t.sm),
+                        child: GestureDetector(
+                          onTap: _ucClear,
+                          child: Text('Clear',
+                              style: t.textCaption
+                                  .copyWith(color: const Color(0xFF8A8A92))),
+                        ),
+                      ),
+                  ] else
+                    Text(_overlayHint(),
                         style: t.textCaption
-                            .copyWith(color: const Color(0xFF8A8A92))),
-                  ),
-                ),
-            ] else
-              Text(_overlayHint(),
-                  style:
-                      t.textCaption.copyWith(color: const Color(0xFF6A6A72))),
-          ]),
+                            .copyWith(color: const Color(0xFF6A6A72))),
+                ]),
+              ),
+            ],
+          ),
         ),
         SizedBox(height: t.sm),
         // Fills the whole left column (Stack so it carries no intrinsic height,

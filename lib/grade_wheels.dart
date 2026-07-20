@@ -240,12 +240,6 @@ class GradeZone extends StatelessWidget {
     required this.basePath,
   });
 
-  TextStyle _headingStyle(GridTokens t) {
-    final base = t.textHeading;
-    final size = (base.fontSize ?? 14).clamp(12.0, 16.0);
-    return base.copyWith(fontSize: size);
-  }
-
   void _resetZone(BuildContext context) {
     final network = context.read<Network>();
     final reg = OscRegistry();
@@ -264,12 +258,19 @@ class GradeZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    final headingStyle = _headingStyle(t);
     return OscPathSegment(
       segment: zoneName,
       child: NeumorphicInset(
         baseColor: const Color(0xFF252527),
-        padding: const EdgeInsets.all(12),
+        // All four from tokens, so this zone insets exactly as a Panel does.
+        // They were a flat EdgeInsets.all(12) — right only at u = 12, and
+        // drifting from every real panel at every other window size.
+        padding: EdgeInsets.fromLTRB(
+          t.panelContentInset,
+          t.panelTitleCapTop - CapCenteredText.capTopInset(t.textPanelTitle),
+          t.panelPadding.right,
+          t.panelPadding.bottom,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
@@ -284,12 +285,21 @@ class GradeZone extends StatelessWidget {
                 h.isFinite ? (h - titleH - gap - diagH).clamp(40.0, w) : w;
             return Column(
               children: [
+                // topCenter, not center: the reset button is 20px tall and the
+                // legend is not, so centring both in the band pushed the text
+                // down by half the difference — the whole reason SHADOWS sat
+                // lower than GLOBAL. Pinning the text to the top makes the
+                // panel's top padding the only thing above it, as in Panel.
                 Stack(
-                  alignment: Alignment.center,
+                  alignment: Alignment.topCenter,
                   children: [
-                    Text(
-                      label,
-                      style: headingStyle,
+                    // A GradeZone is a hand-rolled Panel — same centred caps
+                    // legend, so it must read the same token. It used to size
+                    // its own clamped textHeading and so drifted from every
+                    // other panel title on the Color card.
+                    OpticalCenterText(
+                      label.toUpperCase(),
+                      style: t.textPanelTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

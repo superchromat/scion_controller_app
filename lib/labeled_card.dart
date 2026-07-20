@@ -196,8 +196,18 @@ class LabeledCard extends StatelessWidget {
     // while everything else fell back to GridTokens(1200).
     final t = GridProvider.of(context);
     final titlePadH = t.cardTitleAlignToPanelTitle;
-    // Pull the title closer to the top so its visual inset matches the left inset.
-    final titlePadTop = titlePadH - (t.xs);
+    final titleStyle = t.textTitle;
+
+    // The title's inset from the top must MEASURE the same as its inset from
+    // the left, and what a reader measures is ink: the card edge to the top of
+    // the capitals, matching the card edge to the left of the first glyph.
+    //
+    // The line box is taller than the capitals — the ascender reaches above
+    // cap height — so padding both sides by titlePadH leaves the title looking
+    // low. This asks the laid-out text where its baseline lands and subtracts
+    // the leftover, rather than guessing at it (the previous `- t.xs` was a
+    // guess, and it was ~1.5px off at u = 12).
+    final titlePadTop = titlePadH - CapCenteredText.capTopInset(titleStyle);
     final titleGap = t.xs;
     // The card owns this, not GridRow. titlePadH = panelGap +
     // panelContentInset, so the card indents its body by panelGap and whatever
@@ -209,7 +219,6 @@ class LabeledCard extends StatelessWidget {
     // value. Both now come from the one token.
     final contentPadH = t.panelGap;
     final contentPadBot = t.panelGap;
-    final titleStyle = t.textTitle;
 
     Widget card = _NeumorphicCard(
       lighting: lighting,
@@ -222,7 +231,12 @@ class LabeledCard extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
+                  // OpticalLeftText, not Text: the padding above puts the
+                  // title's BOX on the content edge, but the glyph's own side
+                  // bearing then holds its ink a couple of pixels short of it,
+                  // by an amount that scales with the font size and varies by
+                  // first letter. See OpticalLeftText.
+                  child: OpticalLeftText(
                     title,
                     style: titleStyle.copyWith(height: 1.0),
                     textHeightBehavior: const TextHeightBehavior(
