@@ -38,9 +38,12 @@ dev_dependencies:
 # platform's icons were dropped in by hand, so iOS/Android/web silently drifted
 # to older artwork than macOS.
 #
+# The master is sc_app_icon.tiff in the repo root. app_icon.png below is
+# GENERATED from it — edit the TIFF, never the PNG.
+#
 # To change the icon:
-#   1. edit assets/icon/app_icon_src.png   (the master; may have alpha)
-#   2. dart run tool/flatten_icon.dart     (-> opaque assets/icon/app_icon.png)
+#   1. edit sc_app_icon.tiff               (the master; square, may have alpha)
+#   2. dart run tool/flatten_icon.dart     (-> opaque 1024² assets/icon/app_icon.png)
 #   3. dart run flutter_launcher_icons     (-> ios/android/web/windows/macos)
 flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
