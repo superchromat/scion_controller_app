@@ -152,8 +152,8 @@ class _SendImageState extends State<SendImage> {
     try {
       // Send rows and wait for ACK after each
       for (int y = 0; y < height && !uploadFailed; y++) {
-        // Extract row pixels as 32-bit aRGB5888 for MDIN DDR format
-        // MDIN expects big-endian aRGB5888: [A5_pad, R, G, B]
+        // Extract row pixels as 32-bit aRGB5888 for DDR format
+        // expects big-endian aRGB5888: [A5_pad, R, G, B]
         // Alpha is 5-bit (bits 31-27), so we use upper 5 bits: (a >> 3) << 3
         final rowData = Uint8List(bytesPerRow);
         for (int x = 0; x < width; x++) {

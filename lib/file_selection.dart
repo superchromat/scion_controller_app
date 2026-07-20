@@ -247,7 +247,12 @@ class FileManagementSectionState extends State<FileManagementSection> {
       ),
       // LabeledCard gives its child no horizontal padding (it assumes a GridRow
       // of Panels). These are bare buttons, so inset to line up with the title.
+      //
+      // The top offset reserves the field-label line this card doesn't have, so
+      // the buttons sit on the Network Setup hostname *input* beside them
+      // instead of on its "Hostname" label.
       child: CardBody(
+        top: GridProvider.of(context).labeledFieldTop,
         child: Row(
           children: [
             if (!isIos)

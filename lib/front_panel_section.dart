@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'app_button.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
-import 'osc_checkbox.dart';
 import 'osc_registry.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_widget_binding.dart';
@@ -107,13 +107,13 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
     final t = GridProvider.of(context, defaultWidth: 1000);
 
     final labelStyle = t.textLabel.copyWith(color: Colors.white);
-    // Fixed label column so the controls line up in their own column right
-    // beside the labels, instead of being flung to the far edge of the card.
-    final labelW = (t.u * 8).clamp(110.0, 150.0);
 
+    // The label takes the leftover width rather than a fixed column: this card
+    // is now a quarter of the page wide, and a fixed label column plus the knob
+    // overflowed it.
     Widget row(String label, Widget control) => Row(
           children: [
-            SizedBox(width: labelW, child: Text(label, style: labelStyle)),
+            Expanded(child: Text(label, style: labelStyle)),
             control,
           ],
         );
@@ -124,9 +124,11 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.xs, t.md, t.md),
         child: Column(
-          // Centre the controls vertically — the card is stretched to share
-          // Network Setup's height with Firmware Update.
-          mainAxisAlignment: MainAxisAlignment.center,
+          // Top-aligned, NOT centred. This card and Firmware Update sit side by
+          // side and are stretched to a shared height, but their contents are
+          // different heights — centring each one put their first rows on
+          // different lines.
+          mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -149,18 +151,15 @@ class _FrontPanelSectionState extends State<FrontPanelSection> {
               ),
             ),
             SizedBox(height: t.md),
-            // Lock toggle as a checkbox ("radio box") rather than a button, so
-            // its on/off state reads at a glance. OSC is handled manually via
-            // _setLock (bindOsc: false); the ValueKey re-seeds the checkbox when
-            // the device reports a new /device/buttons_locked value.
-            row(
-              'Lock Buttons',
-              OscCheckbox(
-                key: ValueKey(_locked),
-                initialValue: _locked,
-                bindOsc: false,
-                onChanged: _setLock,
-              ),
+            // A plain labelled AppButton, like every other action on this page
+            // (Save / Load / Firmware Update) — no separate row label and no
+            // checkbox. It carries its own label, and `selected` sinks the key
+            // in when the panel is locked. OSC is sent manually via _setLock.
+            AppButton(
+              label: 'Lock Buttons',
+              icon: _locked ? Icons.lock : Icons.lock_open,
+              selected: _locked,
+              onPressed: () => _setLock(!_locked),
             ),
           ],
         ),

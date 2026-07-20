@@ -311,10 +311,8 @@ class _SignalDeskBody extends StatelessWidget {
     switch (stage) {
       case 'geometry':
         instrument = const _GeometryInstrument();
-        break;
       case 'tone':
         instrument = const _ToneInstrument();
-        break;
       default:
         instrument = _PlaceholderInstrument(stage);
     }
@@ -827,7 +825,7 @@ class _ToneInstrument extends StatelessWidget {
           children: [
             // ── ONE tonal axis, stacked so grade-curve, histogram and posterize
             //    all read against the same 0..255 luma domain ──────────────────
-            Text('LUMA  ·  256-bin histogram (MDINWFM)  +  grade curve',
+            Text('LUMA  ·  256-bin histogram (WFM)  +  grade curve',
                 style: t.textCaption.copyWith(letterSpacing: 1.0, color: _dim)),
             SizedBox(height: t.xs),
             SizedBox(
@@ -1692,16 +1690,16 @@ class _GeometryCanvasState extends State<_GeometryCanvas> {
       switch (i) {
         case 0:
           m.setCrop(t: v);
-          break; // top
+// top
         case 1:
           m.setCrop(r: 1 - u);
-          break; // right
+// right
         case 2:
           m.setCrop(b: 1 - v);
-          break; // bottom
+// bottom
         case 3:
           m.setCrop(l: u);
-          break; // left
+// left
       }
     } else if (d.startsWith('s')) {
       // scale via outer frame corner — centre-anchored

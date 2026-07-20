@@ -498,9 +498,10 @@ class _FirmwareUpdateSectionState extends State<FirmwareUpdateSection> {
           t?.md ?? 16,
         ),
         child: Column(
-          // Centre content vertically — the card shares Network Setup's
-          // height with Front Panel.
-          mainAxisAlignment: MainAxisAlignment.center,
+          // Top-aligned, NOT centred — see the matching note in
+          // FrontPanelSection: the two cards share a height but not a content
+          // height, so centring split their first rows onto different lines.
+          mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.max,
           children: [

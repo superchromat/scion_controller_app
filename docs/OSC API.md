@@ -26,8 +26,8 @@ The tables below list the active endpoints. "R" indicates read-only; "RW" permit
 | `/ack` | R | `` | Presence check; replies immediately with an empty message. |
 | `/sync` | R | `` | Broadcasts the current value of every endpoint to all clients, then emits `/ack`. |
 | `/sync_mode` | RW | `s` | Select ADV7842 clocking: `LOCKED`, `COMPONENT`, or `EXTERNAL`. Writes are ignored if the requested mode matches the current setting. |
-| `/clock_offset` | RW | `i` | Phase-offset applied to the MDIN video clock. Integer count as programmed in `config.clock_offset`. |
-| `/block_nr` | RW | `i` | Enables block noise reduction (`0` = off, non-zero = on). The handler clamps to 0/1 before programming MDIN. |
+| `/clock_offset` | RW | `i` | Phase-offset applied to the video clock. Integer count as programmed in `config.clock_offset`. |
+| `/block_nr` | RW | `i` | Enables block noise reduction (`0` = off, non-zero = on). The handler clamps to 0/1 before programming. |
 
 ### Input Monitoring (`/input/{1‥3}`)
 All input endpoints are read-only snapshots maintained by the notifier poller.
@@ -42,12 +42,12 @@ All input endpoints are read-only snapshots maintained by the notifier poller.
 | `/input/{n}/chroma_subsampling` | `s` | One of `4:4:4`, `4:2:2`, or `4:2:0`. |
 
 ### Output Format (`/output`)
-The HDMI transmitter (MDIN_IO3) mirrors the analog path for timing. `/output/*` reports the active state and only the transmitter mode (colorspace/subsampling/bit depth) can be adjusted; resolution and frame rate always track the analog pipeline.
+The HDMI transmitter (IO3) mirrors the analog path for timing. `/output/*` reports the active state and only the transmitter mode (colorspace/subsampling/bit depth) can be adjusted; resolution and frame rate always track the analog pipeline.
 
 | Path | Dir | Type | Notes |
 | --- | --- | --- | --- |
 | `/output/connected` | R | `T/F` | Mirrors the live HDMI transmitter state. |
-| `/output/resolution` | R | `s` | Current HDMI resolution (`WxH`). Reflects the active MDIN preset; writes are ignored. |
+| `/output/resolution` | R | `s` | Current HDMI resolution (`WxH`). Reflects the active preset; writes are ignored. |
 | `/output/framerate` | R | `f` | Current progressive frame rate in Hz. Mirrors the active transmitter timing. |
 | `/output/colorspace` | RW | `s` | `RGB` or `YUV`. Selecting `RGB` forces `4:4:4` sampling. |
 | `/output/bit_depth` | RW | `i` | TMDS bit depth request; values are clamped to 8/10/12 before applying deep-color settings. |
@@ -58,13 +58,13 @@ Analog settings drive the ADC and DAC pipeline only. HDMI output state remains u
 
 | Path | Dir | Type | Notes |
 | --- | --- | --- | --- |
-| `/analog_format/resolution` | RW | `s` | Parsed as `WxH`. Unknown formats select the closest supported MDIN preset and emit an `/error` warning. |
+| `/analog_format/resolution` | RW | `s` | Parsed as `WxH`. Unknown formats select the closest supported preset and emit an `/error` warning. |
 | `/analog_format/framerate` | RW | `f` | Frame rate in Hz; programs the ADC/DAC pipeline. |
 | `/analog_format/colorspace` | RW | `s` | Accepts `YUV`, `RGB`, or `CUSTOM`. `CUSTOM` enables manual color-matrix programming. |
 | `/analog_format/color_matrix` | RW | `9 × f` | Nine floats representing a 3×3 matrix in row-major order. Only applied when colorspace is `CUSTOM`; other modes ignore writes but still echo them to peers. |
 
 ### Send Routing & Geometry (`/send/{1‥3}`)
-Each send corresponds to one MDIN channel. Geometry updates are deferred to the video task; expect a single-frame latency after writes.
+Each send corresponds to one channel. Geometry updates are deferred to the video task; expect a single-frame latency after writes.
 
 | Path | Dir | Type | Notes |
 | --- | --- | --- | --- |
@@ -78,20 +78,20 @@ Each send corresponds to one MDIN channel. Geometry updates are deferred to the 
 *(Texture controls are intentionally omitted.)*
 
 ### Send Picture Controls
-Brightness, contrast, saturation, and hue are normalized floats stored in `config.send[{n}]`. Hardware programming multiplies brightness/contrast/saturation by 255 and converts hue to 0–255 MDIN units.
+Brightness, contrast, saturation, and hue are normalized floats stored in `config.send[{n}]`. Hardware programming multiplies brightness/contrast/saturation by 255 and converts hue to 0–255 units.
 
 | Path | Dir | Type | Notes |
 | --- | --- | --- | --- |
 | `/send/{n}/brightness` | RW | `f` | 0.0 → darkest, 1.0 → brightest. Default 0.5. |
 | `/send/{n}/contrast` | RW | `f` | 0.0 → flat, 1.0 → full contrast. Default 0.5. |
 | `/send/{n}/saturation` | RW | `f` | 0.0 → grayscale, 1.0 → nominal saturation. Default 0.5. |
-| `/send/{n}/hue` | RW | `f` | Degrees offset, mapped to MDIN hue space (−180° to +180° recommended). |
+| `/send/{n}/hue` | RW | `f` | Degrees offset, mapped to hue space (−180° to +180° recommended). |
 | `/send/{n}/lti` | RW | `T/F` | Toggle Luma Transient Improvement. |
 | `/send/{n}/cti` | RW | `T/F` | Toggle Chroma Transient Improvement. |
-| `/send/{n}/color_enhance` | RW | `T/F` | Enables the MDIN color enhancement block for that send. |
+| `/send/{n}/color_enhance` | RW | `T/F` | Enables the color enhancement block for that send. |
 
 ### Send Filters
-Front NR, horizontal peaking, and vertical peaking expose the MDIN fixed-point coefficient registers. Values are translated to floats for convenience; refer to `docs/VideoFiltering.md` for design guidance.
+Front NR, horizontal peaking, and vertical peaking expose the fixed-point coefficient registers. Values are translated to floats for convenience; refer to `docs/VideoFiltering.md` for design guidance.
 
 **Front NR (noise reduction)**
 
@@ -151,7 +151,7 @@ Y-channel LUTs are not supported; attempting to access `/send/{n}/lut/Y` returns
 ### Output LUT
 | Path | Dir | Type | Notes |
 | --- | --- | --- | --- |
-| `/output/lut/R` | RW | `32 × f` | 16 control points (x,y pairs) for the red channel feeding the ADC (MDIN_IO4) → HDMI (MDIN_IO3) path via MDIN_CH3. Reads always return 32 floats with inactive points as `-1`; writes accept even counts up to 32 and clamp to `[0,1]` before building the 16-bit LUT. |
+| `/output/lut/R` | RW | `32 × f` | 16 control points (x,y pairs) for the red channel feeding the ADC (IO4) → HDMI (IO3) path via CH3. Reads always return 32 floats with inactive points as `-1`; writes accept even counts up to 32 and clamp to `[0,1]` before building the 16-bit LUT. |
 | `/output/lut/G` | RW | `32 × f` | Green channel LUT, same semantics as the red channel. |
 | `/output/lut/B` | RW | `32 × f` | Blue channel LUT, same semantics as the red channel. |
 

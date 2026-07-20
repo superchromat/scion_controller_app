@@ -13,6 +13,7 @@ import 'discovery.dart';
 import 'network.dart';
 import 'network_selection.dart';
 import 'setup_page.dart';
+import 'system_page.dart';
 import 'video_format_selection.dart';
 import 'asset_files_page.dart';
 import 'send_page.dart';

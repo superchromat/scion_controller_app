@@ -9,6 +9,10 @@ import 'global_rect_tracking.dart';
 import 'network.dart';
 import 'osc_widget_binding.dart';
 
+/// The standard card face. Every [LabeledCard] uses this unless it passes its
+/// own [LabeledCard.baseColor].
+const Color kCardBaseColor = Color(0xFF323236);
+
 class LabeledCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -16,6 +20,11 @@ class LabeledCard extends StatelessWidget {
   final Widget? action;
   final bool fillChild;
   final Color? borderColor;
+
+  /// Overrides the card face colour. Null uses [kCardBaseColor]. Set this only
+  /// to push a card back in the stack — the About card uses it so the legal
+  /// notices read as secondary to the controls above them.
+  final Color? baseColor;
 
   /// OSC subtree this card's controls live under, enabling the preset
   /// save / load / reset icons. Relative values (e.g. 'text') append to the
@@ -39,6 +48,7 @@ class LabeledCard extends StatelessWidget {
     this.action,
     this.fillChild = false,
     this.borderColor,
+    this.baseColor,
     this.snapPath,
     this.onReset,
   });
@@ -203,6 +213,7 @@ class LabeledCard extends StatelessWidget {
 
     Widget card = _NeumorphicCard(
       lighting: lighting,
+      baseColor: baseColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -275,9 +286,13 @@ class _NeumorphicCard extends StatefulWidget {
   final LightingSettings lighting;
   final Widget child;
 
+  /// Overrides the standard card face. Null keeps [kCardBaseColor].
+  final Color? baseColor;
+
   const _NeumorphicCard({
     required this.lighting,
     required this.child,
+    this.baseColor,
   });
 
   @override
@@ -290,7 +305,7 @@ class _NeumorphicCardState extends State<_NeumorphicCard>
   Widget build(BuildContext context) {
     const borderRadius = 8.0;
     const elevation = 4.0;
-    const baseColor = Color(0xFF323236);
+    final baseColor = widget.baseColor ?? kCardBaseColor;
     return RepaintBoundary(
       child: Container(
         key: globalRectKey,

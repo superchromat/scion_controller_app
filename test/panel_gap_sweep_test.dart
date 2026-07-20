@@ -11,6 +11,7 @@ import 'package:SCION_Controller/mixer_page.dart';
 import 'package:SCION_Controller/return_page.dart';
 import 'package:SCION_Controller/send_page.dart';
 import 'package:SCION_Controller/setup_page.dart';
+import 'package:SCION_Controller/system_page.dart';
 import 'package:SCION_Controller/system_overview.dart';
 
 import 'design_lab/harness.dart';

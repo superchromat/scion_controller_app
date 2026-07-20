@@ -155,6 +155,21 @@ class GridTokens {
   /// than applying this by hand; hand-application is what put the About and
   /// Configuration cards' contents flush against the card edge.
   double get cardBodyInset => panelContentInset;
+
+  /// Height of one line of [textLabel] — the label line that sits above a form
+  /// input. The 1.45 is the app font's default line-height ratio; it is here so
+  /// that a card WITHOUT field labels can reserve the same line as one that has
+  /// them, instead of every caller re-deriving it from font metrics.
+  double get labelLineHeight => 1.45 * textLabel.fontSize!;
+
+  /// Offset from a card's content top down to the first control in a stack of
+  /// labelled fields: the label line plus the gap under it.
+  ///
+  /// A card whose first row is a bare control — Configuration's Save/Load row —
+  /// applies this so its buttons start on the same line as the first input in
+  /// the labelled card beside it, rather than riding up level with that card's
+  /// field *label*.
+  double get labeledFieldTop => xs + labelLineHeight + xs * 0.3;
 }
 
 /// Text centred on its CAP-HEIGHT band rather than on its em box.

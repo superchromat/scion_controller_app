@@ -3,7 +3,7 @@ description: A portable app for controlling the SCION device via OSC
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 0.9.1+29740941
+version: 0.9.1+29740952
 
 environment:
   sdk: ^3.6.0

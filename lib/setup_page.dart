@@ -1,12 +1,8 @@
-import 'package:SCION_Controller/system_overview.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'grid.dart';
-import 'video_format_selection.dart';
-import 'sync_mode_selection.dart';
 import 'device_diagnostics.dart';
 import 'firmware_update.dart';
 import 'front_panel_section.dart';
@@ -17,52 +13,6 @@ import 'app_button.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
 import 'osc_registry.dart';
-
-/// System page - contains system overview, video format, and sync settings
-class SystemPage extends StatefulWidget {
-  const SystemPage({super.key});
-
-  @override
-  State<SystemPage> createState() => _SystemPageState();
-}
-
-class _SystemPageState extends State<SystemPage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final pageGutter = constraints.maxWidth * AppGrid.gutterFraction;
-          // Provide real tokens as well as the legacy gutter: without a
-          // GridProvider every card fell back to GridTokens(1200), so insets
-          // stopped tracking the window and disagreed with the page gutter.
-          final t = GridTokens(constraints.maxWidth);
-          return GridProvider(
-            tokens: t,
-            child: GridGutterProvider(
-              gutter: pageGutter,
-              child: SingleChildScrollView(
-                padding: t.pagePadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    GridRow(cells: [(span: 12, child: SystemOverview())]),
-                    SizedBox(height: t.panelGap),
-                    GridRow(cells: [
-                      (span: 7, child: VideoFormatSelectionSection()),
-                      (span: 5, child: SyncSettingsSection()),
-                    ]),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 /// Setup page - contains firmware update
 class SetupPage extends StatelessWidget {
@@ -86,14 +36,8 @@ class SetupPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   GridRow(
-                    cells: [
-                      (
-                        span: 12,
-                        child: LabeledCard(
-                          title: 'Configuration',
-                          child: FileManagementSection(),
-                        ),
-                      ),
+                    cells: const [
+                      (span: 12, child: AboutSection()),
                     ],
                   ),
                   SizedBox(height: t.panelGap),
@@ -109,26 +53,49 @@ class SetupPage extends StatelessWidget {
                           child: _NetworkSetupSection(),
                         ),
                       ),
-                      // Right column: Front Panel over Firmware Update. Both
-                      // cards are Expanded so they split Network Setup's height
-                      // equally; each centres its (compact) content.
+                      // Right column: Configuration across the top, with Front
+                      // Panel and Firmware Update side by side beneath it.
+                      //
+                      // Configuration is deliberately NOT Expanded — it is a
+                      // single button row, and the row's IntrinsicHeight pass
+                      // sizes a Column of equal-flex children as (tallest
+                      // child × flex count), so expanding it inflated the whole
+                      // row and left dead space in every card. The pair below
+                      // takes the Expanded instead: both cards are built to be
+                      // stretched (fillChild + a flex child), and together they
+                      // absorb whatever height Network Setup leaves over.
+                      //
+                      // The pair uses a plain stretched Row, not a nested
+                      // GridRow: GridRow's equal-height path wraps itself in
+                      // IntrinsicHeight, which would force its own height back
+                      // onto the bounded box Expanded just handed it. Inside an
+                      // Expanded the height is already bounded, so stretch does
+                      // the job on its own. Half a panelGap of padding on each
+                      // inner edge reproduces GridRow's 6/6 split exactly.
                       (
                         span: 6,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Expanded(child: FrontPanelSection()),
+                            const LabeledCard(
+                              title: 'Configuration',
+                              child: FileManagementSection(),
+                            ),
                             SizedBox(height: t.panelGap),
-                            const Expanded(child: FirmwareUpdateSection()),
+                            Expanded(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const Expanded(child: FrontPanelSection()),
+                                  SizedBox(width: t.panelGap),
+                                  const Expanded(
+                                      child: FirmwareUpdateSection()),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                  SizedBox(height: t.panelGap),
-                  GridRow(
-                    cells: const [
-                      (span: 12, child: AboutSection()),
                     ],
                   ),
                   SizedBox(height: t.panelGap),

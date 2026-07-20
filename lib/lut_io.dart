@@ -8,7 +8,7 @@
 // EXPORT: compose the device's colour pipeline into a single 33^3 .cube by
 // evaluating the same maths the firmware runs, in hardware order:
 //   RGB -> YCbCr (BT.709) -> picture-knob CSC (contrast/hue/sat/brightness,
-//   vendor mdindst.c formula) -> RGB -> per-channel 1D LUTs (monotone-cubic
+//   vendor formula) -> RGB -> per-channel 1D LUTs (monotone-cubic
 //   through the 16 control points, exact port of build_lut) -> grade 3D
 //   (exact port of grade_write_banks) -> out.
 // Domain: normalized full-range RGB in/out. Neutral knobs = exact identity
@@ -270,8 +270,8 @@ class GradeZone {
 
 // -------------------------------------------------------- knob CSC stage ----
 
-/// The picture knobs modify the destination YCbCr->RGB CSC (vendor
-/// mdindst.c). The forward leg here converts RGB to YCbCr with the exact
+/// The picture knobs modify the destination YCbCr->RGB CSC.
+/// The forward leg here converts RGB to YCbCr with the exact
 /// inverse of the same base matrix, so neutral knobs compose to identity.
 ///
 /// Base: BT.709 full-swing normalized (Kr=.2126, Kb=.0722). knob mapping

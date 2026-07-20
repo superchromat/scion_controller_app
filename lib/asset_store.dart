@@ -131,7 +131,7 @@ class NorClient {
 class SpriteAsset {
   final String name;
   final int w, h;
-  final Uint8List palette; // 64 B, MDIN [Cr, alpha, Cb, Y] entries
+  final Uint8List palette; // 64 B, [Cr, alpha, Cb, Y] entries
   final Uint8List pixels; // 4bpp rows, bpr = (w+1)~/2
   SpriteAsset(this.name, this.w, this.h, this.palette, this.pixels);
 }

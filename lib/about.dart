@@ -8,26 +8,11 @@ import 'grid.dart';
 import 'labeled_card.dart';
 import 'panel.dart';
 
-const String kCompany = 'Superchromat';
+const String kCompany = 'Superchromat Pty. Ltd. (AU)';
 const int kCopyrightYear = 2026;
 
-// ---------------------------------------------------------------------------
-// TODO(legal): The text below is a placeholder, NOT reviewed licence terms.
-//
-// Before any public release, replace `_legalese` with wording from a lawyer.
-// A boilerplate "AS IS" disclaimer lifted from an open-source licence is not
-// appropriate here: SCION is paid hardware plus companion software sold
-// internationally, and consumer-protection law in the EU/UK/AU limits which
-// warranties can be disclaimed and how liability can be capped. What is needed
-// is a short EULA covering: licence grant and restrictions, warranty
-// disclaimer, limitation of liability, beta/pre-release terms, termination,
-// and governing law.
-// ---------------------------------------------------------------------------
 const String _copyright = '© $kCopyrightYear $kCompany. All rights reserved.';
 
-// NOTE: use ® only once a mark is actually registered in the relevant
-// jurisdiction — asserting registration you don't hold is penalised in some
-// countries. ™ is fine for unregistered marks.
 const String _trademarks =
     'SCION™ and Superchromat™ are trademarks of $kCompany.';
 
@@ -71,8 +56,14 @@ class AboutSection extends StatelessWidget {
     // LabeledCard gives its child no horizontal padding (it assumes a GridRow of
     // Panels, which bring their own). This card's content is plain text, so it
     // has to inset itself to line up with the card title.
+    // One gap value between every row, so the notices read as an evenly set
+    // block rather than ad-hoc groups. Anything other than `gap` here breaks it.
+    final gap = SizedBox(height: t.xs);
     return LabeledCard(
       title: 'About',
+      // A step darker than the standard card face: this is legal boilerplate,
+      // and it should sit behind the controls above it rather than compete.
+      baseColor: const Color(0xFF2B2B2F),
       child: CardBody(
         top: t.xs,
         child: Column(
@@ -88,19 +79,19 @@ class AboutSection extends StatelessWidget {
                     .copyWith(fontWeight: FontWeight.w400, color: Colors.white),
               ),
             ),
-            SizedBox(height: t.sm),
+            gap,
             Text(_copyright, style: t.textBody),
-            SizedBox(height: t.xs),
+            gap,
             Text(_trademarks, style: t.textBody),
-            SizedBox(height: t.sm),
+            gap,
             Text(_warranty, style: t.textBody),
-            SizedBox(height: t.md),
+            gap,
             Row(
               children: [
+                // Full-size and label-only: it is the same kind of action as
+                // Save / Load / Firmware Update, so it gets the same button.
                 AppButton(
                   label: 'Third-Party Licences',
-                  icon: Icons.article_outlined,
-                  dense: true,
                   onPressed: () async =>
                       showScionLicensePage(context, await appVersionLabel()),
                 ),
