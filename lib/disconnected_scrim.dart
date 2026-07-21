@@ -134,7 +134,7 @@ class _DevicePicker extends StatelessWidget {
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
-                                      fontFamily: 'monospace')),
+                                      fontFamily: 'DINPro')),
                             ),
                             const Icon(Icons.chevron_right,
                                 color: Colors.white38, size: 18),
@@ -237,7 +237,8 @@ class OnboardingGuide extends StatelessWidget {
                     TextButton(
                       onPressed: () => context.read<ScionDiscovery>().rescan(),
                       child: const Text('Rescan',
-                          style: TextStyle(color: kOnboardAccent)),
+                          style:
+                              TextStyle(color: kOnboardAccent, fontSize: 11)),
                     ),
                   ],
                 ),

@@ -93,7 +93,7 @@ class _StatusBarRowState extends State<StatusBarRow>
           Text(
             leftText,
             style: TextStyle(
-              fontFamily: 'courier',
+              fontFamily: 'DINPro',
               fontSize: 11,
               letterSpacing: 1.0,
               color: leftColor,
@@ -102,7 +102,7 @@ class _StatusBarRowState extends State<StatusBarRow>
           Text(
             widget.rightText,
             style: const TextStyle(
-              fontFamily: 'courier',
+              fontFamily: 'DINPro',
               fontSize: 11,
               letterSpacing: 1.0,
               color: Colors.white,

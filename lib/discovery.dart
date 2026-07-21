@@ -43,6 +43,12 @@ class ScionDiscovery extends ChangeNotifier {
   static const int _defaultPort = 9000;
   static const int _maxRecents = 5;
 
+  /// The device's well-known mDNS hostname (CONFIG_NET_HOSTNAME on the
+  /// firmware). Its A record is answered even when DNS-SD service discovery is
+  /// slow, backed off, or unavailable, so we fall back to it — see
+  /// [_tryReconnect].
+  static const String _fallbackHost = 'scion.local';
+
   nsd.Discovery? _discovery;
   Timer? _timeoutTimer;
   Timer? _retryTimer;
@@ -151,10 +157,15 @@ class ScionDiscovery extends ChangeNotifier {
       return;
     }
     if (_devices.length > 1) return; // let the user pick
+    // No usable mDNS result. Try the last endpoint, then the device's
+    // well-known hostname. The hostname (A record) resolves even when DNS-SD
+    // discovery hasn't surfaced the service yet, so this connects on a fresh
+    // machine (no recents) or when the browse has stalled/backed off.
     if (_recents.isNotEmpty) {
       final ep = _parse(_recents.first);
-      if (ep != null) await _connect(ep.host, ep.port);
+      if (ep != null && await _connect(ep.host, ep.port)) return;
     }
+    await _connect(_fallbackHost, _defaultPort);
   }
 
   Future<bool> _connect(String host, int port) async {

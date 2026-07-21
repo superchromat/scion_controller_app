@@ -171,7 +171,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
                   onPressed: () => context.read<ScionDiscovery>().rescan(),
                 ),
         ),
-        style: const TextStyle(fontFamily: 'monospace'),
+        style: const TextStyle(fontFamily: 'DINPro', fontSize: 13),
         onSubmitted:
             network.isConnecting ? null : (val) => _connectTo(val.trim()),
       ),
@@ -184,8 +184,11 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
         );
         return suggestions;
       },
-      itemBuilder: (context, String suggestion) =>
-          ListTile(title: Text(suggestion)),
+      itemBuilder: (context, String suggestion) => ListTile(
+        dense: true,
+        title: Text(suggestion,
+            style: const TextStyle(fontFamily: 'DINPro', fontSize: 13)),
+      ),
       onSuggestionSelected: (String suggestion) {
         _controller.text = suggestion;
         _connectTo(suggestion);

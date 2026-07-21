@@ -3,6 +3,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
@@ -107,21 +108,34 @@ class OscLogTableState extends State<OscLogTable> {
       binary: binary,
     );
 
-    setState(() {
-      _entries.add(entry);
-      if (_entries.length > _maxEntries) {
-        _entries.removeRange(0, _entries.length - _maxEntries);
-      }
-      if (!widget.isActive || _isAtBottom) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-      } else {
-        _pendingCount++;
-      }
-      if (_entries.length > _maxEntries) {
-        _entries.removeRange(0, _entries.length - _maxEntries);
-        _pendingCount = _pendingCount.clamp(0, _maxEntries);
-      }
-    });
+    // A send can be issued from didChangeDependencies/build (e.g. a card
+    // kicking off a catalog load on first mount), which lands here mid-build.
+    // setState() during build is illegal, so defer to the next frame when the
+    // framework is currently building.
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _appendEntry(entry));
+      });
+    } else {
+      setState(() => _appendEntry(entry));
+    }
+  }
+
+  void _appendEntry(OscLogEntry entry) {
+    _entries.add(entry);
+    if (_entries.length > _maxEntries) {
+      _entries.removeRange(0, _entries.length - _maxEntries);
+    }
+    if (!widget.isActive || _isAtBottom) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    } else {
+      _pendingCount++;
+    }
+    if (_entries.length > _maxEntries) {
+      _entries.removeRange(0, _entries.length - _maxEntries);
+      _pendingCount = _pendingCount.clamp(0, _maxEntries);
+    }
   }
 
   void _scrollToBottom() {
