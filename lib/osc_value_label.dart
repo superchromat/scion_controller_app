@@ -78,7 +78,7 @@ class _OscValueLabelState extends State<OscValueLabel> with OscAddressMixin {
           ),
           child: Text(
             _value,
-            style: const TextStyle(fontFamily: 'monospace'),
+            style: const TextStyle(fontFamily: 'DINPro'),
           ),
         ),
       ],

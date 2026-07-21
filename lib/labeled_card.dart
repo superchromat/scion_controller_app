@@ -207,8 +207,13 @@ class LabeledCard extends StatelessWidget {
     // low. This asks the laid-out text where its baseline lands and subtracts
     // the leftover, rather than guessing at it (the previous `- t.xs` was a
     // guess, and it was ~1.5px off at u = 12).
-    final titlePadTop = titlePadH - CapCenteredText.capTopInset(titleStyle);
-    final titleGap = t.xs;
+    // Cap-top alignment is geometrically correct but reads low for a mixed-case
+    // title, so lift it by a fraction of the cap-to-x overshoot to seat the
+    // visual mass (the x-height) on the edge instead.
+    final titlePadTop = titlePadH -
+        CapCenteredText.capTopInset(titleStyle) -
+        CapCenteredText.capOpticalRise(titleStyle, k: 1.0);
+    final titleGap = t.md;
     // The card owns this, not GridRow. titlePadH = panelGap +
     // panelContentInset, so the card indents its body by panelGap and whatever
     // sits inside (a Panel, or a CardBody) adds panelContentInset — landing

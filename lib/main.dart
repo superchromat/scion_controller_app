@@ -88,7 +88,7 @@ void _installGlobalErrorHooks() {
     final textStyle = const TextStyle(
       color: Colors.white,
       fontSize: 11,
-      fontFamily: 'monospace',
+      fontFamily: 'DINPro',
     );
     return Container(
       color: const Color(0xFFB00020),

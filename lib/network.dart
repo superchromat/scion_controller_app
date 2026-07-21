@@ -119,17 +119,22 @@ class Network extends ChangeNotifier {
       if (parsed != null) {
         dest = parsed;
       } else {
-        List<InternetAddress> addrs = [];
-        try {
-          addrs = await InternetAddress.lookup(normalizedHost,
-              type: InternetAddressType.IPv4);
-        } catch (_) {
-          addrs = const [];
+        // Bound each lookup: a stale/renamed `<name>.local` otherwise hangs on
+        // the OS resolver for ~5s, and auto-reconnect holds its busy lock the
+        // whole time — long enough to shadow a device already found via mDNS.
+        const lookupTimeout = Duration(seconds: 2);
+        Future<List<InternetAddress>> lookup(InternetAddressType type) async {
+          try {
+            return await InternetAddress.lookup(normalizedHost, type: type)
+                .timeout(lookupTimeout);
+          } catch (_) {
+            return const [];
+          }
         }
+
+        var addrs = await lookup(InternetAddressType.IPv4);
         if (addrs.isEmpty) {
-          // fall back to IPv6 lookup
-          addrs = await InternetAddress.lookup(normalizedHost,
-              type: InternetAddressType.IPv6);
+          addrs = await lookup(InternetAddressType.IPv6);
         }
         if (addrs.isEmpty) {
           throw SocketException('No IP address found for $normalizedHost');

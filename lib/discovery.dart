@@ -38,10 +38,16 @@ class ScionDiscovery extends ChangeNotifier {
   static const String _serviceType = '_scion._udp';
   static const Duration _timeout = Duration(seconds: 8);
   static const Duration _connectWait = Duration(seconds: 4);
-  static const Duration _retryInterval = Duration(seconds: 3);
+  static const Duration _retryInterval = Duration(milliseconds: 1500);
   static const String _prefKey = 'recent_endpoints';
   static const int _defaultPort = 9000;
   static const int _maxRecents = 5;
+
+  /// The device's well-known mDNS hostname (CONFIG_NET_HOSTNAME on the
+  /// firmware). Its A record is answered even when DNS-SD service discovery is
+  /// slow, backed off, or unavailable, so we fall back to it — see
+  /// [_tryReconnect].
+  static const String _fallbackHost = 'scion.local';
 
   nsd.Discovery? _discovery;
   Timer? _timeoutTimer;
@@ -52,12 +58,31 @@ class ScionDiscovery extends ChangeNotifier {
   bool _busy = false;
   bool _wasConnected = false;
   bool _demoMode = false;
+  String? _connectedLabel;
+  String? _connectedHost;
+  bool _restartingBrowse = false;
+  int _retryTick = 0;
 
   DiscoveryPhase get phase => _phase;
   List<NetworkAddress> get devices => List.unmodifiable(_devices);
   List<String> get recents => List.unmodifiable(_recents);
   bool get connected => network.isConnected;
   bool get demoMode => _demoMode;
+
+  /// Friendly label of the current connection for display. Prefers a discovered
+  /// device's mDNS name (e.g. `jorge.local`) for the endpoint we're on — even
+  /// when we connected via a recent IP and mDNS surfaced the device only
+  /// afterwards — falling back to whatever we dialed. Null when not connected.
+  String? get connectedLabel {
+    if (!connected) return null;
+    final host = _connectedHost;
+    if (host != null) {
+      for (final d in _devices) {
+        if (d.host == host && d.name != null) return d.name;
+      }
+    }
+    return _connectedLabel;
+  }
 
   /// Multiple candidates and none we can auto-pick — the UI shows a chooser.
   bool get needsPicker =>
@@ -98,6 +123,21 @@ class ScionDiscovery extends ChangeNotifier {
     }
   }
 
+  /// Tear down and re-create the browse to force a fresh mDNS query. A browse
+  /// created before the network/cable was up won't re-discover the device on
+  /// its own once it becomes reachable, so we re-kick it — otherwise we connect
+  /// via a recent IP but never learn the device's name (label stuck on the IP).
+  Future<void> _restartBrowse() async {
+    if (_restartingBrowse || _demoMode) return;
+    _restartingBrowse = true;
+    try {
+      await _stopBrowse();
+      await _startBrowse();
+    } finally {
+      _restartingBrowse = false;
+    }
+  }
+
   void _onServices() {
     final d = _discovery;
     if (d == null) return;
@@ -118,8 +158,18 @@ class ScionDiscovery extends ChangeNotifier {
       while (host!.endsWith('.')) {
         host = host.substring(0, host.length - 1);
       }
+      // Friendly label for display: the mDNS hostname (e.g. "jorge.local"),
+      // falling back to the instance name. Tracks the device's real name even
+      // when we connect via its resolved IP.
+      String? name = s.host ?? s.name;
+      if (name != null) {
+        while (name!.endsWith('.')) {
+          name = name.substring(0, name.length - 1);
+        }
+        if (name.isEmpty) name = null;
+      }
       if (seen.add('$host:$port')) {
-        list.add(NetworkAddress(host: host, port: port));
+        list.add(NetworkAddress(host: host, port: port, name: name));
       }
     }
     _devices = list;
@@ -147,24 +197,41 @@ class ScionDiscovery extends ChangeNotifier {
     if (connected || _busy || _demoMode) return;
     final target = _autoTarget();
     if (target != null) {
-      await _connect(target.host, target.port);
+      await _connect(target.host, target.port,
+          label: target.name ?? target.host);
       return;
     }
     if (_devices.length > 1) return; // let the user pick
+    // No discovered device yet. Fast-path: try the last endpoint. A stale
+    // hostname (e.g. after a rename) fails fast now (bounded DNS lookup) and, on
+    // the next successful connect, gets demoted below _recents.first by
+    // _saveRecent — so it stops being the fast-path on its own.
     if (_recents.isNotEmpty) {
       final ep = _parse(_recents.first);
-      if (ep != null) await _connect(ep.host, ep.port);
+      if (ep != null && await _connect(ep.host, ep.port, label: ep.host)) {
+        return;
+      }
+    }
+    // Well-known hostname fallback — only once discovery has genuinely come up
+    // empty (timed out), so a discovered (possibly renamed) device is never
+    // blocked by a dead scion.local lookup shadowing it.
+    if (_phase == DiscoveryPhase.timedOut) {
+      await _connect(_fallbackHost, _defaultPort, label: _fallbackHost);
     }
   }
 
-  Future<bool> _connect(String host, int port) async {
+  Future<bool> _connect(String host, int port, {String? label}) async {
     if (_busy || connected || _demoMode) return connected;
     _busy = true;
     notifyListeners();
     try {
       await network.connect(host, port, userInitiated: false);
       final ok = await _waitConnected(_connectWait);
-      if (ok) await _saveRecent(host, port);
+      if (ok) {
+        _connectedLabel = label ?? host;
+        _connectedHost = host;
+        await _saveRecent(host, port);
+      }
       return ok;
     } catch (_) {
       return false;
@@ -196,7 +263,7 @@ class ScionDiscovery extends ChangeNotifier {
   /// Connect to an explicitly chosen endpoint (picker tap or manual entry).
   Future<bool> connectTo(String host, int port) {
     if (network.isConnected) network.disconnect();
-    return _connect(host, port);
+    return _connect(host, port, label: host);
   }
 
   /// Manual re-scan (the demoted "find" button). Discovery already runs
@@ -235,8 +302,20 @@ class ScionDiscovery extends ChangeNotifier {
   void _startRetry() {
     if (_demoMode) return;
     _retryTimer?.cancel();
+    _retryTick = 0;
     _tryReconnect();
-    _retryTimer = Timer.periodic(_retryInterval, (_) => _tryReconnect());
+    _retryTimer = Timer.periodic(_retryInterval, (_) {
+      // Until we've found a device, re-query mDNS. The browse may have started
+      // before the network/cable was up (e.g. plugged in after the "Connect to
+      // SCION" page appeared); a fresh query is what surfaces the device — with
+      // its name — once it becomes reachable, so it connects via discovery
+      // (showing the hostname) rather than only via a recent IP. Restart the
+      // browse at ~3s (every other tick), not every 1.5s tick — a fresh browse
+      // needs a moment to collect responses — while still retrying the connect
+      // every tick for responsiveness.
+      if (_devices.isEmpty && _retryTick++ % 2 == 0) _restartBrowse();
+      _tryReconnect();
+    });
   }
 
   void _stopRetry() {
@@ -269,6 +348,10 @@ class ScionDiscovery extends ChangeNotifier {
     if (now && !_wasConnected) {
       _cancelTimeout();
       _stopRetry();
+      // We may have connected via a recent IP before discovery surfaced the
+      // device. Re-kick the browse so we learn its mDNS name and connectedLabel
+      // can upgrade from the bare IP to e.g. "jorge.local".
+      if (_devices.every((d) => d.host != _connectedHost)) _restartBrowse();
     } else if (!now && _wasConnected && !_demoMode) {
       _restartTimeout(); // dropped — resume searching + reconnecting
       _startRetry();
@@ -282,6 +365,10 @@ class ScionDiscovery extends ChangeNotifier {
     _recents.remove(entry);
     _recents.insert(0, entry);
     if (_recents.length > _maxRecents) _recents.removeLast();
+    await _persistRecents();
+  }
+
+  Future<void> _persistRecents() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_prefKey, _recents);
   }

@@ -135,7 +135,7 @@ class _ColorSpaceSelectionSectionState
                         child: TextFormField(
                           initialValue: formatCell(matrix[row][col]),
                           style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 14),
+                              fontFamily: 'DINPro', fontSize: 14),
                           textAlign: TextAlign.center,
                           decoration: const InputDecoration(
                             border: InputBorder.none,

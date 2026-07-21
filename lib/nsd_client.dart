@@ -7,12 +7,19 @@ import 'package:flutter/foundation.dart';
 
 /// Holds a discovered host + port.
 class NetworkAddress {
+  /// The address we actually connect to (a resolved IP when available).
   final String host;
   final int port;
+
+  /// Friendly label for display — the mDNS hostname/instance (e.g.
+  /// `jorge.local`), independent of the resolved IP. Null for manually-entered
+  /// or recent endpoints where no discovered name is known.
+  final String? name;
 
   NetworkAddress({
     required this.host,
     required this.port,
+    this.name,
   });
 
   @override

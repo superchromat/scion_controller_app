@@ -26,11 +26,43 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
   static const _defaultPort = 9000;
 
   List<String> _recents = [];
+  ScionDiscovery? _discovery;
 
   @override
   void initState() {
     super.initState();
     _loadRecents();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disc = context.read<ScionDiscovery>();
+    if (!identical(disc, _discovery)) {
+      _discovery?.removeListener(_syncFromConnection);
+      _discovery = disc;
+      _discovery!.addListener(_syncFromConnection);
+      _syncFromConnection();
+    }
+  }
+
+  @override
+  void dispose() {
+    _discovery?.removeListener(_syncFromConnection);
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  // Keep the field showing the live connection's friendly name (e.g.
+  // "jorge.local") instead of a stale recent. Skipped while the user is editing
+  // so it never clobbers what they're typing.
+  void _syncFromConnection() {
+    if (!mounted) return;
+    final label = _discovery?.connectedLabel;
+    if (label != null && !_focusNode.hasFocus && _controller.text != label) {
+      _controller.text = label;
+    }
   }
 
   Future<void> _loadRecents() async {
@@ -39,7 +71,11 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
     if (!mounted) return;
     setState(() {
       _recents = list;
-      if (_recents.isNotEmpty) _controller.text = _recents.first;
+      // Only seed the field if it's empty — never clobber a live connection
+      // label that _syncFromConnection may have already written.
+      if (_controller.text.isEmpty && _recents.isNotEmpty) {
+        _controller.text = _recents.first;
+      }
     });
     // Auto-connect (continuous mDNS + last-endpoint fast path) is handled
     // centrally by ScionDiscovery; this field is only for manual entry.
@@ -171,7 +207,7 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
                   onPressed: () => context.read<ScionDiscovery>().rescan(),
                 ),
         ),
-        style: const TextStyle(fontFamily: 'monospace'),
+        style: const TextStyle(fontFamily: 'DINPro', fontSize: 13),
         onSubmitted:
             network.isConnecting ? null : (val) => _connectTo(val.trim()),
       ),
@@ -184,8 +220,11 @@ class _NetworkConnectionSectionState extends State<NetworkConnectionSection> {
         );
         return suggestions;
       },
-      itemBuilder: (context, String suggestion) =>
-          ListTile(title: Text(suggestion)),
+      itemBuilder: (context, String suggestion) => ListTile(
+        dense: true,
+        title: Text(suggestion,
+            style: const TextStyle(fontFamily: 'DINPro', fontSize: 13)),
+      ),
       onSuggestionSelected: (String suggestion) {
         _controller.text = suggestion;
         _connectTo(suggestion);

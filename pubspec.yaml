@@ -18,7 +18,7 @@ dependencies:
   intl: ^0.20.2
   crypto: ^3.0.3
   osc:
-    path: /Users/joshreich/src/superchromat/osc
+    path: ../../../osc
   material_symbols_icons: ^4.2815.0
   shared_preferences: ^2.0.18
   flutter_typeahead: ^4.1.1
@@ -78,8 +78,14 @@ flutter:
     # wherever it is redistributed, so it must be bundled (not just sit in the
     # repo). Surfaced in-app via LicenseRegistry — see lib/about.dart.
   fonts:
-    # FF DIN Pro. NOT redistributable under the stock FontFont EULA — an
-    # embedding/app licence must be in place before any public build ships.
+    # D-DIN — libre DIN 1451 interpretation (SIL Open Font License, see
+    # assets/fonts/D-DIN-LICENSE.txt), used as a drop-in for FF DIN Pro to
+    # sidestep FontFont/Monotype embedding-licence friction. Files are unmodified
+    # (the OFL Reserved Font Name "D-DIN" only restricts modified redistributions).
+    # The family is still named `DINPro` so every `fontFamily: 'DINPro'` reference
+    # renders D-DIN with no code change. D-DIN sets ~8% tighter than FF DIN, so
+    # GridTokens adds ~0.041em tracking (see GridTokens._dinTrack) to restore
+    # FF DIN's fit.
     #
     # TWO weights only, deliberately. Registering Light/Medium as well let
     # stray w300/w500/w600 requests resolve to something, so the codebase
@@ -87,7 +93,7 @@ flutter:
     # nearest of them and the type system stays honest. See GridTokens.
     - family: DINPro
       fonts:
-        - asset: assets/fonts/FF_DIN_Pro_Regular_Italic.otf
+        - asset: assets/fonts/D-DIN-Regular.otf
           weight: 400
-        - asset: assets/fonts/FF_DIN_Pro_Bold_Italic.otf
+        - asset: assets/fonts/D-DIN-Bold.otf
           weight: 700
