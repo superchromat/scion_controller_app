@@ -57,8 +57,15 @@ class GridTokens {
   static const FontWeight regular = FontWeight.w400;
   static const FontWeight bold = FontWeight.w700;
 
-  /// DIN Pro's digits are tabular, but state it explicitly so live readouts
-  /// cannot jitter if the family is ever swapped.
+  /// The `DINPro` family now renders D-DIN (a libre DIN 1451 face), which sets
+  /// ~8% tighter than FF DIN Pro. This much extra tracking — a fraction of the
+  /// em, so it scales with `u` — restores FF DIN's set width and colour. Added
+  /// on top of each style's own letter-spacing. If the family ever reverts to a
+  /// wider face, set this to 0.
+  static const double _dinTrack = 0.021;
+
+  /// The digits render tabular so live readouts cannot jitter. FF DIN Pro's are
+  /// tabular by default and D-DIN's differ by <1px, but state it explicitly.
   static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
 
   /// Card titles.
@@ -66,7 +73,7 @@ class GridTokens {
         fontSize: 2.0 * u,
         fontWeight: regular,
         fontFamily: _family,
-        letterSpacing: 0.15,
+        letterSpacing: 0.15 + _dinTrack * 2.0 * u,
         color: Colors.white,
         fontFeatures: _tabular,
       );
@@ -87,7 +94,7 @@ class GridTokens {
         fontSize: 0.9 * u,
         fontWeight: regular,
         fontFamily: _family,
-        letterSpacing: panelTitleTracking,
+        letterSpacing: panelTitleTracking + _dinTrack * 0.9 * u,
         color: const Color(0xFFACACB2),
         fontFeatures: _tabular,
       );
@@ -116,7 +123,7 @@ class GridTokens {
         fontSize: 1.4 * u,
         fontWeight: regular,
         fontFamily: _family,
-        letterSpacing: 0.1,
+        letterSpacing: 0.1 + _dinTrack * 1.4 * u,
         color: Colors.white,
         fontFeatures: _tabular,
       );
@@ -127,7 +134,7 @@ class GridTokens {
         fontSize: 1.1 * u,
         fontWeight: regular,
         fontFamily: _family,
-        letterSpacing: 0.05,
+        letterSpacing: 0.05 + _dinTrack * 1.1 * u,
         color: const Color(0xFFD2D2D4),
         fontFeatures: _tabular,
       );
@@ -145,7 +152,7 @@ class GridTokens {
         fontSize: 0.9 * u,
         fontWeight: regular,
         fontFamily: _family,
-        letterSpacing: 0.1,
+        letterSpacing: 0.1 + _dinTrack * 0.9 * u,
         color: const Color(0xFFACACB2),
         fontFeatures: _tabular,
       );
@@ -231,8 +238,12 @@ class CapCenteredText extends StatelessWidget {
   final String data;
   final TextStyle style;
 
-  /// FF DIN Pro OS/2 sCapHeight 712 / unitsPerEm 1000.
-  static const double capHeightEm = 0.712;
+  /// Cap height as a fraction of the em, read from the active `DINPro`-family
+  /// font's OS/2 sCapHeight. This is the ONE hardcoded font constant here (all
+  /// else is measured live), so it MUST track the family: a wrong value drops or
+  /// lifts every cap-centred title. D-DIN Regular: sCapHeight 690 / upm 1000.
+  /// (FF DIN Pro was 712.)
+  static const double capHeightEm = 0.690;
 
   /// Trims the font's leading so the line box is the glyph box. The probe below
   /// MUST be laid out with this too — measuring one box and rendering another
@@ -249,6 +260,21 @@ class CapCenteredText extends StatelessWidget {
   /// from the top" different numbers. It scales with the font size, so it
   /// cannot be absorbed into a constant: at a 2.0u card title it is ~4.5px,
   /// at a 0.9u panel legend ~1.7px.
+  /// x-height as a fraction of the em (D-DIN Regular OS/2 sxHeight 507 / upm
+  /// 1000). Paired with [capHeightEm] to size [capOpticalRise].
+  static const double xHeightEm = 0.507;
+
+  /// Optical upward nudge for a MIXED-CASE title aligned to a top edge.
+  ///
+  /// Geometric cap-top alignment leaves such a title looking low: the eye seats
+  /// the block's visual mass on the x-height, and the ~0.18em of blank space
+  /// between the x-line and the cap-line reads as extra gap above. Raising by a
+  /// fraction [k] of that cap-to-x overshoot seats the perceived mass on the
+  /// edge instead. Scales with the font size. All-caps legends have no x-height
+  /// gap, so callers apply this only to mixed-case titles.
+  static double capOpticalRise(TextStyle style, {double k = 0.5}) =>
+      k * (capHeightEm - xHeightEm) * (style.fontSize ?? 14.0);
+
   static double capTopInset(TextStyle style) {
     final size = style.fontSize ?? 14.0;
     final tp = TextPainter(

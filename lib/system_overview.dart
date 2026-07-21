@@ -89,13 +89,56 @@ class _SystemOverviewState extends State<SystemOverview>
     required LabelPosition labelPosition,
     Color? borderColor,
     bool alignLabelRight = false,
+    double? contentInset,
+    bool hugRight = false,
   }) {
-    final label = Text(
-      title,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+    // The lead of the first tile inside the shaded box: the Row's half-gap plus
+    // the tile's own outer margin. Adding this to the label makes the label and
+    // the first tile share one left edge.
+    const double leadPad =
+        TileLayout.marginPerTile / 2 + TileLayout.tileOuterMargin;
+
+    // When [contentInset] is set (the left Inputs/Sends column), the shaded box
+    // HUGS the card's content origin — its left edge lands on the same vertical
+    // as the grey L-box in the card below — while the label and first tile are
+    // inset to [contentInset], the content edge that the card title sits on.
+    final bool hug = contentInset != null;
+
+    // A metric smidge, so the label reads as sitting just inside the tiles'
+    // left edge rather than dead-flush with it.
+    const double labelNudge = 3.0;
+
+    final Widget label = Padding(
+      padding: EdgeInsets.only(left: hug ? leadPad + labelNudge : 0),
+      child: Text(
+        title,
+        style:
+            const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+      ),
     );
+
+    // Drop the outer margin on whichever side hugs a card edge, so the shaded
+    // box's edge lands exactly on the content edge / grey-box line: left for the
+    // Inputs/Sends column, right for the Out/Return column.
+    final EdgeInsets outerPad = EdgeInsets.fromLTRB(
+      hug ? 0 : TileLayout.tileOuterMargin,
+      TileLayout.tileOuterMargin,
+      hugRight ? 0 : TileLayout.tileOuterMargin,
+      TileLayout.tileOuterMargin,
+    );
+
+    // Left inset lands the tiles on [contentInset]; the label's own [leadPad]
+    // lands it there too. Clamp so a very narrow window can't go negative.
+    final EdgeInsets innerPad = hug
+        ? EdgeInsets.fromLTRB(
+            (contentInset - leadPad).clamp(0.0, double.infinity),
+            TileLayout.sectionBoxPadding,
+            TileLayout.sectionBoxPadding,
+            TileLayout.sectionBoxPadding)
+        : EdgeInsets.all(TileLayout.sectionBoxPadding);
+
     return Padding(
-      padding: EdgeInsets.all(TileLayout.tileOuterMargin),
+      padding: outerPad,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -105,7 +148,7 @@ class _SystemOverviewState extends State<SystemOverview>
                 : const Color(0xFF323234),
             borderRadius: 6.0,
             elevation: 3.0,
-            padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+            padding: innerPad,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: alignLabelRight
@@ -217,8 +260,15 @@ class _SystemOverviewState extends State<SystemOverview>
     return LabeledCard(
       networkIndependent: false,
       title: 'System Overview',
+      // Right inset only: the diagram's LEFT edge sits on the card's content
+      // origin (one [contentPadding] left of the title) so the Inputs/Sends
+      // shaded boxes line up with the grey L-box in the card below — which uses
+      // this same right-only pattern — and its RIGHT edge sits on the right
+      // content edge so the Out/Return box (hugRight) lines up with the grey box
+      // in the Return Sync card below. Both boxes then inset their own labels and
+      // tiles back to the content edge.
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: contentPadding),
+        padding: EdgeInsets.only(right: contentPadding),
         child: LayoutBuilder(
           builder: (context, constraints) {
             const tileWidth = TileLayout.tileWidth;
@@ -251,11 +301,6 @@ class _SystemOverviewState extends State<SystemOverview>
             final tileW = (slackForInputs / 4 - TileLayout.marginPerTile)
                 .clamp(TileLayout.tileWidth, 2.2 * TileLayout.tileWidth);
 
-            final safeRightOffset = (diagramWidth -
-                    inputSectionMinWidth -
-                    TileLayout.lockColumnWidth -
-                    rightColMinWidth)
-                .clamp(0.0, rightOffset);
             // Width defaults to the computed [tileW] so Inputs/Sends stretch
             // across the card; the Out/Return column passes the fixed width so
             // it stays put over the Return Sync card below.
@@ -293,6 +338,7 @@ class _SystemOverviewState extends State<SystemOverview>
                               title: 'Inputs',
                               labelPosition: LabelPosition.top,
                               borderColor: Colors.white,
+                              contentInset: contentPadding,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: List.generate(
@@ -312,6 +358,7 @@ class _SystemOverviewState extends State<SystemOverview>
                               title: 'Sends',
                               labelPosition: LabelPosition.bottom,
                               borderColor: const Color(0xFFF8BA00),
+                              contentInset: contentPadding,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: List.generate(
@@ -339,6 +386,7 @@ class _SystemOverviewState extends State<SystemOverview>
                               labelPosition: LabelPosition.top,
                               borderColor: const Color(0xFF49A0F8),
                               alignLabelRight: true,
+                              hugRight: true,
                               child: sizedTile(const HDMIOutTile(), _outputKey,
                                   width: tileWidth),
                             ),
@@ -348,12 +396,12 @@ class _SystemOverviewState extends State<SystemOverview>
                               labelPosition: LabelPosition.bottom,
                               borderColor: const Color(0xFF49A0F8),
                               alignLabelRight: true,
+                              hugRight: true,
                               child: sizedTile(const ReturnTile(), _returnKey,
                                   width: tileWidth),
                             ),
                           ],
                         ),
-                        SizedBox(width: safeRightOffset),
                       ],
                     ),
                     // Decorative arrow overlay — must never absorb pointer events,
