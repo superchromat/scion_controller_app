@@ -75,6 +75,19 @@ class OscLogTableState extends State<OscLogTable> {
     _scrollController.addListener(_onScroll);
   }
 
+  @override
+  void didUpdateWidget(covariant OscLogTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Opened the log after messages accumulated off-screen (we skip rebuilds
+    // while inactive) — render the backlog now and jump to the latest.
+    if (widget.isActive && !oldWidget.isActive) {
+      setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToBottom();
+      });
+    }
+  }
+
   void _onScroll() {
     final max = _scrollController.position.maxScrollExtent;
     final pos = _scrollController.offset;
@@ -105,6 +118,20 @@ class OscLogTableState extends State<OscLogTable> {
       args: argsList.join(', '),
       binary: binary,
     );
+
+    // The log is kept mounted on every page (IndexedStack). Dragging any
+    // control floods it with OSC messages, and rebuilding the off-screen table
+    // per message — re-filtering/grouping up to _maxEntries and repainting every
+    // neumorphic row — was the dominant source of interaction jank (~6700
+    // rebuilds from a single knob drag). When the log isn't the visible page,
+    // just record the entry; didUpdateWidget renders the backlog when opened.
+    if (!widget.isActive) {
+      _entries.add(entry);
+      if (_entries.length > _maxEntries) {
+        _entries.removeRange(0, _entries.length - _maxEntries);
+      }
+      return;
+    }
 
     // A send can be issued from didChangeDependencies/build (e.g. a card
     // kicking off a catalog load on first mount), which lands here mid-build.

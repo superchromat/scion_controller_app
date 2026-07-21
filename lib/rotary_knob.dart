@@ -792,6 +792,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                               notchDepth: widget.notchDepth,
                               notchHalfAngle: widget.notchHalfAngle,
                               noiseImage: _noiseImage,
+                              dpr: MediaQuery.devicePixelRatioOf(context),
                             ),
                           ),
                           _buildCenterValueEditor(_valueEditorFontSize(),
@@ -1097,6 +1098,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                     notchDepth: widget.notchDepth,
                     notchHalfAngle: widget.notchHalfAngle,
                     noiseImage: _noiseImage,
+                    dpr: MediaQuery.devicePixelRatioOf(context),
                   ),
                 ),
                 _buildCenterValueEditor(valueFontSize,
@@ -1142,6 +1144,7 @@ class _KnobPainter extends CustomPainter {
     this.neutralNormalized,
     required this.isActive,
     required this.snapPoints,
+    required this.dpr,
     this.lightPhi = math.pi / 2,
     this.lightTheta = 320 * math.pi / 180,
     this.arcWidth = 8.0,
@@ -1154,6 +1157,7 @@ class _KnobPainter extends CustomPainter {
   final double notchDepth;
   final double notchHalfAngle;
   final ui.Image? noiseImage;
+  final double dpr; // device pixel ratio, so cached bitmaps stay crisp
 
   /// Compute 2D light direction from spherical coordinates
   /// Returns (Lx, Ly) where positive Ly is down (screen coords)
@@ -1231,8 +1235,55 @@ class _KnobPainter extends CustomPainter {
     }
   }
 
+  // Rasterized-knob cache. The neumorphic knob costs ~13 blur/gradient ops to
+  // draw, and Impeller re-executes them every frame for on-screen content (it
+  // has no Skia-style raster cache), so a page of knobs was raster-bound while
+  // scrolling. Render each distinct appearance into a bitmap once and blit that
+  // instead — a texture blit is nearly free. Keyed by appearance, with the value
+  // quantized so a drag reuses buckets rather than minting a bitmap per frame.
+  static final Map<String, ui.Image> _imageCache = {};
+  static final List<String> _cacheOrder = [];
+  static const int _cacheLimit = 400;
+
+  String _cacheKey(Size size) {
+    final q = (normalized * 240).round();
+    final nn =
+        neutralNormalized == null ? -1 : (neutralNormalized! * 240).round();
+    final snaps = snapPoints.map((s) => (s * 240).round()).join(',');
+    return '${size.width.round()}x${size.height.round()}|$q|$isBipolar|$nn'
+        '|$isActive|$snaps|${lightPhi.toStringAsFixed(3)}'
+        '|${lightTheta.toStringAsFixed(3)}|$arcWidth|$notchDepth'
+        '|$notchHalfAngle|${noiseImage == null ? 0 : 1}|$dpr';
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final key = _cacheKey(size);
+    var img = _imageCache[key];
+    if (img == null) {
+      final recorder = ui.PictureRecorder();
+      final recCanvas = Canvas(recorder)..scale(dpr);
+      _paintKnob(recCanvas, size);
+      final picture = recorder.endRecording();
+      img = picture.toImageSync(
+          (size.width * dpr).ceil(), (size.height * dpr).ceil());
+      picture.dispose();
+      _imageCache[key] = img;
+      _cacheOrder.add(key);
+      if (_cacheOrder.length > _cacheLimit) {
+        _imageCache.remove(_cacheOrder.removeAt(0));
+      }
+    }
+    canvas.drawImageRect(
+      img,
+      Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+      Offset.zero & size,
+      Paint()..filterQuality = FilterQuality.low,
+    );
+  }
+
+  void _paintKnob(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 6;
     final slotWidth = arcWidth;
@@ -1760,7 +1811,8 @@ class _KnobPainter extends CustomPainter {
         oldDelegate.lightTheta != lightTheta ||
         oldDelegate.arcWidth != arcWidth ||
         oldDelegate.notchDepth != notchDepth ||
-        oldDelegate.notchHalfAngle != notchHalfAngle;
+        oldDelegate.notchHalfAngle != notchHalfAngle ||
+        oldDelegate.dpr != dpr;
   }
 }
 

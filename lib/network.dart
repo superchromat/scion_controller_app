@@ -566,7 +566,7 @@ class Network extends ChangeNotifier {
   void _handleOscMessage(OSCMessage msg) {
     _lastMsgReceived = DateTime.now();
     if (msg.address != '/ack') {
-      debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
+      if (kOscTrace) debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
       OscRegistry().dispatch(msg.address, msg.arguments);
     } else {
       _hasSynced = true;

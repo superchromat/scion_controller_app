@@ -6,6 +6,10 @@ import 'package:collection/collection.dart';
 import 'osc_log.dart';
 import 'osc_widget_binding.dart';
 
+/// Per-packet OSC trace logging. Off by default — flip to true to dump every
+/// received message and dispatch to the console while debugging.
+const bool kOscTrace = false;
+
 /// Callback invoked on incoming OSC messages for a given address.
 typedef OscCallback = void Function(List<Object?> args);
 
@@ -95,7 +99,7 @@ class OscRegistry extends ChangeNotifier {
   /// Dispatch an incoming OSC message to listeners for [address].
   void dispatch(String address, List<Object?> args) {
     final key = address.startsWith('/') ? address : '/$address';
-    debugPrint('OSC dispatch → key: "$key", args: $args');
+    if (kOscTrace) debugPrint('OSC dispatch → key: "$key", args: $args');
 
     final param = _params[key];
     if (param == null) {
