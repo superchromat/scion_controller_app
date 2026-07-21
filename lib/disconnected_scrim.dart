@@ -319,7 +319,6 @@ class OnboardingGuide extends StatelessWidget {
             'Alternatively, plug the SCION into a travel router or any router’s '
             'LAN port and join that network — iPadOS can’t share its own '
             'connection the way a Mac or PC can.';
-        break;
       case OnboardingOS.mac:
         label = 'macOS — Internet Sharing';
         body = 'No router? Open System Settings → General → Sharing → Internet '
@@ -327,7 +326,6 @@ class OnboardingGuide extends StatelessWidget {
             'using: Ethernet” (the adapter the SCION is plugged into), then turn '
             'Internet Sharing on. Your Mac gives the SCION an address on a '
             'shared network.';
-        break;
       case OnboardingOS.windows:
         label = 'Windows — Internet Connection Sharing';
         body =
@@ -335,13 +333,11 @@ class OnboardingGuide extends StatelessWidget {
             'your internet adapter (e.g. Wi-Fi) → Properties → Sharing, enable '
             '“Allow other network users to connect…”, and choose the Ethernet '
             'adapter the SCION is on.';
-        break;
       case OnboardingOS.other:
         label = 'Direct connection';
         body = 'No router? Share your computer’s internet connection to the '
             'Ethernet port the SCION is plugged into so it gets an address on a '
             'shared network.';
-        break;
     }
     return Container(
       width: double.infinity,

@@ -139,7 +139,7 @@ class _ColorLutActionsState extends State<ColorLutActions> {
       final cube = CubeLut.parse(String.fromCharCodes(data));
       final name = pick!.files.single.name.replaceAll('.cube', '');
       final blob = packLut3dBlob(cube, name);
-      _toast('uploading "${name}" (${cube.n}^3 → 17^3)…');
+      _toast('uploading "$name" (${cube.n}^3 → 17^3)…');
       final nor = _nor;
       await nor.call('/assets/fonts/nor/erase', [blob.length, _lut3dNorOff],
           timeout: const Duration(seconds: 20));

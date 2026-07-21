@@ -214,8 +214,9 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     final addr = '$_base/$rel';
     final reg = OscRegistry()..registerAddress(addr);
     final cur = reg.allParams[addr]?.currentValue;
-    if (cur != null && cur.isNotEmpty && cur.first is num)
+    if (cur != null && cur.isNotEmpty && cur.first is num) {
       set((cur.first as num).toDouble());
+    }
     void cb(List<Object?> a) {
       if (a.isNotEmpty && a.first is num && mounted) {
         setState(() => set((a.first as num).toDouble()));
@@ -231,8 +232,9 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     final addr = '$_base/$rel';
     final reg = OscRegistry()..registerAddress(addr);
     final cur = reg.allParams[addr]?.currentValue;
-    if (cur != null && cur.isNotEmpty && cur.first is num)
+    if (cur != null && cur.isNotEmpty && cur.first is num) {
       set((cur.first as num).toInt());
+    }
     void cb(List<Object?> a) {
       if (a.isNotEmpty && a.first is num && mounted) {
         setState(() => set((a.first as num).toInt()));
@@ -337,12 +339,14 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
         if (a.isNotEmpty && a.first is String) _txtStr[i] = a.first as String;
       }, query: true);
       _listen('$_base/$rb/pos/x', (a) {
-        if (a.isNotEmpty && a.first is num)
+        if (a.isNotEmpty && a.first is num) {
           _txtX[i] = (a.first as num).toDouble();
+        }
       }, query: true);
       _listen('$_base/$rb/pos/y', (a) {
-        if (a.isNotEmpty && a.first is num)
+        if (a.isNotEmpty && a.first is num) {
           _txtY[i] = (a.first as num).toDouble();
+        }
       }, query: true);
       _listen('$_base/$rb/size', (a) {
         if (a.isNotEmpty && a.first is num) {
@@ -382,7 +386,9 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   void _queryOverlays() {
     if (!mounted) return;
     final net = context.read<Network>();
-    for (final a in _extraQuery) net.sendOscMessage(a, const []);
+    for (final a in _extraQuery) {
+      net.sendOscMessage(a, const []);
+    }
     net.sendOscMessage(
         '/assets/sprites/count', const []); // repopulate catalogue
   }
@@ -429,7 +435,9 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     if (a.isEmpty || a.first is! num || !mounted) return;
     final n = (a.first as num).toInt();
     final net = context.read<Network>();
-    for (int i = 0; i < n; i++) net.sendOscMessage('/assets/sprites/info', [i]);
+    for (int i = 0; i < n; i++) {
+      net.sendOscMessage('/assets/sprites/info', [i]);
+    }
   }
 
   // ── colour-field mesh helpers ────────────────────────────────────────────────
@@ -691,22 +699,18 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
           final t = v.clamp(0.0, 0.95);
           setState(() => ct = t);
           _send('shape/crop/top', [t]);
-          break;
         case 1:
           final t = (1 - u).clamp(0.0, 0.95);
           setState(() => cr = t);
           _send('shape/crop/right', [t]);
-          break;
         case 2:
           final t = (1 - v).clamp(0.0, 0.95);
           setState(() => cb = t);
           _send('shape/crop/bottom', [t]);
-          break;
         case 3:
           final t = u.clamp(0.0, 0.95);
           setState(() => cl = t);
           _send('shape/crop/left', [t]);
-          break;
       }
     } else if (d == 'lens') {
       // lens optical centre → the same lens_x / lens_y the knobs bind to, so the
@@ -753,7 +757,9 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
   void _setMeshSize(int n) {
     setState(() {
       meshN = n;
-      for (var i = 0; i < mesh.length; i++) mesh[i] = Offset.zero;
+      for (var i = 0; i < mesh.length; i++) {
+        mesh[i] = Offset.zero;
+      }
     });
     _send('shape/warp/mesh/size', [n]);
   }
@@ -790,13 +796,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     switch (_overlay) {
       case 'text':
         _textStart(p);
-        break;
       case 'sprites':
         _spriteStart(p);
-        break;
       case 'colorField':
         _ucStart(p);
-        break;
       default:
         final hit = _hit(p);
         setState(() {
@@ -818,13 +821,10 @@ class _ShapeCanvasState extends State<ShapeCanvas> {
     switch (_overlay) {
       case 'text':
         _textUpdate(p);
-        break;
       case 'sprites':
         _spriteUpdate(p);
-        break;
       case 'colorField':
         _ucUpdate(p);
-        break;
       default:
         _apply(p);
     }
@@ -1403,12 +1403,14 @@ class _ShapePainter extends CustomPainter {
     final grid = Paint()
       ..color = Colors.white.withValues(alpha: 0.05)
       ..strokeWidth = 1;
-    for (int i = 1; i < 16; i++)
+    for (int i = 1; i < 16; i++) {
       canvas.drawLine(Offset(ss.width * i / 16, 0),
           Offset(ss.width * i / 16, ss.height), grid);
-    for (int i = 1; i < 9; i++)
+    }
+    for (int i = 1; i < 9; i++) {
       canvas.drawLine(Offset(0, ss.height * i / 9),
           Offset(ss.width, ss.height * i / 9), grid);
+    }
     canvas.drawRect(
         r.deflate(1),
         Paint()
@@ -1441,10 +1443,18 @@ class _ShapePainter extends CustomPainter {
       List<Offset> boundary;
       if (hasLut) {
         boundary = <Offset>[];
-        for (int i = 0; i < ln; i++) boundary.add(lp(i, 0));
-        for (int j = 1; j < ln; j++) boundary.add(lp(ln - 1, j));
-        for (int i = ln - 2; i >= 0; i--) boundary.add(lp(i, ln - 1));
-        for (int j = ln - 2; j >= 1; j--) boundary.add(lp(0, j));
+        for (int i = 0; i < ln; i++) {
+          boundary.add(lp(i, 0));
+        }
+        for (int j = 1; j < ln; j++) {
+          boundary.add(lp(ln - 1, j));
+        }
+        for (int i = ln - 2; i >= 0; i--) {
+          boundary.add(lp(i, ln - 1));
+        }
+        for (int j = ln - 2; j >= 1; j--) {
+          boundary.add(lp(0, j));
+        }
       } else {
         boundary = g.quad;
       }
@@ -1455,8 +1465,9 @@ class _ShapePainter extends CustomPainter {
       final hatch = Paint()
         ..color = _amber.withValues(alpha: 0.10)
         ..strokeWidth = 1;
-      for (double d = -ss.height; d < ss.width; d += 10)
+      for (double d = -ss.height; d < ss.width; d += 10) {
         canvas.drawLine(Offset(d, 0), Offset(d + ss.height, ss.height), hatch);
+      }
       canvas.restore();
       if (!warping) {
         if (hasLut) {

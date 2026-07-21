@@ -821,7 +821,7 @@ class _AdvPhaseCard extends StatefulWidget {
   final bool embedded;
   final bool vertical;
 
-  const _AdvPhaseCard({this.embedded = false, this.vertical = false});
+  const _AdvPhaseCard({this.embedded = false}) : vertical = false;
 
   @override
   State<_AdvPhaseCard> createState() => _AdvPhaseCardState();

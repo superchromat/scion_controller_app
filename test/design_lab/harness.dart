@@ -6,7 +6,6 @@
 // aesthetics match the shipping app, while standing in lightweight static
 // controls for the network-coupled ones.
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,7 +13,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:SCION_Controller/lighting_settings.dart';
 import 'package:SCION_Controller/network.dart';
-import 'package:SCION_Controller/grid.dart';
 
 const Color kAppBackground = Color(0xFF232326);
 

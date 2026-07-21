@@ -17,7 +17,7 @@ class SendColor extends StatefulWidget {
   const SendColor({super.key, this.showGrade = false, this.gradePath});
 
   @override
-  _SendColorState createState() => _SendColorState();
+  State<SendColor> createState() => _SendColorState();
 }
 
 class _SendColorState extends State<SendColor> {

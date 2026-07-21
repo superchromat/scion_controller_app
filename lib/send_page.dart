@@ -72,7 +72,8 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                                   span: 12,
                                   child: LabeledCard(
                                     title: 'Input Source',
-                                    borderColor: Colors.white.withOpacity(0.5),
+                                    borderColor:
+                                        Colors.white.withValues(alpha: 0.5),
                                     child: SendSourceSelector(
                                         pageNumber: widget.pageNumber),
                                   ),

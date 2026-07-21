@@ -321,14 +321,12 @@ class ColorWheelPainter extends CustomPainter {
           [rgb[1], otherPrimary1[1], otherPrimary2[1]],
           [rgb[2], otherPrimary1[2], otherPrimary2[2]],
         ];
-        break;
       case 1:
         matrix = [
           [otherPrimary1[0], rgb[0], otherPrimary2[0]],
           [otherPrimary1[1], rgb[1], otherPrimary2[1]],
           [otherPrimary1[2], rgb[2], otherPrimary2[2]],
         ];
-        break;
       default: // case 2
         matrix = [
           [otherPrimary1[0], otherPrimary2[0], rgb[0]],
@@ -458,48 +456,34 @@ class ColorWheelPainter extends CustomPainter {
         switch (caseIndex) {
           case 1:
             addSeg(bottom, left);
-            break;
           case 2:
             addSeg(bottom, right);
-            break;
           case 3:
             addSeg(left, right);
-            break;
           case 4:
             addSeg(left, top);
-            break;
           case 5:
             addSeg(bottom, top);
-            break;
           case 6:
             addSeg(bottom, left);
             addSeg(top, right);
-            break;
           case 7:
             addSeg(top, right);
-            break;
           case 8:
             addSeg(top, right);
-            break;
           case 9:
             addSeg(bottom, right);
             addSeg(left, top);
-            break;
           case 10:
             addSeg(bottom, top);
-            break;
           case 11:
             addSeg(left, top);
-            break;
           case 12:
             addSeg(left, right);
-            break;
           case 13:
             addSeg(bottom, right);
-            break;
           case 14:
             addSeg(bottom, left);
-            break;
         }
       }
     }

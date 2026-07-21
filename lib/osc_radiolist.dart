@@ -30,7 +30,7 @@ class OscRadioList extends StatefulWidget {
   });
 
   @override
-  _OscRadioListState createState() => _OscRadioListState();
+  State<OscRadioList> createState() => _OscRadioListState();
 }
 
 class _OscRadioListState extends State<OscRadioList>

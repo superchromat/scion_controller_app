@@ -112,8 +112,12 @@ class ColorWheelArcState extends State<ColorWheelArc> {
       // Arc — angle to normalized 0..1
       var angle = atan2(offset.dy, offset.dx);
       var relAngle = angle - startAngle;
-      while (relAngle < 0) relAngle += 2 * pi;
-      while (relAngle >= 2 * pi) relAngle -= 2 * pi;
+      while (relAngle < 0) {
+        relAngle += 2 * pi;
+      }
+      while (relAngle >= 2 * pi) {
+        relAngle -= 2 * pi;
+      }
 
       if (relAngle > sweepAngle) {
         relAngle = relAngle < (sweepAngle + (2 * pi - sweepAngle) / 2)

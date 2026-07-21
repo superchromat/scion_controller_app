@@ -2,7 +2,6 @@
 // and from a Panel to its card's content edge, on every page and every Shape
 // tab, at several widths. Delete once the result has been read.
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:SCION_Controller/grid.dart';
 import 'package:SCION_Controller/labeled_card.dart';
@@ -12,7 +11,6 @@ import 'package:SCION_Controller/return_page.dart';
 import 'package:SCION_Controller/send_page.dart';
 import 'package:SCION_Controller/setup_page.dart';
 import 'package:SCION_Controller/system_page.dart';
-import 'package:SCION_Controller/system_overview.dart';
 
 import 'design_lab/harness.dart';
 

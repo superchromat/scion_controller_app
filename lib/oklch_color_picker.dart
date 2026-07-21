@@ -4,6 +4,7 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'color_channels.dart';
 import 'color_wheel_arc.dart';
 
 // Cached wheel image
@@ -183,7 +184,7 @@ class OklchColorPickerState extends State<OklchColorPicker> {
   }
 
   ({double x, double y, double arc}) _colorToWheelPos(Color color) {
-    final oklch = srgbToOklch(color.red, color.green, color.blue);
+    final oklch = srgbToOklch(color.r8, color.g8, color.b8);
     final lightness = oklch[0].clamp(0.0, 1.0);
     final chroma = oklch[1];
     final hue = oklch[2];

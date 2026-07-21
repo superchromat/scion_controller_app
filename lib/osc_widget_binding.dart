@@ -36,7 +36,7 @@ class OscPathSegment extends InheritedWidget {
       old.segment != segment;
 }
 
-/// Mixin to wire a State<T> to OSC send/receive.
+/// Mixin to wire a `State<T>` to OSC send/receive.
 mixin OscAddressMixin<T extends StatefulWidget> on State<T> {
   /// The full OSC address (e.g. "/root/child").
   late final String oscAddress;

@@ -141,7 +141,7 @@ class LUTPainter extends CustomPainter {
                         activeHandle == GradeHandle.midBlendLeft ||
                         activeHandle == GradeHandle.midBlendRight)));
         final opacity = bandActive ? 0.95 : 0.5;
-        final color = band.color.withOpacity(opacity);
+        final color = band.color.withValues(alpha: opacity);
 
         // Center line
         linePaint
@@ -228,7 +228,7 @@ class LUTPainter extends CustomPainter {
           path.lineTo(pos.dx, pos.dy);
         }
       }
-      paintOther.color = getChannelColor(c).withOpacity(0.5);
+      paintOther.color = getChannelColor(c).withValues(alpha: 0.5);
       canvas.drawPath(path, paintOther);
     }
 
@@ -325,10 +325,10 @@ class LUTPainter extends CustomPainter {
       // Solid divider lines across the column + dotted connectors from each
       // interior control point to its divider.
       final solid = Paint()
-        ..color = Colors.white.withOpacity(0.85)
+        ..color = Colors.white.withValues(alpha: 0.85)
         ..strokeWidth = 1.2;
       final dot = Paint()
-        ..color = Colors.white.withOpacity(0.5)
+        ..color = Colors.white.withValues(alpha: 0.5)
         ..style = PaintingStyle.fill;
       for (final y in divs) {
         final ly = (1 - y) * h;
@@ -379,13 +379,13 @@ void _drawFlagHandle(
     ..lineTo(rightX, triBaseY)
     ..close();
 
-  final fill = active ? paint.color.withOpacity(1.0) : paint.color;
+  final fill = active ? paint.color.withValues(alpha: 1.0) : paint.color;
   final stroke = Paint()
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.5
     ..strokeJoin = StrokeJoin.round
     ..strokeCap = StrokeCap.round
-    ..color = fill.withOpacity(0.2);
+    ..color = fill.withValues(alpha: 0.2);
 
   // Outer rounded shape (square portion) with small radius
   // Inner square shaded by level (0=dark,1=light)
@@ -423,7 +423,7 @@ void _drawZebra(Canvas canvas, Rect rect, int type, int zw, int zr) {
   canvas.save();
   canvas.clipRect(rect);
   final p = Paint()
-    ..color = Colors.black.withOpacity(0.5)
+    ..color = Colors.black.withValues(alpha: 0.5)
     ..style = PaintingStyle.fill;
   if (type == 3) {
     // Horizontal stripes — bands stacked vertically.
@@ -440,7 +440,7 @@ void _drawZebra(Canvas canvas, Rect rect, int type, int zw, int zr) {
     final dir = (type == 2) ? -1.0 : 1.0;
     final span = rect.height;
     final line = Paint()
-      ..color = Colors.black.withOpacity(0.5)
+      ..color = Colors.black.withValues(alpha: 0.5)
       ..strokeWidth = mark
       ..strokeCap = StrokeCap.butt;
     for (double x = rect.left - span; x < rect.right + span; x += period) {

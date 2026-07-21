@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_button.dart';
@@ -92,8 +90,13 @@ class AboutSection extends StatelessWidget {
                 // Save / Load / Firmware Update, so it gets the same button.
                 AppButton(
                   label: 'Third-Party Licences',
-                  onPressed: () async =>
-                      showScionLicensePage(context, await appVersionLabel()),
+                  onPressed: () async {
+                    // Resolve the version first, then re-check: the About page
+                    // can be popped while the platform channel is in flight.
+                    final version = await appVersionLabel();
+                    if (!context.mounted) return;
+                    showScionLicensePage(context, version);
+                  },
                 ),
                 SizedBox(width: t.sm),
                 Expanded(

@@ -126,12 +126,17 @@ class FileManagementSectionState extends State<FileManagementSection> {
         if (path == null) return;
         await OscRegistry().saveToFile(path);
       }
+      // The save dialogs above are awaited, so this section can be disposed
+      // while one is open — touching context or calling setState after that
+      // throws.
+      if (!context.mounted) return;
       setState(() => _currentFile = path);
       showAppAlert(
         context,
         'Configuration saved: ${_displayNameForPath(path)}',
       );
     } catch (e) {
+      if (!context.mounted) return;
       showAppAlert(context, 'Save failed: $e', tone: AppAlertTone.error);
     }
   }
@@ -148,15 +153,22 @@ class FileManagementSectionState extends State<FileManagementSection> {
       final path = '${dir.path}/$fileName';
 
       await OscRegistry().saveToFile(path);
+      if (!context.mounted) return;
+      // Read the share origin BEFORE the await: on iPad the popover anchors to
+      // this widget's rect, and after the share sheet returns the render
+      // object may be gone.
+      final origin = _shareOriginRect(context);
       await Share.shareXFiles(
         [XFile(path)],
         text: 'SCION configuration export',
         subject: fileName,
-        sharePositionOrigin: _shareOriginRect(context),
+        sharePositionOrigin: origin,
       );
 
+      if (!context.mounted) return;
       showAppAlert(context, 'Exported $fileName');
     } catch (e) {
+      if (!context.mounted) return;
       showAppAlert(context, 'Export failed: $e', tone: AppAlertTone.error);
     }
   }
@@ -170,6 +182,7 @@ class FileManagementSectionState extends State<FileManagementSection> {
     if (path == null) return;
 
     await OscRegistry().loadFromFile(path);
+    if (!context.mounted) return;
     setState(() => _currentFile = path);
     showAppAlert(
       context,

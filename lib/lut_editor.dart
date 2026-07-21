@@ -1,9 +1,9 @@
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'color_channels.dart';
 import 'package:provider/provider.dart';
 import 'package:osc/osc.dart';
 import 'network.dart';
@@ -140,8 +140,8 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                   initialColor: curColor,
                   size: 150,
                   onColorChanged: (c) {
-                    setState(() => _bandColor[band] =
-                        (c.red << 16) | (c.green << 8) | c.blue);
+                    setState(() =>
+                        _bandColor[band] = (c.r8 << 16) | (c.g8 << 8) | c.b8);
                     setD(() {});
                     _pushBand(band);
                   },
@@ -997,8 +997,9 @@ class _LUTEditorState extends State<LUTEditor> with OscAddressMixin<LUTEditor> {
                       final belowGraph =
                           event.localPosition.dy >= size.height - insetPadding;
                       if (belowGraph &&
-                          _startNearestGradeDrag(event.localPosition, size))
+                          _startNearestGradeDrag(event.localPosition, size)) {
                         return;
+                      }
                       // Grade handles get first dibs; if hit, skip LUT point logic.
                       final consumed =
                           _tryStartGradeDrag(event.localPosition, size);

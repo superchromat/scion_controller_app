@@ -26,6 +26,10 @@ dependencies:
   window_size: ^0.1.0
   image: ^4.7.2
   package_info_plus: ^9.0.1
+  # Imported directly by lib/ (send_image.dart, osc_registry.dart) rather than
+  # leaned on as transitive deps of image/flutter. Pinned, not `any`.
+  archive: ^4.0.7
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:

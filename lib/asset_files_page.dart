@@ -27,7 +27,6 @@ import 'grid.dart';
 import 'labeled_card.dart';
 import 'network.dart';
 import 'osc_registry.dart';
-import 'panel.dart';
 
 // Preset slots: 24 x 16 KB small @ +0xC80000, 12 x 256 KB large @ +0xCE0000.
 // Header: "PRST" + u32 len + name[32] + path[64] = 104 B.
@@ -251,7 +250,6 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         final blob = await store.fetchBlob();
         if (blob == null) return _toast('font store unreadable');
         await store.push(store.renameFont(blob, f.index, fam, f.detail));
-        break;
       case AssetType.sprite:
         final name = await _nameDialog('Rename sprite', initial: f.name);
         if (name == null || name.isEmpty) return;
@@ -261,7 +259,6 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         final s = sprites[f.index];
         sprites[f.index] = SpriteAsset(name, s.w, s.h, s.palette, s.pixels);
         await store.push(sprites);
-        break;
       case AssetType.preset:
         final name = await _nameDialog('Rename preset', initial: f.name);
         if (name == null || name.isEmpty || name == f.name) return;

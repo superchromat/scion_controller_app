@@ -63,7 +63,9 @@ class _DeskModel extends ChangeNotifier {
   }
 
   void resetWarp() {
-    for (var i = 0; i < warp.length; i++) warp[i] = Offset.zero;
+    for (var i = 0; i < warp.length; i++) {
+      warp[i] = Offset.zero;
+    }
     warpRev++;
     notifyListeners();
   }
@@ -245,7 +247,8 @@ class _IKnob extends StatelessWidget {
   final double
       def; // default/neutral — draws the detent + is the double-tap reset target
   const _IKnob(this.label, this.value, this.min, this.max, this.onChanged,
-      {this.bipolar = false, this.size, this.fmt = '%.2f', this.def = 0});
+      {this.bipolar = false, this.fmt = '%.2f', this.def = 0})
+      : size = null;
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
@@ -994,33 +997,6 @@ class _GradeZone extends StatelessWidget {
   }
 }
 
-/// A restrained colour trackball: dark disc, thin chromatic rim, a bright
-/// position node showing offset + magnitude. Reads as a precise control, not
-/// a rainbow. (Neumorphic-quiet — lets the histogram own the visual weight.)
-class _Trackball extends StatelessWidget {
-  final String label;
-  final double size;
-  final double angle; // radians of the offset
-  final double mag; // 0..1 offset magnitude
-  const _Trackball(
-      {required this.label,
-      required this.size,
-      required this.angle,
-      required this.mag});
-  @override
-  Widget build(BuildContext context) {
-    final t = GridProvider.of(context);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(
-          width: size,
-          height: size,
-          child: CustomPaint(painter: _TrackballPainter(angle, mag))),
-      SizedBox(height: t.xs * 0.8),
-      Text(label, style: t.textLabel.copyWith(color: _dim)),
-    ]);
-  }
-}
-
 class _TrackballPainter extends CustomPainter {
   final double angle, mag;
   _TrackballPainter(this.angle, this.mag);
@@ -1302,70 +1278,6 @@ class _FramePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FramePainter old) => old.stage != stage;
-}
-
-/// Direct-manipulation overlays on the program canvas.
-class _OverlayPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // crop rect inset
-    final crop = Rect.fromLTRB(size.width * 0.08, size.height * 0.10,
-        size.width * 0.86, size.height * 0.92);
-    final dim = Path()
-      ..addRect(Offset.zero & size)
-      ..addRect(crop)
-      ..fillType = PathFillType.evenOdd;
-    canvas.drawPath(dim, Paint()..color = Colors.black.withValues(alpha: 0.45));
-    canvas.drawRect(
-        crop,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = Colors.white.withValues(alpha: 0.9));
-    // corner handles
-    final hp = Paint()..color = _amber;
-    for (final c in [
-      crop.topLeft,
-      crop.topRight,
-      crop.bottomLeft,
-      crop.bottomRight
-    ]) {
-      canvas.drawRect(Rect.fromCenter(center: c, width: 8, height: 8), hp);
-    }
-    // rule-of-thirds
-    final third = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..strokeWidth = 0.75;
-    for (int i = 1; i < 3; i++) {
-      final x = crop.left + crop.width * i / 3;
-      final y = crop.top + crop.height * i / 3;
-      canvas.drawLine(Offset(x, crop.top), Offset(x, crop.bottom), third);
-      canvas.drawLine(Offset(crop.left, y), Offset(crop.right, y), third);
-    }
-    // colour-field puck (a placed "light")
-    final puck = Offset(size.width * 0.66, size.height * 0.42);
-    canvas.drawCircle(
-        puck,
-        13,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = _green);
-    canvas.drawCircle(puck, 4, Paint()..color = _green);
-    // orientation handle
-    final ang = -0.6;
-    canvas.drawLine(
-        puck,
-        puck + Offset(math.cos(ang), math.sin(ang)) * 34,
-        Paint()
-          ..color = _green
-          ..strokeWidth = 1.5);
-    canvas.drawCircle(puck + Offset(math.cos(ang), math.sin(ang)) * 34, 3.5,
-        Paint()..color = _green);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
 /// The geometry stage: when no thumbnail exists (rotated/warped send), the
@@ -1658,12 +1570,14 @@ class _GeometryCanvasState extends State<_GeometryCanvas> {
     }
     if (m.tool == 'field' && (p - g.puck).distance < thresh) return 'field';
     for (int i = 0; i < 4; i++) {
-      if ((p - g.cropEdges[i]).distance < thresh)
+      if ((p - g.cropEdges[i]).distance < thresh) {
         return 'e$i'; // crop (inner edges)
+      }
     }
     for (int i = 0; i < 4; i++) {
-      if ((p - g.full[i]).distance < thresh)
+      if ((p - g.full[i]).distance < thresh) {
         return 's$i'; // scale (outer corners)
+      }
     }
     return null;
   }

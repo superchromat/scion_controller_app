@@ -11,7 +11,7 @@ class StatusBarRow extends StatefulWidget {
   });
 
   @override
-  _StatusBarRowState createState() => _StatusBarRowState();
+  State<StatusBarRow> createState() => _StatusBarRowState();
 }
 
 class _StatusBarRowState extends State<StatusBarRow>

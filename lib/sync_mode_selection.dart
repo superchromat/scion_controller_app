@@ -12,7 +12,7 @@ class SyncSettingsSection extends StatefulWidget {
   const SyncSettingsSection({super.key});
 
   @override
-  _SyncSettingsSectionState createState() => _SyncSettingsSectionState();
+  State<SyncSettingsSection> createState() => _SyncSettingsSectionState();
 }
 
 class _SyncSettingsSectionState extends State<SyncSettingsSection>
@@ -195,8 +195,7 @@ class _SyncTile extends StatelessWidget {
     required this.onTap,
     this.cableColors,
     this.selectedCableIndices,
-    this.tall = false,
-  });
+  }) : tall = false;
 
   @override
   Widget build(BuildContext context) {

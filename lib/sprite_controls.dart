@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'color_channels.dart';
 import 'asset_upload_ui.dart';
 import 'asset_store.dart';
 import 'oklch_color_picker.dart';
@@ -355,10 +356,10 @@ class _SpritePanelState extends State<SpritePanel> {
   void _applySwatch(int i, Color color, int alpha) {
     final p = _palette;
     if (p == null || i * 4 + 3 >= p.length) return;
-    p[i * 4] = _lim(color.red);
+    p[i * 4] = _lim(color.r8);
     p[i * 4 + 1] = alpha.clamp(0, 255);
-    p[i * 4 + 2] = _lim(color.blue);
-    p[i * 4 + 3] = _lim(color.green);
+    p[i * 4 + 2] = _lim(color.b8);
+    p[i * 4 + 3] = _lim(color.g8);
     setState(() {});
     _pushPaletteLive();
   }
@@ -404,7 +405,7 @@ class _SpritePanelState extends State<SpritePanel> {
                   initialColor: color,
                   size: 150,
                   onColorChanged: (c) {
-                    color = Color.fromARGB(255, c.red, c.green, c.blue);
+                    color = Color.fromARGB(255, c.r8, c.g8, c.b8);
                     _applySwatch(i, color, alpha);
                     setD(() {});
                   },

@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
-import 'about.dart';
 import 'disconnected_scrim.dart';
 import 'discovery.dart';
 import 'network.dart';

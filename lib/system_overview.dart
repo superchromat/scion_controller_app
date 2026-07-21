@@ -37,7 +37,7 @@ enum LabelPosition { top, bottom }
 class SystemOverview extends StatefulWidget {
   const SystemOverview({super.key});
   @override
-  _SystemOverviewState createState() => _SystemOverviewState();
+  State<SystemOverview> createState() => _SystemOverviewState();
 }
 
 class _SystemOverviewState extends State<SystemOverview>
@@ -126,7 +126,7 @@ class _SystemOverviewState extends State<SystemOverview>
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     border: Border.all(
-                        color: borderColor.withOpacity(0.2), width: 1),
+                        color: borderColor.withValues(alpha: 0.2), width: 1),
                     borderRadius: BorderRadius.circular(4.0),
                   ),
                 ),

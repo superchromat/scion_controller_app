@@ -39,7 +39,7 @@ class NumericSliderState extends State<NumericSlider>
   int _cursorPosition = 0;
   bool _showCursor = true;
   Timer? _cursorTimer;
-  num? prev_sent_value;
+  num? prevSentValue;
 
   final focusNode = FocusNode();
   late final RangeValues _range;
@@ -87,9 +87,9 @@ class NumericSliderState extends State<NumericSlider>
     widget.onChanged(value);
     // Assume hard detents + integer values means its only integers, could be something set by constructor
     if (widget.hardDetents && (value == value.toInt())) {
-      if (value.toInt() != prev_sent_value) {
+      if (value.toInt() != prevSentValue) {
         if (widget.sendOsc) sendOsc(value.toInt());
-        prev_sent_value = value.toInt();
+        prevSentValue = value.toInt();
       }
     } else {
       if (widget.sendOsc) sendOsc(value);
@@ -197,7 +197,7 @@ class NumericSliderState extends State<NumericSlider>
 
   void _onPanStart(DragStartDetails details) {
     _startDragPos = details.globalPosition;
-    prev_sent_value = null;
+    prevSentValue = null;
   }
 
   /*
@@ -440,7 +440,7 @@ class _NumericSliderPainter extends CustomPainter {
 
     final bgPaint = Paint()..color = Colors.transparent;
     final linePaint = Paint()
-      ..color = baseColor.withOpacity(0.6)
+      ..color = baseColor.withValues(alpha: 0.6)
       ..strokeWidth = 1;
 
     final rrect = RRect.fromRectAndRadius(
@@ -474,7 +474,7 @@ class _NumericSliderPainter extends CustomPainter {
       final posX = size.width * normalized;
       final centerX = size.width / 2;
 
-      final shadePaint = Paint()..color = baseColor.withOpacity(0.6);
+      final shadePaint = Paint()..color = baseColor.withValues(alpha: 0.6);
       final shadeWidth = (posX - centerX).abs();
       final rect = Rect.fromLTWH(
         posX >= centerX ? centerX : posX,

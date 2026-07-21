@@ -29,7 +29,7 @@ void main() {
 
   test('knob CSC: contrast scales around black, saturation kills chroma', () {
     const half = PictureKnobs(0.5, 0.25, 0.5, 0.0); // contrast ~0.5x
-    final (r1, _, __) = half.apply(0.8, 0.8, 0.8);
+    final (r1, _, _) = half.apply(0.8, 0.8, 0.8);
     expect(r1, closeTo(0.8 * (0.25 * 255 / 128), 0.02));
     const desat = PictureKnobs(0.5, 0.5, 0.0, 0.0);
     final (r2, g2, b2) = desat.apply(0.9, 0.2, 0.4);
@@ -45,7 +45,7 @@ void main() {
     ];
     final (r, g, b) = gradeEval(0.05, 0.05, 0.05, zones);
     expect(r, closeTo(0.25, 0.02)); // deep shadow fully lifted by 0.2
-    final (r2, _, __) = gradeEval(0.9, 0.9, 0.9, zones);
+    final (r2, _, _) = gradeEval(0.9, 0.9, 0.9, zones);
     expect(r2, closeTo(0.9, 1e-3)); // highlights untouched
   });
 

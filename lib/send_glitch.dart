@@ -43,7 +43,7 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
     final reg = OscRegistry();
     final base = '$oscAddress/glitch';
 
-    void _set(String seg, Object? value) {
+    void set(String seg, Object? value) {
       final addr = '$base/$seg';
       reg.registerAddress(addr);
       reg.dispatch(addr, <Object?>[value]);
@@ -67,18 +67,18 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       'fid_inv', 'fid_force', 'si2_h', 'si2_hoff', 'si2_v', 'si2_voff',
       'cap_x', 'cap_y', 'wr_delay_v', 'wr_delay_h', 'skip_mode', 'skip_count',
     ]) {
-      _set(seg, 0);
+      set(seg, 0);
     }
-    _set('mirror_mask', 8191);
-    _set('mirror_clamp', 8191);
+    set('mirror_mask', 8191);
+    set('mirror_clamp', 8191);
     // Rect Copy defaults (mirror firmware boot state). gac_enable=0 above
     // stops the blit loop; the firmware reset command doesn't know about GAC,
     // so also push the disable explicitly.
     sendOsc(0, address: 'glitch/gac_enable');
-    _set('gac_x', 896);
-    _set('gac_y', 476);
-    _set('gac_size', 128);
-    _set('gac_grid', 4);
+    set('gac_x', 896);
+    set('gac_y', 476);
+    set('gac_size', 128);
+    set('gac_grid', 4);
     // Posterizer off (global endpoint — firmware reset doesn't know it)
     context.read<Network>().sendOscMessage('/poster/enable', [0]);
     // Warp defaults (Send 1 only; firmware reset doesn't know warp)
@@ -99,11 +99,11 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       'warp_field',
       'warp_famp'
     ]) {
-      _set(seg, 0);
+      set(seg, 0);
     }
-    _set('warp_zoom', 1000);
-    _set('warp_speed', 250);
-    _set('warp_ffreq', 300);
+    set('warp_zoom', 1000);
+    set('warp_speed', 250);
+    set('warp_ffreq', 300);
     // Color Field defaults (Send 1 only; firmware reset doesn't know UC)
     sendOsc(0, address: 'glitch/uc_enable');
     sendOsc(0, address: 'glitch/uc_fx');
@@ -116,21 +116,21 @@ class _SendGlitchState extends State<SendGlitch> with OscAddressMixin {
       'uc_angle',
       'uc_speed'
     ]) {
-      _set(seg, 0);
+      set(seg, 0);
     }
-    _set('uc_amount', 127);
-    _set('uc_freq', 100);
-    _set('uc_cx', 960);
-    _set('uc_cy', 540);
-    _set('uc_res', 16);
-    _set('uc_bias', 1023);
-    _set('cb_buf_type', 1);
-    _set('cr_buf_type', 2);
-    _set('outmux_mode', 1);
-    _set('buf_id', 4);
-    _set('gen_hyst', 32);
-    _set('gen_fine', 2);
-    _set('enable', false);
+    set('uc_amount', 127);
+    set('uc_freq', 100);
+    set('uc_cx', 960);
+    set('uc_cy', 540);
+    set('uc_res', 16);
+    set('uc_bias', 1023);
+    set('cb_buf_type', 1);
+    set('cr_buf_type', 2);
+    set('outmux_mode', 1);
+    set('buf_id', 4);
+    set('gen_hyst', 32);
+    set('gen_fine', 2);
+    set('enable', false);
   }
 
   // Bit precision labels

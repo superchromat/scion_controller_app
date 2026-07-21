@@ -6,7 +6,7 @@ class OscRegistryViewer extends StatefulWidget {
   const OscRegistryViewer({super.key});
 
   @override
-  _OscRegistryViewerState createState() => _OscRegistryViewerState();
+  State<OscRegistryViewer> createState() => _OscRegistryViewerState();
 }
 
 class _OscRegistryViewerState extends State<OscRegistryViewer> {

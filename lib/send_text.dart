@@ -1,8 +1,8 @@
 // send_text.dart
 // Text overlay controls for MFC OSD
 
-import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
+import 'color_channels.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
@@ -171,7 +171,7 @@ class _OscColorControlState extends State<OscColorControl>
     setState(() {
       _color = color;
     });
-    sendOsc([color.red, color.green, color.blue]);
+    sendOsc([color.r8, color.g8, color.b8]);
   }
 
   @override
