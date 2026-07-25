@@ -5,7 +5,14 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = scion
+//
+// This is the name Finder shows — in the DMG, in /Applications and in the Dock —
+// so it is the product name, not the repo shorthand. It also names the bundle
+// (SCION Controller.app) and the executable inside it, which is why
+// scripts/package_macos.sh has a separate, space-free stem for the download
+// filenames. Unquoted on purpose: xcconfig takes the value literally to end of
+// line, and quotes here would end up in the name.
+PRODUCT_NAME = SCION Controller
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.superchromat.scion
