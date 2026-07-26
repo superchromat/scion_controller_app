@@ -14,13 +14,16 @@ import 'neumorphic_slider.dart';
 // status-indicator colors don't fit the standard token palette.
 const TextStyle _greenText = TextStyle(
   color: Colors.green,
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
+  // Match the System Overview tiles: slightly heavier than regular, not bold.
+  fontWeight: FontWeight.w600,
 );
 const TextStyle _redText = TextStyle(
   color: Colors.red,
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
+  fontWeight: FontWeight.w600,
 );
 
 final TextStyle _overlayStyle = TextStyle(

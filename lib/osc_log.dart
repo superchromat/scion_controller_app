@@ -260,7 +260,7 @@ class OscLogTableState extends State<OscLogTable> {
               Checkbox(value: _filterStatuses.contains(s), onChanged: null),
               const SizedBox(width: 4),
               Text(label,
-                  style: const TextStyle(fontFamily: 'Courier', fontSize: 11)),
+                  style: const TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
             ],
           ),
         );
@@ -283,7 +283,7 @@ class OscLogTableState extends State<OscLogTable> {
               Checkbox(value: _filterDirections.contains(d), onChanged: null),
               const SizedBox(width: 4),
               Text(label,
-                  style: const TextStyle(fontFamily: 'Courier', fontSize: 11)),
+                  style: const TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
             ],
           ),
         );
@@ -301,7 +301,7 @@ class OscLogTableState extends State<OscLogTable> {
           tooltip: 'Filter by status',
           child: Row(children: const [
             Text('Status',
-                style: TextStyle(fontFamily: 'Courier', fontSize: 11)),
+                style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
             Icon(Icons.arrow_drop_down, size: 12)
           ]),
           itemBuilder: (c) => statusItems(),
@@ -316,7 +316,7 @@ class OscLogTableState extends State<OscLogTable> {
         PopupMenuButton<Direction>(
           tooltip: 'Filter by direction',
           child: Row(children: const [
-            Text('Dir', style: TextStyle(fontFamily: 'Courier', fontSize: 11)),
+            Text('Dir', style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
             Icon(Icons.arrow_drop_down, size: 12)
           ]),
           itemBuilder: (c) => dirItems(),
@@ -329,17 +329,17 @@ class OscLogTableState extends State<OscLogTable> {
       ),
       _buildCell(
           const Text('Time',
-              style: TextStyle(fontFamily: 'Courier', fontSize: 11)),
+              style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
           2,
           isHeader: true),
       _buildCell(
           const Text('Address',
-              style: TextStyle(fontFamily: 'Courier', fontSize: 11)),
+              style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
           4,
           isHeader: true),
       _buildCell(
           const Text('Args',
-              style: TextStyle(fontFamily: 'Courier', fontSize: 11)),
+              style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
           6,
           isHeader: true),
       _buildCell(const SizedBox(), 1, isHeader: true),
@@ -382,19 +382,19 @@ class OscLogTableState extends State<OscLogTable> {
           copyText: e.direction.toString().split('.').last.toUpperCase()),
       _buildCell(
           Text(timeText,
-              style: const TextStyle(fontFamily: 'Courier', fontSize: 11)),
+              style: const TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
           2,
           copyText: timeText),
       _buildCell(
           Text(e.address,
-              style: const TextStyle(fontFamily: 'Courier', fontSize: 11),
+              style: const TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11),
               overflow: TextOverflow.ellipsis),
           4,
           tooltip: e.address,
           copyText: e.address),
       _buildCell(
           Text(e.args,
-              style: const TextStyle(fontFamily: 'Courier', fontSize: 11),
+              style: const TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11),
               overflow: TextOverflow.ellipsis),
           6,
           tooltip: e.args,

@@ -9,13 +9,16 @@ import 'lighting_settings.dart';
 
 const TextStyle _systemTextStyle = TextStyle(
   color: Colors.green,
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
+  // Slightly heavier than regular for legibility — not full bold (w700).
+  fontWeight: FontWeight.w600,
 );
 const TextStyle _systemTextStyleRed = TextStyle(
   color: Colors.red,
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
+  fontWeight: FontWeight.w600,
 );
 
 // Overlay label style for tile indices and letters

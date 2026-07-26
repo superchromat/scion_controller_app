@@ -113,9 +113,17 @@ void main() {
       ]);
     }
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      const Size initialSize = Size(1200, 800);
-      setWindowMinSize(initialSize);
-      setWindowFrame(const Rect.fromLTWH(0, 0, 1200, 800));
+      setWindowTitle('SCION Controller');
+      // On Windows the initial size and minimum size are set natively in the
+      // runner (windows/runner/main.cpp + win32_window.cpp). The window_size
+      // plugin applies these logical values as physical pixels, so on displays
+      // scaled above 100% the window — and the u-derived type — render too
+      // small, and the minimum cannot be held. macOS/Linux size correctly here.
+      if (!Platform.isWindows) {
+        const Size initialSize = Size(1200, 800);
+        setWindowMinSize(initialSize);
+        setWindowFrame(const Rect.fromLTWH(0, 0, 1200, 800));
+      }
     }
 
     _installGlobalErrorHooks();

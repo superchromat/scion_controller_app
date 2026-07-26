@@ -7,6 +7,17 @@
 
 namespace {
 
+// A process-unique window message used to apply the initial DPI-scaled size
+// after ShowWindow. Posted (not sent) so it is handled once the message queue
+// has drained and the window's true per-monitor DPI has settled — GetDpiForWindow
+// is not reliably correct synchronously after ShowWindow. RegisterWindowMessage
+// yields an id in the collision-safe 0xC000–0xFFFF range.
+UINT ApplyInitialSizeMessage() {
+  static const UINT kMessage =
+      RegisterWindowMessageW(L"ScionApplyInitialWindowSize");
+  return kMessage;
+}
+
 /// Window attribute that enables dark mode window decorations.
 ///
 /// Redefined in case the developer's machine has a Windows SDK older than
@@ -144,13 +155,33 @@ bool Win32Window::Create(const std::wstring& title,
     return false;
   }
 
+  // Remember the requested logical size; Show() re-applies it once the true
+  // monitor DPI is known (the DPI queried here can be a stale 96 before the
+  // window is placed on a monitor, which leaves the window — and the u-derived
+  // type — too small on displays scaled above 100%).
+  requested_width_ = size.width;
+  requested_height_ = size.height;
+
   UpdateTheme(window);
 
   return OnCreate();
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  bool shown = ShowWindow(window_handle_, SW_SHOWNORMAL);
+
+  // Defer the initial DPI-scaled resize: GetDpiForWindow is not reliably correct
+  // synchronously after ShowWindow (it can return a stale 96 for a beat, and no
+  // WM_DPICHANGED follows to correct it), which leaves the window — and thus
+  // GridTokens.u, derived from the logical content width — too small on displays
+  // scaled above 100%. Posting a message runs the resize once the queue drains
+  // and the DPI has settled. Guarded so a later Show() never overrides a size
+  // the user has since changed.
+  if (!applied_initial_dpi_size_ && requested_width_ > 0) {
+    PostMessage(window_handle_, ApplyInitialSizeMessage(), 0, 0);
+  }
+
+  return shown;
 }
 
 // static
@@ -178,6 +209,20 @@ Win32Window::MessageHandler(HWND hwnd,
                             UINT const message,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
+  // Applied once, after Show() posts this message and the DPI has settled (see
+  // Show). A dynamic RegisterWindowMessage id cannot be a switch case, so it is
+  // checked before the switch.
+  if (message == ApplyInitialSizeMessage()) {
+    if (!applied_initial_dpi_size_ && requested_width_ > 0) {
+      applied_initial_dpi_size_ = true;
+      const double scale = GetDpiForWindow(hwnd) / 96.0;
+      SetWindowPos(hwnd, nullptr, 0, 0, Scale(requested_width_, scale),
+                   Scale(requested_height_, scale),
+                   SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    return 0;
+  }
+
   switch (message) {
     case WM_DESTROY:
       window_handle_ = nullptr;
@@ -186,6 +231,11 @@ Win32Window::MessageHandler(HWND hwnd,
         PostQuitMessage(0);
       }
       return 0;
+
+    // NOTE: WM_GETMINMAXINFO (minimum window size) is handled in
+    // FlutterWindow::MessageHandler, ahead of the Flutter plugins. The
+    // window_size plugin also handles that message and short-circuits this
+    // base handler, so enforcing it here has no effect.
 
     case WM_DPICHANGED: {
       auto newRectSize = reinterpret_cast<RECT*>(lparam);

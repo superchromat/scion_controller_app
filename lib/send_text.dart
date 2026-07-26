@@ -85,7 +85,7 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
       expands: widget.expands,
       textAlignVertical: widget.expands ? TextAlignVertical.top : null,
       style: t.textValue.copyWith(
-        fontFamily: 'Courier',
+        fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
       decoration: InputDecoration(
@@ -93,7 +93,7 @@ class _OscTextFieldState extends State<OscTextField> with OscAddressMixin {
         hintText: widget.hintText,
         hintStyle: t.textLabel.copyWith(
           fontWeight: FontWeight.w400,
-          fontFamily: 'Courier',
+          fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
         contentPadding: EdgeInsets.symmetric(vertical: t.sm, horizontal: t.sm),

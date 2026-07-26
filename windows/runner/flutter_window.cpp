@@ -51,6 +51,20 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Enforce the minimum window size here, ahead of Flutter's plugins. The
+  // window_size plugin also handles WM_GETMINMAXINFO and returns a result,
+  // which short-circuits this method below — so the Win32Window base handler
+  // never runs. Setting ptMinTrackSize here makes the minimum authoritative.
+  // Values are logical pixels scaled to the window's current DPI (matching the
+  // 1200x800 initial size set in main.cpp).
+  if (message == WM_GETMINMAXINFO) {
+    auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
+    const double scale = GetDpiForWindow(hwnd) / 96.0;
+    info->ptMinTrackSize.x = static_cast<LONG>(1200 * scale);
+    info->ptMinTrackSize.y = static_cast<LONG>(800 * scale);
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

@@ -589,7 +589,7 @@ class _RotaryKnobState extends State<RotaryKnob>
         text: text,
         style: TextStyle(
           fontSize: fontSize,
-          fontFamily: 'Courier',
+          fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
@@ -860,7 +860,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                       Text(
                         widget.oscPath!,
                         style: const TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
                           fontSize: 11,
                           fontWeight: FontWeight.w400,
                           color: Colors.white54,
@@ -928,7 +928,7 @@ class _RotaryKnobState extends State<RotaryKnob>
 
             final style = TextStyle(
               fontSize: valueFontSize,
-              fontFamily: 'Courier',
+              fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
               fontFeatures: const [FontFeature.tabularFigures()],
               fontWeight: FontWeight.w400,
               letterSpacing: 0,

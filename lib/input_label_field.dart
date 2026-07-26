@@ -9,12 +9,12 @@ import 'osc_registry.dart';
 /// to fit five rows in the tile (the format tiles only carry four).
 const TextStyle kInputRowStyle = TextStyle(
   color: Colors.green,
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
   height: 1.32,
 );
 const StrutStyle kInputRowStrut = StrutStyle(
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
   height: 1.32,
   forceStrutHeight: true,

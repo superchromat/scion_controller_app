@@ -3,7 +3,7 @@ description: A portable app for controlling the SCION device via OSC
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 0.9.1+29740952
+version: 0.9.1+29750999
 
 environment:
   sdk: ^3.6.0
@@ -18,7 +18,9 @@ dependencies:
   intl: ^0.20.2
   crypto: ^3.0.3
   osc:
-    path: /Users/joshreich/src/superchromat/osc/
+    # Relative so it resolves on every machine (osc is a sibling of this repo
+    # under superchromat/). An absolute path here breaks other checkouts.
+    path: ../osc
   material_symbols_icons: ^4.2815.0
   shared_preferences: ^2.0.18
   flutter_typeahead: ^4.1.1

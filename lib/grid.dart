@@ -1,5 +1,6 @@
 // grid.dart — Shared layout tokens, grid row widget, and debug overlay.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'font_metrics.dart';
@@ -11,11 +12,27 @@ const bool kShowGrid = false;
 // Grid tokens — all layout values derived from a single base unit `u`
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Extra UI scale applied on Windows only.
+///
+/// The whole layout derives every size from `u` (logical pixels). Logical sizes
+/// that read correctly on macOS/iOS render physically smaller on a typical
+/// Windows monitor (Flutter has no reliable way to know the monitor's true
+/// physical PPI, only its scaling factor), so the entire UI — text, spacing,
+/// knobs — is scaled up by this factor there. It keeps the design coherent
+/// because everything moves together. Tune to taste; 1.0 disables it.
+const double kWindowsUiScale = 1.0;
+
+double _uiScale() =>
+    (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+        ? kWindowsUiScale
+        : 1.0;
+
 /// All spacing, sizing, and typography values derived from viewport width.
 ///
 /// Compute once at the page level and provide via [GridProvider].
 class GridTokens {
-  GridTokens(double contentWidth) : u = (contentWidth * 0.01).clamp(6.0, 20.0);
+  GridTokens(double contentWidth)
+      : u = (contentWidth * 0.01 * _uiScale()).clamp(6.0, 20.0);
 
   /// Base unit — everything else derives from this.
   final double u;
