@@ -193,7 +193,7 @@ class _RotaryKnobState extends State<RotaryKnob>
 
   // Drag tracking
   double _startNormalized = 0;
-  double _startMouseX = 0;
+  Offset _dragStart = Offset.zero;
   double _currentValue = 0;
 
   // Snap state
@@ -602,7 +602,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     setState(() {
       _state = _KnobState.armed;
       _startNormalized = _normalizedFromValue(_currentValue);
-      _startMouseX = details.globalPosition.dx;
+      _dragStart = details.globalPosition;
       _lastValue = _currentValue;
     });
   }
@@ -610,10 +610,13 @@ class _RotaryKnobState extends State<RotaryKnob>
   void _onPanUpdate(DragUpdateDetails details) {
     if (_state == _KnobState.idle) return;
 
-    final dx = details.globalPosition.dx - _startMouseX;
+    final delta = details.globalPosition - _dragStart;
     const dragThreshold = 3.0;
 
-    if (_state == _KnobState.armed && dx.abs() > dragThreshold) {
+    // Distance, not dx: a straight-up drag has no horizontal component, and
+    // arming on dx alone would leave it dead until the pointer wandered
+    // sideways.
+    if (_state == _KnobState.armed && delta.distance > dragThreshold) {
       setState(() {
         _state = _KnobState.dragging;
       });
@@ -621,7 +624,14 @@ class _RotaryKnobState extends State<RotaryKnob>
     }
 
     if (_state == _KnobState.dragging) {
-      final dt = dx / widget.dragBarWidth;
+      // Right and UP both increase (dy grows downwards, hence the minus), the
+      // two directions a knob is reached for. They sum rather than one axis
+      // winning, so a diagonal drag does what it looks like it should instead
+      // of snapping to whichever axis happens to be ahead. Both use the same
+      // scale, so a given number of pixels moves the value by the same amount
+      // whichever way it is dragged.
+      final travel = delta.dx - delta.dy;
+      final dt = travel / widget.dragBarWidth;
       final tProposed = (_startNormalized + dt).clamp(0.0, 1.0);
       final vProposed = _valueFromNormalized(tProposed);
 
