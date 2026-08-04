@@ -22,7 +22,6 @@ import 'return_page.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
 import 'lazy_page_layout.dart';
-import 'resize_bench.dart'; // TEMPORARY
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -191,7 +190,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        home: benchWrap(const MyHomePage()), // TEMPORARY
+        home: const MyHomePage(),
       ),
     );
   }
