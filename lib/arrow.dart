@@ -10,16 +10,89 @@ class Arrow {
   Arrow(this.from, this.to, {this.arcUp = 0});
 }
 
+/// Which two tiles a cable joins, and where on each it lands — as FRACTIONS of
+/// the tile, never pixels.
+///
+/// This is routing, not geometry: it changes only when the device re-routes a
+/// send. [ArrowsPainter] turns it into pixels at paint time, so the cables
+/// follow the tiles through a window drag.
+class ArrowConnection {
+  final GlobalKey fromKey, toKey;
+  final Offset fromFrac, toFrac;
+  final double arcUp;
+
+  const ArrowConnection({
+    required this.fromKey,
+    required this.toKey,
+    required this.fromFrac,
+    required this.toFrac,
+    this.arcUp = 0,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      other is ArrowConnection &&
+      other.fromKey == fromKey &&
+      other.toKey == toKey &&
+      other.fromFrac == fromFrac &&
+      other.toFrac == toFrac &&
+      other.arcUp == arcUp;
+
+  @override
+  int get hashCode => Object.hash(fromKey, toKey, fromFrac, toFrac, arcUp);
+}
+
 class ArrowsPainter extends CustomPainter {
-  final List<Arrow> arrows;
-  ArrowsPainter(this.arrows);
+  /// Cables to draw, as tile-to-tile routing.
+  final List<ArrowConnection> connections;
+
+  /// The coordinate space the arrows are drawn in — the overlay's own Stack.
+  final GlobalKey spaceKey;
+
+  ArrowsPainter({required this.connections, required this.spaceKey});
 
   static const baseColor = Color(0xFF909090);
   static const highlightColor = Color(0xFFB8B8B8);
 
+  /// The endpoints this painter would draw right now. Test seam for [_resolve].
+  @visibleForTesting
+  List<Arrow> resolve() => _resolve();
+
+  /// Resolves routing into pixels against the CURRENT tile geometry.
+  ///
+  /// Done here, in paint, rather than in a post-frame callback that stores the
+  /// endpoints in state. Layout is complete by the time paint runs, so these
+  /// positions are always the ones being drawn this frame — during a window
+  /// drag the cables stay attached to the tiles instead of lagging behind them.
+  /// The previous approach recomputed on a 180 ms debounce after
+  /// didChangeMetrics, so throughout a drag the cables held stale positions.
+  List<Arrow> _resolve() {
+    final space = spaceKey.currentContext?.findRenderObject() as RenderBox?;
+    if (space == null || !space.hasSize) return const [];
+
+    final out = <Arrow>[];
+    for (final c in connections) {
+      final fromBox = c.fromKey.currentContext?.findRenderObject() as RenderBox?;
+      final toBox = c.toKey.currentContext?.findRenderObject() as RenderBox?;
+      if (fromBox == null || !fromBox.hasSize) continue;
+      if (toBox == null || !toBox.hasSize) continue;
+
+      final from = space.globalToLocal(fromBox.localToGlobal(Offset(
+        fromBox.size.width * c.fromFrac.dx,
+        fromBox.size.height * c.fromFrac.dy,
+      )));
+      final to = space.globalToLocal(toBox.localToGlobal(Offset(
+        toBox.size.width * c.toFrac.dx,
+        toBox.size.height * c.toFrac.dy,
+      )));
+      out.add(Arrow(from, to, arcUp: c.arcUp));
+    }
+    return out;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    for (final a in arrows) {
+    for (final a in _resolve()) {
       // compute arrow‐head
       final angle = (a.to - a.from).direction.sign * pi / 2;
       const headLen = 12.0, headAngle = pi / 6;
@@ -140,6 +213,9 @@ class ArrowsPainter extends CustomPainter {
     }
   }
 
+  // The endpoints are read from the render tree at paint time, so they can
+  // change without anything on this painter changing. Repainting is a handful
+  // of paths, and this only runs when the overlay is already being repainted.
   @override
-  bool shouldRepaint(covariant ArrowsPainter old) => old.arrows != arrows;
+  bool shouldRepaint(covariant ArrowsPainter old) => true;
 }

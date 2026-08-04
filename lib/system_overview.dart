@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'system_overview_tiles.dart';
@@ -40,47 +39,28 @@ class SystemOverview extends StatefulWidget {
   State<SystemOverview> createState() => _SystemOverviewState();
 }
 
-class _SystemOverviewState extends State<SystemOverview>
-    with WidgetsBindingObserver {
+class _SystemOverviewState extends State<SystemOverview> {
   final GlobalKey _stackKey = GlobalKey();
   final List<GlobalKey> _inputKeys = List.generate(4, (_) => GlobalKey());
   final List<GlobalKey> _sendKeys = List.generate(3, (_) => GlobalKey());
   final GlobalKey _returnKey = GlobalKey();
   final GlobalKey _outputKey = GlobalKey();
 
-  List<Arrow> _arrows = [];
-  Timer? _resizeArrowDebounce;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    // Listen for changes in mappings
+    // Re-route the cables when the device changes a send's input. Only the
+    // ROUTING lives in state — where each cable lands in pixels is resolved by
+    // ArrowsPainter at paint time, so no metrics observer is needed to keep the
+    // cables attached to the tiles while the window is being dragged.
     final registry = OscRegistry();
     for (var i = 1; i <= _sendKeys.length; i++) {
       final path = '/send/$i/input';
       registry.registerAddress(path);
       registry.registerListener(path, (_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+        if (mounted) setState(() {});
       });
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
-  }
-
-  @override
-  void dispose() {
-    _resizeArrowDebounce?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    _resizeArrowDebounce?.cancel();
-    _resizeArrowDebounce = Timer(const Duration(milliseconds: 180), () {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
-    });
   }
 
   Widget _sectionBox({
@@ -180,38 +160,18 @@ class _SystemOverviewState extends State<SystemOverview>
     );
   }
 
-  void _updateArrows() {
-    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return;
+  /// The cables to draw, as tile-to-tile routing. No pixels here — the tiles
+  /// flex to fill the card, so their geometry is only known at paint time.
+  List<ArrowConnection> _connections() {
     final registry = OscRegistry();
-    final List<Arrow> newArrows = [];
+    final out = <ArrowConnection>[];
 
-    // Anchors are FRACTIONS of each tile, not pixels: the tiles flex to fill
-    // the card, so their width is not known here.
-    void connect(
-        GlobalKey fromKey, GlobalKey toKey, Offset fromFrac, Offset toFrac,
-        {double arcUp = 0}) {
-      final fromBox = fromKey.currentContext?.findRenderObject() as RenderBox?;
-      final toBox = toKey.currentContext?.findRenderObject() as RenderBox?;
-      if (fromBox == null || toBox == null) return;
-      final fromOffset = Offset(
-          fromBox.size.width * fromFrac.dx, fromBox.size.height * fromFrac.dy);
-      final toOffset =
-          Offset(toBox.size.width * toFrac.dx, toBox.size.height * toFrac.dy);
-      final fromGlobal = fromBox.localToGlobal(fromOffset);
-      final toGlobal = toBox.localToGlobal(toOffset);
-      final fromLocal = box.globalToLocal(fromGlobal);
-      final toLocal = box.globalToLocal(toGlobal);
-      newArrows.add(Arrow(fromLocal, toLocal, arcUp: arcUp));
-    }
-
-    // dynamic input->send arrows based on registry values. When no device has
+    // Dynamic input->send cables from registry values. When no device has
     // supplied a routing (e.g. demo mode), default each send to the matching
     // input so the cables still show.
     for (var i = 0; i < _sendKeys.length; i++) {
       final sendIdx = i + 1;
-      final path = '/send/$sendIdx/input';
-      final param = registry.allParams[path];
+      final param = registry.allParams['/send/$sendIdx/input'];
       final int inIdx;
       if (param != null && param.currentValue.isNotEmpty) {
         final val = param.currentValue.first;
@@ -220,32 +180,31 @@ class _SystemOverviewState extends State<SystemOverview>
         inIdx = sendIdx; // demo / no device: identity routing.
       }
       if (inIdx >= 1 && inIdx <= _inputKeys.length) {
-        connect(
-          _inputKeys[inIdx - 1],
-          _sendKeys[i],
-          const Offset(0.5, 1),
-          const Offset(0.5, 0),
-        );
+        out.add(ArrowConnection(
+          fromKey: _inputKeys[inIdx - 1],
+          toKey: _sendKeys[i],
+          fromFrac: const Offset(0.5, 1),
+          toFrac: const Offset(0.5, 0),
+        ));
       } else if (inIdx == 5) {
-        connect(
-          _returnKey,
-          _sendKeys[i],
-          const Offset(0.5, 0),
-          const Offset(0.5, 0),
+        out.add(ArrowConnection(
+          fromKey: _returnKey,
+          toKey: _sendKeys[i],
+          fromFrac: const Offset(0.5, 0),
+          toFrac: const Offset(0.5, 0),
           arcUp: TileLayout.rowSpacing / 2,
-        );
+        ));
       }
     }
 
-    // static return->output arrow
-    connect(
-      _returnKey,
-      _outputKey,
-      const Offset(0.5, 0),
-      const Offset(0.5, 1),
-    );
-
-    setState(() => _arrows = newArrows);
+    // Static return->output cable.
+    out.add(ArrowConnection(
+      fromKey: _returnKey,
+      toKey: _outputKey,
+      fromFrac: const Offset(0.5, 0),
+      toFrac: const Offset(0.5, 1),
+    ));
+    return out;
   }
 
   @override
@@ -408,7 +367,12 @@ class _SystemOverviewState extends State<SystemOverview>
                     // or the (now-interactive) input tiles below it can't be tapped.
                     Positioned.fill(
                       child: IgnorePointer(
-                        child: CustomPaint(painter: ArrowsPainter(_arrows)),
+                        child: CustomPaint(
+                          painter: ArrowsPainter(
+                            connections: _connections(),
+                            spaceKey: _stackKey,
+                          ),
+                        ),
                       ),
                     ),
                   ],

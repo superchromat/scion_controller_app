@@ -21,6 +21,8 @@ import 'osc_log.dart';
 import 'return_page.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
+import 'lazy_page_layout.dart';
+import 'resize_bench.dart'; // TEMPORARY
 
 // A global messenger for surfacing errors unobtrusively during debugging.
 final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey =
@@ -189,7 +191,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const MyHomePage(),
+        home: benchWrap(const MyHomePage()), // TEMPORARY
       ),
     );
   }
@@ -378,6 +380,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     final allPages = pages;
+    final pageIndex = selectedIndex.clamp(0, allPages.length - 1);
     return LayoutBuilder(builder: (context, constraints) {
       final network = context.watch<Network>();
       final discovery = context.watch<ScionDiscovery>();
@@ -521,10 +524,22 @@ class _MyHomePageState extends State<MyHomePage> {
                           duration: const Duration(milliseconds: 220),
                           child: Container(
                             color: Theme.of(context).colorScheme.surface,
+                            // IndexedStack lays out EVERY child and paints one,
+                            // so all nine pages used to re-layout on each
+                            // resize step. LazyPageLayout freezes the inactive
+                            // ones at their last active constraints, which
+                            // makes their layout a no-op during a drag while
+                            // keeping them mounted (page state is preserved)
+                            // and correctly sized.
                             child: IndexedStack(
-                              index:
-                                  selectedIndex.clamp(0, allPages.length - 1),
-                              children: allPages,
+                              index: pageIndex,
+                              children: [
+                                for (int i = 0; i < allPages.length; i++)
+                                  LazyPageLayout(
+                                    active: i == pageIndex,
+                                    child: allPages[i],
+                                  ),
+                              ],
                             ),
                           ),
                         ),

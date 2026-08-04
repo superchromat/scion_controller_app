@@ -18,8 +18,6 @@ dependencies:
   intl: ^0.20.2
   crypto: ^3.0.3
   osc:
-    # Relative so it resolves on every machine (osc is a sibling of this repo
-    # under superchromat/). An absolute path here breaks other checkouts.
     path: ../osc
   material_symbols_icons: ^4.2815.0
   shared_preferences: ^2.0.18

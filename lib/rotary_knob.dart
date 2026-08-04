@@ -1272,7 +1272,12 @@ class _KnobPainter extends CustomPainter {
       _imageCache[key] = img;
       _cacheOrder.add(key);
       if (_cacheOrder.length > _cacheLimit) {
-        _imageCache.remove(_cacheOrder.removeAt(0));
+        // dispose, not just remove: these are GPU-backed images from
+        // toImageSync. Dropping the reference alone leaves the texture alive
+        // until finalization, so a burst of misses (a window drag used to
+        // produce one per knob per frame) piled up hundreds of live textures
+        // and paid for them in GC pauses.
+        _imageCache.remove(_cacheOrder.removeAt(0))?.dispose();
       }
     }
     canvas.drawImageRect(
