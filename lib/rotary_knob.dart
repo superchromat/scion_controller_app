@@ -680,6 +680,9 @@ class _RotaryKnobState extends State<RotaryKnob>
 
     _isOverlayPinned = true;
     _showDragBar();
+    // The field this node drives now lives only in the overlay just inserted,
+    // which builds next frame. Requesting focus now is still fine — the node
+    // holds the request and applies it when the field attaches.
     _textFocusNode.requestFocus();
     _textController.selection = TextSelection(
       baseOffset: 0,
@@ -806,7 +809,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                             ),
                           ),
                           _buildCenterValueEditor(_valueEditorFontSize(),
-                              interactive: true),
+                              interactive: _isOverlayPinned),
                         ],
                       ),
                     ),
@@ -905,6 +908,15 @@ class _RotaryKnobState extends State<RotaryKnob>
     return headingSize ?? base;
   }
 
+  /// The number at the centre of the knob.
+  ///
+  /// When [interactive] it is a real text field; otherwise it is plain text
+  /// that ignores the pointer, so a drag begun over the number turns the knob
+  /// like a drag begun anywhere else on it. Typing is offered only in the
+  /// pinned overlay — see [_onDoubleTap] — because a live field in the knob
+  /// face meant a press near the middle sometimes opened the editor instead of
+  /// starting a drag, and which one you got depended on where you happened to
+  /// grab it.
   Widget _buildCenterValueEditor(double valueFontSize,
       {bool interactive = true}) {
     final mainColor =
@@ -913,16 +925,19 @@ class _RotaryKnobState extends State<RotaryKnob>
     Color borderColor;
     if (_isEditing) {
       borderColor = Colors.yellow;
-    } else if (_isHovering) {
+    } else if (_isHovering && interactive) {
+      // Only advertise "you can type here" where you actually can.
       borderColor = Colors.grey[600]!;
     } else {
       borderColor = Colors.transparent;
     }
 
     return MouseRegion(
-      cursor: SystemMouseCursors.text,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+      // defer, so the knob's own cursor shows through: an I-beam over a
+      // number you cannot type into is a lie about what a click will do.
+      cursor: interactive ? SystemMouseCursors.text : MouseCursor.defer,
+      onEnter: interactive ? (_) => setState(() => _isHovering = true) : null,
+      onExit: interactive ? (_) => setState(() => _isHovering = false) : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
@@ -1111,8 +1126,9 @@ class _RotaryKnobState extends State<RotaryKnob>
                     dpr: MediaQuery.devicePixelRatioOf(context),
                   ),
                 ),
-                _buildCenterValueEditor(valueFontSize,
-                    interactive: !_isOverlayPinned),
+                // Never interactive: the knob face is all drag surface. The
+                // editor lives in the pinned overlay instead.
+                _buildCenterValueEditor(valueFontSize, interactive: false),
               ],
             ),
           ),

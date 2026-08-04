@@ -106,4 +106,35 @@ void main() {
     final downRight = await dragBy(tester, const Offset(_px, _px));
     expect(downRight, 0);
   });
+
+  testWidgets('the knob face has no editable field until double-tapped',
+      (tester) async {
+    await pumpKnob(tester);
+
+    // Nothing to type into: the whole face is drag surface, so a press near
+    // the number cannot open an editor instead of starting a drag.
+    expect(find.byType(TextField), findsNothing);
+
+    // A drag that starts dead centre — right on top of the number — still
+    // turns the knob.
+    expect(await dragBy(tester, const Offset(_px, 0)), greaterThan(0));
+  });
+
+  testWidgets('double-tapping raises an editor and focuses it', (tester) async {
+    await pumpKnob(tester);
+
+    final knob = find.byType(RotaryKnob);
+    await tester.tap(knob);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(knob);
+    // Two pumps: one to insert the overlay entry, one for it to build, which
+    // is also when the focus request lands.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final field = find.byType(TextField);
+    expect(field, findsOneWidget, reason: 'the overlay editor should be up');
+    expect(tester.widget<TextField>(field).focusNode?.hasFocus, isTrue,
+        reason: 'and ready to type into');
+  });
 }
