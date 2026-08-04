@@ -4,6 +4,7 @@ import 'labeled_card.dart';
 import 'system_overview_tiles.dart';
 import 'arrow.dart';
 import 'osc_registry.dart';
+import 'signal_colors.dart';
 
 /// Centralized layout constants
 class TileLayout {
@@ -316,7 +317,7 @@ class _SystemOverviewState extends State<SystemOverview> {
                             _sectionBox(
                               title: 'Sends',
                               labelPosition: LabelPosition.bottom,
-                              borderColor: const Color(0xFFF8BA00),
+                              borderColor: kSendSignalColor,
                               contentInset: contentPadding,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -343,7 +344,7 @@ class _SystemOverviewState extends State<SystemOverview> {
                             _sectionBox(
                               title: 'Out',
                               labelPosition: LabelPosition.top,
-                              borderColor: const Color(0xFF49A0F8),
+                              borderColor: kReturnSignalColor,
                               alignLabelRight: true,
                               hugRight: true,
                               child: sizedTile(const HDMIOutTile(), _outputKey,
@@ -353,7 +354,7 @@ class _SystemOverviewState extends State<SystemOverview> {
                             _sectionBox(
                               title: 'Return',
                               labelPosition: LabelPosition.bottom,
-                              borderColor: const Color(0xFF49A0F8),
+                              borderColor: kReturnSignalColor,
                               alignLabelRight: true,
                               hugRight: true,
                               child: sizedTile(const ReturnTile(), _returnKey,

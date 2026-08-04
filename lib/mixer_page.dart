@@ -6,6 +6,7 @@ import 'labeled_card.dart';
 import 'neumorphic_slider.dart';
 import 'panel.dart';
 import 'send_source_selector.dart';
+import 'signal_colors.dart';
 
 /// A/B crossfade group assignment.
 enum ABGroup { none, a, b }
@@ -15,10 +16,16 @@ class MixerPage extends StatelessWidget {
 
   static const List<int> sources = [1, 2, 3, 4];
 
-  static String sourceLabel(int sourceSend) {
-    if (sourceSend == 4) return 'Return';
-    return 'Send $sourceSend';
-  }
+  /// The last column is the capture return, not a send.
+  static bool isReturn(int sourceSend) => sourceSend == 4;
+
+  static String sourceLabel(int sourceSend) =>
+      isReturn(sourceSend) ? 'Return' : 'Send $sourceSend';
+
+  /// The signal-path colour a source column is tinted with, matching the
+  /// System Overview diagram.
+  static Color sourceColor(int sourceSend) =>
+      isReturn(sourceSend) ? kReturnSignalColor : kSendSignalColor;
 
   @override
   Widget build(BuildContext context) {
@@ -563,7 +570,12 @@ class _MixerCell extends StatelessWidget {
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8BA00).withValues(alpha: 0.07),
+                  // Tint by which signal the COLUMN carries, not by "is this a
+                  // cross-feed": every column was amber, so the Return column
+                  // read as a send. Matches the System Overview's section
+                  // colours.
+                  color:
+                      MixerPage.sourceColor(sourceSend).withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(6.0),
                 ),
               ),
