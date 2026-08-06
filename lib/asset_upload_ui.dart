@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'app_alert.dart';
 import 'asset_store.dart';
 import 'font_catalog.dart';
 import 'network.dart';
@@ -38,11 +39,9 @@ Future<void> _withProgress(BuildContext context, String title,
   }
   if (context.mounted) {
     Navigator.of(context, rootNavigator: true).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content:
-          Text(failed.isEmpty ? '$title — done' : '$title failed: $failed'),
-      backgroundColor: failed.isEmpty ? Colors.green[800] : Colors.red[800],
-    ));
+    showAppAlert(
+        context, failed.isEmpty ? '$title — done' : '$title failed: $failed',
+        tone: failed.isEmpty ? AppAlertTone.success : AppAlertTone.error);
   }
 }
 
@@ -128,10 +127,7 @@ Future<void> uploadFontFlow(BuildContext context) async {
         'to .ttf first (fontctl rejects these too).');
   }
   if (err != null) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Font upload: $err'),
-        backgroundColor: Colors.red[800],
-        duration: const Duration(seconds: 8)));
+    showAppAlert(context, 'Font upload: $err', tone: AppAlertTone.error);
     return;
   }
 

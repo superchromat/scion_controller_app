@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'app_alert.dart';
 import 'color_channels.dart';
 import 'asset_upload_ui.dart';
 import 'asset_store.dart';
@@ -369,18 +370,14 @@ class _SpritePanelState extends State<SpritePanel> {
     final idx = _palLoadedFor;
     if (p == null || idx == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(const SnackBar(
-        duration: Duration(seconds: 2), content: Text('Saving palette…')));
+    showAppAlertOn(messenger, 'Saving palette…');
     try {
       await SpriteStore(NorClient(context.read<Network>()))
           .savePalette(idx, Uint8List.fromList(p));
-      messenger?.showSnackBar(const SnackBar(
-          duration: Duration(milliseconds: 900),
-          content: Text('Palette saved')));
+      showAppAlertOn(messenger, 'Palette saved');
     } catch (_) {
-      messenger?.showSnackBar(const SnackBar(
-          duration: Duration(seconds: 2),
-          content: Text('Palette save failed')));
+      showAppAlertOn(messenger, 'Palette save failed',
+          tone: AppAlertTone.error);
     }
   }
 

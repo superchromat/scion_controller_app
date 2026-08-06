@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'app_alert.dart';
 import 'grid.dart';
 import 'osc_registry.dart';
 import 'lighting_settings.dart';
@@ -59,10 +60,9 @@ class LabeledCard extends StatelessWidget {
     return '/${[...segs, snapPath!].join('/')}';
   }
 
-  void _toast(BuildContext context, String m) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(m), duration: const Duration(seconds: 2)));
-  }
+  void _toast(BuildContext context, String m,
+          {AppAlertTone tone = AppAlertTone.success}) =>
+      showAppAlert(context, m, tone: tone);
 
   /// One request/reply against the preset endpoints.
   Future<List<Object?>?> _call(
@@ -112,8 +112,9 @@ class LabeledCard extends StatelessWidget {
     final r = await _call(context, '/assets/presets/save', [path, name]);
     if (!context.mounted) return;
     final n = (r != null && r.length >= 3) ? r[2] as int : -99;
-    _toast(
-        context, n >= 0 ? '$title: saved "$name"' : '$title: save failed ($n)');
+    _toast(context,
+        n >= 0 ? '$title: saved "$name"' : '$title: save failed ($n)',
+        tone: n >= 0 ? AppAlertTone.success : AppAlertTone.error);
   }
 
   /// List presets whose path matches this card, then offer a menu.
@@ -152,7 +153,8 @@ class LabeledCard extends StatelessWidget {
     if (!context.mounted) return;
     final msgs = (r != null && r.length >= 2) ? r[1] as int : -99;
     _toast(context,
-        msgs >= 0 ? '$title: loaded "$name"' : '$title: load failed ($msgs)');
+        msgs >= 0 ? '$title: loaded "$name"' : '$title: load failed ($msgs)',
+        tone: msgs >= 0 ? AppAlertTone.success : AppAlertTone.error);
   }
 
   void _resetPreset(BuildContext context) {

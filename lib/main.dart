@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
+import 'app_alert.dart';
 import 'disconnected_scrim.dart';
 import 'discovery.dart';
 import 'network.dart';
@@ -47,17 +48,8 @@ void _showGlobalErrorSnack(Object error, StackTrace stack) {
   final msg = error.toString().split('\n').first;
   // Schedule after a frame to avoid setState during build.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    final messenger = globalScaffoldMessengerKey.currentState;
-    if (messenger == null) return;
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Unhandled error: $msg'),
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.red[700],
-      ),
-    );
+    showAppAlertOn(globalScaffoldMessengerKey.currentState,
+        'Unhandled error: $msg', tone: AppAlertTone.error);
   });
 }
 

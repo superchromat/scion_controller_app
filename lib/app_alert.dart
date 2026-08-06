@@ -2,13 +2,27 @@ import 'package:flutter/material.dart';
 
 enum AppAlertTone { success, error }
 
+/// The app's one and only transient notification. Everything that used to
+/// reach for a bare `showSnackBar` goes through here so status messages read
+/// the same wherever they come from.
 void showAppAlert(
   BuildContext context,
   String message, {
   AppAlertTone tone = AppAlertTone.success,
+}) =>
+    showAppAlertOn(ScaffoldMessenger.maybeOf(context), message, tone: tone);
+
+/// Variant for callers holding a messenger rather than a context — either
+/// because they captured it before an async gap (their element may be gone by
+/// the time the work finishes) or because they have no context at all, like
+/// the global error hook in main.dart.
+void showAppAlertOn(
+  ScaffoldMessengerState? messenger,
+  String message, {
+  AppAlertTone tone = AppAlertTone.success,
 }) {
+  if (messenger == null) return;
   final isError = tone == AppAlertTone.error;
-  final messenger = ScaffoldMessenger.of(context);
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(
     SnackBar(

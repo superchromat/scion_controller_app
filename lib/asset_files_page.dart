@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
+import 'app_alert.dart';
 import 'app_button.dart';
 import 'asset_store.dart';
 import 'asset_upload_ui.dart';
@@ -235,10 +236,9 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     return r ?? false;
   }
 
-  void _toast(String m) {
+  void _toast(String m, {AppAlertTone tone = AppAlertTone.success}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(m), duration: const Duration(seconds: 3)));
+    showAppAlert(context, m, tone: tone);
   }
 
   Future<void> _rename(AssetFile f) async {
@@ -248,7 +248,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         if (fam == null || fam.isEmpty) return;
         final store = FontStore(_nor);
         final blob = await store.fetchBlob();
-        if (blob == null) return _toast('font store unreadable');
+        if (blob == null) return _toast('font store unreadable', tone: AppAlertTone.error);
         await store.push(store.renameFont(blob, f.index, fam, f.detail));
       case AssetType.sprite:
         final name = await _nameDialog('Rename sprite', initial: f.name);
@@ -265,7 +265,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         final r = await _nor.call('/assets/presets/rename', [f.name, name],
             timeout: const Duration(seconds: 20));
         if (r.length >= 3 && (r[2] as int) != 0) {
-          return _toast('rename failed (${r[2]})');
+          return _toast('rename failed (${r[2]})', tone: AppAlertTone.error);
         }
     }
     _refresh();
@@ -279,7 +279,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
       case AssetType.font:
         final store = FontStore(_nor);
         final blob = await store.fetchBlob();
-        if (blob == null) return _toast('font store unreadable');
+        if (blob == null) return _toast('font store unreadable', tone: AppAlertTone.error);
         await store.push(store.removeFont(blob, f.index));
       case AssetType.sprite:
         if (!mounted) return;
@@ -350,7 +350,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         timeout: const Duration(seconds: 60));
     if (r.length >= 3) {
       final n = r[2] as int;
-      _toast(n >= 0 ? 'saved "$name" ($n bytes)' : 'save failed ($n)');
+      _toast(n >= 0 ? 'saved "$name" ($n bytes)' : 'save failed ($n)',
+          tone: n >= 0 ? AppAlertTone.success : AppAlertTone.error);
     }
     _refresh();
   }
@@ -366,7 +367,8 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
         timeout: const Duration(seconds: 60));
     if (r.length >= 2) {
       final n = r[1] as int;
-      _toast(n >= 0 ? 'loaded "${f.name}" ($n messages)' : 'load failed ($n)');
+      _toast(n >= 0 ? 'loaded "${f.name}" ($n messages)' : 'load failed ($n)',
+          tone: n >= 0 ? AppAlertTone.success : AppAlertTone.error);
     }
   }
 
@@ -376,7 +378,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
     final data = pick?.files.single.bytes;
     if (data == null || data.length < _prstHdrSize) return;
     if (String.fromCharCodes(data.sublist(0, 4)) != 'PRST') {
-      return _toast('not a .spre file');
+      return _toast('not a .spre file', tone: AppAlertTone.error);
     }
     final name =
         String.fromCharCodes(data.sublist(8, 40).takeWhile((c) => c != 0));
@@ -397,7 +399,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
       if (!used && free < 0) free = i;
     }
     if (slot < 0) slot = free;
-    if (slot < 0) return _toast('no free preset slot');
+    if (slot < 0) return _toast('no free preset slot', tone: AppAlertTone.error);
     if (!await _confirm('Upload preset "$name"?')) return;
     await nor.call(
         '/assets/fonts/nor/erase', [_prstSlotSize(slot), _prstSlotOff(slot)]);
