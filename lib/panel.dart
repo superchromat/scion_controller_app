@@ -19,6 +19,11 @@ class Panel extends StatelessWidget {
   final int? rows;
   final String? title;
   final Widget? titleTrailing;
+
+  /// Overrides the panel title's style. Null uses [GridTokens.textPanelTitle].
+  /// The override flows into the cap-top inset and the height reference too,
+  /// so a larger title still seats correctly instead of drifting off its band.
+  final TextStyle? titleStyle;
   final Widget child;
   final Color? baseColor;
   final bool fillChild;
@@ -28,6 +33,7 @@ class Panel extends StatelessWidget {
     this.rows,
     this.title,
     this.titleTrailing,
+    this.titleStyle,
     required this.child,
     this.fillChild = false,
   }) : baseColor = null;
@@ -37,6 +43,7 @@ class Panel extends StatelessWidget {
     this.rows,
     this.title,
     this.titleTrailing,
+    this.titleStyle,
     required this.child,
     this.fillChild = false,
   }) : baseColor = const Color(0xFF252527);
@@ -44,6 +51,7 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
+    final titleText = titleStyle ?? t.textPanelTitle;
     // Horizontal padding goes on the BODY, not on the panel, so the title can
     // centre on the panel's true width. Centring it inside the content box
     // instead would throw it off by half the difference between the left and
@@ -53,7 +61,7 @@ class Panel extends StatelessWidget {
     final panelPad = EdgeInsets.only(
       top: title == null
           ? t.panelPadding.top
-          : t.panelTitleCapTop - CapCenteredText.capTopInset(t.textPanelTitle),
+          : t.panelTitleCapTop - CapCenteredText.capTopInset(titleText),
       bottom: t.panelPadding.bottom,
     );
     // The panel owns the content edge. Leaf controls inside must add no left
@@ -71,7 +79,7 @@ class Panel extends StatelessWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(' ', style: t.textPanelTitle),
+            child: Text(' ', style: titleText),
           ),
           SizedBox(height: t.xs),
           for (int i = 0; i < rows!; i++) ...[
@@ -107,7 +115,7 @@ class Panel extends StatelessWidget {
         children: [
           OpticalCenterText(
             title!.toUpperCase(),
-            style: t.textPanelTitle,
+            style: titleText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,

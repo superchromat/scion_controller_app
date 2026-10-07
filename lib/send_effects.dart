@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_button.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
 import 'osc_dropdown.dart';
@@ -81,29 +82,17 @@ class _ToggleState extends State<_Toggle> with OscAddressMixin {
           padding: EdgeInsets.only(left: t.xs, bottom: t.xs),
           child: Text(widget.label, style: t.textLabel),
         ),
-        GestureDetector(
-          onTap: () {
+        AppButton(
+          label: _on ? 'ON' : 'OFF',
+          sizeToLabels: const ['ON', 'OFF'],
+          dense: true,
+          selected: _on,
+          accentColor: kToggleAccent,
+          onPressed: () {
             final v = !_on;
             setState(() => _on = v);
             sendOsc(v ? 1 : 0);
           },
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
-            decoration: BoxDecoration(
-              color: _on ? const Color(0xFFFF6B6B) : const Color(0xFF2A2A2C),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                color: _on ? const Color(0xFFFF6B6B) : Colors.grey[600]!,
-              ),
-            ),
-            child: Text(
-              _on ? 'ON' : 'OFF',
-              style: t.textLabel.copyWith(
-                fontWeight: FontWeight.w700,
-                color: _on ? Colors.white : Colors.grey[300],
-              ),
-            ),
-          ),
         ),
       ],
     );

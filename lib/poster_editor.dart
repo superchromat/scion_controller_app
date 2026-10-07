@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'app_button.dart';
 import 'network.dart';
 import 'grid.dart';
 import 'drag_area.dart';
@@ -152,26 +153,18 @@ class _PosterEditorState extends State<PosterEditor> {
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
 
-    Widget chip(String label, VoidCallback onTap, {bool active = false}) {
-      return GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
-          decoration: BoxDecoration(
-            color: active ? const Color(0xFFFF6B6B) : const Color(0xFF2A2A2C),
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(
-              color: active ? const Color(0xFFFF6B6B) : Colors.grey[600]!,
-            ),
-          ),
-          child: Text(label,
-              style: t.textLabel.copyWith(
-                fontWeight: FontWeight.w700,
-                color: active ? Colors.white : Colors.grey[300],
-              )),
-        ),
-      );
-    }
+    // The presets are momentary actions, so they stay neutral; only the two
+    // real toggles take an accent.
+    Widget chip(String label, VoidCallback onTap,
+            {bool active = false, Color? accent, List<String>? sizeToLabels}) =>
+        AppButton(
+          label: label,
+          sizeToLabels: sizeToLabels,
+          dense: true,
+          selected: active,
+          accentColor: accent,
+          onPressed: onTap,
+        );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,7 +179,10 @@ class _PosterEditorState extends State<PosterEditor> {
               setState(() => _enabled = !_enabled);
               if (_enabled) _pushAll();
               _send('/send/1/color/poster/enable', [_enabled ? 1 : 0]);
-            }, active: _enabled),
+            },
+                active: _enabled,
+                accent: kToggleAccent,
+                sizeToLabels: const ['ON', 'OFF']),
             SizedBox(width: t.sm),
             chip('Gray 6', () => _preset(6, 0)),
             chip('Hue 8', () => _preset(8, 1)),
@@ -196,7 +192,10 @@ class _PosterEditorState extends State<PosterEditor> {
             chip(_blink ? 'Blink ON' : 'Blink', () {
               setState(() => _blink = !_blink);
               _send('/send/1/color/poster/blink', [_blink ? 1 : 0]);
-            }, active: _blink),
+            },
+                active: _blink,
+                accent: kToggleAccent,
+                sizeToLabels: const ['Blink', 'Blink ON']),
             // Zebra stripe geometry (applies to zebra-type bands)
             Text('Stripe W', style: t.textLabel),
             Slider(

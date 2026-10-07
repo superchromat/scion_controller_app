@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'app_alert.dart';
 import 'grid.dart';
 import 'device_diagnostics.dart';
 import 'firmware_update.dart';
@@ -323,10 +324,8 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
 
     final net = context.read<Network>();
     if (!net.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Connect to a device to apply network settings')),
-      );
+      showAppAlert(context, 'Connect to a device to apply network settings',
+          tone: AppAlertTone.error);
       return;
     }
 
@@ -364,7 +363,7 @@ class _NetworkSetupSectionState extends State<_NetworkSetupSection> {
     final msg = _dhcpEnabled
         ? 'Applied network settings (DHCP) - sent $sentCount/6 OSC'
         : 'Applied static network settings - sent $sentCount/6 OSC';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showAppAlert(context, msg);
   }
 
   String? _maybeError(String? Function() compute) {

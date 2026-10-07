@@ -7,16 +7,14 @@ import 'osc_registry.dart';
 import 'labeled_card.dart'; // for NeumorphicInset
 import 'lighting_settings.dart';
 
-const TextStyle _systemTextStyle = TextStyle(
-  color: Colors.green,
-  fontFamily: 'Courier',
-  fontSize: 11,
-);
-const TextStyle _systemTextStyleRed = TextStyle(
-  color: Colors.red,
-  fontFamily: 'Courier',
-  fontSize: 11,
-);
+// Format-row text for the overview tiles, DERIVED from kInputRowStyle rather
+// than restated. The input tiles on this same page use that constant directly;
+// restating it here — with an added fontWeight: w600 and no line height —
+// is what left the Send/Return/Out tiles visibly bolder and on different row
+// spacing than the inputs sitting beside them. Only the colour varies, and it
+// is animated per row.
+const TextStyle _systemTextStyle = kInputRowStyle;
+final TextStyle _systemTextStyleRed = kInputRowStyle.copyWith(color: Colors.red);
 
 // Overlay label style for tile indices and letters
 final TextStyle kOverlayTextStyle = TextStyle(
@@ -142,6 +140,11 @@ class _HdmiGlyphPainter extends CustomPainter {
 /// An [overlayLabel] (e.g. "1", "R", "O") is shown behind the content.
 class VideoFormatTile extends StatefulWidget {
   final String overlayLabel;
+
+  /// Optional fixed first row, matching the input tiles' editable label row.
+  /// Only the Out tile sets it; the Send and Return tiles deliberately keep
+  /// their four rows.
+  final String? name;
   final String? resolution;
   final String? framerate;
   final String bitDepth;
@@ -159,6 +162,7 @@ class VideoFormatTile extends StatefulWidget {
   const VideoFormatTile({
     super.key,
     required this.overlayLabel,
+    this.name,
     this.resolution,
     this.framerate,
     required this.bitDepth,
@@ -477,6 +481,13 @@ class _VideoFormatTileState extends State<VideoFormatTile>
     }
   }
 
+  // Same fixed-height slot as _InputTileInner uses, so a row here lands on the
+  // same baseline as the equivalent row in an input tile beside it.
+  Widget _slot(Widget child) => SizedBox(
+        height: kInputRowSlot,
+        child: Align(alignment: Alignment.centerLeft, child: child),
+      );
+
   @override
   Widget build(BuildContext context) {
     final iconConnected = widget.iconConnectedPath != null
@@ -519,37 +530,47 @@ class _VideoFormatTileState extends State<VideoFormatTile>
             ),
             if (_connected)
               Padding(
-                padding: EdgeInsets.all(TileLayout.sectionBoxPadding),
+                // Horizontal only, matching _InputTileInner: five slots of
+                // kInputRowSlot need 85px and the tile's inner height is 92,
+                // so the symmetric inset this used to carry left no room for
+                // the name row.
+                padding: const EdgeInsets.symmetric(
+                    horizontal: TileLayout.sectionBoxPadding),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (widget.name != null) StaticNameRow(widget.name!),
                     if (widget.resolution != null)
-                      AnimatedBuilder(
+                      _slot(AnimatedBuilder(
                         animation: _resColor,
                         builder: (ctx, _) => Text(
                           _res,
                           style:
                               _systemTextStyle.copyWith(color: _resColor.value),
+                          strutStyle: kInputRowStrut,
                         ),
-                      ),
+                      )),
                     if (widget.framerate != null)
-                      AnimatedBuilder(
+                      _slot(AnimatedBuilder(
                         animation: _fpsColor,
                         builder: (ctx, _) => Text(
                           '${_fps.toStringAsFixed(2)}${widget.interlaced != null ? (_interlaced ? 'i' : 'p') : ''}',
                           style:
                               _systemTextStyle.copyWith(color: _fpsColor.value),
+                          strutStyle: kInputRowStrut,
                         ),
-                      ),
-                    AnimatedBuilder(
+                      )),
+                    _slot(AnimatedBuilder(
                       animation: _bppColor,
                       builder: (ctx, _) => Text(
                         '$_bpp bit',
                         style:
                             _systemTextStyle.copyWith(color: _bppColor.value),
+                        strutStyle: kInputRowStrut,
                       ),
-                    ),
-                    Row(
+                    )),
+                    _slot(Row(
                       children: [
                         AnimatedBuilder(
                           animation: _csColor,
@@ -557,6 +578,7 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                             _cs,
                             style: _systemTextStyle.copyWith(
                                 color: _csColor.value),
+                            strutStyle: kInputRowStrut,
                           ),
                         ),
                         if (widget.chromaSubsampling != null) ...[
@@ -567,11 +589,12 @@ class _VideoFormatTileState extends State<VideoFormatTile>
                               _sub,
                               style: _systemTextStyle.copyWith(
                                   color: _subColor.value),
+                              strutStyle: kInputRowStrut,
                             ),
                           ),
                         ],
                       ],
-                    ),
+                    )),
                   ],
                 ),
               )
@@ -638,6 +661,7 @@ class HDMIOutTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return VideoFormatTile(
       overlayLabel: 'O',
+      name: 'Out',
       connectedPath: '/output/connected',
       resolution: '/output/resolution',
       framerate: '/output/framerate',

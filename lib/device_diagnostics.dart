@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'app_alert.dart';
 import 'grid.dart';
 import 'labeled_card.dart';
 import 'app_button.dart';
@@ -149,12 +150,7 @@ class _DeviceDiagnosticsSectionState extends State<DeviceDiagnosticsSection> {
     final plain = _stripAnsi(_rawText);
     await Clipboard.setData(ClipboardData(text: plain));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Diagnostics copied to clipboard'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    showAppAlert(context, 'Diagnostics copied to clipboard');
   }
 
   @override

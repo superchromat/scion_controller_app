@@ -44,11 +44,46 @@ SHA="$(git rev-parse --short HEAD)"
 DIRTY=""
 git diff --quiet 2>/dev/null || DIRTY=" (dirty tree)"
 
+# Portable in-place sed: BSD sed (macOS) requires an explicit backup suffix
+# argument to -i; GNU sed (Linux, Git Bash on Windows) does not.
+sedi() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
+
 # Rewrite just the version line, preserving everything else.
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' "s/^version: .*/version: ${VERSION}+${BUILD}/" pubspec.yaml
+sedi "s/^version: .*/version: ${VERSION}+${BUILD}/" pubspec.yaml
+
+# Keep the Windows executable's version-info metadata in sync with the
+# single source of truth in lib/about.dart. The .rc is a plain resource file
+# and cannot import Dart, so without this it silently drifts from kCompany /
+# kCopyrightYear (the drift about.dart's own comment warns against).
+ABOUT="lib/about.dart"
+RC="windows/runner/Runner.rc"
+COMPANY="$(sed -n "s/^const String kCompany = '\(.*\)';.*/\1/p" "$ABOUT")"
+YEAR="$(sed -n 's/^const int kCopyrightYear = \([0-9]*\);.*/\1/p' "$ABOUT")"
+if [[ -z "$COMPANY" || -z "$YEAR" ]]; then
+  echo "set_version: WARNING could not read kCompany/kCopyrightYear from ${ABOUT};" >&2
+  echo "             leaving ${RC} untouched." >&2
+elif [[ ! -f "$RC" ]]; then
+  echo "set_version: WARNING ${RC} not found; skipping Windows metadata sync." >&2
 else
-  sed -i "s/^version: .*/version: ${VERSION}+${BUILD}/" pubspec.yaml
+  # Copyright string mirrors about.dart's `_copyright` exactly.
+  COPYRIGHT="© ${YEAR} ${COMPANY}. All rights reserved."
+  # Rewrites the content between the first pair of quotes after the value name,
+  # leaving the trailing ` "\0"` intact. Escape sed-replacement metacharacters
+  # (& \ and the | delimiter) so arbitrary company names substitute literally.
+  rc_set() {
+    local name="$1" esc
+    esc="$(printf '%s' "$2" | sed -e 's/[&|\\]/\\&/g')"
+    sedi "s|\(VALUE \"${name}\", \"\)[^\"]*\"|\1${esc}\"|" "$RC"
+  }
+  rc_set "CompanyName"   "$COMPANY"
+  rc_set "LegalCopyright" "$COPYRIGHT"
+  echo "set_version: windows metadata — ${COMPANY}, © ${YEAR}"
 fi
 
 echo "set_version: ${VERSION}+${BUILD}"

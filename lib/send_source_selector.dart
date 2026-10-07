@@ -9,19 +9,15 @@ import 'input_label_field.dart';
 import 'grid.dart';
 import 'rotary_knob.dart';
 import 'neumorphic_slider.dart';
+import 'signal_colors.dart';
 
-// Styles are now derived from GridTokens where possible, but these
-// status-indicator colors don't fit the standard token palette.
-const TextStyle _greenText = TextStyle(
-  color: Colors.green,
-  fontFamily: 'Courier',
-  fontSize: 11,
-);
-const TextStyle _redText = TextStyle(
-  color: Colors.red,
-  fontFamily: 'Courier',
-  fontSize: 11,
-);
+// Status-indicator colours don't fit the standard token palette, but the line
+// metrics must: these are DERIVED from kInputRowStyle rather than restated, so
+// a tile's status text cannot drift away from the format rows beside it. They
+// previously restated the family and size and added fontWeight: w600, which is
+// how the Return tile ended up visibly bolder than inputs 1-3 and on different
+// line spacing.
+final TextStyle _redText = kInputRowStyle.copyWith(color: Colors.red);
 
 final TextStyle _overlayStyle = TextStyle(
   color: Colors.grey[800],
@@ -95,6 +91,7 @@ class _SelectorInnerState extends State<_SelectorInner> with OscAddressMixin {
                 inputIndex: i,
                 selected: _selected == i,
                 onTap: () => _select(i),
+                outlineWhenUnselected: true,
               ),
             ),
           (
@@ -102,6 +99,7 @@ class _SelectorInnerState extends State<_SelectorInner> with OscAddressMixin {
             child: _ReturnSourceTile(
               selected: _selected == 5,
               onTap: () => _select(5),
+              outlineWhenUnselected: true,
             ),
           ),
         ],
@@ -115,13 +113,14 @@ class _InputSourceTile extends StatefulWidget {
   final int inputIndex;
   final bool selected;
   final VoidCallback onTap;
-  final Color selectedBorderColor;
+
+  final bool outlineWhenUnselected;
 
   const _InputSourceTile({
     required this.inputIndex,
     required this.selected,
     required this.onTap,
-    this.selectedBorderColor = Colors.white,
+    this.outlineWhenUnselected = false,
   });
 
   @override
@@ -238,36 +237,23 @@ class _InputSourceTileState extends State<_InputSourceTile> {
       overlayLabel: widget.inputIndex.toString(),
       selected: widget.selected,
       onTap: widget.onTap,
-      selectedBorderColor: widget.selectedBorderColor,
+      // White, matching the "Inputs" section on the System Overview diagram.
+      borderColor: Colors.white,
+      outlineWhenUnselected: widget.outlineWhenUnselected,
       // Connected: top-aligned format rows. Disconnected: a tile-filling Center
       // (direct Stack child) so "Disconnected" sits dead-centre vertically and
       // horizontally, matching the System Overview tile.
       child: _connected
-          ? Padding(
-              padding: EdgeInsets.all(GridProvider.maybeOf(context)?.xs ?? 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InputLabelField(inputIndex: widget.inputIndex),
-                  Text(_res,
-                      style: kInputRowStyle,
-                      strutStyle: kInputRowStrut,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  Text('${_fps.toStringAsFixed(2)}${_interlaced ? 'i' : 'p'}',
-                      style: kInputRowStyle, strutStyle: kInputRowStrut),
-                  Text('$_bpp bit',
-                      style: kInputRowStyle, strutStyle: kInputRowStrut),
-                  Text('$_cs $_sub',
-                      style: kInputRowStyle,
-                      strutStyle: kInputRowStrut,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ),
+          ? _FormatInfo(
+              nameRow: InputLabelField(inputIndex: widget.inputIndex),
+              res: _res,
+              fps: _fps,
+              bpp: _bpp,
+              cs: _cs,
+              sub: _sub,
+              interlaced: _interlaced,
             )
-          : const Center(child: Text('Disconnected', style: _redText)),
+          : Center(child: Text('Disconnected', style: _redText)),
     );
   }
 }
@@ -276,12 +262,13 @@ class _InputSourceTileState extends State<_InputSourceTile> {
 class _ReturnSourceTile extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
-  final Color selectedBorderColor;
+
+  final bool outlineWhenUnselected;
 
   const _ReturnSourceTile({
     required this.selected,
     required this.onTap,
-    this.selectedBorderColor = Colors.white,
+    this.outlineWhenUnselected = false,
   });
 
   @override
@@ -361,8 +348,12 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
       overlayLabel: 'R',
       selected: widget.selected,
       onTap: widget.onTap,
-      selectedBorderColor: widget.selectedBorderColor,
+      // Blue, matching the "Return"/"Out" sections on the System Overview
+      // diagram and the Mixer's Return column.
+      borderColor: kReturnSignalColor,
+      outlineWhenUnselected: widget.outlineWhenUnselected,
       child: _FormatInfo(
+          nameRow: const StaticNameRow('Return'),
           res: _res,
           fps: _fps,
           bpp: 12,
@@ -373,8 +364,17 @@ class _ReturnSourceTileState extends State<_ReturnSourceTile> {
   }
 }
 
-/// Format info column used by both tile types.
+/// The five-row text column every tile shows: a name, then resolution, frame
+/// rate, bit depth and colourspace.
+///
+/// Genuinely shared by both tile types. It previously claimed to be, but only
+/// the Return used it while the input tiles built the same column inline —
+/// which is how the two drifted onto different font weights and how the Return
+/// came to be missing its name row altogether.
 class _FormatInfo extends StatelessWidget {
+  /// The tile's first row: [InputLabelField] for a renameable input, a
+  /// [StaticNameRow] for the Return.
+  final Widget nameRow;
   final String res;
   final double fps;
   final int bpp;
@@ -383,6 +383,7 @@ class _FormatInfo extends StatelessWidget {
   final bool interlaced;
 
   const _FormatInfo({
+    required this.nameRow,
     required this.res,
     required this.fps,
     required this.bpp,
@@ -400,13 +401,20 @@ class _FormatInfo extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          nameRow,
           Text(res,
-              style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: kInputRowStyle,
+              strutStyle: kInputRowStrut,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
           Text('${fps.toStringAsFixed(2)}${interlaced ? 'i' : 'p'}',
-              style: _greenText),
-          Text('$bpp bit', style: _greenText),
+              style: kInputRowStyle, strutStyle: kInputRowStrut),
+          Text('$bpp bit', style: kInputRowStyle, strutStyle: kInputRowStrut),
           Text('$cs $sub',
-              style: _greenText, maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: kInputRowStyle,
+              strutStyle: kInputRowStrut,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -415,18 +423,35 @@ class _FormatInfo extends StatelessWidget {
 
 /// Wraps tile content with selection border, overlay label, and tap handling.
 class _SelectableTile extends StatelessWidget {
+  /// Space the tile reserves for its border, in layout. Constant across both
+  /// states so selecting a tile never resizes its contents.
+  static const double _borderInset = 2;
+
+  /// Selection is marked by WIDTH alone, so the two must be far enough apart to
+  /// read at a glance — 2 against 1 did not.
+  static const double _selectedBorderWidth = 4;
+  static const double _unselectedBorderWidth = 1;
+
   final String overlayLabel;
   final bool selected;
   final VoidCallback onTap;
   final Widget child;
-  final Color selectedBorderColor;
+
+  /// The tile's identity colour — white for an input, blue for the return.
+  /// Used for the border in both states; only the width marks the selection.
+  final Color borderColor;
+
+  /// Outline the tile even when it is not selected, so the set of sources
+  /// reads as a group of tiles rather than as one tile and four gaps.
+  final bool outlineWhenUnselected;
 
   const _SelectableTile({
     required this.overlayLabel,
     required this.selected,
     required this.onTap,
     required this.child,
-    this.selectedBorderColor = Colors.white,
+    this.borderColor = Colors.white,
+    this.outlineWhenUnselected = false,
   });
 
   @override
@@ -435,43 +460,72 @@ class _SelectableTile extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: selected ? selectedBorderColor : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: NeumorphicInset(
-            baseColor: const Color(0xFF262628),
-            borderRadius: 4.0,
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
-              children: [
-                Positioned(
-                  right: 4,
-                  bottom: -8,
-                  child: ShaderMask(
-                    blendMode: BlendMode.srcIn,
-                    shaderCallback: (bounds) {
-                      return lighting
-                          .createPhongSurfaceGradient(
-                            baseColor: const Color(0xFF454548),
-                            intensity: 0.12,
-                          )
-                          .createShader(bounds);
-                    },
-                    child: Text(overlayLabel, style: _overlayStyle),
-                  ),
+      child: Stack(
+        // passthrough, NOT the default loose: the tile must keep filling its
+        // grid cell. Under StackFit.loose the Container below would size to its
+        // own child instead of to the cell, which collapsed the Return tile
+        // (its content, unlike an input's, has nothing making it fill) while
+        // the Positioned.fill border kept spanning the full cell.
+        fit: StackFit.passthrough,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              // Transparent — the visible border is the overlay below. This
+              // only reserves the inset, so the tile's contents sit in the same
+              // place whatever the border is doing.
+              border: Border.all(
+                color: Colors.transparent,
+                width: _borderInset,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: NeumorphicInset(
+                baseColor: const Color(0xFF262628),
+                borderRadius: 4.0,
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    Positioned(
+                      right: 4,
+                      bottom: -8,
+                      child: ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (bounds) {
+                          return lighting
+                              .createPhongSurfaceGradient(
+                                baseColor: const Color(0xFF454548),
+                                intensity: 0.12,
+                              )
+                              .createShader(bounds);
+                        },
+                        child: Text(overlayLabel, style: _overlayStyle),
+                      ),
+                    ),
+                    child,
+                  ],
                 ),
-                child,
-              ],
+              ),
             ),
           ),
-        ),
+          if (selected || outlineWhenUnselected)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: borderColor,
+                      width: selected
+                          ? _selectedBorderWidth
+                          : _unselectedBorderWidth,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -945,7 +999,6 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 1,
                   selected: _selected == 1,
                   onTap: () => _select(1),
-                  selectedBorderColor: Colors.white,
                 ),
               ),
               SizedBox(width: gap),
@@ -954,7 +1007,6 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 2,
                   selected: _selected == 2,
                   onTap: () => _select(2),
-                  selectedBorderColor: Colors.white,
                 ),
               ),
             ],
@@ -970,7 +1022,6 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                   inputIndex: 3,
                   selected: _selected == 3,
                   onTap: () => _select(3),
-                  selectedBorderColor: Colors.white,
                 ),
               ),
               SizedBox(width: gap),
@@ -978,7 +1029,6 @@ class _Selector2x2InnerState extends State<_Selector2x2Inner>
                 child: _ReturnSourceTile(
                   selected: _selected == 4,
                   onTap: () => _select(4),
-                  selectedBorderColor: Colors.white,
                 ),
               ),
             ],

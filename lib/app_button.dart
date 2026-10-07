@@ -15,6 +15,19 @@ import 'labeled_card.dart'; // NeumorphicContainer / NeumorphicInset
 /// look (used by the LUT channel + lock toggles). [accentColor] tints the
 /// active face and draws a hairline rim (e.g. per-channel colour, reset red);
 /// when omitted the button is neutral grey (no colour cast).
+/// Accent for "pick one of these" controls — region tabs, pixel scale, and any
+/// other one-of-a-set selector. Carried over from the flat chips these
+/// replaced, which paired it with a #4A6A8A fill.
+const Color kSelectAccent = Color(0xFF6A9ACA);
+
+/// Accent for an on/off toggle that gates an effect (glitch, posterize).
+const Color kToggleAccent = Color(0xFFFF6B6B);
+
+/// Accent for a bit/flag toggle within a set — reads as lit rather than as a
+/// mode change. Takes black foreground, which [AppButton] picks automatically
+/// from the accent's luminance.
+const Color kFlagAccent = Color(0xFFFFF176);
+
 class AppButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final String? label;
@@ -30,7 +43,20 @@ class AppButton extends StatefulWidget {
   /// Smaller footprint for dense toolbars (e.g. the LUT editor).
   final bool dense;
 
+  /// Every label this button can show, for a toggle whose text changes with
+  /// its state ('ON'/'OFF', 'Show'/'Hide'). The button reserves the width of
+  /// the widest one, so pressing it doesn't resize it and shove its
+  /// neighbours sideways. Include the current [label] in the list.
+  final List<String>? sizeToLabels;
+
   final String? tooltip;
+
+  /// Why this button cannot be used right now. Distinct from `onPressed: null`,
+  /// which means "there is nothing to do": a blocked button is one the user
+  /// could reasonably expect to work, held shut by state elsewhere (a region
+  /// already holding text, say). It greys out further, takes a forbidden
+  /// cursor, and shows this string as its tooltip so the reason is reachable.
+  final String? blockedReason;
 
   /// Fill the height offered by the parent instead of the standard button
   /// height. For a button that must align its bottom edge with a neighbouring
@@ -45,7 +71,9 @@ class AppButton extends StatefulWidget {
     this.selected = false,
     this.accentColor,
     this.dense = false,
+    this.sizeToLabels,
     this.tooltip,
+    this.blockedReason,
     this.fillHeight = false,
   }) : assert(label != null || icon != null,
             'AppButton needs a label or an icon');
@@ -80,8 +108,13 @@ class _AppButtonState extends State<AppButton> {
     if (!enabled) return _faceDisabled;
     if (widget.selected) {
       final accent = widget.accentColor;
+      // An active toggle has to read as lit from across the room, so the face
+      // goes most of the way to the accent. It stops short of a flat fill so
+      // the neumorphic shading still has a grey body to work against — at a
+      // full accent the inset shadows wash out and the button stops reading as
+      // sunk. This was 0.32, which left 'on' barely distinguishable from 'off'.
       return accent != null
-          ? Color.lerp(const Color(0xFF3A3A3C), accent, 0.32)!
+          ? Color.lerp(const Color(0xFF3A3A3C), accent, 0.85)!
           : const Color(0xFF45454B);
     }
     return _hover ? _faceHover : _faceRest;
@@ -89,7 +122,8 @@ class _AppButtonState extends State<AppButton> {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = widget.onPressed != null;
+    final blocked = widget.blockedReason != null;
+    final enabled = widget.onPressed != null && !blocked;
     final sunk = (_pressed || widget.selected) && enabled;
     final fg = _foreground(enabled);
     final base = _face(enabled);
@@ -112,20 +146,38 @@ class _AppButtonState extends State<AppButton> {
       color: fg,
     );
 
-    Widget inner;
-    if (widget.label != null && widget.icon != null) {
-      inner = Row(
-        mainAxisSize: MainAxisSize.min,
+    Widget innerFor(String? label) {
+      if (label != null && widget.icon != null) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, size: iconSize, color: fg),
+            SizedBox(width: t.xs),
+            CapCenteredText(label, style: textStyle),
+          ],
+        );
+      } else if (label != null) {
+        return CapCenteredText(label, style: textStyle);
+      }
+      return Icon(widget.icon, size: iconSize, color: fg);
+    }
+
+    Widget inner = innerFor(widget.label);
+
+    // Reserve the widest candidate label so a state-changing toggle keeps one
+    // width. The alternates are laid out at zero opacity purely to occupy the
+    // space — the same reservation trick Panel uses for its title. The Stack
+    // sizes to its largest child, and `inner` is one of them, so the current
+    // label is always covered even if the caller omits it from the list.
+    final alts = widget.sizeToLabels;
+    if (alts != null && alts.isNotEmpty) {
+      inner = Stack(
+        alignment: Alignment.center,
         children: [
-          Icon(widget.icon, size: iconSize, color: fg),
-          SizedBox(width: t.xs),
-          CapCenteredText(widget.label!, style: textStyle),
+          for (final l in alts) Opacity(opacity: 0, child: innerFor(l)),
+          inner,
         ],
       );
-    } else if (widget.label != null) {
-      inner = CapCenteredText(widget.label!, style: textStyle);
-    } else {
-      inner = Icon(widget.icon, size: iconSize, color: fg);
     }
 
     // A button given a tight width by its parent (e.g. stretched in a column)
@@ -176,7 +228,9 @@ class _AppButtonState extends State<AppButton> {
     }
 
     Widget button = MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: blocked
+          ? SystemMouseCursors.forbidden
+          : (enabled ? SystemMouseCursors.click : SystemMouseCursors.basic),
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() {
         _hover = false;
@@ -200,9 +254,12 @@ class _AppButtonState extends State<AppButton> {
       ),
     );
 
-    if (widget.tooltip != null) {
-      button = Tooltip(message: widget.tooltip!, child: button);
-    }
+    // Blocked reads as further-back than merely disabled — the face is already
+    // the disabled one, and this pushes the whole button toward the panel.
+    if (blocked) button = Opacity(opacity: 0.35, child: button);
+
+    final tip = widget.blockedReason ?? widget.tooltip;
+    if (tip != null) button = Tooltip(message: tip, child: button);
     return button;
   }
 }

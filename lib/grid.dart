@@ -1,5 +1,6 @@
 // grid.dart — Shared layout tokens, grid row widget, and debug overlay.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'font_metrics.dart';
@@ -11,11 +12,52 @@ const bool kShowGrid = false;
 // Grid tokens — all layout values derived from a single base unit `u`
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Extra UI scale applied on Windows only.
+///
+/// The whole layout derives every size from `u` (logical pixels). Logical sizes
+/// that read correctly on macOS/iOS render physically smaller on a typical
+/// Windows monitor (Flutter has no reliable way to know the monitor's true
+/// physical PPI, only its scaling factor), so the entire UI — text, spacing,
+/// knobs — is scaled up by this factor there. It keeps the design coherent
+/// because everything moves together. Tune to taste; 1.0 disables it.
+const double kWindowsUiScale = 1.0;
+
+double _uiScale() =>
+    (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+        ? kWindowsUiScale
+        : 1.0;
+
 /// All spacing, sizing, and typography values derived from viewport width.
 ///
 /// Compute once at the page level and provide via [GridProvider].
 class GridTokens {
-  GridTokens(double contentWidth) : u = (contentWidth * 0.01).clamp(6.0, 20.0);
+  GridTokens(double contentWidth)
+      : u = _snap((contentWidth * 0.01 * _uiScale()).clamp(6.0, 20.0));
+
+  /// Grid of values `u` is allowed to take.
+  ///
+  /// `u` must NOT track width continuously. Every font size, knob diameter and
+  /// padding in the app is a multiple of it, so a `u` that moves with each
+  /// pixel of a window drag mints, on every single frame:
+  ///   - a novel `fontSize` for every label, forcing full text re-shaping and a
+  ///     glyph-atlas miss (nothing rasterized last frame can be reused);
+  ///   - a novel knob diameter, which is part of the `_KnobPainter` bitmap
+  ///     cache key (see rotary_knob.dart) — so a page of knobs re-renders and
+  ///     re-uploads every knob from scratch, every frame;
+  ///   - a new `GridTokens`, and `GridProvider.updateShouldNotify` compares
+  ///     exactly `u`, so every dependent in every page rebuilds.
+  /// Snapping it was the first of three changes that took a measured window
+  /// resize on macOS from ~197 ms per step to ~40 ms (the others being
+  /// [LazyPageLayout] and skipping global-rect tracking mid-drag).
+  ///
+  /// Snapping to a 0.25 grid holds `u` within 0.125 of its ideal value — at the
+  /// smallest `u` that is a ~1% deviation in type size, which is not a
+  /// difference a reader can see — while turning a 600 px drag from ~300 full
+  /// invalidations into ~24. Nothing else changes: every token still derives
+  /// from this one `u`, so the layout stays internally consistent at any width.
+  static const double _uStep = 0.25;
+
+  static double _snap(double u) => (u / _uStep).roundToDouble() * _uStep;
 
   /// Base unit — everything else derives from this.
   final double u;

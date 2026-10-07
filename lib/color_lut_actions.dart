@@ -16,6 +16,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'app_alert.dart';
 import 'asset_store.dart';
 import 'lut_io.dart';
 import 'network.dart';
@@ -53,10 +54,9 @@ class _ColorLutActionsState extends State<ColorLutActions> {
     } catch (_) {}
   }
 
-  void _toast(String m) {
+  void _toast(String m, {AppAlertTone tone = AppAlertTone.success}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(m), duration: const Duration(seconds: 3)));
+    showAppAlert(context, m, tone: tone);
   }
 
   // ------------------------------------------------------------- export ----
@@ -124,7 +124,7 @@ class _ColorLutActionsState extends State<ColorLutActions> {
       await File(path).writeAsString(cube.format());
       _toast('exported $path');
     } catch (e) {
-      _toast('export failed: $e');
+      _toast('export failed: $e', tone: AppAlertTone.error);
     }
   }
 
@@ -149,7 +149,7 @@ class _ColorLutActionsState extends State<ColorLutActions> {
       _toast('LUT "$name" active — grade wheels are bypassed');
       _pollStatus();
     } catch (e) {
-      _toast('import failed: $e');
+      _toast('import failed: $e', tone: AppAlertTone.error);
     }
   }
 

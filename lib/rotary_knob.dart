@@ -193,7 +193,7 @@ class _RotaryKnobState extends State<RotaryKnob>
 
   // Drag tracking
   double _startNormalized = 0;
-  double _startMouseX = 0;
+  Offset _dragStart = Offset.zero;
   double _currentValue = 0;
 
   // Snap state
@@ -589,7 +589,7 @@ class _RotaryKnobState extends State<RotaryKnob>
         text: text,
         style: TextStyle(
           fontSize: fontSize,
-          fontFamily: 'Courier',
+          fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
@@ -602,7 +602,7 @@ class _RotaryKnobState extends State<RotaryKnob>
     setState(() {
       _state = _KnobState.armed;
       _startNormalized = _normalizedFromValue(_currentValue);
-      _startMouseX = details.globalPosition.dx;
+      _dragStart = details.globalPosition;
       _lastValue = _currentValue;
     });
   }
@@ -610,10 +610,13 @@ class _RotaryKnobState extends State<RotaryKnob>
   void _onPanUpdate(DragUpdateDetails details) {
     if (_state == _KnobState.idle) return;
 
-    final dx = details.globalPosition.dx - _startMouseX;
+    final delta = details.globalPosition - _dragStart;
     const dragThreshold = 3.0;
 
-    if (_state == _KnobState.armed && dx.abs() > dragThreshold) {
+    // Distance, not dx: a straight-up drag has no horizontal component, and
+    // arming on dx alone would leave it dead until the pointer wandered
+    // sideways.
+    if (_state == _KnobState.armed && delta.distance > dragThreshold) {
       setState(() {
         _state = _KnobState.dragging;
       });
@@ -621,7 +624,14 @@ class _RotaryKnobState extends State<RotaryKnob>
     }
 
     if (_state == _KnobState.dragging) {
-      final dt = dx / widget.dragBarWidth;
+      // Right and UP both increase (dy grows downwards, hence the minus), the
+      // two directions a knob is reached for. They sum rather than one axis
+      // winning, so a diagonal drag does what it looks like it should instead
+      // of snapping to whichever axis happens to be ahead. Both use the same
+      // scale, so a given number of pixels moves the value by the same amount
+      // whichever way it is dragged.
+      final travel = delta.dx - delta.dy;
+      final dt = travel / widget.dragBarWidth;
       final tProposed = (_startNormalized + dt).clamp(0.0, 1.0);
       final vProposed = _valueFromNormalized(tProposed);
 
@@ -670,6 +680,9 @@ class _RotaryKnobState extends State<RotaryKnob>
 
     _isOverlayPinned = true;
     _showDragBar();
+    // The field this node drives now lives only in the overlay just inserted,
+    // which builds next frame. Requesting focus now is still fine — the node
+    // holds the request and applies it when the field attaches.
     _textFocusNode.requestFocus();
     _textController.selection = TextSelection(
       baseOffset: 0,
@@ -796,7 +809,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                             ),
                           ),
                           _buildCenterValueEditor(_valueEditorFontSize(),
-                              interactive: true),
+                              interactive: _isOverlayPinned),
                         ],
                       ),
                     ),
@@ -860,7 +873,7 @@ class _RotaryKnobState extends State<RotaryKnob>
                       Text(
                         widget.oscPath!,
                         style: const TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
                           fontSize: 11,
                           fontWeight: FontWeight.w400,
                           color: Colors.white54,
@@ -895,6 +908,15 @@ class _RotaryKnobState extends State<RotaryKnob>
     return headingSize ?? base;
   }
 
+  /// The number at the centre of the knob.
+  ///
+  /// When [interactive] it is a real text field; otherwise it is plain text
+  /// that ignores the pointer, so a drag begun over the number turns the knob
+  /// like a drag begun anywhere else on it. Typing is offered only in the
+  /// pinned overlay — see [_onDoubleTap] — because a live field in the knob
+  /// face meant a press near the middle sometimes opened the editor instead of
+  /// starting a drag, and which one you got depended on where you happened to
+  /// grab it.
   Widget _buildCenterValueEditor(double valueFontSize,
       {bool interactive = true}) {
     final mainColor =
@@ -903,16 +925,19 @@ class _RotaryKnobState extends State<RotaryKnob>
     Color borderColor;
     if (_isEditing) {
       borderColor = Colors.yellow;
-    } else if (_isHovering) {
+    } else if (_isHovering && interactive) {
+      // Only advertise "you can type here" where you actually can.
       borderColor = Colors.grey[600]!;
     } else {
       borderColor = Colors.transparent;
     }
 
     return MouseRegion(
-      cursor: SystemMouseCursors.text,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+      // defer, so the knob's own cursor shows through: an I-beam over a
+      // number you cannot type into is a lie about what a click will do.
+      cursor: interactive ? SystemMouseCursors.text : MouseCursor.defer,
+      onEnter: interactive ? (_) => setState(() => _isHovering = true) : null,
+      onExit: interactive ? (_) => setState(() => _isHovering = false) : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
@@ -928,7 +953,7 @@ class _RotaryKnobState extends State<RotaryKnob>
 
             final style = TextStyle(
               fontSize: valueFontSize,
-              fontFamily: 'Courier',
+              fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
               fontFeatures: const [FontFeature.tabularFigures()],
               fontWeight: FontWeight.w400,
               letterSpacing: 0,
@@ -1101,8 +1126,9 @@ class _RotaryKnobState extends State<RotaryKnob>
                     dpr: MediaQuery.devicePixelRatioOf(context),
                   ),
                 ),
-                _buildCenterValueEditor(valueFontSize,
-                    interactive: !_isOverlayPinned),
+                // Never interactive: the knob face is all drag surface. The
+                // editor lives in the pinned overlay instead.
+                _buildCenterValueEditor(valueFontSize, interactive: false),
               ],
             ),
           ),
@@ -1272,7 +1298,12 @@ class _KnobPainter extends CustomPainter {
       _imageCache[key] = img;
       _cacheOrder.add(key);
       if (_cacheOrder.length > _cacheLimit) {
-        _imageCache.remove(_cacheOrder.removeAt(0));
+        // dispose, not just remove: these are GPU-backed images from
+        // toImageSync. Dropping the reference alone leaves the texture alive
+        // until finalization, so a burst of misses (a window drag used to
+        // produce one per knob per frame) piled up hundreds of live textures
+        // and paid for them in GC pauses.
+        _imageCache.remove(_cacheOrder.removeAt(0))?.dispose();
       }
     }
     canvas.drawImageRect(

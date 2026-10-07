@@ -9,12 +9,12 @@ import 'osc_registry.dart';
 /// to fit five rows in the tile (the format tiles only carry four).
 const TextStyle kInputRowStyle = TextStyle(
   color: Colors.green,
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
   height: 1.32,
 );
 const StrutStyle kInputRowStrut = StrutStyle(
-  fontFamily: 'Courier',
+  fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
   fontSize: 11,
   height: 1.32,
   forceStrutHeight: true,
@@ -23,6 +23,33 @@ const StrutStyle kInputRowStrut = StrutStyle(
 /// Fixed per-row slot height for the System Overview input tile, so all five
 /// rows (label + four format rows) are evenly spaced and fit the tile.
 const double kInputRowSlot = 17.0;
+
+/// The name row for a tile whose name is fixed rather than editable.
+///
+/// Mirrors [InputLabelField]'s row exactly — same slot height, style and strut
+/// — minus the editor and its pencil, so a tile that cannot be renamed still
+/// lines up row-for-row with the ones that can. Lives here beside the metrics
+/// it has to match.
+class StaticNameRow extends StatelessWidget {
+  final String name;
+
+  const StaticNameRow(this.name, {super.key});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: kInputRowSlot,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            name,
+            style: kInputRowStyle,
+            strutStyle: kInputRowStrut,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+}
 
 /// Editable, persisted human-readable name for an HDMI input, bound to
 /// `/input/<index>/label`.

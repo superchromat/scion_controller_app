@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'app_alert.dart';
 import 'color_channels.dart';
 import 'asset_upload_ui.dart';
 import 'asset_store.dart';
@@ -369,18 +370,14 @@ class _SpritePanelState extends State<SpritePanel> {
     final idx = _palLoadedFor;
     if (p == null || idx == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(const SnackBar(
-        duration: Duration(seconds: 2), content: Text('Saving palette…')));
+    showAppAlertOn(messenger, 'Saving palette…');
     try {
       await SpriteStore(NorClient(context.read<Network>()))
           .savePalette(idx, Uint8List.fromList(p));
-      messenger?.showSnackBar(const SnackBar(
-          duration: Duration(milliseconds: 900),
-          content: Text('Palette saved')));
+      showAppAlertOn(messenger, 'Palette saved');
     } catch (_) {
-      messenger?.showSnackBar(const SnackBar(
-          duration: Duration(seconds: 2),
-          content: Text('Palette save failed')));
+      showAppAlertOn(messenger, 'Palette save failed',
+          tone: AppAlertTone.error);
     }
   }
 
@@ -433,6 +430,7 @@ class _SpritePanelState extends State<SpritePanel> {
                   child: AppButton(
                     icon: Icons.gradient,
                     label: _copper == i ? 'Copper on' : 'Copper',
+                    sizeToLabels: const ['Copper', 'Copper on'],
                     selected: _copper == i,
                     accentColor: const Color(0xFF7A5CFF),
                     onPressed: () {
@@ -543,7 +541,7 @@ class _SpritePanelState extends State<SpritePanel> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             for (final s in const [1, 2, 4]) ...[
-              _scaleChip(t, s, has),
+              _scaleChip(s, has),
               if (s != 4) SizedBox(width: t.xs),
             ],
           ],
@@ -552,57 +550,24 @@ class _SpritePanelState extends State<SpritePanel> {
     );
   }
 
-  Widget _scaleChip(GridTokens t, int s, bool enabled) {
-    final selected = _scale == s;
-    return Opacity(
-      opacity: enabled ? 1.0 : 0.4,
-      child: GestureDetector(
-        onTap: enabled ? () => _setScale(s) : null,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF4A6A8A) : const Color(0xFF2A2A2C),
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(
-                color: selected ? const Color(0xFF6A9ACA) : Colors.grey[600]!),
-          ),
-          child: Text('$s×',
-              style: t.textLabel.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : Colors.grey[300])),
-        ),
-      ),
-    );
-  }
+  Widget _scaleChip(int s, bool enabled) => AppButton(
+        label: '$s×',
+        dense: true,
+        selected: _scale == s,
+        accentColor: kSelectAccent,
+        onPressed: enabled ? () => _setScale(s) : null,
+      );
 
-  Widget _regionChip(GridTokens t, int r) {
-    final selected = _region == r;
-    // A region holding text can't also hold a sprite: disable and grey it.
+  Widget _regionChip(int r) {
+    // A region holding text can't also hold a sprite.
     final blocked = context.watch<ShapeSelection>().textOccupied(r);
-    final chip = GestureDetector(
-      onTap: blocked ? null : () => _selectRegion(r),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF4A6A8A) : const Color(0xFF2A2A2C),
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(
-              color: selected ? const Color(0xFF6A9ACA) : Colors.grey[600]!),
-        ),
-        child: Text('$r',
-            style: t.textLabel.copyWith(
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : Colors.grey[300])),
-      ),
-    );
-    return Opacity(
-      opacity: blocked ? 0.35 : 1.0,
-      child: blocked
-          ? Tooltip(
-              message: 'Region $r has text',
-              child: MouseRegion(
-                  cursor: SystemMouseCursors.forbidden, child: chip))
-          : chip,
+    return AppButton(
+      label: '$r',
+      dense: true,
+      selected: _region == r,
+      accentColor: kSelectAccent,
+      blockedReason: blocked ? 'Region $r has text' : null,
+      onPressed: () => _selectRegion(r),
     );
   }
 
@@ -649,7 +614,7 @@ class _SpritePanelState extends State<SpritePanel> {
             Text('Region', style: t.textLabel),
             SizedBox(width: t.sm),
             for (final r in _regions) ...[
-              _regionChip(t, r),
+              _regionChip(r),
               SizedBox(width: t.xs),
             ],
           ],
@@ -683,16 +648,16 @@ class _SpritePanelState extends State<SpritePanel> {
               onPressed: _upload,
             ),
             SizedBox(width: t.sm),
-            // Fixed width so the label swap (Show <-> Hide) doesn't reflow the row.
-            SizedBox(
-              width: 104,
-              child: AppButton(
-                icon: _live ? Icons.visibility_off : Icons.visibility,
-                label: _live ? 'Hide' : 'Show',
-                selected: _live,
-                accentColor: _show,
-                onPressed: has ? _toggleLive : null,
-              ),
+            // sizeToLabels holds one width across the Show <-> Hide swap, so
+            // the row doesn't reflow. This replaced a hardcoded 104px box,
+            // which didn't track the grid unit.
+            AppButton(
+              icon: _live ? Icons.visibility_off : Icons.visibility,
+              label: _live ? 'Hide' : 'Show',
+              sizeToLabels: const ['Show', 'Hide'],
+              selected: _live,
+              accentColor: _show,
+              onPressed: has ? _toggleLive : null,
             ),
           ],
         )),

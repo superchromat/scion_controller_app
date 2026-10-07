@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'app_button.dart';
 import 'network.dart';
 import 'osc_widget_binding.dart';
 import 'osc_rotary_knob.dart';
@@ -667,31 +668,13 @@ class _BitSwapWidgetState extends State<_BitSwapWidget> with OscAddressMixin {
     sendOsc(newValue);
   }
 
-  Widget _bitToggle(String label, int bit) {
-    final t = GridProvider.of(context);
-    final isSet = (_value & (1 << bit)) != 0;
-    return GestureDetector(
-      onTap: () => _toggleBit(bit),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: t.sm, vertical: t.xs),
-        decoration: BoxDecoration(
-          color: isSet ? const Color(0xFFFFF176) : const Color(0xFF2A2A2C),
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(
-            color: isSet ? const Color(0xFFFFF176) : Colors.grey[600]!,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: t.textLabel.copyWith(
-            fontWeight: FontWeight.w700,
-            color: isSet ? Colors.black : Colors.grey[300],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _bitToggle(String label, int bit) => AppButton(
+        label: label,
+        dense: true,
+        selected: (_value & (1 << bit)) != 0,
+        accentColor: kFlagAccent,
+        onPressed: () => _toggleBit(bit),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -758,31 +741,17 @@ class _ToggleWidgetState extends State<_ToggleWidget> with OscAddressMixin {
             style: t.textLabel,
           ),
         ),
-        GestureDetector(
-          onTap: () {
+        AppButton(
+          label: _enabled ? 'ON' : 'OFF',
+          sizeToLabels: const ['ON', 'OFF'],
+          dense: true,
+          selected: _enabled,
+          accentColor: kToggleAccent,
+          onPressed: () {
             final newValue = !_enabled;
             setState(() => _enabled = newValue);
             sendOsc(newValue ? 1 : 0);
           },
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: t.md, vertical: t.xs),
-            decoration: BoxDecoration(
-              color:
-                  _enabled ? const Color(0xFFFF6B6B) : const Color(0xFF2A2A2C),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                color: _enabled ? const Color(0xFFFF6B6B) : Colors.grey[600]!,
-                width: 1,
-              ),
-            ),
-            child: Text(
-              _enabled ? 'ON' : 'OFF',
-              style: t.textLabel.copyWith(
-                fontWeight: FontWeight.w700,
-                color: _enabled ? Colors.white : Colors.grey[300],
-              ),
-            ),
-          ),
         ),
       ],
     );

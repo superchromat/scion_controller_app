@@ -1,10 +1,10 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(flutter_scion LANGUAGES CXX)
+project(SCION_Controller LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "flutter_scion")
+set(BINARY_NAME "SCION_Controller")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -86,6 +86,21 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Bundle the Visual C++ runtime DLLs (vcruntime140.dll, vcruntime140_1.dll,
+# msvcp140.dll) next to the executable. The app is compiled against the VC++
+# Redistributable; on a machine that has never had it installed the app would
+# otherwise fail to launch with a missing-DLL error. Shipping the DLLs in the
+# bundle makes the release folder self-contained.
+#
+# SKIP=TRUE stops CMake from also copying them to a default location — we place
+# them in the bundle dir ourselves. Release CRT only (CMAKE_INSTALL_DEBUG_
+# LIBRARIES stays off): the debug runtime is not redistributable.
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+include(InstallRequiredSystemLibraries)
+install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")

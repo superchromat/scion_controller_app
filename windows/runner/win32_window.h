@@ -92,6 +92,14 @@ class Win32Window {
 
   bool quit_on_close_ = false;
 
+  // The size requested in Create(), in logical pixels. Re-applied once after the
+  // window is first shown: the DPI APIs can report a stale 96 during Create
+  // (before the window is placed on a monitor), so the requested size is applied
+  // again in Show() at the true monitor scale.
+  unsigned int requested_width_ = 0;
+  unsigned int requested_height_ = 0;
+  bool applied_initial_dpi_size_ = false;
+
   // window handle for top level window.
   HWND window_handle_ = nullptr;
 

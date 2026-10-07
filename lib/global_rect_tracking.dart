@@ -11,10 +11,19 @@ class _GlobalRectResizeSignal extends ChangeNotifier
 
   Timer? _debounce;
 
+  /// True from the first metrics change until the window has been still for
+  /// the debounce interval — i.e. for the duration of a drag.
+  bool get resizing => _resizing;
+  bool _resizing = false;
+
   @override
   void didChangeMetrics() {
+    _resizing = true;
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 220), notifyListeners);
+    _debounce = Timer(const Duration(milliseconds: 220), () {
+      _resizing = false;
+      notifyListeners();
+    });
   }
 
   @override
@@ -68,6 +77,14 @@ mixin GlobalRectTracking<T extends StatefulWidget> on State<T> {
   }
 
   void _updateGlobalRectNow() {
+    // Mid-drag, every widget has moved, so this would setState on every tracked
+    // widget — and because it runs in a post-frame callback it dirties them
+    // AFTER the frame, forcing a second full build/layout/paint pass for each
+    // resize step. The rect it would store is stale the moment the next step
+    // arrives, so the work buys nothing until the drag stops. Skip it and let
+    // the settle listener do it once, when the value can actually be right.
+    if (_GlobalRectResizeSignal.instance.resizing) return;
+
     final renderBox =
         globalRectKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;

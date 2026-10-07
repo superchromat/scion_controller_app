@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:nsd/nsd.dart';
 import 'package:flutter/foundation.dart';
 
+import 'network.dart' show isDialableAddress;
+
 /// Holds a discovered host + port.
 class NetworkAddress {
   /// The address we actually connect to (a resolved IP when available).
@@ -60,8 +62,12 @@ class NSDClient {
             (s.host != null || (s.addresses?.isNotEmpty ?? false)))
         .map((s) {
       String host;
-      if (s.addresses != null && s.addresses!.isNotEmpty) {
-        final addrs = s.addresses!;
+      // Same guard as ScionDiscovery.hostForService / isDialableAddress: a
+      // responder can advertise 0.0.0.0 before its address is usable, and that
+      // must never be taken as a dialable host.
+      final addrs =
+          (s.addresses ?? const <InternetAddress>[]).where(isDialableAddress);
+      if (addrs.isNotEmpty) {
         final preferred =
             addrs.where((a) => a.type == InternetAddressType.IPv4);
         host = (preferred.isNotEmpty ? preferred.first : addrs.first).address;

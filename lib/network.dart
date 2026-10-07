@@ -9,6 +9,26 @@ import 'osc_registry.dart';
 import 'osc_log.dart';
 import 'osc_widget_binding.dart' show OscStatus, Direction;
 
+/// True when [a] can actually be used as a datagram destination.
+///
+/// The unspecified address — 0.0.0.0, or :: — is the one that bites. A device
+/// whose mDNS responder answers before its IPv4 address is usable publishes
+/// 0.0.0.0 as a genuine A record, so `InternetAddress.lookup` SUCCEEDS and
+/// hands back an address that can never answer; an is-the-result-empty check
+/// does not fire. Binding a socket to it works, the first send fails down in
+/// the OS ("Socket is not connected"), and the app goes on believing it holds
+/// a valid destination and retrying forever.
+///
+/// Observed 2026-08-10: a SCION that had just booted answered `scion.local`
+/// with 0.0.0.0 for a window, and every client that asked during it cached the
+/// null address long after the device was healthy.
+///
+/// [ScionDiscovery.hostForService] drops the same address on the discovery
+/// path. This covers the hostname path, which that guard falls back to — and
+/// which was therefore still exposed.
+bool isDialableAddress(InternetAddress a) =>
+    !a.rawAddress.every((byte) => byte == 0);
+
 /// Internal class to hold deferred sends
 class _Pending {
   final List<int> data;
@@ -117,6 +137,9 @@ class Network extends ChangeNotifier {
       InternetAddress dest;
       final parsed = InternetAddress.tryParse(normalizedHost);
       if (parsed != null) {
+        if (!isDialableAddress(parsed)) {
+          throw SocketException('$normalizedHost is not a usable destination');
+        }
         dest = parsed;
       } else {
         // Bound each lookup: a stale/renamed `<name>.local` otherwise hangs on
@@ -125,8 +148,13 @@ class Network extends ChangeNotifier {
         const lookupTimeout = Duration(seconds: 2);
         Future<List<InternetAddress>> lookup(InternetAddressType type) async {
           try {
-            return await InternetAddress.lookup(normalizedHost, type: type)
+            final found = await InternetAddress.lookup(normalizedHost,
+                    type: type)
                 .timeout(lookupTimeout);
+            // Drop unusable results HERE rather than after picking first: a
+            // name can resolve to a mix, and taking addrs.first blind is what
+            // let 0.0.0.0 through.
+            return found.where(isDialableAddress).toList();
           } catch (_) {
             return const [];
           }
@@ -137,7 +165,7 @@ class Network extends ChangeNotifier {
           addrs = await lookup(InternetAddressType.IPv6);
         }
         if (addrs.isEmpty) {
-          throw SocketException('No IP address found for $normalizedHost');
+          throw SocketException('No usable IP address for $normalizedHost');
         }
         dest = addrs.first;
       }

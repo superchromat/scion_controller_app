@@ -4,6 +4,15 @@ import 'package:flutter/material.dart';
 /// Axis for the slider track.
 enum SliderAxis { vertical, horizontal }
 
+/// Which end of the track the value fill grows from.
+///
+/// [start] is the low end (left / bottom) and is what a plain level slider
+/// wants. A crossfader passes whichever end it was last parked at, so the bar
+/// fills from the bus it was last fully mixed to — the way a hardware T-bar's
+/// LEDs do. Ignored by bipolar sliders, whose fill is anchored at the neutral
+/// point by definition.
+enum SliderFillOrigin { start, end }
+
 /// A neumorphic slider with a physical slot track and raised thumb.
 ///
 /// Matches the neumorphic slot + lit-indicator style of [RotaryKnob].
@@ -18,6 +27,9 @@ class NeumorphicSlider extends StatefulWidget {
   final String format;
   final double? defaultValue;
   final bool isBipolar;
+
+  /// Which end the coloured fill grows from. See [SliderFillOrigin].
+  final SliderFillOrigin fillOrigin;
   final SliderAxis axis;
 
   /// Track length (height for vertical, width for horizontal).
@@ -44,6 +56,7 @@ class NeumorphicSlider extends StatefulWidget {
     this.format = '%.1f',
     this.defaultValue,
     this.isBipolar = false,
+    this.fillOrigin = SliderFillOrigin.start,
     this.axis = SliderAxis.vertical,
     this.trackLength,
     this.trackWidth = 10,
@@ -106,7 +119,11 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
   void _onPointerDown(PointerDownEvent e) {
     if (_activePointer >= 0) return; // already tracking a pointer
     _activePointer = e.pointer;
-    _dragging = true;
+    // setState, not a bare assignment: _dragging drives the amber active
+    // colour, and nothing else here guarantees a rebuild. A tap that lands on
+    // the value the slider already holds changes nothing below, so without
+    // this the slider would not light up until the first move.
+    setState(() => _dragging = true);
     // Jump to tapped position
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
@@ -136,13 +153,16 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
   void _onPointerUp(PointerUpEvent e) {
     if (e.pointer != _activePointer) return;
     _activePointer = -1;
-    _dragging = false;
+    // Without setState the flag cleared but no rebuild was scheduled, so the
+    // slider stayed painted amber after release — every slider touched in a
+    // session ended up looking active at once.
+    setState(() => _dragging = false);
   }
 
   void _onPointerCancel(PointerCancelEvent e) {
     if (e.pointer != _activePointer) return;
     _activePointer = -1;
-    _dragging = false;
+    setState(() => _dragging = false);
   }
 
   void _onDoubleTap() {
@@ -199,6 +219,7 @@ class _NeumorphicSliderState extends State<NeumorphicSlider> {
       normalized: _normalized,
       neutralNormalized: widget.isBipolar ? _neutralNormalized : null,
       isBipolar: widget.isBipolar,
+      fillOrigin: widget.fillOrigin,
       isActive: _dragging,
       axis: widget.axis,
       trackLength: trackLength,
@@ -288,6 +309,7 @@ class _SliderPainter extends CustomPainter {
   final double normalized;
   final double? neutralNormalized;
   final bool isBipolar;
+  final SliderFillOrigin fillOrigin;
   final bool isActive;
   final SliderAxis axis;
   final double trackLength;
@@ -302,6 +324,7 @@ class _SliderPainter extends CustomPainter {
     required this.normalized,
     this.neutralNormalized,
     required this.isBipolar,
+    required this.fillOrigin,
     required this.isActive,
     required this.axis,
     required this.trackLength,
@@ -476,29 +499,51 @@ class _SliderPainter extends CustomPainter {
 
   void _drawValueFill(Canvas canvas, Size size, bool isVertical, double cx,
       double cy, double trackStart, double trackEnd, double halfSlot) {
-    final travel = trackLength - thumbLength;
     final baseColor = isActive ? _activeColor : _inactiveColor;
 
-    // Determine fill start/end in along-axis pixels
+    // The fill spans the WHOLE track, not the thumb's centre travel.
+    //
+    // It used to be `normalized * (trackLength - thumbLength) + thumbLength/2`,
+    // which is where the thumb's CENTRE sits — so at minimum a half-thumb of
+    // colour was left showing, and at maximum the fill stopped a half-thumb
+    // short of the end. On a crossfader both extremes then read as "not quite
+    // fully mixed". Mapping to the full track makes 0 mean empty and 1 mean
+    // full; the edge stays under the thumb at every value, since it can differ
+    // from the thumb centre by at most thumbLength/4.
+    double edgeFor(double v) => v * trackLength;
+
     double fillStart, fillEnd;
     if (isBipolar && neutralNormalized != null) {
       final nNorm = neutralNormalized!;
-      final lo = math.min(nNorm, normalized);
-      final hi = math.max(nNorm, normalized);
+      final lo = edgeFor(math.min(nNorm, normalized));
+      final hi = edgeFor(math.max(nNorm, normalized));
       if (isVertical) {
-        fillStart = trackLength - (hi * travel + thumbLength / 2);
-        fillEnd = trackLength - (lo * travel + thumbLength / 2);
+        fillStart = trackLength - hi;
+        fillEnd = trackLength - lo;
       } else {
-        fillStart = lo * travel + thumbLength / 2;
-        fillEnd = hi * travel + thumbLength / 2;
+        fillStart = lo;
+        fillEnd = hi;
       }
     } else {
+      final edge = edgeFor(normalized);
+      final fromEnd = fillOrigin == SliderFillOrigin.end;
       if (isVertical) {
-        fillStart = trackLength - (normalized * travel + thumbLength / 2);
-        fillEnd = trackLength;
+        // Vertical runs bottom-up: 'start' is the bottom of the track.
+        if (fromEnd) {
+          fillStart = 0;
+          fillEnd = trackLength - edge;
+        } else {
+          fillStart = trackLength - edge;
+          fillEnd = trackLength;
+        }
       } else {
-        fillStart = 0;
-        fillEnd = normalized * travel + thumbLength / 2;
+        if (fromEnd) {
+          fillStart = edge;
+          fillEnd = trackLength;
+        } else {
+          fillStart = 0;
+          fillEnd = edge;
+        }
       }
     }
 
@@ -801,5 +846,6 @@ class _SliderPainter extends CustomPainter {
       old.normalized != normalized ||
       old.neutralNormalized != neutralNormalized ||
       old.isActive != isActive ||
+      old.fillOrigin != fillOrigin ||
       old.isBipolar != isBipolar;
 }

@@ -100,12 +100,37 @@ class ScionDiscovery extends ChangeNotifier {
     _startRetry(); // immediate attempt + periodic while disconnected
   }
 
+  /// Bumped by every browse start and every stop, so a start that is still
+  /// awaiting `nsd.startDiscovery` can tell whether it has been superseded by
+  /// the time it gets its handle back.
+  ///
+  /// `_discovery` alone cannot express that: it is null for the whole time a
+  /// start is in flight, which made the null-checks below lie. Two bugs came
+  /// out of that. Entering demo mode during that window ran `_stopBrowse` with
+  /// nothing to stop, and the browse then installed itself *after* demo mode
+  /// began — left running, and, because `_discovery` was no longer null,
+  /// blocking the `_startBrowse` on the way out of demo mode. Separately, two
+  /// callers could both pass the null-check and both start a browse, the
+  /// second overwriting the first, orphaning a browse that nothing ever stops.
+  int _browseGeneration = 0;
+
   Future<void> _startBrowse() async {
     if (_discovery != null || _demoMode) return;
+    final generation = ++_browseGeneration;
     try {
-      _discovery = await nsd.startDiscovery(_serviceType,
+      final discovery = await nsd.startDiscovery(_serviceType,
           autoResolve: true, ipLookupType: nsd.IpLookupType.any);
-      _discovery!.addListener(_onServices);
+      // Anything could have happened while that was in flight: demo mode
+      // entered, a stop requested, another browse started. Adopting a browse
+      // that is already obsolete is what stranded discovery, so hand it back.
+      if (_demoMode || generation != _browseGeneration || _discovery != null) {
+        try {
+          await nsd.stopDiscovery(discovery);
+        } catch (_) {}
+        return;
+      }
+      _discovery = discovery;
+      discovery.addListener(_onServices);
       _onServices();
     } catch (e) {
       if (kDebugMode) debugPrint('mDNS discovery unavailable: $e');
@@ -113,6 +138,9 @@ class ScionDiscovery extends ChangeNotifier {
   }
 
   Future<void> _stopBrowse() async {
+    // Supersede any start still in flight, so it disposes of its handle rather
+    // than installing it behind our back.
+    _browseGeneration++;
     final d = _discovery;
     _discovery = null;
     if (d != null) {
@@ -146,14 +174,7 @@ class ScionDiscovery extends ChangeNotifier {
     for (final s in d.services) {
       final port = s.port;
       if (port == null) continue;
-      String? host;
-      final addrs = s.addresses;
-      if (addrs != null && addrs.isNotEmpty) {
-        final v4 = addrs.where((a) => a.type == InternetAddressType.IPv4);
-        host = (v4.isNotEmpty ? v4.first : addrs.first).address;
-      } else {
-        host = s.host;
-      }
+      String? host = hostForService(s.addresses, s.host);
       if (host == null || host.isEmpty) continue;
       while (host!.endsWith('.')) {
         host = host.substring(0, host.length - 1);
@@ -177,6 +198,34 @@ class ScionDiscovery extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Where to dial a discovered service: its best usable address, else its
+  /// mDNS hostname.
+  ///
+  /// Addresses that cannot be dialled are dropped rather than used. mDNS
+  /// announces a service as soon as it appears, which can be before its A
+  /// record is known — nsd reports that as the unspecified address, 0.0.0.0.
+  /// Taking that at face value did not merely waste one connect attempt. A
+  /// service at 0.0.0.0 still counts as a discovered device, so [_autoTarget]
+  /// locks on to it, [_tryReconnect] returns before it ever reaches
+  /// [_fallbackHost], and the retry loop stops re-browsing because the device
+  /// list is no longer empty. The app then hunts an address that can never
+  /// answer, indefinitely — which is exactly what unplugging the device,
+  /// entering demo mode, replugging and leaving demo mode produced.
+  ///
+  /// Falling back to the mDNS hostname is safe: it is [_fallbackHost] by
+  /// another name, and it resolves once the device is up.
+  @visibleForTesting
+  static String? hostForService(
+      List<InternetAddress>? addresses, String? hostname) {
+    final usable = (addresses ?? const <InternetAddress>[])
+        .where((a) =>
+            !a.isLoopback && a.address != '0.0.0.0' && a.address != '::')
+        .toList();
+    if (usable.isEmpty) return hostname;
+    final v4 = usable.where((a) => a.type == InternetAddressType.IPv4);
+    return (v4.isNotEmpty ? v4.first : usable.first).address;
+  }
+
   /// The device we can connect to without asking: a recent match, else the sole
   /// device found.
   NetworkAddress? _autoTarget() {
@@ -197,9 +246,12 @@ class ScionDiscovery extends ChangeNotifier {
     if (connected || _busy || _demoMode) return;
     final target = _autoTarget();
     if (target != null) {
-      await _connect(target.host, target.port,
-          label: target.name ?? target.host);
-      return;
+      if (await _connect(target.host, target.port,
+          label: target.name ?? target.host)) {
+        return;
+      }
+      // Fall through rather than return: a discovered endpoint we cannot
+      // actually reach must not shadow the well-known hostname indefinitely.
     }
     if (_devices.length > 1) return; // let the user pick
     // No discovered device yet. Fast-path: try the last endpoint. A stale
@@ -271,7 +323,11 @@ class ScionDiscovery extends ChangeNotifier {
   void rescan() {
     if (_demoMode) return;
     _restartTimeout();
-    _startBrowse();
+    // _restartBrowse, not _startBrowse: pressing "Rescan" while a browse was
+    // already up did nothing at all, because _startBrowse returns immediately
+    // when one exists. The point of the button is to throw away a browse that
+    // has not found the device and ask again.
+    _restartBrowse();
     _startRetry();
   }
 

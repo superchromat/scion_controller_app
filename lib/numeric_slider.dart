@@ -55,7 +55,7 @@ class NumericSliderState extends State<NumericSlider>
 
   final _textStyle = const TextStyle(
     fontSize: 11,
-    fontFamily: 'Courier',
+    fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'],
     color: Colors.white,
   );
 
