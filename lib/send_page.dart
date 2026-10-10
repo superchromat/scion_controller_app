@@ -7,6 +7,7 @@ import 'panel.dart';
 import 'shape.dart';
 import 'send_color.dart';
 import 'send_source_selector.dart';
+import 'send_preview.dart';
 import 'dac_parameters.dart';
 import 'send_texture.dart';
 import 'send_glitch.dart';
@@ -67,6 +68,24 @@ class _SendPageState extends State<SendPage> with OscAddressMixin {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              GridRow(cells: [
+                                (
+                                  span: 12,
+                                  child: LabeledCard(
+                                    title: 'Preview',
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 480),
+                                        child: SendPreview(
+                                            pageNumber: widget.pageNumber),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              ]),
+                              SizedBox(height: sectionGap),
                               GridRow(cells: [
                                 (
                                   span: 12,
