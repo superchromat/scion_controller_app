@@ -299,9 +299,16 @@ class OscLogTableState extends State<OscLogTable> {
       _buildCell(
         PopupMenuButton<OscStatus>(
           tooltip: 'Filter by status',
+          // Flexible + clip: these columns are only 1/15 of the table wide,
+          // and on a narrow table the label would otherwise overflow.
           child: Row(children: const [
-            Text('Status',
-                style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
+            Flexible(
+              child: Text('Status',
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
+            ),
             Icon(Icons.arrow_drop_down, size: 12)
           ]),
           itemBuilder: (c) => statusItems(),
@@ -315,8 +322,16 @@ class OscLogTableState extends State<OscLogTable> {
       _buildCell(
         PopupMenuButton<Direction>(
           tooltip: 'Filter by direction',
+          // Flexible + clip: these columns are only 1/15 of the table wide,
+          // and on a narrow table the label would otherwise overflow.
           child: Row(children: const [
-            Text('Dir', style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
+            Flexible(
+              child: Text('Dir',
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(fontFamily: 'Courier', fontFamilyFallback: const ['Courier New', 'monospace'], fontSize: 11)),
+            ),
             Icon(Icons.arrow_drop_down, size: 12)
           ]),
           itemBuilder: (c) => dirItems(),

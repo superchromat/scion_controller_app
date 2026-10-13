@@ -8,17 +8,26 @@ import 'device_diagnostics.dart';
 import 'firmware_update.dart';
 import 'front_panel_section.dart';
 import 'about.dart';
+import 'asset_files_page.dart';
 import 'labeled_card.dart';
 import 'file_selection.dart';
 import 'app_button.dart';
 import 'network.dart';
 import 'osc_checkbox.dart';
+import 'osc_log.dart';
 import 'osc_registry.dart';
 
-/// Setup page - contains firmware update
+/// Setup page, top to bottom: network setup, configuration, front panel and
+/// firmware; the device's files; the OSC log; diagnostics; about.
 class SetupPage extends StatelessWidget {
-  /// True when the Setup tab is the visible page; forwarded to the diagnostics
-  /// panel so it only polls the device while on-screen.
+  /// The OSC log's height on this page. The log is a scrolling list of its
+  /// own, so it needs a bounded height inside the page's scroll view.
+  static const double _oscLogHeight = 480;
+
+  /// True when the Setup tab is the visible page. Forwarded to the
+  /// diagnostics panel so it only polls the device while on-screen, to the
+  /// files card so it refreshes on opening, and to the OSC log so it only
+  /// redraws while it can be seen.
   final bool isActive;
   const SetupPage({super.key, this.isActive = true});
 
@@ -36,12 +45,6 @@ class SetupPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  GridRow(
-                    cells: const [
-                      (span: 12, child: AboutSection()),
-                    ],
-                  ),
-                  SizedBox(height: t.panelGap),
                   GridRow(
                     equalHeight: true,
                     cells: [
@@ -102,10 +105,47 @@ class SetupPage extends StatelessWidget {
                   SizedBox(height: t.panelGap),
                   GridRow(
                     cells: [
+                      (span: 12, child: AssetFilesSection(isActive: isActive)),
+                    ],
+                  ),
+                  SizedBox(height: t.panelGap),
+                  GridRow(
+                    cells: [
+                      (
+                        span: 12,
+                        child: LabeledCard(
+                          title: 'OSC Log',
+                          child: SizedBox(
+                            height: _oscLogHeight,
+                            child: Padding(
+                              padding: EdgeInsets.all(t.sm),
+                              // Keyed globally: the network layer logs every
+                              // message through oscLogKey, so this must be
+                              // the only OscLogTable and stay mounted.
+                              child: OscLogTable(
+                                key: oscLogKey,
+                                onDownload: (bytes) {},
+                                isActive: isActive,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: t.panelGap),
+                  GridRow(
+                    cells: [
                       (
                         span: 12,
                         child: DeviceDiagnosticsSection(isActive: isActive)
                       ),
+                    ],
+                  ),
+                  SizedBox(height: t.panelGap),
+                  GridRow(
+                    cells: const [
+                      (span: 12, child: AboutSection()),
                     ],
                   ),
                 ],
