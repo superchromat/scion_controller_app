@@ -15,11 +15,10 @@ import 'network_selection.dart';
 import 'setup_page.dart';
 import 'system_page.dart';
 import 'video_format_selection.dart';
-import 'asset_files_page.dart';
 import 'send_page.dart';
 import 'mixer_page.dart';
-import 'osc_log.dart';
 import 'return_page.dart';
+import 'signal_colors.dart';
 import 'lighting_settings.dart';
 import 'global_rect_tracking.dart';
 import 'lazy_page_layout.dart';
@@ -392,16 +391,8 @@ class _MyHomePageState extends State<MyHomePage> {
       const MixerPage(),
       // 5 → Return
       const ReturnPage(),
-      // 6 → Setup
+      // 6 → Setup (also holds Files and the OSC Log)
       SetupPage(isActive: selectedIndex == 6),
-      // 7 → Files
-      AssetFilesPage(isActive: selectedIndex == 7),
-      // 8 → OSC Log
-      OscLogTable(
-        key: oscLogKey,
-        onDownload: (bytes) {/* … */},
-        isActive: selectedIndex == 8,
-      ),
     ];
   }
 
@@ -415,25 +406,8 @@ class _MyHomePageState extends State<MyHomePage> {
       final showDisconnectedOverlay = kShowDisconnectedOverlay &&
           !network.isConnected &&
           !discovery.demoMode;
-      // Determine whether rail is extended
-      final bool isRailExtended = constraints.maxWidth >= 1000;
-      // Use the same constants passed to NavigationRail:
-      const double railCollapsedWidth = 84;
-      const double railExtendedWidth = 190;
-      const selectedRailLabelStyle = TextStyle(
-        fontFamily: 'DINPro',
-        fontSize: 17,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.10,
-        color: Color(0xFFF1F1F3),
-      );
-      const unselectedRailLabelStyle = TextStyle(
-        fontFamily: 'DINPro',
-        fontSize: 17,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.10,
-        color: Color(0xFFD2D2D4),
-      );
+      // The rail is always shown at full width; there is no collapsed mode.
+      const double railWidth = 190;
 
       final lighting = context.watch<LightingSettings>();
 
@@ -446,96 +420,38 @@ class _MyHomePageState extends State<MyHomePage> {
                   _NeumorphicNavRail(
                     lighting: lighting,
                     child: SizedBox(
-                      width: isRailExtended
-                          ? railExtendedWidth
-                          : railCollapsedWidth,
+                      width: railWidth,
                       child: Column(
                         children: [
                           Expanded(
                             child: SafeArea(
-                              child: NavigationRail(
-                                backgroundColor: Colors.transparent,
-                                minWidth: railCollapsedWidth,
-                                minExtendedWidth: railExtendedWidth,
-                                extended: isRailExtended,
-                                groupAlignment: -1.0,
-                                selectedLabelTextStyle: selectedRailLabelStyle,
-                                unselectedLabelTextStyle:
-                                    unselectedRailLabelStyle,
-                                leading: SizedBox(
-                                  width: isRailExtended
-                                      ? railExtendedWidth
-                                      : railCollapsedWidth,
-                                  child: Padding(
-                                    // Extra right inset so the Network Address box clears
-                                    // the 12px neumorphic lip on the rail's right edge.
-                                    padding:
-                                        const EdgeInsets.fromLTRB(9, 0, 16, 0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        SizedBox(height: 8),
-                                        NetworkConnectionSection(),
-                                        SizedBox(height: 16),
-                                        _FadedRailDivider(),
-                                      ],
-                                    ),
-                                  ),
+                              child: Padding(
+                                // Extra right inset so the Network Address box
+                                // and the row tabs clear the 12px neumorphic
+                                // lip on the rail's right edge.
+                                padding: const EdgeInsets.fromLTRB(9, 0, 16, 0),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // 16 = the 8 NavigationRail used to put
+                                    // above its leading widget, plus 8.
+                                    const SizedBox(height: 16),
+                                    const NetworkConnectionSection(),
+                                    const SizedBox(height: 16),
+                                    const _FadedRailDivider(),
+                                    const SizedBox(height: 8),
+                                    for (int i = 0;
+                                        i < _kRailEntries.length;
+                                        i++)
+                                      _RailItem(
+                                        entry: _kRailEntries[i],
+                                        selected: i == selectedIndex,
+                                        onTap: () =>
+                                            setState(() => selectedIndex = i),
+                                      ),
+                                  ],
                                 ),
-                                selectedIndex: selectedIndex,
-                                onDestinationSelected: (value) {
-                                  setState(() => selectedIndex = value);
-                                },
-                                destinations: [
-                                  const NavigationRailDestination(
-                                    icon: Icon(Icons.memory),
-                                    label: Text('System'),
-                                  ),
-                                  NavigationRailDestination(
-                                    icon: const Icon(Icons.output,
-                                        color: Color(0xFFC9B066)),
-                                    label: const Text('Send 1',
-                                        style: TextStyle(
-                                            color: Color(0xFFC9B066))),
-                                  ),
-                                  NavigationRailDestination(
-                                    icon: const Icon(Icons.output,
-                                        color: Color(0xFFC9B066)),
-                                    label: const Text('Send 2',
-                                        style: TextStyle(
-                                            color: Color(0xFFC9B066))),
-                                  ),
-                                  NavigationRailDestination(
-                                    icon: const Icon(Icons.output,
-                                        color: Color(0xFFC9B066)),
-                                    label: const Text('Send 3',
-                                        style: TextStyle(
-                                            color: Color(0xFFC9B066))),
-                                  ),
-                                  const NavigationRailDestination(
-                                    icon: Icon(Icons.tune),
-                                    label: Text('Mixer'),
-                                  ),
-                                  NavigationRailDestination(
-                                    icon: const Icon(Icons.input,
-                                        color: Color(0xFF83A6C9)),
-                                    label: const Text('Return',
-                                        style: TextStyle(
-                                            color: Color(0xFF83A6C9))),
-                                  ),
-                                  const NavigationRailDestination(
-                                    icon: Icon(Icons.settings),
-                                    label: Text('Setup'),
-                                  ),
-                                  const NavigationRailDestination(
-                                    icon: Icon(Icons.folder_open),
-                                    label: Text('Files'),
-                                  ),
-                                  const NavigationRailDestination(
-                                    icon: Icon(Icons.view_list),
-                                    label: Text('OSC Log'),
-                                  ),
-                                ],
                               ),
                             ),
                           ),
@@ -629,6 +545,226 @@ class _DemoModeBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A nav rail entry.
+///
+/// Entries with a [solid] colour are always drawn as a solid tab of it: the
+/// sends and the return in their signal colours, and the Mixer, which sits
+/// between them, in a mid grey. The rest are a faint grey tint until selected.
+class _RailEntry {
+  final String label;
+  final Color? solid;
+
+  const _RailEntry(this.label, [this.solid]);
+}
+
+/// The Mixer's solid tab: a mid grey, darker than the light grey of a
+/// selected System or Setup tab so the two never look alike.
+const Color _kMixerRailColor = Color(0xFF9A9AA0);
+
+/// The nav rail, top to bottom. Must stay in the same order as
+/// `_MyHomePageState.pages`: an entry's position is the page it opens.
+const List<_RailEntry> _kRailEntries = [
+  _RailEntry('System'),
+  _RailEntry('Send 1', kSendSignalColor),
+  _RailEntry('Send 2', kSendSignalColor),
+  _RailEntry('Send 3', kSendSignalColor),
+  _RailEntry('Mixer', _kMixerRailColor),
+  _RailEntry('Return', kReturnSignalColor),
+  _RailEntry('Setup'),
+];
+
+/// One full-width row of the nav rail.
+///
+/// Every row is a slanted tab, like the SEND and RETURN tabs on the device
+/// panel, labelled in capitals, and every row's text starts on the same line.
+/// As on the panel, the Send tabs round their top-right corner and the Return
+/// tab its bottom-left; the other rows round both.
+///
+/// Solid tabs (Send, Mixer, Return) carry their text in the rail colour, cut
+/// out of the tab like the panel lettering, and show selection with a white
+/// outline. The other tabs are a faint grey tint with grey text, and fill
+/// solid light grey when selected.
+class _RailItem extends StatefulWidget {
+  final _RailEntry entry;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RailItem({
+    required this.entry,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  State<_RailItem> createState() => _RailItemState();
+}
+
+class _RailItemState extends State<_RailItem> {
+  static const double _rowHeight = 44;
+  static const double _tabHeight = 30;
+
+  /// Where every row's text starts: clear of the tab's slanted left end.
+  static const double _textInset = _tabHeight * _RailTabPainter.slant + 8;
+
+  /// The rail's own base colour, for text on a solid tab.
+  static const Color _cutOutText = Color(0xFF404044);
+  static const Color _neutral = Color(0xFFD2D2D4);
+
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = widget.entry.label;
+    final solid = widget.entry.solid;
+    final selected = widget.selected;
+
+    final Color fill = solid ??
+        (selected ? _neutral : Colors.white.withValues(alpha: 0.10));
+    final Color textColor =
+        solid != null || selected ? _cutOutText : _neutral;
+
+    final bool isSend = label.startsWith('Send');
+    final bool isReturn = label == 'Return';
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: SizedBox(
+            height: _rowHeight,
+            child: Center(
+              child: CustomPaint(
+                painter: _RailTabPainter(
+                  color: fill,
+                  roundTopRight: !isReturn,
+                  roundBottomLeft: !isSend,
+                  outlined: selected && solid != null,
+                  hovered: _hovered && !selected,
+                ),
+                child: SizedBox(
+                  height: _tabHeight,
+                  width: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: _textInset),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        label.toUpperCase(),
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontFamily: 'DINPro',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.0,
+                          color: textColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Paints a nav rail tab: a parallelogram whose ends lean like a backslash,
+/// matching the slanted section edges on the device panel (about 20° from
+/// vertical), with its top-right and/or bottom-left corner rounded.
+class _RailTabPainter extends CustomPainter {
+  final Color color;
+  final bool roundTopRight;
+  final bool roundBottomLeft;
+
+  /// Draw a white border just inside the tab's edge (the selected state of a
+  /// solid tab).
+  final bool outlined;
+  final bool hovered;
+
+  const _RailTabPainter({
+    required this.color,
+    required this.roundTopRight,
+    required this.roundBottomLeft,
+    required this.outlined,
+    required this.hovered,
+  });
+
+  static const double slant = 0.36; // tan(20°)
+  static const double _radius = 10;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dx = size.height * slant;
+    final corners = [
+      const Offset(0, 0),
+      Offset(size.width - dx, 0),
+      Offset(size.width, size.height),
+      Offset(dx, size.height),
+    ];
+    final radii = [
+      0.0,
+      roundTopRight ? _radius : 0.0,
+      0.0,
+      roundBottomLeft ? _radius : 0.0,
+    ];
+
+    // Walk the corners; a rounded one is cut back [_radius] along both of its
+    // edges and joined with a curve through the corner point.
+    final path = Path();
+    for (var i = 0; i < corners.length; i++) {
+      final p = corners[i];
+      final r = radii[i];
+      Offset toward(Offset q) => p + (q - p) / (q - p).distance * r;
+      final start = r == 0 ? p : toward(corners[(i + 3) % 4]);
+      i == 0 ? path.moveTo(start.dx, start.dy) : path.lineTo(start.dx, start.dy);
+      if (r != 0) {
+        final end = toward(corners[(i + 1) % 4]);
+        path.quadraticBezierTo(p.dx, p.dy, end.dx, end.dy);
+      }
+    }
+    path.close();
+
+    canvas.drawPath(path, Paint()..color = color);
+    if (hovered) {
+      canvas.drawPath(
+          path, Paint()..color = Colors.white.withValues(alpha: 0.08));
+    }
+    if (outlined) {
+      // A 4px stroke clipped to the tab leaves 2px inside the edge, so the
+      // outline never spills past the tab or shifts its text.
+      canvas.save();
+      canvas.clipPath(path);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RailTabPainter old) =>
+      old.color != color ||
+      old.roundTopRight != roundTopRight ||
+      old.roundBottomLeft != roundBottomLeft ||
+      old.outlined != outlined ||
+      old.hovered != hovered;
 }
 
 class _FadedRailDivider extends StatelessWidget {

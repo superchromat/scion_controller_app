@@ -45,10 +45,19 @@ dev_dependencies:
 # The master is sc_app_icon.tiff in the repo root. app_icon.png below is
 # GENERATED from it — edit the TIFF, never the PNG.
 #
+# macOS is NOT one of the platforms flutter_launcher_icons generates here — see
+# `macos: generate: false` below. It cannot produce a correct macOS icon from a
+# full-bleed square, because macOS does not mask app icons: the rounded corners
+# and the margin have to be in the pixels. Pointing it at app_icon.png shipped a
+# hard-edged square that looked fine on macOS 26 (which auto-masks legacy icons)
+# and raw on every older macOS. macOS has its own step below; keep it.
+#
 # To change the icon:
 #   1. edit sc_app_icon.tiff               (the master; square, may have alpha)
 #   2. dart run tool/flatten_icon.dart     (-> opaque 1024² assets/icon/app_icon.png)
-#   3. dart run flutter_launcher_icons     (-> ios/android/web/windows/macos)
+#   3. dart run flutter_launcher_icons     (-> ios/android/web/windows)
+#   4. dart run tool/macos_icon_master.dart                     (-> 1024² + alpha)
+#      dart run tool/gen_app_icons.dart macos tool/app_icon_macos_master.png
 flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
   android: true
@@ -60,8 +69,10 @@ flutter_launcher_icons:
   # guide onto the artwork.
   remove_alpha_ios: false
   macos:
-    generate: true
-    image_path: "assets/icon/app_icon.png"
+    # Deliberately off. Turning this on overwrites the appiconset that
+    # tool/macos_icon_master.dart produces with a full-bleed square, and macOS
+    # ships that square verbatim. See the note above step 4.
+    generate: false
   web:
     generate: true
     image_path: "assets/icon/app_icon.png"

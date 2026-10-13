@@ -73,15 +73,18 @@ class RegionUsage {
   const RegionUsage(this.name, this.used, this.capacity);
 }
 
-class AssetFilesPage extends StatefulWidget {
-  const AssetFilesPage({super.key, this.isActive = true});
+/// Storage usage and the device's asset files, as one card. Shown on the
+/// Setup page; [isActive] is true while Setup is the visible page, and the
+/// list refreshes each time it becomes so.
+class AssetFilesSection extends StatefulWidget {
+  const AssetFilesSection({super.key, this.isActive = true});
   final bool isActive;
 
   @override
-  State<AssetFilesPage> createState() => _AssetFilesPageState();
+  State<AssetFilesSection> createState() => _AssetFilesSectionState();
 }
 
-class _AssetFilesPageState extends State<AssetFilesPage> {
+class _AssetFilesSectionState extends State<AssetFilesSection> {
   List<AssetFile> _files = [];
   List<RegionUsage> _usage = [];
   bool _loading = false;
@@ -102,7 +105,7 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
   }
 
   @override
-  void didUpdateWidget(AssetFilesPage old) {
+  void didUpdateWidget(AssetFilesSection old) {
     super.didUpdateWidget(old);
     if (widget.isActive && !old.isActive) _refresh();
   }
@@ -513,175 +516,166 @@ class _AssetFilesPageState extends State<AssetFilesPage> {
   @override
   Widget build(BuildContext context) {
     final t = GridProvider.of(context);
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(t.md),
+    return LabeledCard(
+      title: 'Files',
+      action: Wrap(
+        spacing: t.xs,
+        runSpacing: t.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          AppButton(
+            dense: true,
+            icon: Icons.text_fields,
+            label: 'Upload Font',
+            onPressed: () async {
+              await uploadFontFlow(context);
+              _refresh();
+            },
+          ),
+          AppButton(
+            dense: true,
+            icon: Icons.add_photo_alternate_outlined,
+            label: 'Upload Sprite',
+            onPressed: () async {
+              if (await uploadSpriteFlow(context)) _refresh();
+            },
+          ),
+          AppButton(
+            dense: true,
+            icon: Icons.upload_file,
+            label: 'Upload Preset',
+            onPressed: _uploadPreset,
+          ),
+          AppButton(
+            dense: true,
+            icon: Icons.save_outlined,
+            label: 'Save Preset',
+            onPressed: _saveSystemPreset,
+          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            AppButton(
+              dense: true,
+              icon: Icons.refresh,
+              label: 'Refresh',
+              onPressed: _refresh,
+            ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LabeledCard(
-            title: 'Storage',
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.sm, t.sm, t.sm),
-              child: _usageBars(context),
-            ),
+          // Storage usage sits above the file table it summarises.
+          Padding(
+            padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.sm, t.sm, 0),
+            child: _usageBars(context),
           ),
-          SizedBox(height: t.md),
-          LabeledCard(
-            title: 'Files',
-            action: Wrap(
-              spacing: t.xs,
-              runSpacing: t.xs,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AppButton(
-                  dense: true,
-                  icon: Icons.text_fields,
-                  label: 'Upload Font',
-                  onPressed: () async {
-                    await uploadFontFlow(context);
-                    _refresh();
-                  },
-                ),
-                AppButton(
-                  dense: true,
-                  icon: Icons.add_photo_alternate_outlined,
-                  label: 'Upload Sprite',
-                  onPressed: () async {
-                    if (await uploadSpriteFlow(context)) _refresh();
-                  },
-                ),
-                AppButton(
-                  dense: true,
-                  icon: Icons.upload_file,
-                  label: 'Upload Preset',
-                  onPressed: _uploadPreset,
-                ),
-                AppButton(
-                  dense: true,
-                  icon: Icons.save_outlined,
-                  label: 'Save Preset',
-                  onPressed: _saveSystemPreset,
-                ),
-                if (_loading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2)),
+          Padding(
+            padding: EdgeInsets.all(t.sm),
+            child: _error != null
+                ? Padding(
+                    padding: EdgeInsets.all(t.md),
+                    child: Text('load failed: $_error',
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
                   )
-                else
-                  AppButton(
-                    dense: true,
-                    icon: Icons.refresh,
-                    label: 'Refresh',
-                    onPressed: _refresh,
-                  ),
-              ],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(t.sm),
-              child: _error != null
-                  ? Padding(
-                      padding: EdgeInsets.all(t.md),
-                      child: Text('load failed: $_error',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.error)),
-                    )
-                  : NeumorphicInset(
-                      baseColor: const Color(0xFF232326),
-                      borderRadius: 8,
-                      depth: 3,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Theme(
-                            data: Theme.of(context).copyWith(
-                              dividerColor:
-                                  Colors.white.withValues(alpha: 0.025),
-                            ),
-                            child: DataTable(
-                              sortColumnIndex: _sortCol,
-                              sortAscending: _sortAsc,
-                              headingRowColor: WidgetStatePropertyAll(
-                                  Colors.white.withValues(alpha: 0.04)),
-                              headingTextStyle: t.textLabel.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white),
-                              dataTextStyle: t.textLabel,
-                              dividerThickness: 0.5,
-                              columnSpacing: t.lg,
-                              horizontalMargin: t.md,
-                              dataRowMinHeight: 34,
-                              dataRowMaxHeight: 42,
-                              columns: [
-                                _col('Name', 0),
-                                _col('Type', 1),
-                                _col('Size', 2),
-                                const DataColumn(label: Text('Details')),
-                                const DataColumn(label: Text('')),
-                              ],
-                              rows: [
-                                for (final f in _sorted)
-                                  DataRow(cells: [
-                                    DataCell(Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(f.type.icon, size: 16),
-                                          SizedBox(width: t.xs),
-                                          Text(f.name),
-                                        ])),
-                                    DataCell(Text(f.type.label)),
-                                    DataCell(Text(_fmtSize(f.size))),
-                                    DataCell(Text(f.detail)),
-                                    DataCell(Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // Icon-only in the cramped table cell — same
-                                          // neumorphic key style, just no room for labels.
-                                          if (f.type == AssetType.preset) ...[
-                                            AppButton(
-                                              dense: true,
-                                              icon: Icons.play_arrow,
-                                              onPressed: () => _loadPreset(f),
-                                            ),
-                                            SizedBox(width: t.xs),
-                                          ],
+                : NeumorphicInset(
+                    baseColor: const Color(0xFF232326),
+                    borderRadius: 8,
+                    depth: 3,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            dividerColor: Colors.white.withValues(alpha: 0.025),
+                          ),
+                          child: DataTable(
+                            sortColumnIndex: _sortCol,
+                            sortAscending: _sortAsc,
+                            headingRowColor: WidgetStatePropertyAll(
+                                Colors.white.withValues(alpha: 0.04)),
+                            headingTextStyle: t.textLabel.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white),
+                            dataTextStyle: t.textLabel,
+                            dividerThickness: 0.5,
+                            columnSpacing: t.lg,
+                            horizontalMargin: t.md,
+                            dataRowMinHeight: 34,
+                            dataRowMaxHeight: 42,
+                            columns: [
+                              _col('Name', 0),
+                              _col('Type', 1),
+                              _col('Size', 2),
+                              const DataColumn(label: Text('Details')),
+                              const DataColumn(label: Text('')),
+                            ],
+                            rows: [
+                              for (final f in _sorted)
+                                DataRow(cells: [
+                                  DataCell(Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(f.type.icon, size: 16),
+                                        SizedBox(width: t.xs),
+                                        Text(f.name),
+                                      ])),
+                                  DataCell(Text(f.type.label)),
+                                  DataCell(Text(_fmtSize(f.size))),
+                                  DataCell(Text(f.detail)),
+                                  DataCell(Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Icon-only in the cramped table cell — same
+                                        // neumorphic key style, just no room for labels.
+                                        if (f.type == AssetType.preset) ...[
                                           AppButton(
                                             dense: true,
-                                            icon:
-                                                Icons.drive_file_rename_outline,
-                                            onPressed: () => _rename(f),
+                                            icon: Icons.play_arrow,
+                                            onPressed: () => _loadPreset(f),
                                           ),
                                           SizedBox(width: t.xs),
-                                          AppButton(
-                                            dense: true,
-                                            icon: Icons.download,
-                                            onPressed: () => _download(f),
-                                          ),
-                                          SizedBox(width: t.xs),
-                                          AppButton(
-                                            dense: true,
-                                            icon: Icons.delete_outline,
-                                            accentColor:
-                                                const Color(0xFFD0605F),
-                                            onPressed: () => _delete(f),
-                                          ),
-                                        ])),
-                                  ]),
-                              ],
-                            ), // DataTable
-                          ), // Theme
-                        ), // SingleChildScrollView
-                      ), // ClipRRect
-                    ), // NeumorphicInset
-            ), // Padding
-          ), // LabeledCard
+                                        ],
+                                        AppButton(
+                                          dense: true,
+                                          icon: Icons.drive_file_rename_outline,
+                                          onPressed: () => _rename(f),
+                                        ),
+                                        SizedBox(width: t.xs),
+                                        AppButton(
+                                          dense: true,
+                                          icon: Icons.download,
+                                          onPressed: () => _download(f),
+                                        ),
+                                        SizedBox(width: t.xs),
+                                        AppButton(
+                                          dense: true,
+                                          icon: Icons.delete_outline,
+                                          accentColor: const Color(0xFFD0605F),
+                                          onPressed: () => _delete(f),
+                                        ),
+                                      ])),
+                                ]),
+                            ],
+                          ), // DataTable
+                        ), // Theme
+                      ), // SingleChildScrollView
+                    ), // ClipRRect
+                  ), // NeumorphicInset
+          ), // Padding
         ],
-      ),
-    );
+      ), // Column
+    ); // LabeledCard
   }
 }
