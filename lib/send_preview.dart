@@ -41,6 +41,7 @@ class _SendPreviewState extends State<SendPreview> {
   Uint8List? _rx; // frame being assembled
   int _rxTotal = 0;
   int _rxGot = 0;
+  final Set<int> _rxOffsets = {}; // chunks already counted (drops duplicates)
 
   bool _running = true;
   Timer? _watchdog;
@@ -109,21 +110,32 @@ class _SendPreviewState extends State<SendPreview> {
       _rx = Uint8List(total);
       _rxTotal = total;
       _rxGot = 0;
+      _rxOffsets.clear();
     }
+    if (!_rxOffsets.add(offset)) return;
     _rx!.setRange(offset, offset + chunk.length, chunk);
     _rxGot += chunk.length;
     if (_rxGot < _rxTotal) return;
+
+    // Byte count alone can't tell a whole frame from one with holes (chunks
+    // of two in-flight frames with the same size); require SOI..EOI.
+    final rx = _rx!;
+    _rx = null;
+    if (rx.length < 4 ||
+        rx[0] != 0xFF || rx[1] != 0xD8 ||
+        rx[rx.length - 2] != 0xFF || rx[rx.length - 1] != 0xD9) {
+      debugPrint('SendPreview: dropping malformed JPEG ($total bytes)');
+      return; // watchdog re-requests
+    }
 
     final now = DateTime.now();
     _frameTimes.add(now);
     _frameTimes.removeWhere((t) => now.difference(t) > const Duration(seconds: 2));
     _misses = 0;
     _watchdog?.cancel();
-    final img = _rx!;
-    _rx = null;
     if (mounted) {
       setState(() {
-        _image = img;
+        _image = rx;
         _fps = _frameTimes.length > 1
             ? (_frameTimes.length - 1) /
                 (now.difference(_frameTimes.first).inMicroseconds / 1e6)
@@ -167,6 +179,10 @@ class _SendPreviewState extends State<SendPreview> {
                     gaplessPlayback: true,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
+                    errorBuilder: (context, error, stack) => const Center(
+                      child: Text('Bad preview frame',
+                          style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    ),
                   ),
           ),
           Positioned(
