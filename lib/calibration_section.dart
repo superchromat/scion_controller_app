@@ -565,23 +565,23 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     final r = _report;
     final w = _worst;
     if (r == null || w == null) return 'No results yet.';
-    final model = r.chosen == 2 ? 'quadratic' : 'linear';
-    final fit = 'The $model model reproduces colours it was not fitted to within '
-        '${w.toStringAsFixed(1)} codes rms (of 4095) on the worst channel.';
+    final v = r.rms[r.chosen - 1][1];
+    final ch = const ['Y', 'Cb', 'Cr'][v.indexOf(w)];
+    String pct(double codes) => '${(codes / 4095 * 100).toStringAsFixed(codes < 41 ? 2 : 1)}%';
+    final off = '${pct(w)} (${w.toStringAsFixed(1)} of 4095 levels, worst on $ch)';
     switch (_outcome) {
       case _Outcome.saved:
-        return '${w <= 3 ? 'Excellent' : 'Good'}. $fit It is saved and in effect.';
+        return '${w <= 3 ? 'Excellent' : 'Good'}. After correction, colours come back within $off. Saved.';
       case _Outcome.saveFailed:
-        return 'Good. $fit It is in effect, but saving it to the device failed, so it '
-            'will be lost at the next reboot: run again.';
+        return 'Good. After correction, colours come back within $off, but saving to the '
+            'device failed, so it will be lost at the next reboot. Run again.';
       case _Outcome.rejected:
-        return 'Not kept: $fit A healthy loop stays within ${_acceptCodes.toStringAsFixed(0)}, '
-            'so the previous calibration is back in effect. Most often the loop cable is '
-            'loose or not plugged into Send 1\'s output, the front-panel connector needs '
-            'cleaning, or the unit has not warmed up. Fix that and run again.';
+        return 'Not kept. Colours came back off by $off; a healthy loop is within '
+            '${pct(_acceptCodes)}. The previous calibration is still in effect. Check the loop '
+            'cable and the front-panel connector, then run again.';
       case _Outcome.none:
-        return '$fit (Measured earlier this session; the calibration is '
-            '${_calStatus == 'saved' ? 'saved' : 'not saved'}.)';
+        return 'After correction, colours come back within $off. '
+            '${_calStatus == 'saved' ? 'Saved.' : 'Not saved yet.'}';
     }
   }
 
