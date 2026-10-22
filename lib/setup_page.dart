@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'app_alert.dart';
+import 'calibration_section.dart';
 import 'grid.dart';
 import 'device_diagnostics.dart';
 import 'firmware_update.dart';
@@ -18,7 +19,7 @@ import 'osc_log.dart';
 import 'osc_registry.dart';
 
 /// Setup page, top to bottom: network setup, configuration, front panel and
-/// firmware; the device's files; the OSC log; diagnostics; about.
+/// firmware; calibration; the device's files; the OSC log; diagnostics; about.
 class SetupPage extends StatelessWidget {
   /// The OSC log's height on this page. The log is a scrolling list of its
   /// own, so it needs a bounded height inside the page's scroll view.
@@ -100,6 +101,12 @@ class SetupPage extends StatelessWidget {
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                  SizedBox(height: t.panelGap),
+                  GridRow(
+                    cells: [
+                      (span: 12, child: CalibrationSection(isActive: isActive)),
                     ],
                   ),
                   SizedBox(height: t.panelGap),
