@@ -45,6 +45,9 @@ class CalibrationSection extends StatefulWidget {
 
 enum _Step { connect, prepare, measure, review }
 
+/// What happened to a finished run's result.
+enum _Outcome { none, saved, saveFailed, rejected }
+
 class _DacLevels {
   final List<double> gain; // Y Pb Pr
   final int syncCodes;
@@ -78,6 +81,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
   CalFitReport? _report;
   List<CalSample> _samples = const [];
   bool _loadingSamples = false;
+  _Outcome _outcome = _Outcome.none;
 
   NorClient get _rpc => NorClient(context.read<Network>());
 
@@ -231,6 +235,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       _step = _Step.measure;
       _samples = const [];
       _report = null;
+      _outcome = _Outcome.none;
       _done = 0;
       _total = 0;
     });
@@ -280,7 +285,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
         });
         if (_runState != 'running') break;
       }
-      if (_runState != 'done') throw 'the fit failed; the previous calibration is still in effect';
+      if (_runState != 'done') throw 'the measurements did not fit a calibration, so the previous one is still in effect. Check that the loop cable runs from Send 1\'s output to the analog input, then run again';
     } catch (e) {
       error = '$e';
     } finally {
@@ -317,27 +322,38 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       return;
     }
     await _loadResults();
+    await _decide();
     await _refreshAll();
+  }
+
+  /// Validation rms (colours the fit never saw), worst channel, in 12-bit codes.
+  double? get _worst {
+    final r = _report;
+    if (r == null) return null;
+    return r.rms[r.chosen - 1][1].reduce(math.max);
+  }
+
+  /// Keep a good run (saved, so it survives a reboot); put back the saved
+  /// calibration after a worse one. Good runs today measured 4.3-5.7 codes on
+  /// the worst channel (Cb) and broken ones hundreds; [_acceptCodes] sits just
+  /// above the good ones.
+  static const _acceptCodes = 6.0;
+  Future<void> _decide() async {
+    final w = _worst;
+    if (w == null) return;
+    _Outcome o;
+    if (w <= _acceptCodes) {
+      final r = await _ask('/calibration/save', const [], const Duration(seconds: 5), 1);
+      o = r != null ? _Outcome.saved : _Outcome.saveFailed;
+    } else {
+      await _ask('/calibration/load', const [], const Duration(seconds: 5), 1);
+      o = _Outcome.rejected;
+    }
+    if (mounted) setState(() => _outcome = o);
   }
 
   void _setPhase(String p) {
     if (mounted) setState(() => _phase = p);
-  }
-
-  Future<void> _save() async {
-    final r = await _ask('/calibration/save', const [], const Duration(seconds: 5));
-    if (!mounted) return;
-    showAppAlert(context, r != null ? 'Calibration saved' : 'Saving the calibration failed',
-        tone: r != null ? AppAlertTone.success : AppAlertTone.error);
-    await _refreshAll();
-  }
-
-  Future<void> _discard() async {
-    final r = await _ask('/calibration/load', const [], const Duration(seconds: 5));
-    if (!mounted) return;
-    showAppAlert(context, r != null ? 'Back to the saved calibration' : 'Reverting failed',
-        tone: r != null ? AppAlertTone.success : AppAlertTone.error);
-    await _refreshAll();
   }
 
   Future<void> _setEnabled(bool on) async {
@@ -562,23 +578,10 @@ class _CalibrationSectionState extends State<CalibrationSection> {
         step(
           _Step.review,
           4,
-          'Review and save',
+          'Result',
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(_verdict(), style: t.textBody),
             SizedBox(height: t.sm),
-            Row(children: [
-              AppButton(
-                label: 'Save calibration',
-                onPressed: _busy || _calStatus == 'saved' ? null : _save,
-              ),
-              SizedBox(width: t.sm),
-              AppButton(
-                label: 'Discard',
-                tooltip: 'Go back to the calibration saved on the device',
-                onPressed: _busy || _calStatus == 'saved' ? null : _discard,
-              ),
-            ]),
-            SizedBox(height: t.xs),
             AppButton(
               label: 'Run again',
               onPressed: _busy ? null : () => setState(() => _step = _Step.prepare),
@@ -589,23 +592,30 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     );
   }
 
-  /// Plain-language verdict on the validation error (colours the fit never saw).
+  /// Plain-language result: what the fit achieved on colours it never saw, and
+  /// what was done with it.
   String _verdict() {
     final r = _report;
-    if (r == null) return 'No results yet.';
-    final v = r.rms[r.chosen - 1][1];
-    final worst = v.reduce(math.max);
+    final w = _worst;
+    if (r == null || w == null) return 'No results yet.';
     final model = r.chosen == 2 ? 'quadratic' : 'linear';
-    final q = worst <= 3
-        ? 'Excellent'
-        : worst <= 6
-            ? 'Good'
-            : worst <= 10
-                ? 'Marginal: check the loop cable and connector, then run again'
-                : 'Poor: the loop is probably not connected properly';
-    return '$q. The $model model reproduces colours it was not fitted to within '
-        '${worst.toStringAsFixed(1)} codes rms (of 4095) on the worst channel. '
-        'The new calibration is already in effect; save it to keep it after a reboot.';
+    final fit = 'The $model model reproduces colours it was not fitted to within '
+        '${w.toStringAsFixed(1)} codes rms (of 4095) on the worst channel.';
+    switch (_outcome) {
+      case _Outcome.saved:
+        return '${w <= 3 ? 'Excellent' : 'Good'}. $fit It is saved and in effect.';
+      case _Outcome.saveFailed:
+        return 'Good. $fit It is in effect, but saving it to the device failed, so it '
+            'will be lost at the next reboot: run again.';
+      case _Outcome.rejected:
+        return 'Not kept: $fit A healthy loop stays within ${_acceptCodes.toStringAsFixed(0)}, '
+            'so the previous calibration is back in effect. Most often the loop cable is '
+            'loose or not plugged into Send 1\'s output, the front-panel connector needs '
+            'cleaning, or the unit has not warmed up. Fix that and run again.';
+      case _Outcome.none:
+        return '$fit (Measured earlier this session; the calibration is '
+            '${_calStatus == 'saved' ? 'saved' : 'not saved'}.)';
+    }
   }
 
   // Graphics.
