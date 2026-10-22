@@ -24,8 +24,8 @@ import 'network.dart';
 /// The run needs a known state in the measured path, so the card saves Send 1
 /// and the Return's colour controls as temporary presets, resets those two
 /// subtrees to defaults, runs, and loads the presets back. Format and sync mode
-/// are left alone, except that the run switches the sync mode to LOCKED (and
-/// back): the patch readback is unreliable in COMPONENT. Only
+/// are left alone, except that the run measures in LOCKED (the primary mode)
+/// and switches back afterwards. Only
 /// the two subtrees, not a whole-device preset: loading a "/" preset rebooted
 /// the device every time it was tried (fw 20261022.1414), and a reboot drops
 /// the unsaved result. A preset is deleted only after its load has replied, so
@@ -68,7 +68,6 @@ class _CalibrationSectionState extends State<CalibrationSection> {
   String _calStatus = '—'; // saved | unsaved | defaults
   bool? _enabled;
   bool? _lutOn;
-  List<int>? _adcOffset;
   final List<_DacLevels?> _dac = [null, null, null];
   List<List<double>>? _model; // 3 rows x 10 terms
 
@@ -162,7 +161,6 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     await _refreshStatus();
     final en = await _ask('/calibration/enable');
     final lut = await _ask('/calibration/return/lut');
-    final adc = await _ask('/calibration/adc/offset');
     final dac = <_DacLevels?>[];
     for (var n = 1; n <= 3; n++) {
       final g = await _ask('/calibration/dac/$n/gain');
@@ -176,7 +174,6 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     setState(() {
       if (en != null && en.isNotEmpty) _enabled = _i(en[0]) != 0;
       if (lut != null && lut.isNotEmpty) _lutOn = _i(lut[0]) != 0;
-      if (adc != null && adc.length >= 2) _adcOffset = [_i(adc[0]), _i(adc[1])];
       for (var k = 0; k < 3; k++) {
         _dac[k] = dac[k];
       }
@@ -252,9 +249,9 @@ class _CalibrationSectionState extends State<CalibrationSection> {
         saved.add(e.key);
       }
 
-      // The patch readback is only stable with the ADC in LOCKED (in COMPONENT the
-      // same patch read 11, 1100 and 2200 codes on successive reads), and LOCKED
-      // is the primary mode the calibration is meant for.
+      // Measure in LOCKED, the primary mode. (One afternoon the patch readback
+      // came back empty or half-empty while in COMPONENT; it did not recur in
+      // COMPONENT entered by switch, cold boot or crash reboot, cause unknown.)
       final sm = await _ask('/sync_mode');
       final mode = (sm != null && sm.isNotEmpty) ? '${sm.first}'.toUpperCase() : '';
       if (mode != 'LOCKED') {
@@ -356,6 +353,12 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     if (mounted) setState(() => _phase = p);
   }
 
+  Future<void> _saveExisting() async {
+    final r = await _ask('/calibration/save', const [], const Duration(seconds: 5), 1);
+    if (mounted) setState(() => _outcome = r != null ? _Outcome.saved : _Outcome.saveFailed);
+    await _refreshAll();
+  }
+
   Future<void> _setEnabled(bool on) async {
     await _ask('/calibration/enable', [on ? 1 : 0]);
     await _refreshAll();
@@ -370,226 +373,190 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       title: 'Calibration',
       child: Padding(
         padding: EdgeInsets.fromLTRB(t.cardBodyInset, t.xs, t.md, t.md),
-        child: LayoutBuilder(builder: (context, c) {
-          final narrow = c.maxWidth < 900;
-          final status = _statusColumn(t);
-          final steps = _stepsColumn(t);
-          final charts = _chartsColumn(t);
-          if (narrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [status, SizedBox(height: t.md), steps, SizedBox(height: t.md), charts],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: c.maxWidth * 0.24, child: status),
-              SizedBox(width: t.lg),
-              SizedBox(width: c.maxWidth * 0.30, child: steps),
-              SizedBox(width: t.lg),
-              Expanded(child: charts),
-            ],
-          );
-        }),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _statusStrip(t),
+            SizedBox(height: t.md),
+            _stepper(t),
+            if (_report != null) ...[SizedBox(height: t.lg), _charts(t)],
+          ],
+        ),
       ),
     );
   }
 
-  // Status: what is in effect now.
-  Widget _statusColumn(GridTokens t) {
-    final statusTone = switch (_calStatus) {
-      'saved' => _Tone.good,
-      'unsaved' => _Tone.warn,
-      'defaults' => _Tone.bad,
-      _ => _Tone.neutral,
-    };
-    final statusText = switch (_calStatus) {
-      'saved' => 'Saved',
-      'unsaved' => 'Not saved',
-      'defaults' => 'Factory defaults',
-      _ => '—',
-    };
-    Widget kv(String k, Widget v) => Padding(
-          padding: EdgeInsets.only(bottom: t.xs),
-          child: Row(children: [
-            Expanded(child: Text(k, style: t.textLabel)),
-            v,
-          ]),
+  /// What is in effect now, on one wrapping line of label/value pairs.
+  Widget _statusStrip(GridTokens t) {
+    Widget fact(String label, Widget value) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: t.textPanelTitle),
+            SizedBox(width: t.xs),
+            value,
+          ],
         );
     Text val(String s) => Text(s, style: t.textValue);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // During a run the device holds the identity model it measures through, so
+    // its status reads "unsaved"; say what is actually happening instead.
+    final (statusText, statusTone) = _busy ? ('Measuring', _Tone.neutral) : switch (_calStatus) {
+      'saved' => ('Saved', _Tone.good),
+      'unsaved' => ('Not saved', _Tone.warn),
+      'defaults' => ('Factory defaults', _Tone.bad),
+      _ => ('—', _Tone.neutral),
+    };
+    final on = _enabled;
+    final w = _worst;
+    final trims = <String>[];
+    for (var n = 0; n < 3; n++) {
+      final d = _dac[n];
+      if (d == null) continue;
+      final parts = <String>[
+        for (var k = 0; k < 3; k++)
+          if ((d.gain[k] - 1).abs() > 1e-4) '${const ['Y', 'Pb', 'Pr'][k]} ×${d.gain[k].toStringAsFixed(3)}',
+        if (d.syncCodes != _nominalSyncCodes) 'sync ${d.syncCodes}',
+      ];
+      if (parts.isNotEmpty) trims.add('Send ${n + 1} ${parts.join(' ')}');
+    }
+
+    return Wrap(
+      spacing: 2 * t.lg,
+      runSpacing: t.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text('STATUS', style: t.textPanelTitle),
-        SizedBox(height: t.sm),
-        kv('Calibration', _Pill(statusText, statusTone)),
-        kv('Correction', _Pill(
-            _enabled == null ? '—' : (_enabled! ? 'On' : 'Off'),
-            _enabled == null ? _Tone.neutral : (_enabled! ? _Tone.good : _Tone.bad))),
-        kv('Return model', val(_lutOn == null ? '—' : (_lutOn! ? '3D LUT' : 'Gain matrix'))),
-        kv('Last fit', val(_report == null
-            ? 'none this boot'
-            : (_report!.chosen == 2 ? 'Quadratic' : 'Linear'))),
-        kv('ADC window', val(_adcOffset == null ? '—' : 'H ${_adcOffset![0]}  V ${_adcOffset![1]}')),
-        SizedBox(height: t.sm),
-        Text('ANALOG OUTPUT LEVELS', style: t.textPanelTitle),
-        SizedBox(height: t.xs),
-        for (var n = 0; n < 3; n++) _dacRow(t, n),
-        SizedBox(height: t.xs),
-        Text(
-            'Set once per unit with an oscilloscope on the terminated output '
-            '(/calibration/dac/N/gain and /sync). Sync 439 codes is the 300 mV design value.',
-            style: t.textCaption),
-        SizedBox(height: t.sm),
-        AppButton(
-          label: (_enabled ?? true) ? 'Turn correction off' : 'Turn correction on',
-          sizeToLabels: const ['Turn correction off', 'Turn correction on'],
-          onPressed: _busy || _enabled == null ? null : () => _setEnabled(!_enabled!),
+        fact('CALIBRATION', _Pill(statusText, statusTone)),
+        fact(
+          'CORRECTION',
+          AppButton(
+            label: on == null ? '—' : (on ? 'On' : 'Off'),
+            sizeToLabels: const ['On', 'Off'],
+            dense: true,
+            selected: on ?? false,
+            accentColor: const Color(0xFF5FD38D),
+            tooltip: on == true
+                ? 'Turn the correction off to see the uncorrected loop'
+                : 'Turn the correction back on',
+            onPressed: _busy || on == null ? null : () => _setEnabled(!on),
+          ),
+        ),
+        fact('MODEL', val(_lutOn == null
+            ? '—'
+            : _lutOn!
+                ? (_report == null ? '3D LUT' : '3D LUT · ${_report!.chosen == 2 ? 'quadratic' : 'linear'}')
+                : 'gain matrix')),
+        if (w != null) fact('ACCURACY', val('${w.toStringAsFixed(1)} codes')),
+        Tooltip(
+          message: 'Factory trims of each analog output\'s levels (set once per unit)',
+          child: fact('OUTPUT TRIMS', val(trims.isEmpty ? 'none' : trims.join(' · '))),
         ),
       ],
     );
   }
 
-  Widget _dacRow(GridTokens t, int n) {
-    final d = _dac[n];
-    String g(double v) => v.isNaN ? '—' : '×${v.toStringAsFixed(3)}';
-    final trimmed = d != null &&
-        (d.gain.any((v) => (v - 1).abs() > 1e-4) || d.syncCodes != _nominalSyncCodes);
-    return Padding(
-      padding: EdgeInsets.only(bottom: t.xs * 0.6),
-      child: Row(children: [
-        SizedBox(width: 4.5 * t.u, child: Text('Send ${n + 1}', style: t.textLabel)),
-        Expanded(
-          child: Text(
-            d == null
-                ? '—'
-                : 'Y ${g(d.gain[0])}  Pb ${g(d.gain[1])}  Pr ${g(d.gain[2])}  sync ${d.syncCodes}',
-            style: t.textCaption.copyWith(
-                color: trimmed ? const Color(0xFFF2F2F2) : const Color(0xFFACACB2)),
-            overflow: TextOverflow.ellipsis,
+  /// The walkthrough: a numbered strip across the top, then the current step.
+  Widget _stepper(GridTokens t) {
+    const titles = ['Connect', 'Prepare', 'Measure', 'Result'];
+    const green = Color(0xFF5FD38D);
+    Widget marker(int i) {
+      final done = _step.index > i, active = _step.index == i;
+      final c = done ? green : active ? Colors.white : const Color(0xFF6E6E76);
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 1.8 * t.u,
+          height: 1.8 * t.u,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: c, width: 1.4),
+            color: done ? c.withValues(alpha: 0.18) : null,
           ),
+          child: done
+              ? Icon(Icons.check, size: 1.15 * t.u, color: c)
+              : Text('${i + 1}', style: t.textCaption.copyWith(color: c)),
         ),
-      ]),
-    );
-  }
-
-  // The walkthrough.
-  Widget _stepsColumn(GridTokens t) {
-    Widget step(_Step s, int n, String title, Widget body) {
-      final active = _step == s;
-      final done = _step.index > s.index;
-      final c = done
-          ? const Color(0xFF5FD38D)
-          : active
-              ? Colors.white
-              : const Color(0xFF6E6E76);
-      return Padding(
-        padding: EdgeInsets.only(bottom: t.sm),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 2.0 * t.u,
-            height: 2.0 * t.u,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: c, width: 1.4),
-              color: done ? c.withValues(alpha: 0.18) : null,
-            ),
-            child: done
-                ? Icon(Icons.check, size: 1.3 * t.u, color: c)
-                : Text('$n', style: t.textCaption.copyWith(color: c)),
-          ),
-          SizedBox(width: t.sm),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: t.textLabel.copyWith(color: c)),
-              if (active) ...[SizedBox(height: t.xs), body],
-            ]),
-          ),
-        ]),
-      );
+        SizedBox(width: t.xs),
+        Text(titles[i], style: t.textLabel.copyWith(color: c)),
+      ]);
     }
+
+    final strip = Row(children: [
+      for (var i = 0; i < 4; i++) ...[
+        marker(i),
+        if (i < 3)
+          Expanded(
+            child: Container(
+              height: 1,
+              margin: EdgeInsets.symmetric(horizontal: t.sm),
+              color: _step.index > i ? green.withValues(alpha: 0.6) : const Color(0xFF3A3A40),
+            ),
+          ),
+      ],
+    ]);
+
+    Widget body(String text, List<Widget> actions) => ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 60 * t.u),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(text, style: t.textBody),
+            if (actions.isNotEmpty) ...[
+              SizedBox(height: t.sm),
+              Wrap(spacing: t.sm, runSpacing: t.xs, children: actions),
+            ],
+          ]),
+        );
 
     final pct = _total > 0 ? _done / _total : 0.0;
     final remain = _total > 0 ? ((_total - _done) * 0.57).round() : 0; // ~0.57 s per colour
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('SELF-CALIBRATION', style: t.textPanelTitle),
-        SizedBox(height: t.sm),
-        step(
-          _Step.connect,
-          1,
-          'Connect the loop',
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-                'Cable Send 1\'s analog output to the analog input (Return) and leave it '
-                'connected. A dirty front-panel connector shows as colour fringes on edges: '
-                'clean it first. Let the unit warm up for a few minutes.',
-                style: t.textBody),
-            SizedBox(height: t.sm),
-            AppButton(label: 'Next', onPressed: () => setState(() => _step = _Step.prepare)),
+    final Widget content = switch (_step) {
+      _Step.connect => body(
+          'Loop Send 1\'s analog output into the analog input and leave it connected. '
+          'Clean the front-panel connector if edges show colour fringes, and let the '
+          'unit warm up for a few minutes.',
+          [AppButton(label: 'Next', onPressed: () => setState(() => _step = _Step.prepare))]),
+      _Step.prepare => body(
+          'Send 1 shows a flat test patch for about four minutes. Its settings and the '
+          'Return\'s colour controls go to defaults for the measurement and are put back '
+          'afterwards; sync runs in LOCKED meanwhile.',
+          [
+            AppButton(label: 'Start calibration', onPressed: _busy ? null : _run),
+            AppButton(label: 'Back', onPressed: _busy ? null : () => setState(() => _step = _Step.connect)),
           ]),
-        ),
-        step(
-          _Step.prepare,
-          2,
-          'Prepare',
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-                'Send 1\'s settings and the Return\'s colour controls are saved as temporary '
-                'presets and set to defaults while the device measures, then put back. Send 1 '
-                'shows a flat test patch for about four minutes. The format stays as it is; '
-                'sync switches to LOCKED for the measurement and back afterwards.',
-                style: t.textBody),
-            SizedBox(height: t.sm),
+      _Step.measure => ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 60 * t.u),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              AppButton(label: 'Start calibration', onPressed: _busy ? null : _run),
-              SizedBox(width: t.sm),
-              AppButton(label: 'Back', onPressed: _busy ? null : () => setState(() => _step = _Step.connect)),
+              Expanded(child: Text(_phase.isEmpty ? 'Starting' : _phase, style: t.textBody)),
+              if (_total > 0)
+                Text('$_done / $_total · ${remain ~/ 60}:${(remain % 60).toString().padLeft(2, '0')} left',
+                    style: t.textCaption),
             ]),
-          ]),
-        ),
-        step(
-          _Step.measure,
-          3,
-          'Measure',
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_phase.isEmpty ? 'Starting' : _phase, style: t.textBody),
             SizedBox(height: t.xs),
             ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
                 value: _total > 0 ? pct : null,
-                minHeight: 0.6 * t.u,
+                minHeight: 0.5 * t.u,
                 backgroundColor: const Color(0xFF2A2A30),
                 color: const Color(0xFF3BDEFF),
               ),
             ),
-            SizedBox(height: t.xs),
-            Text(
-                _total > 0 ? '$_done of $_total colours · about ${remain ~/ 60}:${(remain % 60).toString().padLeft(2, '0')} left' : '',
-                style: t.textCaption),
           ]),
         ),
-        step(
-          _Step.review,
-          4,
-          'Result',
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_verdict(), style: t.textBody),
-            SizedBox(height: t.sm),
-            AppButton(
-              label: 'Run again',
-              onPressed: _busy ? null : () => setState(() => _step = _Step.prepare),
-            ),
-          ]),
-        ),
-      ],
-    );
+      _Step.review => body(_verdict(), [
+          // A result this card did not produce (another client's run) is not
+          // auto-saved; offer it when it would have passed.
+          if (_outcome == _Outcome.none && _calStatus == 'unsaved' && (_worst ?? 1e9) <= _acceptCodes)
+            AppButton(label: 'Save', onPressed: _busy ? null : _saveExisting),
+          AppButton(label: 'Run again', onPressed: _busy ? null : () => setState(() => _step = _Step.prepare)),
+        ]),
+    };
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      strip,
+      SizedBox(height: t.md),
+      Padding(padding: EdgeInsets.only(left: 2.3 * t.u), child: content),
+    ]);
   }
 
   /// Plain-language result: what the fit achieved on colours it never saw, and
@@ -618,44 +585,40 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     }
   }
 
-  // Graphics.
-  Widget _chartsColumn(GridTokens t) {
-    if (_report == null) {
-      return SizedBox(
-        height: 18 * t.u,
-        child: Center(
-          child: Text(
-              _busy ? 'Results appear when the run finishes.' : 'Run a calibration to see its statistics here.',
-              style: t.textCaption),
-        ),
-      );
-    }
-    final h = 17 * t.u;
-    Widget panel(String title, String caption, CustomPainter p) => Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: t.textPanelTitle),
-            SizedBox(height: t.xs),
-            SizedBox(height: h, child: CustomPaint(painter: p, size: Size.infinite)),
-            SizedBox(height: t.xs * 0.6),
-            Text(caption, style: t.textCaption),
-          ]),
-        );
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        panel('FIT ERROR', 'rms codes per channel · faint = training, solid = validation',
+  /// The run's statistics, three equal panels across the card.
+  Widget _charts(GridTokens t) {
+    return LayoutBuilder(builder: (context, c) {
+      final gap = t.lg;
+      final w = (c.maxWidth - 2 * gap) / 3;
+      final h = math.min(w * 0.72, 18 * t.u);
+      Widget panel(String title, String caption, CustomPainter p, {bool square = false}) => SizedBox(
+            width: w,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: t.textPanelTitle),
+              SizedBox(height: t.xs),
+              SizedBox(
+                height: h,
+                child: square
+                    ? Center(child: AspectRatio(aspectRatio: 1, child: CustomPaint(painter: p)))
+                    : CustomPaint(painter: p, size: Size.infinite),
+              ),
+              SizedBox(height: t.xs * 0.6),
+              Text(_loadingSamples && p is! CalFitBarsPainter ? 'Loading samples…' : caption,
+                  style: t.textCaption, maxLines: 2),
+            ]),
+          );
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        panel('FIT ERROR', 'rms codes · grey linear, cyan quadratic · solid = unseen colours',
             CalFitBarsPainter(_report!, t.textCaption)),
-        SizedBox(width: t.md),
-        panel(
-            'RAW LOOP COLOUR',
-            _loadingSamples ? 'Loading samples…' : 'Cb/Cr: ring = sent, dot = received before correction, error ×5',
-            CalVectorscopePainter(_samples, t.textCaption)),
-        SizedBox(width: t.md),
-        panel(
-            'AFTER CORRECTION',
-            _loadingSamples ? 'Loading samples…' : 'residual codes vs luma · Y white, Cb blue, Cr red',
+        SizedBox(width: gap),
+        panel('LOOP COLOUR', 'Cb/Cr before correction · ring sent, dot received, error ×5',
+            CalVectorscopePainter(_samples, t.textCaption),
+            square: true),
+        SizedBox(width: gap),
+        panel('AFTER CORRECTION', 'residual codes vs luma · Y white, Cb blue, Cr red',
             CalResidualPainter(_samples, _model, t.textCaption)),
-      ]),
-    ]);
+      ]);
+    });
   }
 }
 
