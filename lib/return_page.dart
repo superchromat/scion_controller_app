@@ -60,7 +60,7 @@ class _ReturnPageBody extends StatelessWidget {
                     span: 12,
                     child: LabeledCard(
                       title: 'Shape',
-                      child: const Shape(pageNumber: 2),
+                      child: const Shape(pageNumber: 2, isReturn: true),
                     ),
                   ),
                 ],

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'osc_widget_binding.dart';
+import 'osc_checkbox.dart';
 import 'osc_rotary_knob.dart';
 import 'rotary_knob.dart';
 import 'grid.dart';
@@ -185,7 +186,11 @@ class _LinkableKnobPairState extends State<LinkableKnobPair> {
 class Shape extends StatefulWidget {
   final int? pageNumber;
 
-  const Shape({super.key, this.pageNumber});
+  /// The Return page (under /output): its Transform tab gets a rotation knob
+  /// (the MDIN's second rotation block) instead of the per-send Flip panel.
+  final bool isReturn;
+
+  const Shape({super.key, this.pageNumber, this.isReturn = false});
 
   @override
   ShapeState createState() => ShapeState();
@@ -655,9 +660,83 @@ class ShapeState extends State<Shape> {
             ),
           ],
         ),
+        if (widget.isReturn)
+          GridRow(
+            columns: 2,
+            cells: [
+              (
+                span: 2,
+                child: Panel(
+                  title: 'Rotation',
+                  titleTrailing: const Tooltip(
+                    message:
+                        'Rotating the Return turns off Send 2 (the MDIN-640 has two rotation '
+                        'blocks: Send 1 and the Return). Not saved: a reboot starts upright.',
+                    child: Icon(Icons.info_outline,
+                        size: 14, color: Color(0xFF7A7A82)),
+                  ),
+                  child: Center(child: _rotationKnob(t)),
+                ),
+              ),
+            ],
+          )
+        else
+          GridRow(
+            columns: 2,
+            cells: [
+              (
+                span: 2,
+                child: Panel(
+                  title: 'Flip',
+                  // Mirror as the send writes its frame buffer; both = 180 deg.
+                  // Works on every send (rotation is Send 1 only).
+                  child: Row(
+                    children: [
+                      _flipBox(t, 'h', 'Horizontal'),
+                      SizedBox(width: t.md),
+                      _flipBox(t, 'v', 'Vertical'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
+
+  // Rotation, degrees; 180 = upright (both Send 1 and the Return use 180 as neutral).
+  Widget _rotationKnob(GridTokens t, {Key? key}) => OscPathSegment(
+        segment: 'shape/rotation',
+        child: OscRotaryKnob(
+          key: key,
+          initialValue: 180.0,
+          minValue: 0.0,
+          maxValue: 360.0,
+          format: '%.1f',
+          label: 'φ',
+          defaultValue: 180.0,
+          size: t.knobMd,
+          labelStyle: t.textLabel,
+          snapConfig: SnapConfig(
+            snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
+            snapRegionHalfWidth: 7.2,
+            snapBehavior: SnapBehavior.hard,
+          ),
+        ),
+      );
+
+  Widget _flipBox(GridTokens t, String axis, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: t.textLabel),
+          SizedBox(width: t.xs),
+          OscPathSegment(
+            segment: 'shape/mirror/$axis',
+            child: OscCheckbox(size: t.knobSm * 0.42),
+          ),
+        ],
+      );
 
   // Warp tab (Send 1 only) — rotation, keystone/shear, and the lens/LUT warp
   // plus its animation field. Each group is wrapped in a single-cell GridRow so
@@ -673,27 +752,7 @@ class ShapeState extends State<Shape> {
               title: 'Rotation',
               titleTrailing: const _RotationSend3WarningIcon(),
               fillChild: true,
-              child: Center(
-                child: OscPathSegment(
-                  segment: 'shape/rotation',
-                  child: OscRotaryKnob(
-                    key: _rotationKey,
-                    initialValue: 180.0,
-                    minValue: 0.0,
-                    maxValue: 360.0,
-                    format: '%.1f',
-                    label: 'φ',
-                    defaultValue: 180.0,
-                    size: t.knobMd,
-                    labelStyle: t.textLabel,
-                    snapConfig: SnapConfig(
-                      snapPoints: const [0.0, 90.0, 180.0, 270.0, 360.0],
-                      snapRegionHalfWidth: 7.2,
-                      snapBehavior: SnapBehavior.hard,
-                    ),
-                  ),
-                ),
-              ),
+              child: Center(child: _rotationKnob(t, key: _rotationKey)),
             ),
           ),
           (span: 2, child: const WarpAffinePanel(compact: true)),
