@@ -245,7 +245,10 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       _setPhase('Saving your Send 1 and Return colour settings');
       for (final e in _neutralised.entries) {
         final s = await _ask('/assets/presets/save', [e.key, e.value], long, 1);
-        if (s == null || s.length < 3 || _i(s[2]) < 0) throw 'could not save ${e.key} as a preset';
+        if (s == null || s.length < 3) throw 'could not save ${e.key} as a preset (no reply)';
+        final rc = _i(s[2]);
+        if (rc == -2) throw 'could not save ${e.key} as a preset: the preset store is full (delete presets in Files)';
+        if (rc < 0) throw 'could not save ${e.key} as a preset (error $rc)';
         saved.add(e.key);
       }
 
