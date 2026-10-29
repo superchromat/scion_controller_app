@@ -78,6 +78,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
   int _done = 0, _total = 0;
   String _runState = 'idle';
   CalFitReport? _report;
+  int _nData = 0; // colours the fit measured (train + validation); the status total also counts the loop step
   List<CalSample> _samples = const [];
   bool _loadingSamples = false;
   _Outcome _outcome = _Outcome.none;
@@ -205,7 +206,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       _step = _Step.review;
     });
     final out = <CalSample>[];
-    for (var i = 0; i < _total; i++) {
+    for (var i = 0; i < (_nData > 0 ? _nData : _total); i++) {
       final d = await _ask('/calibration/self/data', [i], const Duration(seconds: 1));
       if (d == null || d.length < 7) continue;
       out.add(CalSample(_i(d[0]) == 1, [_d(d[1]), _d(d[2]), _d(d[3])],
@@ -274,6 +275,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       _setPhase('Measuring the analog loop');
       final r = await _ask('/calibration/self/run', [1], const Duration(seconds: 5), 1);
       if (r == null) throw 'the device did not start the run';
+      if (r.length >= 2) _nData = _i(r[0]) + _i(r[1]);
       while (mounted) {
         await Future<void>.delayed(const Duration(seconds: 1));
         final st = await _ask('/calibration/self/status');
@@ -509,7 +511,11 @@ class _CalibrationSectionState extends State<CalibrationSection> {
         );
 
     final pct = _total > 0 ? _done / _total : 0.0;
-    final remain = _total > 0 ? ((_total - _done) * 0.57).round() : 0; // ~0.57 s per colour
+    // ~0.57 s per fitted colour, ~2.9 s per closed-loop colour (fill, hide, 2 s of tracking)
+    final nFit = _nData > 0 ? _nData : _total;
+    final fitLeft = math.max(0, nFit - _done);
+    final loopLeft = math.max(0, _total - math.max(_done, nFit));
+    final remain = _total > 0 ? (fitLeft * 0.57 + loopLeft * 2.9).round() : 0;
 
     final Widget content = switch (_step) {
       _Step.connect => body(
@@ -518,9 +524,10 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           'unit warm up for a few minutes.',
           [AppButton(label: 'Next', onPressed: () => setState(() => _step = _Step.prepare))]),
       _Step.prepare => body(
-          'Send 1 shows a flat test patch for about four minutes. Its settings and the '
-          'Return\'s colour controls go to defaults for the measurement and are put back '
-          'afterwards; sync runs in LOCKED meanwhile.',
+          'Send 1 shows a flat test patch for about four minutes, then loops the Return '
+          'back into itself for about five more to measure the feedback loop. Its settings '
+          'and the Return\'s colour controls go to defaults for the measurement and are put '
+          'back afterwards; sync runs in LOCKED meanwhile.',
           [
             AppButton(label: 'Start calibration', onPressed: _busy ? null : _run),
             AppButton(label: 'Back', onPressed: _busy ? null : () => setState(() => _step = _Step.connect)),
