@@ -79,6 +79,29 @@ class _CalibrationSectionState extends State<CalibrationSection> {
   String _runState = 'idle';
   CalFitReport? _report;
   int _nData = 0; // colours the fit measured (train + validation); the status total also counts the loop step
+  // Progress is weighted by time: a closed-loop colour (fill, hide, 2 s of tracking) costs ~5 fitted colours.
+  static const _loopWeight = 5.0;
+  DateTime? _runStart;
+  double? _eta; // seconds left, smoothed
+
+  double get _fraction {
+    if (_total <= 0) return 0;
+    final nFit = _nData > 0 ? math.min(_nData, _total) : _total;
+    final wTotal = nFit + _loopWeight * (_total - nFit);
+    final wDone = math.min(_done, nFit) + _loopWeight * math.max(0, _done - nFit);
+    return wTotal > 0 ? (wDone / wTotal).clamp(0.0, 1.0) : 0;
+  }
+
+  /// Time left from the time the run has taken so far for the work done, smoothed so one slow or fast colour does
+  /// not swing it; null until there is enough to go on.
+  void _updateEta() {
+    final start = _runStart, f = _fraction;
+    if (start == null || f < 0.03) return;
+    final elapsed = DateTime.now().difference(start).inMilliseconds / 1000.0;
+    final est = elapsed * (1 - f) / f;
+    final prev = _eta;
+    _eta = prev == null ? est : 0.85 * math.max(0, prev - 1) + 0.15 * est;
+  }
   List<CalSample> _samples = const [];
   bool _loadingSamples = false;
   _Outcome _outcome = _Outcome.none;
@@ -149,7 +172,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     if (!mounted) return;
     setState(() {
       if (s != null && s.isNotEmpty && s.first is String) _calStatus = s.first as String;
-      if (r != null && r.length >= 3) {
+      if (r != null && r.length >= 3 && !_busy) {   // during a run the run loop owns these
         _done = _i(r[0]);
         _total = _i(r[1]);
         _runState = '${r[2]}';
@@ -276,6 +299,8 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       final r = await _ask('/calibration/self/run', [1], const Duration(seconds: 5), 1);
       if (r == null) throw 'the device did not start the run';
       if (r.length >= 2) _nData = _i(r[0]) + _i(r[1]);
+      _runStart = DateTime.now();
+      _eta = null;
       while (mounted) {
         await Future<void>.delayed(const Duration(seconds: 1));
         final st = await _ask('/calibration/self/status');
@@ -284,6 +309,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           _done = _i(st[0]);
           _total = _i(st[1]);
           _runState = '${st[2]}';
+          _updateEta();
         });
         if (_runState != 'running') break;
       }
@@ -510,12 +536,13 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           ]),
         );
 
-    final pct = _total > 0 ? _done / _total : 0.0;
-    // ~0.57 s per fitted colour, ~2.9 s per closed-loop colour (fill, hide, 2 s of tracking)
-    final nFit = _nData > 0 ? _nData : _total;
-    final fitLeft = math.max(0, nFit - _done);
-    final loopLeft = math.max(0, _total - math.max(_done, nFit));
-    final remain = _total > 0 ? (fitLeft * 0.57 + loopLeft * 2.9).round() : 0;
+    final pct = _fraction;
+    final eta = _eta;
+    final left = eta == null
+        ? 'estimating'
+        : eta >= 90
+            ? '~${(eta / 60).round()} min left'
+            : '~${(eta / 10).ceil() * 10} s left';
 
     final Widget content = switch (_step) {
       _Step.connect => body(
@@ -538,8 +565,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
             Row(children: [
               Expanded(child: Text(_phase.isEmpty ? 'Starting' : _phase, style: t.textBody)),
               if (_total > 0)
-                Text('$_done / $_total · ${remain ~/ 60}:${(remain % 60).toString().padLeft(2, '0')} left',
-                    style: t.textCaption),
+                Text('${(pct * 100).round()} % · $left', style: t.textCaption),
             ]),
             SizedBox(height: t.xs),
             ClipRRect(
