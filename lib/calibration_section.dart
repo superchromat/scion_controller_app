@@ -79,8 +79,9 @@ class _CalibrationSectionState extends State<CalibrationSection> {
   String _runState = 'idle';
   CalFitReport? _report;
   int _nData = 0; // colours the fit measured (train + validation); the status total also counts the loop step
-  // Progress is weighted by time: a closed-loop colour (fill, hide, 2 s of tracking) costs ~5 fitted colours.
-  static const _loopWeight = 5.0;
+  // Progress is weighted by time: the device shows 14 colours at once; a fitted colour costs ~0.15 s, a
+  // closed-loop colour ~0.55 s (each group of 14 fills the loop, then is tracked for 6.5 s).
+  static const _loopWeight = 3.5;
   DateTime? _runStart;
   double? _eta; // seconds left, smoothed
 
@@ -551,10 +552,10 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           'unit warm up for a few minutes.',
           [AppButton(label: 'Next', onPressed: () => setState(() => _step = _Step.prepare))]),
       _Step.prepare => body(
-          'Send 1 shows a flat test patch for about four minutes, then loops the Return '
-          'back into itself for about five more to measure the feedback loop. Its settings '
-          'and the Return\'s colour controls go to defaults for the measurement and are put '
-          'back afterwards; sync runs in LOCKED meanwhile.',
+          'Send 1 shows bands of test colours for about a minute, then loops the Return back '
+          'into itself for about two more to measure the feedback loop. Its settings and the '
+          'Return\'s colour controls go to defaults for the measurement and are put back '
+          'afterwards; sync runs in LOCKED meanwhile.',
           [
             AppButton(label: 'Start calibration', onPressed: _busy ? null : _run),
             AppButton(label: 'Back', onPressed: _busy ? null : () => setState(() => _step = _Step.connect)),
