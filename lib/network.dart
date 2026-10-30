@@ -29,6 +29,10 @@ import 'osc_widget_binding.dart' show OscStatus, Direction;
 bool isDialableAddress(InternetAddress a) =>
     !a.rawAddress.every((byte) => byte == 0);
 
+/// IPv4 link-local (169.254/16): dialled only when nothing else is known.
+bool isLinkLocalV4(InternetAddress a) =>
+    a.type == InternetAddressType.IPv4 && a.rawAddress[0] == 169 && a.rawAddress[1] == 254;
+
 /// Internal class to hold deferred sends
 class _Pending {
   final List<int> data;
@@ -67,6 +71,13 @@ class Network extends ChangeNotifier {
   bool _pendingSyncAfterAutoReconnect = false;
   DateTime? _lastMsgReceived;
   bool _hasSynced = false;
+  bool _gotState = false; // any message besides /ack since this connect (the /sync dump started)
+  // Per hostname, which of its resolved addresses the next connect dials. A name can resolve to several (an old
+  // DHCP lease still cached beside the current one); always dialling the first left a dead one dialled forever.
+  final Map<String, int> _addrTurn = {};
+
+  /// The address this connection dials, for logs.
+  String get destinationLabel => _destination == null ? '-' : '${_destination!.address}:${_port ?? 0}';
 
   bool get _handshakeInProgress => _socket != null && !_hasSynced;
 
@@ -129,6 +140,7 @@ class Network extends ChangeNotifier {
     _lastTxFlush = null;
     _pending.clear();
     _hasSynced = false;
+    _gotState = false;
 
     _closeCurrentSocket();
 
@@ -161,13 +173,20 @@ class Network extends ChangeNotifier {
         }
 
         var addrs = await lookup(InternetAddressType.IPv4);
+        // A device with an autoconf 169.254 address beside its DHCP one can resolve to both; prefer the other.
+        addrs = [...addrs]..sort((a, b) => (isLinkLocalV4(a) ? 1 : 0) - (isLinkLocalV4(b) ? 1 : 0));
         if (addrs.isEmpty) {
           addrs = await lookup(InternetAddressType.IPv6);
         }
         if (addrs.isEmpty) {
           throw SocketException('No usable IP address for $normalizedHost');
         }
-        dest = addrs.first;
+        final turn = _addrTurn[normalizedHost] ?? 0;
+        _addrTurn[normalizedHost] = turn + 1;
+        dest = addrs[turn % addrs.length];
+        if (addrs.length > 1 && kDebugMode) {
+          debugPrint('$normalizedHost resolves to ${addrs.map((a) => a.address).toList()}; dialling ${dest.address}');
+        }
       }
       if (generation != _connectGeneration) {
         return;
@@ -205,7 +224,8 @@ class Network extends ChangeNotifier {
       // initialize response tracking
       _lastMsgReceived = DateTime.now();
       // send an immediate sync
-      sendOscMessage('/sync', []);
+      final sentSync = sendOscMessage('/sync', []);
+      if (kDebugMode) debugPrint('net: /sync at connect ${sentSync ? 'sent' : 'NOT sent'} from port ${socket.port}');
       // While waiting for /ack, ping with /ack (lightweight) to elicit a reply
       _ackTimer?.cancel();
       _ackTimer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -376,6 +396,7 @@ class Network extends ChangeNotifier {
       _socket!.writeEventsEnabled = false;
       return false;
     } on OSError catch (e) {
+      // (kept: transport errors while the device reboots, e.g. EHOSTUNREACH)
       debugPrint('OSC send failed (OSError): $e');
       _pending.clear();
       _socket!.writeEventsEnabled = false;
@@ -594,6 +615,8 @@ class Network extends ChangeNotifier {
   void _handleOscMessage(OSCMessage msg) {
     _lastMsgReceived = DateTime.now();
     if (msg.address != '/ack') {
+      if (!_gotState && kDebugMode) debugPrint('net: first state message ${msg.address}');
+      _gotState = true;
       if (kOscTrace) debugPrint('Received OSC ${msg.address} args=${msg.arguments}');
       OscRegistry().dispatch(msg.address, msg.arguments);
     } else {
@@ -611,8 +634,10 @@ class Network extends ChangeNotifier {
           sendOscMessage('/ack', []);
         } catch (_) {}
       });
-      // If this ACK finalized an auto-reconnect, issue a full sync now
-      if (_pendingSyncAfterAutoReconnect) {
+      // If this ACK finalized an auto-reconnect, or the /sync sent at connect was lost (the device was still
+      // booting: its /ack came later, and the link was up with no state, 2026-10-30), issue a full sync now
+      if (_pendingSyncAfterAutoReconnect || !_gotState) {
+        if (kDebugMode) debugPrint('net: /ack with no state yet: /sync again');
         try {
           sendOscMessage('/sync', []);
         } catch (_) {}

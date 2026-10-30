@@ -56,4 +56,23 @@ void main() {
   test('a usable address is still used when there is no hostname', () {
     expect(ScionDiscovery.hostForService([v4], null), '192.168.100.238');
   });
+
+  test('a routable IPv4 address wins over a 169.254 link-local one', () {
+    final ll = InternetAddress('169.254.7.79');
+    expect(ScionDiscovery.hostForService([ll, v4], 'scion.local.'), '192.168.100.238');
+    expect(ScionDiscovery.hostForService([v4, ll], 'scion.local.'), '192.168.100.238');
+  });
+
+  test('a link-local IPv4 address alone is still used', () {
+    expect(ScionDiscovery.hostForService([InternetAddress('169.254.7.79')], 'scion.local.'), '169.254.7.79');
+  });
+
+  test('two different routable IPv4 addresses: the name is dialled, not the first address', () {
+    final stale = InternetAddress('192.168.100.230');
+    expect(ScionDiscovery.hostForService([stale, v4], 'scion.local.'), 'scion.local.');
+  });
+
+  test('the same address twice (two interfaces) is still dialled directly', () {
+    expect(ScionDiscovery.hostForService([v4, v4], 'scion.local.'), '192.168.100.238');
+  });
 }

@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_scion._udp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SCION Controller discovers and controls your SCION device on the local network.</string>
 </dict>
 </plist>
