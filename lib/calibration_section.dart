@@ -79,11 +79,10 @@ class _CalibrationSectionState extends State<CalibrationSection> {
   String _runState = 'idle';
   CalFitReport? _report;
   int _nData = 0; // colours the fit measured (train + validation); the status total also counts the loop step
-  // Progress is weighted by time: the device shows 14 colours at once; a fitted colour costs ~0.15 s, a
-  // closed-loop colour ~0.55 s (each group of 14 fills the loop, then is tracked for 6.5 s).
-  static const _loopWeight = 3.5;
-  DateTime? _runStart;
-  double? _eta; // seconds left, smoothed
+  // Progress is weighted by time: the device shows 14 colours at once; a fitted colour costs ~0.17 s, a
+  // closed-loop colour ~1.1 s (the loop step runs in four analog formats, each with a format switch, a loop-length
+  // and sampling-state measurement, and 3 rounds of groups that fill the loop and are tracked for 4.5-10 s).
+  static const _loopWeight = 6.3;
 
   double get _fraction {
     if (_total <= 0) return 0;
@@ -93,16 +92,9 @@ class _CalibrationSectionState extends State<CalibrationSection> {
     return wTotal > 0 ? (wDone / wTotal).clamp(0.0, 1.0) : 0;
   }
 
-  /// Time left from the time the run has taken so far for the work done, smoothed so one slow or fast colour does
-  /// not swing it; null until there is enough to go on.
-  void _updateEta() {
-    final start = _runStart, f = _fraction;
-    if (start == null || f < 0.03) return;
-    final elapsed = DateTime.now().difference(start).inMilliseconds / 1000.0;
-    final est = elapsed * (1 - f) / f;
-    final prev = _eta;
-    _eta = prev == null ? est : 0.85 * math.max(0, prev - 1) + 0.15 * est;
-  }
+  /// What the bar shows: the run's progress so far, never moving back (self-cal firmware of 2026-10-30 morning counted each
+  /// format family twice for a moment between families, so the raw fraction stepped back ~4 %).
+  double _shownFraction = 0;
   List<CalSample> _samples = const [];
   bool _loadingSamples = false;
   _Outcome _outcome = _Outcome.none;
@@ -300,8 +292,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
       final r = await _ask('/calibration/self/run', [1], const Duration(seconds: 5), 1);
       if (r == null) throw 'the device did not start the run';
       if (r.length >= 2) _nData = _i(r[0]) + _i(r[1]);
-      _runStart = DateTime.now();
-      _eta = null;
+      _shownFraction = 0;
       while (mounted) {
         await Future<void>.delayed(const Duration(seconds: 1));
         final st = await _ask('/calibration/self/status');
@@ -310,7 +301,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           _done = _i(st[0]);
           _total = _i(st[1]);
           _runState = '${st[2]}';
-          _updateEta();
+          _shownFraction = math.max(_shownFraction, _fraction);
         });
         if (_runState != 'running') break;
       }
@@ -537,13 +528,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           ]),
         );
 
-    final pct = _fraction;
-    final eta = _eta;
-    final left = eta == null
-        ? 'estimating'
-        : eta >= 90
-            ? '~${(eta / 60).round()} min left'
-            : '~${(eta / 10).ceil() * 10} s left';
+    final pct = _shownFraction;
 
     final Widget content = switch (_step) {
       _Step.connect => body(
@@ -553,9 +538,11 @@ class _CalibrationSectionState extends State<CalibrationSection> {
           [AppButton(label: 'Next', onPressed: () => setState(() => _step = _Step.prepare))]),
       _Step.prepare => body(
           'Send 1 shows bands of test colours for about a minute, then loops the Return back '
-          'into itself for about two more to measure the feedback loop. Its settings and the '
-          'Return\'s colour controls go to defaults for the measurement and are put back '
-          'afterwards; sync runs in LOCKED meanwhile.',
+          'into itself to measure the feedback loop in each analog format family in turn '
+          '(1080p, 1080p50/60, 1080i, SD), about seven more minutes: the analog format changes '
+          'during the run and is put back afterwards. Send 1\'s settings and the Return\'s '
+          'colour controls go to defaults for the measurement and are put back afterwards; '
+          'sync runs in LOCKED meanwhile.',
           [
             AppButton(label: 'Start calibration', onPressed: _busy ? null : _run),
             AppButton(label: 'Back', onPressed: _busy ? null : () => setState(() => _step = _Step.connect)),
@@ -566,7 +553,7 @@ class _CalibrationSectionState extends State<CalibrationSection> {
             Row(children: [
               Expanded(child: Text(_phase.isEmpty ? 'Starting' : _phase, style: t.textBody)),
               if (_total > 0)
-                Text('${(pct * 100).round()} % · $left', style: t.textCaption),
+                Text('${(pct * 100).round()} %', style: t.textCaption),
             ]),
             SizedBox(height: t.xs),
             ClipRRect(
